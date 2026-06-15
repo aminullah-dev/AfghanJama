@@ -36,6 +36,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -65,9 +66,26 @@ fun InventoryScreen(
     val orders by vm.ordersInStock.collectAsState(initial = emptyList())
     val wallet by financeVm.walletBalance.collectAsState(initial = 0L)
     val profit by financeVm.profitBalance.collectAsState(initial = 0L)
+    val uiState by vm.state.collectAsState()
 
     val canManage = role == UserRole.MANAGER
     val canPurchase = role == UserRole.MANAGER || role == UserRole.PURCHASE
+
+    LaunchedEffect(uiState.navigateToCutting) {
+        if (uiState.navigateToCutting) {
+            vm.clearNavigation()
+            onGoCutting()
+        }
+    }
+
+    if (uiState.isError && uiState.message != null) {
+        AlertDialog(
+            onDismissRequest = { vm.clearMessage() },
+            confirmButton = { TextButton(onClick = { vm.clearMessage() }) { Text("باشه") } },
+            title = { Text("خطا") },
+            text = { Text(uiState.message!!) }
+        )
+    }
 
     var showAddMoney by remember { mutableStateOf(false) }
     var addTarget by remember { mutableStateOf("WALLET") } // WALLET | PROFIT
@@ -228,7 +246,6 @@ fun InventoryScreen(
                             canSend = canPurchase,
                             onSendToCutting = {
                                 vm.sendToCutting(o.id, o.designTitle)
-                                onGoCutting()
                             }
                         )
                     }
