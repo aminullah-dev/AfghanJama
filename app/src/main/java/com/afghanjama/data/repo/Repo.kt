@@ -7,6 +7,7 @@ import com.afghanjama.data.entities.FabricColor
 import com.afghanjama.data.entities.FabricType
 import com.afghanjama.data.entities.Inspector
 import com.afghanjama.data.entities.Order
+import com.afghanjama.data.entities.OrderCounter
 import com.afghanjama.data.entities.SizeItem
 import com.afghanjama.data.entities.Tailor
 import com.afghanjama.data.entities.Transaction
@@ -35,6 +36,13 @@ class Repo(private val db: AppDatabase) {
     // ✅ NEW: delete order (برای حذف سفارش)
     suspend fun deleteOrder(order: Order) =
         db.orderDao().delete(order)
+
+    // شماره ترتیبی سفارش (برای جلوگیری از تکراری شدن کد سفارش)
+    suspend fun nextOrderNumber(): Int {
+        val current = db.orderCounterDao().get() ?: OrderCounter()
+        db.orderCounterDao().upsert(current.copy(nextNumber = current.nextNumber + 1))
+        return current.nextNumber
+    }
 
     // =========================
     // Finance

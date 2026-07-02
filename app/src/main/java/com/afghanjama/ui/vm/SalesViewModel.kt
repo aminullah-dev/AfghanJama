@@ -40,6 +40,10 @@ class SalesViewModel(private val repo: Repo) : ViewModel() {
         _ui.value = _ui.value.copy(message = null, isError = false)
     }
 
+    fun consumeEarningSound() {
+        _ui.value = _ui.value.copy(earningSoundKey = 0)
+    }
+
     fun completeSale(orderId: UUID, revenue: Long) = viewModelScope.launch {
         clearMessage()
 

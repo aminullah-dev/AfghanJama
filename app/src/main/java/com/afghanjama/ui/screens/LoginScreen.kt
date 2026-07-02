@@ -24,6 +24,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,8 +56,11 @@ fun LoginScreen(
         UserRole.SALES -> "مدیریت فروش"
     }
 
+    LaunchedEffect(ui.isLoggedIn) {
+        if (ui.isLoggedIn) onLoggedIn()
+    }
+
     if (ui.isLoggedIn) {
-        onLoggedIn()
         return
     }
 

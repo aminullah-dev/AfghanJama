@@ -86,6 +86,11 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
         val fabricAmount = s.fabricAmount.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
         val customerPaid = s.customerPaid.toLongOrNull()?.coerceAtLeast(0) ?: 0L
 
+        if (fabricAmount <= 0.0) {
+            _ui.update { it.copy(message = "مقدار پارچه را وارد کنید (بزرگ‌تر از صفر).", isError = true) }
+            return@launch
+        }
+
         val cost = (fabricPrice + s.workCostPrice).coerceAtLeast(0)
 
         val paySrc = runCatching { PaymentSource.valueOf(s.paymentSource.trim().uppercase()) }
@@ -110,7 +115,7 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
             return@launch
         }
 
-        val orderCode = CodeGen.makeOrderCode(nextNumber = (System.currentTimeMillis() % 1_000_000).toInt())
+        val orderCode = CodeGen.makeOrderCode(nextNumber = repo.nextOrderNumber())
         val shortCode = CodeGen.makeShortCode()
 
         val order = Order(

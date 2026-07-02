@@ -63,7 +63,7 @@ fun SalesScreen(
     PlayRawSoundOnce(
         playKey = ui.earningSoundKey,
         resId = R.raw.earning_money,
-        onConsumed = { /* لازم نیست چیزی ریست کنیم */ }
+        onConsumed = { vm.consumeEarningSound() }
     )
 
     Scaffold(
