@@ -37,17 +37,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.afghanjama.data.entities.FabricUnit
 import com.afghanjama.data.entities.PaymentSource
+import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.vm.FinanceViewModel
 import com.afghanjama.ui.vm.MasterDataViewModel
 import com.afghanjama.ui.vm.PurchaseViewModel
+import com.afghanjama.ui.vm.StockViewModel
 
 @Composable
 fun PurchasePlanScreen(
     vm: PurchaseViewModel,
     masterVm: MasterDataViewModel,
     financeVm: FinanceViewModel,
+    stockVm: StockViewModel,
     onDone: () -> Unit
 ) {
+    val stocks by stockVm.stocks.collectAsState()
     val ui by vm.ui.collectAsState()
 
     val walletBalance by financeVm.walletBalance.collectAsState(initial = 0L)
@@ -323,15 +327,58 @@ fun PurchasePlanScreen(
                 }
             }
 
-            // قیمت پارچه
+            // منبع پارچه: خرید جدید یا از موجودی انبار
             item {
-                OutlinedTextField(
-                    value = ui.fabricPrice,
-                    onValueChange = vm::setFabricPrice,
-                    label = { Text("قیمت پارچه (؋)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("منبع پارچه", style = MaterialTheme.typography.labelLarge)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val isNew = ui.fabricSource != "STOCK"
+                        Button(
+                            onClick = { vm.setFabricSource("NEW") },
+                            enabled = !isNew,
+                            modifier = Modifier.weight(1f)
+                        ) { Text("خرید جدید") }
+                        Button(
+                            onClick = { vm.setFabricSource("STOCK") },
+                            enabled = isNew,
+                            modifier = Modifier.weight(1f)
+                        ) { Text("از موجودی انبار") }
+                    }
+
+                    if (ui.fabricSource == "STOCK") {
+                        val match = stocks.firstOrNull {
+                            it.fabricType.equals(ui.fabricType.trim(), true) &&
+                                it.fabricColor.equals(ui.fabricColor.trim(), true) &&
+                                it.fabricUnit.equals(ui.fabricUnit.trim(), true)
+                        }
+                        Text(
+                            text = if (match != null)
+                                "موجودی فعلی: ${match.amount} ${unitLabel(ui.fabricUnit)}"
+                            else
+                                "برای این نوع/رنگ موجودی ثبت نشده است.",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (match != null && match.amount > 0)
+                                MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            }
+
+            // قیمت پارچه (فقط برای خرید جدید)
+            if (ui.fabricSource != "STOCK") {
+                item {
+                    OutlinedTextField(
+                        value = ui.fabricPrice,
+                        onValueChange = vm::setFabricPrice,
+                        label = { Text("قیمت پارچه (؋)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                }
             }
 
             // خرج کار
@@ -396,12 +443,23 @@ fun PurchasePlanScreen(
                 }
             }
 
+            // قیمت فروش توافقی
+            item {
+                OutlinedTextField(
+                    value = ui.agreedPrice,
+                    onValueChange = vm::setAgreedPrice,
+                    label = { Text("قیمت فروش توافقی با مشتری (؋)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+            }
+
             // پرداخت مشتری
             item {
                 OutlinedTextField(
                     value = ui.customerPaid,
                     onValueChange = vm::setCustomerPaid,
-                    label = { Text("پرداخت مشتری (اختیاری) ؋") },
+                    label = { Text("پیش‌پرداخت مشتری (اختیاری) ؋") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
@@ -409,14 +467,24 @@ fun PurchasePlanScreen(
 
             // خلاصه
             item {
-                val fabricPrice = ui.fabricPrice.toLongOrNull() ?: 0L
-                val total = fabricPrice + ui.workCostPrice
+                val qty = ui.qty.toIntOrNull()?.coerceAtLeast(1) ?: 1
+                val fabricPrice = if (ui.fabricSource == "STOCK") 0L else ui.fabricPrice.toLongOrNull() ?: 0L
+                val workTotal = ui.workCostPrice * qty
+                val total = fabricPrice + workTotal
 
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("جمع کل هزینه: $total ؋", fontWeight = FontWeight.SemiBold)
-                        Text("کیف پول: $walletBalance ؋")
-                        Text("فایده: $profitBalance ؋")
+                        if (ui.workCostPrice > 0) {
+                            Text("خرج کار: ${ui.workCostPrice.afn()} × $qty عدد = ${workTotal.afn()}")
+                        }
+                        if (ui.fabricSource == "STOCK") {
+                            Text("پارچه از موجودی انبار مصرف می‌شود.")
+                        } else {
+                            Text("قیمت پارچه: ${fabricPrice.afn()}")
+                        }
+                        Text("جمع کل هزینه: ${total.afn()}", fontWeight = FontWeight.SemiBold)
+                        Text("کیف پول: ${walletBalance.afn()}")
+                        Text("فایده: ${profitBalance.afn()}")
                     }
                 }
             }

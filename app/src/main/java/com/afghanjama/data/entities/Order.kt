@@ -1,5 +1,6 @@
 package com.afghanjama.data.entities
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.util.UUID
@@ -23,8 +24,16 @@ data class Order(
     val fabricUnit: String,
     val fabricAmount: Double,
 
+    // منبع پارچه: NEW = خرید جدید برای همین سفارش، STOCK = مصرف از موجودی انبار
+    @ColumnInfo(defaultValue = "NEW")
+    val fabricSource: String = "NEW",
+
     val fabricPrice: Long,
     val workCost: Long,
+
+    // قیمت فروش توافق‌شده با مشتری (۰ = توافق نشده)
+    @ColumnInfo(defaultValue = "0")
+    val agreedPrice: Long = 0,
 
     val customerName: String,
     val customerPhone: String,
@@ -38,6 +47,10 @@ data class Order(
     val doneSewCount: Int = 0,
 
     val reviewed: Boolean = false,
+
+    // زمان ورود به مرحله فعلی (برای هشدار معطلی)
+    @ColumnInfo(defaultValue = "0")
+    val stageChangedAt: Long = 0,
 
     val createdAt: Long = System.currentTimeMillis()
 )

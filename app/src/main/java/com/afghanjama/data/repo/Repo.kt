@@ -5,6 +5,7 @@ import com.afghanjama.data.entities.Customer
 import com.afghanjama.data.entities.CustomerPayment
 import com.afghanjama.data.entities.DesignItem
 import com.afghanjama.data.entities.FabricColor
+import com.afghanjama.data.entities.FabricStock
 import com.afghanjama.data.entities.FabricType
 import com.afghanjama.data.entities.Inspector
 import com.afghanjama.data.entities.Order
@@ -73,13 +74,14 @@ class Repo(private val db: AppDatabase) {
         )
     }
 
-    suspend fun spend(source: String, amount: Long, note: String) {
+    suspend fun spend(source: String, amount: Long, note: String, category: String = "") {
         db.financeDao().insertTx(
             Transaction(
                 type = "OUT",
                 source = source,
                 amount = amount.coerceAtLeast(0),
-                note = note
+                note = note,
+                category = category
             )
         )
     }
@@ -115,6 +117,49 @@ class Repo(private val db: AppDatabase) {
 
     suspend fun addCustomerPayment(payment: CustomerPayment) =
         db.customerPaymentDao().insert(payment)
+
+    // =========================
+    // Fabric Stock (موجودی پارچه)
+    // =========================
+
+    fun observeFabricStock(): Flow<List<FabricStock>> =
+        db.fabricStockDao().observeAll()
+
+    suspend fun getFabricStock(type: String, color: String, unit: String): FabricStock? =
+        db.fabricStockDao().find(type.trim(), color.trim(), unit.trim())
+
+    /** افزایش/کاهش موجودی؛ delta منفی برای مصرف. موجودی زیر صفر نمی‌رود. */
+    suspend fun changeFabricStock(type: String, color: String, unit: String, delta: Double) {
+        val now = System.currentTimeMillis()
+        val cur = db.fabricStockDao().find(type.trim(), color.trim(), unit.trim())
+            ?: FabricStock(
+                fabricType = type.trim(),
+                fabricColor = color.trim(),
+                fabricUnit = unit.trim(),
+                amount = 0.0,
+                minLevel = 0.0,
+                updatedAt = now
+            )
+        db.fabricStockDao().upsert(
+            cur.copy(amount = (cur.amount + delta).coerceAtLeast(0.0), updatedAt = now)
+        )
+    }
+
+    suspend fun setFabricMinLevel(type: String, color: String, unit: String, minLevel: Double) {
+        val now = System.currentTimeMillis()
+        val cur = db.fabricStockDao().find(type.trim(), color.trim(), unit.trim())
+            ?: FabricStock(
+                fabricType = type.trim(),
+                fabricColor = color.trim(),
+                fabricUnit = unit.trim(),
+                amount = 0.0,
+                minLevel = 0.0,
+                updatedAt = now
+            )
+        db.fabricStockDao().upsert(
+            cur.copy(minLevel = minLevel.coerceAtLeast(0.0), updatedAt = now)
+        )
+    }
 
     // =========================
     // Master Data

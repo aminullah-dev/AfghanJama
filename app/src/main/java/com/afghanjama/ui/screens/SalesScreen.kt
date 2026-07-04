@@ -132,7 +132,9 @@ fun SalesScreen(
             ) {
                 items(orders, key = { it.id }) { o ->
                     val cost = o.fabricPrice + o.workCost
-                    val paidText = paidMap[o.id] ?: ""
+                    // پیش‌فرض: قیمت توافقی ثبت‌شده هنگام سفارش
+                    val paidText = paidMap[o.id]
+                        ?: o.agreedPrice.takeIf { it > 0 }?.toString().orEmpty()
 
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -175,9 +177,18 @@ fun SalesScreen(
                                 leadingIcon = { Icon(Icons.Default.AttachMoney, contentDescription = null) }
                             )
 
+                            if (o.agreedPrice > 0) {
+                                Text(
+                                    text = "قیمت توافقی: ${o.agreedPrice.afn()}",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+
                             Button(
                                 onClick = {
-                                    val paid = paidMap[o.id].orEmpty().toLongOrNull() ?: 0L
+                                    val paid = paidText.toLongOrNull() ?: 0L
                                     vm.completeSale(o.id, paid)
                                     paidMap.remove(o.id)
                                 },

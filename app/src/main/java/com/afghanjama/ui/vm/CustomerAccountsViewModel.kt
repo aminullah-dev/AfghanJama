@@ -16,11 +16,12 @@ data class CustomerAccount(
     val phone: String,
     val ordersCount: Int,
     val openOrdersCount: Int,   // سفارش‌هایی که هنوز ارسال نشده‌اند
-    val totalCost: Long,        // مجموع هزینه سفارش‌ها (پارچه + خرج کار)
-    val totalPaid: Long         // مجموع دریافتی‌ها از این مشتری
+    val totalDue: Long,         // مجموع مبلغ سفارش‌ها (قیمت توافقی؛ اگر نبود، هزینه)
+    val totalPaid: Long,        // مجموع دریافتی‌ها از این مشتری
+    val payments: List<CustomerPayment> = emptyList()  // تاریخچه پرداخت‌ها
 ) {
-    /** باقی‌مانده (برآوردی): هزینه سفارش‌ها منهای دریافتی‌ها. */
-    val balance: Long get() = totalCost - totalPaid
+    /** باقی‌مانده: مبلغ سفارش‌ها منهای دریافتی‌ها. */
+    val balance: Long get() = totalDue - totalPaid
 }
 
 class CustomerAccountsViewModel(private val repo: Repo) : ViewModel() {
@@ -40,6 +41,7 @@ class CustomerAccountsViewModel(private val repo: Repo) : ViewModel() {
                 .filter { it.customerName.isNotBlank() }
                 .groupBy { it.customerName }
                 .map { (name, customerOrders) ->
+                    val customerPayments = paidByName[name].orEmpty()
                     CustomerAccount(
                         name = name,
                         phone = customerOrders
@@ -47,8 +49,12 @@ class CustomerAccountsViewModel(private val repo: Repo) : ViewModel() {
                             .firstOrNull() ?: "",
                         ordersCount = customerOrders.size,
                         openOrdersCount = customerOrders.count { it.status != "SENT" },
-                        totalCost = customerOrders.sumOf { it.fabricPrice + it.workCost },
-                        totalPaid = paidByName[name]?.sumOf { it.amount } ?: 0L
+                        // اگر قیمت توافقی ثبت شده باشد ملاک آن است، وگرنه هزینه سفارش
+                        totalDue = customerOrders.sumOf { o ->
+                            if (o.agreedPrice > 0) o.agreedPrice else o.fabricPrice + o.workCost
+                        },
+                        totalPaid = customerPayments.sumOf { it.amount },
+                        payments = customerPayments
                     )
                 }
                 .sortedByDescending { it.balance }

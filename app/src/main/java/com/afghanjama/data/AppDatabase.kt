@@ -6,6 +6,7 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.afghanjama.data.dao.CatalogDao
 import com.afghanjama.data.dao.CustomerPaymentDao
+import com.afghanjama.data.dao.FabricStockDao
 import com.afghanjama.data.dao.FinanceDao
 import com.afghanjama.data.dao.MasterDataDao
 import com.afghanjama.data.dao.OrderCounterDao
@@ -15,6 +16,7 @@ import com.afghanjama.data.entities.Customer
 import com.afghanjama.data.entities.CustomerPayment
 import com.afghanjama.data.entities.DesignItem
 import com.afghanjama.data.entities.FabricColor
+import com.afghanjama.data.entities.FabricStock
 import com.afghanjama.data.entities.FabricType
 import com.afghanjama.data.entities.GarmentDesign
 import com.afghanjama.data.entities.Inspector
@@ -41,9 +43,10 @@ import com.afghanjama.data.entities.WorkCost
         WorkCost::class,
         GarmentDesign::class,
         CustomerPayment::class,
-        TailorWage::class
+        TailorWage::class,
+        FabricStock::class
     ],
-    version = 19,
+    version = 20,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -55,4 +58,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun catalogDao(): CatalogDao
     abstract fun tailorWageDao(): TailorWageDao
     abstract fun customerPaymentDao(): CustomerPaymentDao
+    abstract fun fabricStockDao(): FabricStockDao
 }

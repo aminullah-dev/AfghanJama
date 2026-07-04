@@ -43,6 +43,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.afghanjama.ui.format.STAGE_WARN_DAYS
+import com.afghanjama.ui.format.stageDays
 import com.afghanjama.ui.vm.ReviewViewModel
 import java.util.UUID
 
@@ -137,6 +139,15 @@ fun ReviewScreen(
                                     fontWeight = FontWeight.SemiBold
                                 )
                             }
+
+                            val days = stageDays(o.stageChangedAt, o.createdAt)
+                            Text(
+                                text = "⏱ $days روز در این مرحله" +
+                                    if (days >= STAGE_WARN_DAYS) " — معطل مانده!" else "",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (days >= STAGE_WARN_DAYS) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
 
                             OutlinedButton(
                                 onClick = { menuMap[o.id] = true },

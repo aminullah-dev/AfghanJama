@@ -46,6 +46,18 @@ class FinanceViewModel(private val repo: Repo) : ViewModel() {
             repo.spend("WALLET", amount, note)
         }
 
+    /** ثبت هزینه عمومی کارگاه (کرایه، برق و آب، معاش، ...) از کیف پول. */
+    fun addExpense(category: String, amount: Long, note: String) =
+        viewModelScope.launch {
+            if (amount <= 0L || category.isBlank()) return@launch
+            repo.spend(
+                source = "WALLET",
+                amount = amount,
+                note = note.trim().ifBlank { "هزینه: $category" },
+                category = category
+            )
+        }
+
     fun spendProfit(amount: Long, note: String) =
         viewModelScope.launch {
             repo.spend("PROFIT", amount, note)

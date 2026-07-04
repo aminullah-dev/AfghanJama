@@ -1,5 +1,6 @@
 package com.afghanjama.data.entities
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.util.UUID
@@ -16,6 +17,10 @@ data class Transaction(
     val source: String,    // WALLET / PROFIT
     val amount: Long,
     val note: String = "",
+
+    // دسته هزینه (کرایه، برق و آب، معاش، ...) — خالی یعنی تراکنش عادی
+    @ColumnInfo(defaultValue = "")
+    val category: String = "",
 
     val createdAt: Long = System.currentTimeMillis()
 )

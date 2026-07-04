@@ -19,12 +19,16 @@ class CuttingViewModel(private val repo: Repo) : ViewModel() {
 
     fun markCutDone(orderId: UUID) = viewModelScope.launch {
         val o = repo.getOrder(orderId) ?: return@launch
-        repo.updateOrder(o.copy(status = OrderStatus.CUT_DONE.name))
+        repo.updateOrder(
+            o.copy(status = OrderStatus.CUT_DONE.name, stageChangedAt = System.currentTimeMillis())
+        )
     }
 
     /** برگشت به انبار (اصلاح اشتباه). */
     fun backToStock(orderId: UUID) = viewModelScope.launch {
         val o = repo.getOrder(orderId) ?: return@launch
-        repo.updateOrder(o.copy(status = OrderStatus.IN_STOCK.name))
+        repo.updateOrder(
+            o.copy(status = OrderStatus.IN_STOCK.name, stageChangedAt = System.currentTimeMillis())
+        )
     }
 }

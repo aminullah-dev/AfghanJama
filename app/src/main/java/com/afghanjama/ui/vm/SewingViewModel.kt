@@ -36,7 +36,8 @@ class SewingViewModel(
         repo.updateOrder(
             o.copy(
                 status = OrderStatus.SEWING.name,
-                assignedTailor = tailorLabel.ifBlank { o.assignedTailor }
+                assignedTailor = tailorLabel.ifBlank { o.assignedTailor },
+                stageChangedAt = System.currentTimeMillis()
             )
         )
     }
@@ -44,19 +45,25 @@ class SewingViewModel(
     /** برگشت از «آماده دوخت» به برش (اصلاح اشتباه). */
     fun backToCutting(orderId: UUID) = viewModelScope.launch {
         val o = repo.getOrder(orderId) ?: return@launch
-        repo.updateOrder(o.copy(status = OrderStatus.CUTTING.name))
+        repo.updateOrder(
+            o.copy(status = OrderStatus.CUTTING.name, stageChangedAt = System.currentTimeMillis())
+        )
     }
 
     /** برگشت از «در حال دوخت» به آماده دوخت (اصلاح اشتباه). */
     fun backToCutDone(orderId: UUID) = viewModelScope.launch {
         val o = repo.getOrder(orderId) ?: return@launch
-        repo.updateOrder(o.copy(status = OrderStatus.CUT_DONE.name))
+        repo.updateOrder(
+            o.copy(status = OrderStatus.CUT_DONE.name, stageChangedAt = System.currentTimeMillis())
+        )
     }
 
     // ✅ از دوخت -> بازرسی + ثبت کارمزد خیاط (یک‌بار برای هر سفارش)
     fun sendToReview(orderId: UUID) = viewModelScope.launch {
         val o = repo.getOrder(orderId) ?: return@launch
-        repo.updateOrder(o.copy(status = OrderStatus.REVIEW.name))
+        repo.updateOrder(
+            o.copy(status = OrderStatus.REVIEW.name, stageChangedAt = System.currentTimeMillis())
+        )
 
         if (o.workCost > 0) {
             repo.addTailorWage(

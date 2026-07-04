@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -64,6 +65,7 @@ fun InventoryScreen(
     onGoWallet: () -> Unit,
     onGoSettings: () -> Unit,
     onGoSearch: () -> Unit,
+    onGoStock: () -> Unit,
     onGoCutting: () -> Unit
 ) {
     val orders by vm.ordersInStock.collectAsState(initial = emptyList())
@@ -157,6 +159,11 @@ fun InventoryScreen(
                 actions = {
                     IconButton(onClick = onGoSearch) {
                         Icon(Icons.Default.Search, contentDescription = "پیگیری سفارش")
+                    }
+                    if (canPurchase) {
+                        IconButton(onClick = onGoStock) {
+                            Icon(Icons.Default.Layers, contentDescription = "موجودی پارچه")
+                        }
                     }
                     if (canManage) {
                         IconButton(onClick = onGoWallet) {

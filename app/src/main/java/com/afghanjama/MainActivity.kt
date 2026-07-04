@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.remember
 import androidx.room.Room
 import com.afghanjama.data.AppDatabase
+import com.afghanjama.data.MIGRATION_19_20
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.ui.nav.AppNav
 import com.afghanjama.ui.theme.AfghanJamaTheme
@@ -22,6 +23,7 @@ import com.afghanjama.ui.vm.PurchaseViewModel
 import com.afghanjama.ui.vm.ReviewViewModel
 import com.afghanjama.ui.vm.SalesViewModel
 import com.afghanjama.ui.vm.SewingViewModel
+import com.afghanjama.ui.vm.StockViewModel
 import com.afghanjama.ui.vm.WagesViewModel
 
 class MainActivity : ComponentActivity() {
@@ -34,6 +36,7 @@ class MainActivity : ComponentActivity() {
             AppDatabase::class.java,
             "afghanjama.db"
         )
+            .addMigrations(MIGRATION_19_20)
             .fallbackToDestructiveMigration()
             .build()
 
@@ -54,6 +57,7 @@ class MainActivity : ComponentActivity() {
                 val customersVm = remember { CustomerAccountsViewModel(repo) }
                 val dashboardVm = remember { DashboardViewModel(repo) }
                 val searchVm = remember { OrderSearchViewModel(repo) }
+                val stockVm = remember { StockViewModel(repo) }
 
                 AppNav(
                     authVm = authVm,
@@ -68,7 +72,8 @@ class MainActivity : ComponentActivity() {
                     wagesVm = wagesVm,
                     customersVm = customersVm,
                     dashboardVm = dashboardVm,
-                    searchVm = searchVm
+                    searchVm = searchVm,
+                    stockVm = stockVm
                 )
             }
         }

@@ -48,7 +48,9 @@ class SalesViewModel(private val repo: Repo) : ViewModel() {
     /** برگشت به نظارت (اصلاح اشتباه). */
     fun backToReview(orderId: UUID) = viewModelScope.launch {
         val o = repo.getOrder(orderId) ?: return@launch
-        repo.updateOrder(o.copy(status = OrderStatus.REVIEW.name))
+        repo.updateOrder(
+            o.copy(status = OrderStatus.REVIEW.name, stageChangedAt = System.currentTimeMillis())
+        )
     }
 
     fun completeSale(orderId: UUID, revenue: Long) = viewModelScope.launch {
@@ -90,7 +92,9 @@ class SalesViewModel(private val repo: Repo) : ViewModel() {
         }
 
         // 3) وضعیت نهایی
-        repo.updateOrder(order.copy(status = OrderStatus.SENT.name))
+        repo.updateOrder(
+            order.copy(status = OrderStatus.SENT.name, stageChangedAt = System.currentTimeMillis())
+        )
 
         // 4) پیام + صدا
         _ui.value = if (profit > 0L) {

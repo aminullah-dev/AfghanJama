@@ -21,6 +21,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -201,6 +203,83 @@ private fun DashboardTab(vm: DashboardViewModel) {
             }
         }
 
+        // هزینه‌های عمومی
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "هزینه‌های کارگاه (۳۰ روز)",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        s.expenses30.afn(),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        }
+
+        // فروش‌های اخیر با سود واقعی
+        if (s.recentSales.isNotEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "فروش‌های اخیر (سود واقعی)",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        s.recentSales.forEach { rs ->
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        rs.designTitle,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        "${rs.orderCode} • فروش: ${rs.revenue.afn()} • هزینه: ${rs.cost.afn()}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Text(
+                                    (if (rs.profit >= 0) "+" else "") + rs.profit.afn(),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (rs.profit >= 0) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // کارمزد باز
         item {
             Card(
@@ -281,11 +360,69 @@ private fun MoneyBlock(label: String, value: String, highlight: Boolean = false)
 // ======================================================
 // تب ۱: کیف پول و تراکنش‌ها (مالی عمومی)
 // ======================================================
+private val expenseCategories = listOf(
+    "کرایه", "برق و آب", "معاش کارمند", "ترانسپورت", "مواد و لوازم", "خرید پارچه", "متفرقه"
+)
+
 @Composable
 private fun WalletTab(vm: FinanceViewModel) {
     val wallet by vm.walletBalance.collectAsState()
     val profit by vm.profitBalance.collectAsState()
     val txList by vm.tx.collectAsState()
+
+    var showExpense by remember { mutableStateOf(false) }
+    if (showExpense) {
+        var category by remember { mutableStateOf("") }
+        var amountText by remember { mutableStateOf("") }
+        var note by remember { mutableStateOf("") }
+        var catMenu by remember { mutableStateOf(false) }
+
+        AlertDialog(
+            onDismissRequest = { showExpense = false },
+            title = { Text("ثبت هزینه کارگاه") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { catMenu = true }, modifier = Modifier.fillMaxWidth()) {
+                        Text(category.ifBlank { "انتخاب دسته هزینه" })
+                    }
+                    DropdownMenu(expanded = catMenu, onDismissRequest = { catMenu = false }) {
+                        expenseCategories.forEach { c ->
+                            DropdownMenuItem(text = { Text(c) }, onClick = { category = c; catMenu = false })
+                        }
+                    }
+                    OutlinedTextField(
+                        value = amountText,
+                        onValueChange = { amountText = it.filter(Char::isDigit) },
+                        label = { Text("مبلغ (؋)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = note,
+                        onValueChange = { note = it },
+                        label = { Text("یادداشت (اختیاری)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        "مبلغ از کیف پول کم و با دسته انتخابی در گزارش‌ها حساب می‌شود.",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val amount = amountText.toLongOrNull() ?: 0L
+                    if (amount > 0 && category.isNotBlank()) {
+                        vm.addExpense(category, amount, note)
+                    }
+                    showExpense = false
+                }) { Text("ثبت") }
+            },
+            dismissButton = { TextButton(onClick = { showExpense = false }) { Text("لغو") } }
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -332,6 +469,12 @@ private fun WalletTab(vm: FinanceViewModel) {
             }
         }
 
+        Button(onClick = { showExpense = true }, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Default.Payments, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text("ثبت هزینه کارگاه (کرایه، برق، معاش...)")
+        }
+
         Text(
             "تراکنش‌ها",
             style = MaterialTheme.typography.titleMedium,
@@ -367,7 +510,9 @@ private fun WalletTab(vm: FinanceViewModel) {
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
-                                    "${if (t.source == "WALLET") "کیف پول" else "فایده"} • ${formatDate(t.createdAt)}",
+                                    "${if (t.source == "WALLET") "کیف پول" else "فایده"}" +
+                                        (t.category.takeIf { it.isNotBlank() }?.let { " • $it" } ?: "") +
+                                        " • ${formatDate(t.createdAt)}",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -551,6 +696,59 @@ private fun CustomersTab(vm: CustomerAccountsViewModel) {
     var payAmountText by remember { mutableStateOf("") }
     var payNote by remember { mutableStateOf("") }
 
+    // دیالوگ تاریخچه پرداخت‌ها
+    var historyTarget by remember { mutableStateOf<CustomerAccount?>(null) }
+
+    historyTarget?.let { acc ->
+        AlertDialog(
+            onDismissRequest = { historyTarget = null },
+            title = { Text("پرداخت‌های «${acc.name}»") },
+            text = {
+                if (acc.payments.isEmpty()) {
+                    Text("هنوز پرداختی ثبت نشده است.")
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        acc.payments.take(15).forEach { pmt ->
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        pmt.note.ifBlank {
+                                            when (pmt.source) {
+                                                "ADVANCE" -> "پیش‌پرداخت"
+                                                "SALE" -> "دریافتی فروش"
+                                                else -> "دریافتی"
+                                            }
+                                        },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        formatDate(pmt.createdAt),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Text(
+                                    pmt.amount.afn(),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { historyTarget = null }) { Text("بستن") }
+            }
+        )
+    }
+
     payTarget?.let { acc ->
         AlertDialog(
             onDismissRequest = { payTarget = null },
@@ -628,7 +826,8 @@ private fun CustomersTab(vm: CustomerAccountsViewModel) {
             items(accounts, key = { it.name }) { acc ->
                 CustomerAccountCard(
                     acc = acc,
-                    onAddPayment = { payTarget = acc }
+                    onAddPayment = { payTarget = acc },
+                    onShowHistory = { historyTarget = acc }
                 )
             }
         }
@@ -640,7 +839,8 @@ private fun CustomersTab(vm: CustomerAccountsViewModel) {
 @Composable
 private fun CustomerAccountCard(
     acc: CustomerAccount,
-    onAddPayment: () -> Unit
+    onAddPayment: () -> Unit,
+    onShowHistory: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -683,7 +883,7 @@ private fun CustomerAccountCard(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                MoneyStat("هزینه سفارش‌ها", acc.totalCost.afn())
+                MoneyStat("مبلغ سفارش‌ها", acc.totalDue.afn())
                 MoneyStat("دریافتی", acc.totalPaid.afn())
                 MoneyStat(
                     label = if (acc.balance > 0) "باقی‌مانده" else "تسویه",
@@ -692,13 +892,24 @@ private fun CustomerAccountCard(
                 )
             }
 
-            OutlinedButton(
-                onClick = onAddPayment,
-                modifier = Modifier.fillMaxWidth()
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(Icons.Default.Add, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("ثبت دریافتی")
+                OutlinedButton(
+                    onClick = onShowHistory,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("تاریخچه")
+                }
+                OutlinedButton(
+                    onClick = onAddPayment,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("ثبت دریافتی")
+                }
             }
         }
     }

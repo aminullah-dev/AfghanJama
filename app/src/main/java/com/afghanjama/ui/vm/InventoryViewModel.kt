@@ -43,7 +43,8 @@ class InventoryViewModel(private val repo: Repo) : ViewModel() {
         repo.updateOrder(
             o.copy(
                 designTitle = selectedDesign.ifBlank { o.designTitle },
-                status = OrderStatus.CUTTING.name
+                status = OrderStatus.CUTTING.name,
+                stageChangedAt = System.currentTimeMillis()
             )
         )
         _state.update { it.copy(navigateToCutting = true, message = null, isError = false) }
@@ -54,6 +55,10 @@ class InventoryViewModel(private val repo: Repo) : ViewModel() {
 
     fun deleteOrder(orderId: UUID) = viewModelScope.launch {
         val o = repo.getOrder(orderId) ?: return@launch
+        // اگر پارچه از موجودی رزرو شده بود و هنوز برش نخورده، برگردان
+        if (o.fabricSource == "STOCK" && o.status == OrderStatus.IN_STOCK.name) {
+            repo.changeFabricStock(o.fabricType, o.fabricColor, o.fabricUnit, o.fabricAmount)
+        }
         repo.deleteOrder(o)
     }
 

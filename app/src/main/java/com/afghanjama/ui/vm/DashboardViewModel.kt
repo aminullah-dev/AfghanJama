@@ -22,8 +22,21 @@ data class DashboardStats(
     val profitNet7: Long = 0,    // تغییر خالص فایده ۷ روز اخیر
     val profitNet30: Long = 0,
     val openWagesTotal: Long = 0,
-    val openWagesCount: Int = 0
+    val openWagesCount: Int = 0,
+    val expenses30: Long = 0,    // هزینه‌های عمومی ۳۰ روز اخیر
+    val recentSales: List<RecentSale> = emptyList()
 )
+
+/** فروش اخیر با سود واقعی. */
+data class RecentSale(
+    val orderCode: String,
+    val designTitle: String,
+    val revenue: Long,
+    val cost: Long,
+    val soldAt: Long
+) {
+    val profit: Long get() = revenue - cost
+}
 
 class DashboardViewModel(repo: Repo) : ViewModel() {
 
@@ -46,6 +59,28 @@ class DashboardViewModel(repo: Repo) : ViewModel() {
                 .filter { it.source == "PROFIT" && it.createdAt >= t }
                 .sumOf { if (it.type == "IN") it.amount else -it.amount }
 
+            val expenses30 = tx
+                .filter { it.type == "OUT" && it.category.isNotBlank() && it.createdAt >= d30 }
+                .sumOf { it.amount }
+
+            val saleByOrder = payments
+                .filter { it.source == "SALE" }
+                .groupBy { it.orderId }
+
+            val recentSales = orders
+                .filter { it.status == OrderStatus.SENT.name }
+                .sortedByDescending { if (it.stageChangedAt > 0) it.stageChangedAt else it.createdAt }
+                .take(5)
+                .map { o ->
+                    RecentSale(
+                        orderCode = o.orderCode,
+                        designTitle = o.designTitle,
+                        revenue = saleByOrder[o.id.toString()]?.sumOf { it.amount } ?: 0L,
+                        cost = o.fabricPrice + o.workCost,
+                        soldAt = if (o.stageChangedAt > 0) o.stageChangedAt else o.createdAt
+                    )
+                }
+
             DashboardStats(
                 inStock = orders.count { it.status == OrderStatus.IN_STOCK.name },
                 cutting = orders.count {
@@ -60,7 +95,9 @@ class DashboardViewModel(repo: Repo) : ViewModel() {
                 profitNet7 = profitNetSince(d7),
                 profitNet30 = profitNetSince(d30),
                 openWagesTotal = wages.sumOf { it.amount },
-                openWagesCount = wages.size
+                openWagesCount = wages.size,
+                expenses30 = expenses30,
+                recentSales = recentSales
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DashboardStats())
 }

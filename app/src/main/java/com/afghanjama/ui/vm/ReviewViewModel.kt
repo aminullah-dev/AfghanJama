@@ -33,7 +33,8 @@ class ReviewViewModel(
             o.copy(
                 assignedInspector = inspectorLabel.ifBlank { o.assignedInspector },
                 reviewed = true,
-                status = OrderStatus.SALES.name
+                status = OrderStatus.SALES.name,
+                stageChangedAt = System.currentTimeMillis()
             )
         )
     }
@@ -47,7 +48,8 @@ class ReviewViewModel(
             o.copy(
                 assignedInspector = inspectorLabel.ifBlank { o.assignedInspector },
                 reviewed = false,
-                status = OrderStatus.SEWING.name
+                status = OrderStatus.SEWING.name,
+                stageChangedAt = System.currentTimeMillis()
             )
         )
     }

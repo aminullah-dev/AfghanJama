@@ -38,6 +38,11 @@ data class PurchaseUi(
     val paymentSource: String = PaymentSource.WALLET.name,
     val customerPaid: String = "",
 
+    // NEW = خرید پارچه جدید برای سفارش، STOCK = مصرف از موجودی انبار
+    val fabricSource: String = "NEW",
+    // قیمت فروش توافق‌شده با مشتری (اختیاری)
+    val agreedPrice: String = "",
+
     val message: String? = null,
     val isError: Boolean = false
 )
@@ -70,6 +75,9 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
         _ui.update { it.copy(workCostTitle = title, workCostPrice = price, message = null, isError = false) }
 
     fun setPaymentSource(v: String) = _ui.update { it.copy(paymentSource = v.trim(), message = null, isError = false) }
+    fun setFabricSource(v: String) = _ui.update { it.copy(fabricSource = v.trim(), message = null, isError = false) }
+    fun setAgreedPrice(v: String) =
+        _ui.update { it.copy(agreedPrice = v.filter(Char::isDigit), message = null, isError = false) }
     fun setCustomerPaid(v: String) =
         _ui.update { it.copy(customerPaid = v.filter(Char::isDigit), message = null, isError = false) }
 
@@ -83,16 +91,36 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
         }
 
         val qty = s.qty.toIntOrNull()?.coerceAtLeast(1) ?: 1
-        val fabricPrice = s.fabricPrice.toLongOrNull()?.coerceAtLeast(0) ?: 0L
+        val fromStock = s.fabricSource == "STOCK"
+        // پارچهٔ از موجودی، قیمت خرید جداگانه ندارد
+        val fabricPrice = if (fromStock) 0L else s.fabricPrice.toLongOrNull()?.coerceAtLeast(0) ?: 0L
         val fabricAmount = s.fabricAmount.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
         val customerPaid = s.customerPaid.toLongOrNull()?.coerceAtLeast(0) ?: 0L
+        val agreedPrice = s.agreedPrice.toLongOrNull()?.coerceAtLeast(0) ?: 0L
 
         if (fabricAmount <= 0.0) {
             _ui.update { it.copy(message = "مقدار پارچه را وارد کنید (بزرگ‌تر از صفر).", isError = true) }
             return@launch
         }
 
-        val cost = (fabricPrice + s.workCostPrice).coerceAtLeast(0)
+        // مصرف از موجودی انبار: اول کنترل موجودی
+        if (fromStock) {
+            val stock = repo.getFabricStock(s.fabricType.trim(), s.fabricColor.trim(), s.fabricUnit.trim())
+            val available = stock?.amount ?: 0.0
+            if (available < fabricAmount) {
+                _ui.update {
+                    it.copy(
+                        message = "موجودی پارچه کافی نیست. موجود: $available — لازم: $fabricAmount",
+                        isError = true
+                    )
+                }
+                return@launch
+            }
+        }
+
+        // ✅ خرج کار برای هر عدد است و در تعداد ضرب می‌شود
+        val workCostTotal = s.workCostPrice * qty
+        val cost = (fabricPrice + workCostTotal).coerceAtLeast(0)
 
         val paySrc = runCatching { PaymentSource.valueOf(s.paymentSource.trim().uppercase()) }
             .getOrNull() ?: PaymentSource.WALLET
@@ -129,17 +157,27 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
             size = s.size.trim(),
             fabricUnit = s.fabricUnit.trim(),
             fabricAmount = fabricAmount,
+            fabricSource = s.fabricSource,
             fabricPrice = fabricPrice,
-            workCost = s.workCostPrice,
+            workCost = workCostTotal,
+            agreedPrice = agreedPrice,
             customerName = s.customerName.trim(),
             customerPhone = s.customerPhone.trim(),
-            status = OrderStatus.IN_STOCK.name
+            status = OrderStatus.IN_STOCK.name,
+            stageChangedAt = System.currentTimeMillis()
         )
 
-        when (paySrc) {
-            PaymentSource.WALLET -> repo.spend("WALLET", cost, "خرید/ثبت سفارش ${order.orderCode}")
-            PaymentSource.PROFIT -> repo.spend("PROFIT", cost, "خرید/ثبت سفارش ${order.orderCode}")
-            PaymentSource.CUSTOMER -> { /* فعلاً هیچ */ }
+        if (cost > 0) {
+            when (paySrc) {
+                PaymentSource.WALLET -> repo.spend("WALLET", cost, "خرید/ثبت سفارش ${order.orderCode}")
+                PaymentSource.PROFIT -> repo.spend("PROFIT", cost, "خرید/ثبت سفارش ${order.orderCode}")
+                PaymentSource.CUSTOMER -> { /* فعلاً هیچ */ }
+            }
+        }
+
+        // کسر پارچه از موجودی انبار
+        if (fromStock) {
+            repo.changeFabricStock(s.fabricType, s.fabricColor, s.fabricUnit, -fabricAmount)
         }
 
         if (customerPaid > 0) {

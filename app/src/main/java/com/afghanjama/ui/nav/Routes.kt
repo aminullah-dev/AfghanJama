@@ -17,4 +17,5 @@ object Routes {
     const val MASTER = "master"
     const val SETTINGS = "settings"
     const val SEARCH = "search"
+    const val STOCK = "stock"
 }

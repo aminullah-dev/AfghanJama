@@ -10,11 +10,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import android.content.Intent
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -23,6 +26,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -32,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -126,8 +131,23 @@ fun OrderSearchScreen(
     }
 }
 
+private fun receiptText(order: Order, stageLabel: String): String = buildString {
+    appendLine("🧵 رسید سفارش — AfghanJama")
+    appendLine("──────────────")
+    appendLine("کد سفارش: ${order.orderCode}")
+    appendLine("کد کوتاه: ${order.shortCode}")
+    appendLine("طرح: ${order.designTitle}")
+    appendLine("تعداد: ${order.qty}")
+    appendLine("پارچه: ${order.fabricType} • ${order.fabricColor} • ${order.fabricAmount}")
+    if (order.customerName.isNotBlank()) appendLine("مشتری: ${order.customerName}")
+    if (order.customerPhone.isNotBlank()) appendLine("تلفن: ${order.customerPhone}")
+    if (order.agreedPrice > 0) appendLine("قیمت توافقی: ${order.agreedPrice.afn()}")
+    appendLine("وضعیت فعلی: $stageLabel")
+}
+
 @Composable
 private fun SearchResultCard(order: Order) {
+    val context = LocalContext.current
     val stageIndex = stageOrder.indexOfFirst { it.first == order.status }.coerceAtLeast(0)
     val stageLabel = stageOrder.getOrNull(stageIndex)?.second ?: order.status
     val progress = (stageIndex + 1) / stageOrder.size.toFloat()
@@ -172,6 +192,15 @@ private fun SearchResultCard(order: Order) {
                 )
             }
 
+            if (order.agreedPrice > 0) {
+                Text(
+                    "قیمت توافقی: ${order.agreedPrice.afn()}",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
             order.assignedTailor?.takeIf { it.isNotBlank() }?.let {
                 Text(
                     "خیاط: $it",
@@ -203,6 +232,21 @@ private fun SearchResultCard(order: Order) {
                 progress = { progress },
                 modifier = Modifier.fillMaxWidth()
             )
+
+            OutlinedButton(
+                onClick = {
+                    val intent = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, receiptText(order, stageLabel))
+                    }
+                    context.startActivity(Intent.createChooser(intent, "اشتراک رسید سفارش"))
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Share, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("اشتراک رسید")
+            }
         }
     }
 }
