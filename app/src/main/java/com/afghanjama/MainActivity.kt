@@ -11,6 +11,7 @@ import com.afghanjama.data.repo.Repo
 import com.afghanjama.ui.nav.AppNav
 import com.afghanjama.ui.theme.AfghanJamaTheme
 import com.afghanjama.ui.vm.AuthViewModel
+import com.afghanjama.ui.vm.CustomerAccountsViewModel
 import com.afghanjama.ui.vm.CuttingViewModel
 import com.afghanjama.ui.vm.FinanceViewModel
 import com.afghanjama.ui.vm.InventoryViewModel
@@ -19,6 +20,7 @@ import com.afghanjama.ui.vm.PurchaseViewModel
 import com.afghanjama.ui.vm.ReviewViewModel
 import com.afghanjama.ui.vm.SalesViewModel
 import com.afghanjama.ui.vm.SewingViewModel
+import com.afghanjama.ui.vm.WagesViewModel
 
 class MainActivity : ComponentActivity() {
 
@@ -46,6 +48,8 @@ class MainActivity : ComponentActivity() {
                 val reviewVm = remember { ReviewViewModel(repo) }
                 val salesVm = remember { SalesViewModel(repo) }
                 val masterVm = remember { MasterDataViewModel(repo) }
+                val wagesVm = remember { WagesViewModel(repo) }
+                val customersVm = remember { CustomerAccountsViewModel(repo) }
 
                 AppNav(
                     authVm = authVm,
@@ -56,7 +60,9 @@ class MainActivity : ComponentActivity() {
                     reviewVm = reviewVm,
                     salesVm = salesVm,
                     financeVm = financeVm,
-                    masterVm = masterVm
+                    masterVm = masterVm,
+                    wagesVm = wagesVm,
+                    customersVm = customersVm
                 )
             }
         }

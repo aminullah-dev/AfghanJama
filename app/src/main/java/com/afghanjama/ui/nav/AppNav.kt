@@ -1,13 +1,32 @@
 // app/src/main/java/com/afghanjama/ui/nav/AppNav.kt
 package com.afghanjama.ui.nav
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Checkroom
+import androidx.compose.material.icons.filled.ContentCut
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.filled.VerifiedUser
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.afghanjama.ui.screens.CuttingScreen
+import com.afghanjama.ui.screens.FinanceHubScreen
 import com.afghanjama.ui.screens.InventoryScreen
 import com.afghanjama.ui.screens.LoginScreen
 import com.afghanjama.ui.screens.MasterDataScreen
@@ -16,8 +35,8 @@ import com.afghanjama.ui.screens.PurchasePlanScreen
 import com.afghanjama.ui.screens.ReviewScreen
 import com.afghanjama.ui.screens.SalesScreen
 import com.afghanjama.ui.screens.SewingScreen
-import com.afghanjama.ui.screens.WalletProfitScreen
 import com.afghanjama.ui.vm.AuthViewModel
+import com.afghanjama.ui.vm.CustomerAccountsViewModel
 import com.afghanjama.ui.vm.CuttingViewModel
 import com.afghanjama.ui.vm.FinanceViewModel
 import com.afghanjama.ui.vm.InventoryViewModel
@@ -27,6 +46,44 @@ import com.afghanjama.ui.vm.ReviewViewModel
 import com.afghanjama.ui.vm.SalesViewModel
 import com.afghanjama.ui.vm.SewingViewModel
 import com.afghanjama.ui.vm.UserRole
+import com.afghanjama.ui.vm.WagesViewModel
+
+/** آیتم نوار پایین. */
+private data class BottomItem(
+    val route: String,
+    val label: String,
+    val icon: ImageVector
+)
+
+/** آیتم‌های نوار پایین بر اساس نقش کاربر. */
+private fun bottomItemsFor(role: UserRole): List<BottomItem> = when (role) {
+    UserRole.MANAGER -> listOf(
+        BottomItem(Routes.INVENTORY, "انبار", Icons.Default.Inventory2),
+        BottomItem(Routes.CUTTING, "برش", Icons.Default.ContentCut),
+        BottomItem(Routes.SEWING, "دوخت", Icons.Default.Checkroom),
+        BottomItem(Routes.REVIEW, "نظارت", Icons.Default.VerifiedUser),
+        BottomItem(Routes.SALES, "فروش", Icons.Default.Storefront),
+        BottomItem(Routes.FINANCE, "مالی", Icons.Default.Payments)
+    )
+
+    UserRole.PURCHASE -> listOf(
+        BottomItem(Routes.INVENTORY, "انبار", Icons.Default.Inventory2),
+        BottomItem(Routes.PURCHASE, "خرید", Icons.Default.ShoppingCart)
+    )
+
+    UserRole.SEWING -> listOf(
+        BottomItem(Routes.CUTTING, "برش", Icons.Default.ContentCut),
+        BottomItem(Routes.SEWING, "دوخت", Icons.Default.Checkroom)
+    )
+
+    UserRole.REVIEW -> listOf(
+        BottomItem(Routes.REVIEW, "نظارت", Icons.Default.VerifiedUser)
+    )
+
+    UserRole.SALES -> listOf(
+        BottomItem(Routes.SALES, "فروش", Icons.Default.Storefront)
+    )
+}
 
 @Composable
 fun AppNav(
@@ -38,7 +95,9 @@ fun AppNav(
     reviewVm: ReviewViewModel,
     salesVm: SalesViewModel,
     financeVm: FinanceViewModel,
-    masterVm: MasterDataViewModel
+    masterVm: MasterDataViewModel,
+    wagesVm: WagesViewModel,
+    customersVm: CustomerAccountsViewModel
 ) {
     val navController = rememberNavController()
     val authUi by authVm.ui.collectAsState()
@@ -54,102 +113,145 @@ fun AppNav(
         }
     }
 
-    NavHost(
-        navController = navController,
-        startDestination = start
-    ) {
-        composable(Routes.LOGIN) {
-            LoginScreen(
-                vm = authVm,
-                onLoggedIn = {
-                    val next = when (authVm.ui.value.role) {
-                        UserRole.MANAGER -> Routes.POST_LOGIN
-                        UserRole.PURCHASE -> Routes.PURCHASE
-                        UserRole.SEWING -> Routes.SEWING
-                        UserRole.REVIEW -> Routes.REVIEW
-                        UserRole.SALES -> Routes.SALES
-                    }
-                    navController.navigate(next) {
-                        popUpTo(Routes.LOGIN) { inclusive = true }
-                        launchSingleTop = true
+    val bottomItems = bottomItemsFor(authUi.role)
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = backStackEntry?.destination?.route
+
+    // نوار پایین فقط وقتی کاربر وارد شده و در صفحات اصلی است دیده می‌شود
+    val showBottomBar = authUi.isLoggedIn &&
+        bottomItems.size >= 2 &&
+        currentRoute != null &&
+        currentRoute != Routes.LOGIN &&
+        currentRoute != Routes.POST_LOGIN
+
+    Scaffold(
+        bottomBar = {
+            if (showBottomBar) {
+                NavigationBar {
+                    bottomItems.forEach { item ->
+                        NavigationBarItem(
+                            selected = currentRoute == item.route,
+                            onClick = {
+                                if (currentRoute != item.route) {
+                                    navController.navigate(item.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                }
+                            },
+                            icon = { Icon(item.icon, contentDescription = item.label) },
+                            label = { Text(item.label) }
+                        )
                     }
                 }
-            )
+            }
         }
-
-        composable(Routes.POST_LOGIN) {
-            PostLoginQuoteScreen(
-                onContinue = {
-                    navController.navigate(Routes.INVENTORY) {
-                        popUpTo(Routes.POST_LOGIN) { inclusive = true }
-                        launchSingleTop = true
+    ) { pad ->
+        NavHost(
+            navController = navController,
+            startDestination = start,
+            modifier = Modifier.padding(pad)
+        ) {
+            composable(Routes.LOGIN) {
+                LoginScreen(
+                    vm = authVm,
+                    onLoggedIn = {
+                        val next = when (authVm.ui.value.role) {
+                            UserRole.MANAGER -> Routes.POST_LOGIN
+                            UserRole.PURCHASE -> Routes.PURCHASE
+                            UserRole.SEWING -> Routes.SEWING
+                            UserRole.REVIEW -> Routes.REVIEW
+                            UserRole.SALES -> Routes.SALES
+                        }
+                        navController.navigate(next) {
+                            popUpTo(Routes.LOGIN) { inclusive = true }
+                            launchSingleTop = true
+                        }
                     }
-                }
-            )
-        }
+                )
+            }
 
-        composable(Routes.INVENTORY) {
-            InventoryScreen(
-                vm = inventoryVm,
-                financeVm = financeVm,
-                role = authUi.role,
-                onGoPurchase = { navController.navigate(Routes.PURCHASE) },
-                onGoWallet = { navController.navigate(Routes.WALLET) },
-                onGoMaster = { navController.navigate(Routes.MASTER) },
-                onGoCutting = { navController.navigate(Routes.CUTTING) }
-            )
-        }
+            composable(Routes.POST_LOGIN) {
+                PostLoginQuoteScreen(
+                    onContinue = {
+                        navController.navigate(Routes.INVENTORY) {
+                            popUpTo(Routes.POST_LOGIN) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    }
+                )
+            }
 
-        composable(Routes.PURCHASE) {
-            PurchasePlanScreen(
-                vm = purchaseVm,
-                masterVm = masterVm,
-                financeVm = financeVm,
-                onDone = { navController.popBackStack() }
-            )
-        }
+            composable(Routes.INVENTORY) {
+                InventoryScreen(
+                    vm = inventoryVm,
+                    financeVm = financeVm,
+                    role = authUi.role,
+                    onGoPurchase = { navController.navigate(Routes.PURCHASE) },
+                    onGoWallet = { navController.navigate(Routes.FINANCE) },
+                    onGoMaster = { navController.navigate(Routes.MASTER) },
+                    onGoCutting = { navController.navigate(Routes.CUTTING) }
+                )
+            }
 
-        composable(Routes.WALLET) {
-            WalletProfitScreen(vm = financeVm)
-        }
+            composable(Routes.PURCHASE) {
+                PurchasePlanScreen(
+                    vm = purchaseVm,
+                    masterVm = masterVm,
+                    financeVm = financeVm,
+                    onDone = { navController.popBackStack() }
+                )
+            }
 
-        composable(Routes.MASTER) {
-            MasterDataScreen(
-                vm = masterVm,
-                onBack = { navController.popBackStack() }
-            )
-        }
+            composable(Routes.FINANCE) {
+                FinanceHubScreen(
+                    financeVm = financeVm,
+                    wagesVm = wagesVm,
+                    customersVm = customersVm
+                )
+            }
 
-        composable(Routes.CUTTING) {
-            CuttingScreen(
-                vm = cuttingVm,
-                onBack = { navController.popBackStack() },
-                onGoSewing = { navController.navigate(Routes.SEWING) }
-            )
-        }
+            composable(Routes.MASTER) {
+                MasterDataScreen(
+                    vm = masterVm,
+                    onBack = { navController.popBackStack() }
+                )
+            }
 
-        composable(Routes.SEWING) {
-            SewingScreen(
-                vm = sewingVm,
-                onBack = { navController.popBackStack() },
-                onGoReview = { navController.navigate(Routes.REVIEW) } // ✅ دوخت → نظارت
-            )
-        }
+            composable(Routes.CUTTING) {
+                CuttingScreen(
+                    vm = cuttingVm,
+                    onBack = { navController.popBackStack() },
+                    onGoSewing = { navController.navigate(Routes.SEWING) }
+                )
+            }
 
-        composable(Routes.REVIEW) {
-            ReviewScreen(
-                vm = reviewVm,
-                onBack = { navController.popBackStack() },
-                onGoSales = { navController.navigate(Routes.SALES) },
-                onGoSewing = { navController.navigate(Routes.SEWING) }
-            )
-        }
+            composable(Routes.SEWING) {
+                SewingScreen(
+                    vm = sewingVm,
+                    onBack = { navController.popBackStack() },
+                    onGoReview = { navController.navigate(Routes.REVIEW) } // ✅ دوخت → نظارت
+                )
+            }
 
-        composable(Routes.SALES) {
-            SalesScreen(
-                vm = salesVm,
-                onBack = { navController.popBackStack() }
-            )
+            composable(Routes.REVIEW) {
+                ReviewScreen(
+                    vm = reviewVm,
+                    onBack = { navController.popBackStack() },
+                    onGoSales = { navController.navigate(Routes.SALES) },
+                    onGoSewing = { navController.navigate(Routes.SEWING) }
+                )
+            }
+
+            composable(Routes.SALES) {
+                SalesScreen(
+                    vm = salesVm,
+                    onBack = { navController.popBackStack() }
+                )
+            }
         }
     }
 }

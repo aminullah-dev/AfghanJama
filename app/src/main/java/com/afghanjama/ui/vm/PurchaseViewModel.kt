@@ -3,6 +3,7 @@ package com.afghanjama.ui.vm
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.afghanjama.data.CodeGen
+import com.afghanjama.data.entities.CustomerPayment
 import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.OrderStatus
 import com.afghanjama.data.entities.PaymentSource
@@ -86,6 +87,11 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
         val fabricAmount = s.fabricAmount.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
         val customerPaid = s.customerPaid.toLongOrNull()?.coerceAtLeast(0) ?: 0L
 
+        if (fabricAmount <= 0.0) {
+            _ui.update { it.copy(message = "مقدار پارچه را وارد کنید (بزرگ‌تر از صفر).", isError = true) }
+            return@launch
+        }
+
         val cost = (fabricPrice + s.workCostPrice).coerceAtLeast(0)
 
         val paySrc = runCatching { PaymentSource.valueOf(s.paymentSource.trim().uppercase()) }
@@ -110,7 +116,7 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
             return@launch
         }
 
-        val orderCode = CodeGen.makeOrderCode(nextNumber = (System.currentTimeMillis() % 1_000_000).toInt())
+        val orderCode = CodeGen.makeOrderCode(nextNumber = repo.nextOrderNumber())
         val shortCode = CodeGen.makeShortCode()
 
         val order = Order(
@@ -138,6 +144,15 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
 
         if (customerPaid > 0) {
             repo.income("WALLET", customerPaid, "پرداخت مشتری برای سفارش ${order.orderCode}")
+            // ثبت در حساب مشتری (پیش‌پرداخت)
+            repo.addCustomerPayment(
+                CustomerPayment(
+                    orderId = order.id.toString(),
+                    amount = customerPaid,
+                    source = "ADVANCE",
+                    note = "پیش‌پرداخت سفارش ${order.orderCode}"
+                )
+            )
         }
 
         repo.createOrder(order)

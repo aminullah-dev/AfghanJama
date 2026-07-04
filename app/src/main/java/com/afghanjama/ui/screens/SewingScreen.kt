@@ -10,21 +10,25 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width // ✅ مهم
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
@@ -34,7 +38,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -43,7 +49,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.afghanjama.data.entities.Order
+import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.vm.SewingViewModel
+import java.util.UUID
 
 @Composable
 fun SewingScreen(
@@ -53,9 +61,14 @@ fun SewingScreen(
 ) {
     val cutDone by vm.ordersCutDone.collectAsState(initial = emptyList())
     val sewing by vm.ordersSewing.collectAsState(initial = emptyList())
+    val tailors by vm.tailors.collectAsState(initial = emptyList())
 
     var tab by rememberSaveable { mutableStateOf(0) }
     val tabs = listOf("آماده دوخت", "در حال دوخت")
+
+    // انتخاب خیاط برای هر سفارش (تب آماده دوخت)
+    val pickMap = remember { mutableStateMapOf<UUID, String>() }
+    val menuMap = remember { mutableStateMapOf<UUID, Boolean>() }
 
     Scaffold(
         topBar = {
@@ -114,18 +127,68 @@ fun SewingScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     items(items = list, key = { it.id }) { o ->
-                        SewingOrderCard(
-                            order = o,
-                            primaryLabel = if (tab == 0) "شروع دوخت" else "ارسال به بازرسی",
-                            primaryIcon = if (tab == 0) Icons.Default.PlayArrow else Icons.Default.Done,
-                            onPrimary = {
-                                if (tab == 0) vm.startSewing(o.id)
-                                else {
+                        if (tab == 0) {
+                            val picked = pickMap[o.id].orEmpty()
+                            SewingOrderCard(
+                                order = o,
+                                primaryLabel = "شروع دوخت",
+                                primaryIcon = Icons.Default.PlayArrow,
+                                primaryEnabled = picked.isNotBlank(),
+                                disabledLabel = "اول خیاط را انتخاب کنید",
+                                onPrimary = {
+                                    vm.startSewing(o.id, picked)
+                                },
+                                tailorPicker = {
+                                    OutlinedButton(
+                                        onClick = { menuMap[o.id] = true },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Icon(Icons.Default.ContentCut, contentDescription = null)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            if (picked.isBlank()) "انتخاب خیاط" else picked,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    DropdownMenu(
+                                        expanded = menuMap[o.id] == true,
+                                        onDismissRequest = { menuMap[o.id] = false }
+                                    ) {
+                                        if (tailors.isEmpty()) {
+                                            DropdownMenuItem(
+                                                text = { Text("هیچ خیاطی ثبت نشده (اطلاعات پایه)") },
+                                                onClick = { menuMap[o.id] = false }
+                                            )
+                                        } else {
+                                            tailors.forEach { t ->
+                                                val label = "[${t.code}] ${t.name}"
+                                                DropdownMenuItem(
+                                                    text = { Text(label) },
+                                                    onClick = {
+                                                        pickMap[o.id] = label
+                                                        menuMap[o.id] = false
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            )
+                        } else {
+                            SewingOrderCard(
+                                order = o,
+                                primaryLabel = "ارسال به بازرسی",
+                                primaryIcon = Icons.Default.Done,
+                                primaryEnabled = true,
+                                disabledLabel = "",
+                                onPrimary = {
                                     vm.sendToReview(o.id)
                                     onGoReview()
-                                }
-                            }
-                        )
+                                },
+                                tailorPicker = null
+                            )
+                        }
                     }
                     item { Spacer(Modifier.height(40.dp)) }
                 }
@@ -139,7 +202,10 @@ private fun SewingOrderCard(
     order: Order,
     primaryLabel: String,
     primaryIcon: androidx.compose.ui.graphics.vector.ImageVector,
-    onPrimary: () -> Unit
+    primaryEnabled: Boolean,
+    disabledLabel: String,
+    onPrimary: () -> Unit,
+    tailorPicker: (@Composable () -> Unit)?
 ) {
     val total = order.fabricPrice + order.workCost
 
@@ -168,7 +234,7 @@ private fun SewingOrderCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Text("$total ؋", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(total.afn(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             }
 
             Text(
@@ -176,12 +242,27 @@ private fun SewingOrderCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
+            // خیاط تعیین‌شده (در حال دوخت)
+            order.assignedTailor?.takeIf { it.isNotBlank() }?.let {
+                Text(
+                    text = "خیاط: $it • کارمزد: ${order.workCost.afn()}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            tailorPicker?.invoke()
+
             HorizontalDivider(thickness = 0.5.dp)
 
-            Button(onClick = onPrimary, modifier = Modifier.fillMaxWidth()) {
+            Button(
+                onClick = onPrimary,
+                enabled = primaryEnabled,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Icon(primaryIcon, contentDescription = null)
-                Spacer(Modifier.width(8.dp)) // ✅ حالا بدون خطا
-                Text(primaryLabel)
+                Spacer(Modifier.width(8.dp))
+                Text(if (primaryEnabled) primaryLabel else disabledLabel)
             }
         }
     }

@@ -5,10 +5,12 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.afghanjama.data.dao.CatalogDao
+import com.afghanjama.data.dao.CustomerPaymentDao
 import com.afghanjama.data.dao.FinanceDao
 import com.afghanjama.data.dao.MasterDataDao
 import com.afghanjama.data.dao.OrderCounterDao
 import com.afghanjama.data.dao.OrderDao
+import com.afghanjama.data.dao.TailorWageDao
 import com.afghanjama.data.entities.Customer
 import com.afghanjama.data.entities.CustomerPayment
 import com.afghanjama.data.entities.DesignItem
@@ -20,6 +22,7 @@ import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.OrderCounter
 import com.afghanjama.data.entities.SizeItem
 import com.afghanjama.data.entities.Tailor
+import com.afghanjama.data.entities.TailorWage
 import com.afghanjama.data.entities.Transaction
 import com.afghanjama.data.entities.WorkCost
 
@@ -37,9 +40,10 @@ import com.afghanjama.data.entities.WorkCost
         Customer::class,
         WorkCost::class,
         GarmentDesign::class,
-        CustomerPayment::class
+        CustomerPayment::class,
+        TailorWage::class
     ],
-    version = 17,
+    version = 18,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -49,4 +53,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun financeDao(): FinanceDao
     abstract fun masterDataDao(): MasterDataDao
     abstract fun catalogDao(): CatalogDao
+    abstract fun tailorWageDao(): TailorWageDao
+    abstract fun customerPaymentDao(): CustomerPaymentDao
 }
