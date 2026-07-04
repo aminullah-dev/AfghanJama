@@ -124,6 +124,13 @@ fun CuttingScreen(
                                     Spacer(Modifier.height(0.dp))
                                     Text("برش تمام شد → انتقال به دوخت")
                                 }
+
+                                androidx.compose.material3.TextButton(
+                                    onClick = { vm.backToStock(o.id) },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("↩ برگشت به انبار (اصلاح اشتباه)")
+                                }
                             }
                         }
                     }

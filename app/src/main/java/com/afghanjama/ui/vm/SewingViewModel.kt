@@ -41,6 +41,18 @@ class SewingViewModel(
         )
     }
 
+    /** برگشت از «آماده دوخت» به برش (اصلاح اشتباه). */
+    fun backToCutting(orderId: UUID) = viewModelScope.launch {
+        val o = repo.getOrder(orderId) ?: return@launch
+        repo.updateOrder(o.copy(status = OrderStatus.CUTTING.name))
+    }
+
+    /** برگشت از «در حال دوخت» به آماده دوخت (اصلاح اشتباه). */
+    fun backToCutDone(orderId: UUID) = viewModelScope.launch {
+        val o = repo.getOrder(orderId) ?: return@launch
+        repo.updateOrder(o.copy(status = OrderStatus.CUT_DONE.name))
+    }
+
     // ✅ از دوخت -> بازرسی + ثبت کارمزد خیاط (یک‌بار برای هر سفارش)
     fun sendToReview(orderId: UUID) = viewModelScope.launch {
         val o = repo.getOrder(orderId) ?: return@launch

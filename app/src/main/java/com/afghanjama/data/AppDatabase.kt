@@ -43,7 +43,7 @@ import com.afghanjama.data.entities.WorkCost
         CustomerPayment::class,
         TailorWage::class
     ],
-    version = 18,
+    version = 19,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

@@ -15,4 +15,6 @@ object Routes {
 
     const val FINANCE = "finance"
     const val MASTER = "master"
+    const val SETTINGS = "settings"
+    const val SEARCH = "search"
 }

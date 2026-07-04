@@ -13,9 +13,11 @@ import com.afghanjama.ui.theme.AfghanJamaTheme
 import com.afghanjama.ui.vm.AuthViewModel
 import com.afghanjama.ui.vm.CustomerAccountsViewModel
 import com.afghanjama.ui.vm.CuttingViewModel
+import com.afghanjama.ui.vm.DashboardViewModel
 import com.afghanjama.ui.vm.FinanceViewModel
 import com.afghanjama.ui.vm.InventoryViewModel
 import com.afghanjama.ui.vm.MasterDataViewModel
+import com.afghanjama.ui.vm.OrderSearchViewModel
 import com.afghanjama.ui.vm.PurchaseViewModel
 import com.afghanjama.ui.vm.ReviewViewModel
 import com.afghanjama.ui.vm.SalesViewModel
@@ -50,6 +52,8 @@ class MainActivity : ComponentActivity() {
                 val masterVm = remember { MasterDataViewModel(repo) }
                 val wagesVm = remember { WagesViewModel(repo) }
                 val customersVm = remember { CustomerAccountsViewModel(repo) }
+                val dashboardVm = remember { DashboardViewModel(repo) }
+                val searchVm = remember { OrderSearchViewModel(repo) }
 
                 AppNav(
                     authVm = authVm,
@@ -62,7 +66,9 @@ class MainActivity : ComponentActivity() {
                     financeVm = financeVm,
                     masterVm = masterVm,
                     wagesVm = wagesVm,
-                    customersVm = customersVm
+                    customersVm = customersVm,
+                    dashboardVm = dashboardVm,
+                    searchVm = searchVm
                 )
             }
         }

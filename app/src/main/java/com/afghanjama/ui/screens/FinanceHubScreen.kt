@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material3.AlertDialog
@@ -24,6 +25,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
@@ -47,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.vm.CustomerAccount
 import com.afghanjama.ui.vm.CustomerAccountsViewModel
+import com.afghanjama.ui.vm.DashboardViewModel
 import com.afghanjama.ui.vm.FinanceViewModel
 import com.afghanjama.ui.vm.TailorWageGroup
 import com.afghanjama.ui.vm.WagesViewModel
@@ -55,16 +59,18 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * بخش مالی: کیف پول و تراکنش‌ها + کارمزد خیاط (تسویه هفتگی) + حساب فروشگاه‌ها.
+ * بخش مالی: گزارش‌ها + کیف پول و تراکنش‌ها + کارمزد خیاط (تسویه هفتگی)
+ * + حساب فروشگاه‌ها.
  */
 @Composable
 fun FinanceHubScreen(
     financeVm: FinanceViewModel,
     wagesVm: WagesViewModel,
-    customersVm: CustomerAccountsViewModel
+    customersVm: CustomerAccountsViewModel,
+    dashboardVm: DashboardViewModel
 ) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    val tabs = listOf("کیف پول", "کارمزد خیاط", "حساب فروشگاه‌ها")
+    val tabs = listOf("گزارش", "کیف پول", "کارمزد خیاط", "حساب فروشگاه‌ها")
 
     Scaffold(
         topBar = {
@@ -92,11 +98,183 @@ fun FinanceHubScreen(
             }
 
             when (tab) {
-                0 -> WalletTab(financeVm)
-                1 -> WagesTab(wagesVm)
-                2 -> CustomersTab(customersVm)
+                0 -> DashboardTab(dashboardVm)
+                1 -> WalletTab(financeVm)
+                2 -> WagesTab(wagesVm)
+                3 -> CustomersTab(customersVm)
             }
         }
+    }
+}
+
+// ======================================================
+// تب ۰: گزارش‌ها — آمار زنده کارگاه
+// ======================================================
+@Composable
+private fun DashboardTab(vm: DashboardViewModel) {
+    val s by vm.stats.collectAsState()
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // وضعیت تولید
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "وضعیت تولید",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        StageStat("انبار", s.inStock)
+                        StageStat("برش", s.cutting)
+                        StageStat("دوخت", s.sewing)
+                        StageStat("نظارت", s.review)
+                        StageStat("فروش", s.readyForSale)
+                    }
+                    HorizontalDivider(thickness = 0.5.dp)
+                    Text(
+                        "تحویل‌شده تا امروز: ${s.sentTotal} سفارش",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        // فروش
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "فروش",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        MoneyBlock("۷ روز اخیر", s.sales7.afn())
+                        MoneyBlock("۳۰ روز اخیر", s.sales30.afn())
+                    }
+                }
+            }
+        }
+
+        // فایده خالص
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "فایده (تغییر خالص)",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        MoneyBlock("۷ روز اخیر", s.profitNet7.afn(), highlight = true)
+                        MoneyBlock("۳۰ روز اخیر", s.profitNet30.afn(), highlight = true)
+                    }
+                }
+            }
+        }
+
+        // کارمزد باز
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            "کارمزد تسویه‌نشده خیاط‌ها",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            "${s.openWagesCount} مورد",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Text(
+                        s.openWagesTotal.afn(),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = if (s.openWagesTotal > 0) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        }
+
+        item { Spacer(Modifier.height(80.dp)) }
+    }
+}
+
+@Composable
+private fun StageStat(label: String, count: Int) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            count.toString(),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = if (count > 0) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun MoneyBlock(label: String, value: String, highlight: Boolean = false) {
+    Column {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            value,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = if (highlight) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.onSurface
+        )
     }
 }
 
@@ -362,11 +540,73 @@ private fun WagesTab(vm: WagesViewModel) {
 }
 
 // ======================================================
-// تب ۳: حساب فروشگاه‌ها / مشتری‌ها
+// تب ۳: حساب فروشگاه‌ها / مشتری‌ها + ثبت دریافتی دستی
 // ======================================================
 @Composable
 private fun CustomersTab(vm: CustomerAccountsViewModel) {
     val accounts by vm.accounts.collectAsState()
+
+    // دیالوگ ثبت دریافتی دستی
+    var payTarget by remember { mutableStateOf<CustomerAccount?>(null) }
+    var payAmountText by remember { mutableStateOf("") }
+    var payNote by remember { mutableStateOf("") }
+
+    payTarget?.let { acc ->
+        AlertDialog(
+            onDismissRequest = { payTarget = null },
+            title = { Text("ثبت دریافتی از «${acc.name}»") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (acc.balance > 0) {
+                        Text(
+                            "باقی‌مانده حساب: ${acc.balance.afn()}",
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    OutlinedTextField(
+                        value = payAmountText,
+                        onValueChange = { payAmountText = it.filter(Char::isDigit) },
+                        label = { Text("مبلغ (؋)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = payNote,
+                        onValueChange = { payNote = it },
+                        label = { Text("یادداشت (اختیاری)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        "مبلغ وارد کیف پول و در حساب مشتری ثبت می‌شود.",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val amount = payAmountText.toLongOrNull() ?: 0L
+                        if (amount > 0L) {
+                            vm.addManualPayment(acc.name, amount, payNote)
+                        }
+                        payTarget = null
+                        payAmountText = ""
+                        payNote = ""
+                    }
+                ) { Text("ثبت") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    payTarget = null
+                    payAmountText = ""
+                    payNote = ""
+                }) { Text("لغو") }
+            }
+        )
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -386,7 +626,10 @@ private fun CustomersTab(vm: CustomerAccountsViewModel) {
             item { EmptyHint("هنوز سفارشی با نام مشتری ثبت نشده است.") }
         } else {
             items(accounts, key = { it.name }) { acc ->
-                CustomerAccountCard(acc)
+                CustomerAccountCard(
+                    acc = acc,
+                    onAddPayment = { payTarget = acc }
+                )
             }
         }
 
@@ -395,7 +638,10 @@ private fun CustomersTab(vm: CustomerAccountsViewModel) {
 }
 
 @Composable
-private fun CustomerAccountCard(acc: CustomerAccount) {
+private fun CustomerAccountCard(
+    acc: CustomerAccount,
+    onAddPayment: () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -444,6 +690,15 @@ private fun CustomerAccountCard(acc: CustomerAccount) {
                     value = if (acc.balance > 0) acc.balance.afn() else "✔",
                     highlight = acc.balance > 0
                 )
+            }
+
+            OutlinedButton(
+                onClick = onAddPayment,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("ثبت دریافتی")
             }
         }
     }

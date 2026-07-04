@@ -45,6 +45,12 @@ class SalesViewModel(private val repo: Repo) : ViewModel() {
         _ui.value = _ui.value.copy(earningSoundKey = 0)
     }
 
+    /** برگشت به نظارت (اصلاح اشتباه). */
+    fun backToReview(orderId: UUID) = viewModelScope.launch {
+        val o = repo.getOrder(orderId) ?: return@launch
+        repo.updateOrder(o.copy(status = OrderStatus.REVIEW.name))
+    }
+
     fun completeSale(orderId: UUID, revenue: Long) = viewModelScope.launch {
         clearMessage()
 
@@ -70,6 +76,7 @@ class SalesViewModel(private val repo: Repo) : ViewModel() {
         repo.addCustomerPayment(
             CustomerPayment(
                 orderId = order.id.toString(),
+                customerName = order.customerName,
                 amount = rev,
                 source = "SALE",
                 note = "دریافتی فروش سفارش ${order.orderCode}"

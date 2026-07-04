@@ -6,6 +6,7 @@ import androidx.compose.material.icons.filled.Checkroom
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.VerifiedUser
@@ -30,17 +31,21 @@ import com.afghanjama.ui.screens.FinanceHubScreen
 import com.afghanjama.ui.screens.InventoryScreen
 import com.afghanjama.ui.screens.LoginScreen
 import com.afghanjama.ui.screens.MasterDataScreen
+import com.afghanjama.ui.screens.OrderSearchScreen
 import com.afghanjama.ui.screens.PostLoginQuoteScreen
 import com.afghanjama.ui.screens.PurchasePlanScreen
 import com.afghanjama.ui.screens.ReviewScreen
 import com.afghanjama.ui.screens.SalesScreen
+import com.afghanjama.ui.screens.SettingsScreen
 import com.afghanjama.ui.screens.SewingScreen
 import com.afghanjama.ui.vm.AuthViewModel
 import com.afghanjama.ui.vm.CustomerAccountsViewModel
 import com.afghanjama.ui.vm.CuttingViewModel
+import com.afghanjama.ui.vm.DashboardViewModel
 import com.afghanjama.ui.vm.FinanceViewModel
 import com.afghanjama.ui.vm.InventoryViewModel
 import com.afghanjama.ui.vm.MasterDataViewModel
+import com.afghanjama.ui.vm.OrderSearchViewModel
 import com.afghanjama.ui.vm.PurchaseViewModel
 import com.afghanjama.ui.vm.ReviewViewModel
 import com.afghanjama.ui.vm.SalesViewModel
@@ -68,20 +73,24 @@ private fun bottomItemsFor(role: UserRole): List<BottomItem> = when (role) {
 
     UserRole.PURCHASE -> listOf(
         BottomItem(Routes.INVENTORY, "انبار", Icons.Default.Inventory2),
-        BottomItem(Routes.PURCHASE, "خرید", Icons.Default.ShoppingCart)
+        BottomItem(Routes.PURCHASE, "خرید", Icons.Default.ShoppingCart),
+        BottomItem(Routes.SETTINGS, "تنظیمات", Icons.Default.Settings)
     )
 
     UserRole.SEWING -> listOf(
         BottomItem(Routes.CUTTING, "برش", Icons.Default.ContentCut),
-        BottomItem(Routes.SEWING, "دوخت", Icons.Default.Checkroom)
+        BottomItem(Routes.SEWING, "دوخت", Icons.Default.Checkroom),
+        BottomItem(Routes.SETTINGS, "تنظیمات", Icons.Default.Settings)
     )
 
     UserRole.REVIEW -> listOf(
-        BottomItem(Routes.REVIEW, "نظارت", Icons.Default.VerifiedUser)
+        BottomItem(Routes.REVIEW, "نظارت", Icons.Default.VerifiedUser),
+        BottomItem(Routes.SETTINGS, "تنظیمات", Icons.Default.Settings)
     )
 
     UserRole.SALES -> listOf(
-        BottomItem(Routes.SALES, "فروش", Icons.Default.Storefront)
+        BottomItem(Routes.SALES, "فروش", Icons.Default.Storefront),
+        BottomItem(Routes.SETTINGS, "تنظیمات", Icons.Default.Settings)
     )
 }
 
@@ -97,7 +106,9 @@ fun AppNav(
     financeVm: FinanceViewModel,
     masterVm: MasterDataViewModel,
     wagesVm: WagesViewModel,
-    customersVm: CustomerAccountsViewModel
+    customersVm: CustomerAccountsViewModel,
+    dashboardVm: DashboardViewModel,
+    searchVm: OrderSearchViewModel
 ) {
     val navController = rememberNavController()
     val authUi by authVm.ui.collectAsState()
@@ -192,7 +203,8 @@ fun AppNav(
                     role = authUi.role,
                     onGoPurchase = { navController.navigate(Routes.PURCHASE) },
                     onGoWallet = { navController.navigate(Routes.FINANCE) },
-                    onGoMaster = { navController.navigate(Routes.MASTER) },
+                    onGoSettings = { navController.navigate(Routes.SETTINGS) },
+                    onGoSearch = { navController.navigate(Routes.SEARCH) },
                     onGoCutting = { navController.navigate(Routes.CUTTING) }
                 )
             }
@@ -210,13 +222,35 @@ fun AppNav(
                 FinanceHubScreen(
                     financeVm = financeVm,
                     wagesVm = wagesVm,
-                    customersVm = customersVm
+                    customersVm = customersVm,
+                    dashboardVm = dashboardVm
                 )
             }
 
             composable(Routes.MASTER) {
                 MasterDataScreen(
                     vm = masterVm,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Routes.SETTINGS) {
+                SettingsScreen(
+                    authVm = authVm,
+                    canManageMaster = authUi.role == UserRole.MANAGER,
+                    onGoMaster = { navController.navigate(Routes.MASTER) },
+                    onLoggedOut = {
+                        navController.navigate(Routes.LOGIN) {
+                            popUpTo(0) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    }
+                )
+            }
+
+            composable(Routes.SEARCH) {
+                OrderSearchScreen(
+                    vm = searchVm,
                     onBack = { navController.popBackStack() }
                 )
             }

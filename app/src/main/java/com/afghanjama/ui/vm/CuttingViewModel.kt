@@ -21,4 +21,10 @@ class CuttingViewModel(private val repo: Repo) : ViewModel() {
         val o = repo.getOrder(orderId) ?: return@launch
         repo.updateOrder(o.copy(status = OrderStatus.CUT_DONE.name))
     }
+
+    /** برگشت به انبار (اصلاح اشتباه). */
+    fun backToStock(orderId: UUID) = viewModelScope.launch {
+        val o = repo.getOrder(orderId) ?: return@launch
+        repo.updateOrder(o.copy(status = OrderStatus.IN_STOCK.name))
+    }
 }

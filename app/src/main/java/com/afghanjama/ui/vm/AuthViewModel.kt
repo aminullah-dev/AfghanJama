@@ -97,6 +97,22 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         _ui.update { it.copy(isLoggedIn = true, role = role, message = null, isError = false, isSetupDone = true) }
     }
 
+    /** تغییر رمز با تأیید رمز فعلی. */
+    fun changePin(oldPin: String, newPin: String) {
+        val saved = prefs.getString(KEY_PIN, null)
+        if (saved.isNullOrBlank() || oldPin.trim() != saved) {
+            _ui.update { it.copy(message = "رمز فعلی اشتباه است.", isError = true) }
+            return
+        }
+        val p = newPin.trim()
+        if (p.length < 4) {
+            _ui.update { it.copy(message = "رمز جدید باید حداقل ۴ رقم باشد.", isError = true) }
+            return
+        }
+        prefs.edit().putString(KEY_PIN, p).apply()
+        _ui.update { it.copy(message = "✅ رمز با موفقیت تغییر کرد.", isError = false) }
+    }
+
     fun logout() {
         prefs.edit().putBoolean(KEY_LOGGED_IN, false).apply()
         _ui.update { it.copy(isLoggedIn = false, message = null, isError = false) }

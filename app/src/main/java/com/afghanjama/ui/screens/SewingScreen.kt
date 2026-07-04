@@ -33,6 +33,7 @@ import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -138,6 +139,8 @@ fun SewingScreen(
                                 onPrimary = {
                                     vm.startSewing(o.id, picked)
                                 },
+                                secondaryLabel = "↩ برگشت به برش",
+                                onSecondary = { vm.backToCutting(o.id) },
                                 tailorPicker = {
                                     OutlinedButton(
                                         onClick = { menuMap[o.id] = true },
@@ -186,6 +189,8 @@ fun SewingScreen(
                                     vm.sendToReview(o.id)
                                     onGoReview()
                                 },
+                                secondaryLabel = "↩ برگشت به آماده دوخت",
+                                onSecondary = { vm.backToCutDone(o.id) },
                                 tailorPicker = null
                             )
                         }
@@ -205,6 +210,8 @@ private fun SewingOrderCard(
     primaryEnabled: Boolean,
     disabledLabel: String,
     onPrimary: () -> Unit,
+    secondaryLabel: String? = null,
+    onSecondary: (() -> Unit)? = null,
     tailorPicker: (@Composable () -> Unit)?
 ) {
     val total = order.fabricPrice + order.workCost
@@ -263,6 +270,15 @@ private fun SewingOrderCard(
                 Icon(primaryIcon, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
                 Text(if (primaryEnabled) primaryLabel else disabledLabel)
+            }
+
+            if (secondaryLabel != null && onSecondary != null) {
+                TextButton(
+                    onClick = onSecondary,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(secondaryLabel)
+                }
             }
         }
     }

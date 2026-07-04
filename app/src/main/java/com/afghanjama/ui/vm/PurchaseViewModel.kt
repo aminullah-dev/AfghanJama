@@ -148,6 +148,7 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
             repo.addCustomerPayment(
                 CustomerPayment(
                     orderId = order.id.toString(),
+                    customerName = order.customerName,
                     amount = customerPaid,
                     source = "ADVANCE",
                     note = "پیش‌پرداخت سفارش ${order.orderCode}"

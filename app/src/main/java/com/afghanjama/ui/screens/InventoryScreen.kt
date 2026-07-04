@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.AlertDialog
@@ -61,7 +62,8 @@ fun InventoryScreen(
     role: UserRole,
     onGoPurchase: () -> Unit,
     onGoWallet: () -> Unit,
-    onGoMaster: () -> Unit,
+    onGoSettings: () -> Unit,
+    onGoSearch: () -> Unit,
     onGoCutting: () -> Unit
 ) {
     val orders by vm.ordersInStock.collectAsState(initial = emptyList())
@@ -153,13 +155,16 @@ fun InventoryScreen(
                 title = { Text("انبار") },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
                 actions = {
+                    IconButton(onClick = onGoSearch) {
+                        Icon(Icons.Default.Search, contentDescription = "پیگیری سفارش")
+                    }
                     if (canManage) {
                         IconButton(onClick = onGoWallet) {
-                            Icon(Icons.Default.Payments, contentDescription = "کیف پول")
+                            Icon(Icons.Default.Payments, contentDescription = "بخش مالی")
                         }
-                        IconButton(onClick = onGoMaster) {
-                            Icon(Icons.Default.Settings, contentDescription = "اطلاعات پایه")
-                        }
+                    }
+                    IconButton(onClick = onGoSettings) {
+                        Icon(Icons.Default.Settings, contentDescription = "تنظیمات")
                     }
                 }
             )

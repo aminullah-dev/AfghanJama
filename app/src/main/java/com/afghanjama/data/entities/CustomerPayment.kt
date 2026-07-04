@@ -10,9 +10,10 @@ import androidx.room.PrimaryKey
 )
 data class CustomerPayment(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val orderId: String,              // UUID.toString()
+    val orderId: String,              // UUID.toString() — برای دریافتی دستی خالی است
+    val customerName: String = "",    // برای دریافتی‌های دستی (بدون سفارش)
     val amount: Long,
-    val source: String,               // "CASH" / "WALLET" / ...
+    val source: String,               // "ADVANCE" / "SALE" / "MANUAL"
     val note: String = "",
     val createdAt: Long = System.currentTimeMillis()
 )
