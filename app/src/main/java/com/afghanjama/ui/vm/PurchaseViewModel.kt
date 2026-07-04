@@ -3,6 +3,7 @@ package com.afghanjama.ui.vm
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.afghanjama.data.CodeGen
+import com.afghanjama.data.entities.CustomerPayment
 import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.OrderStatus
 import com.afghanjama.data.entities.PaymentSource
@@ -143,6 +144,15 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
 
         if (customerPaid > 0) {
             repo.income("WALLET", customerPaid, "پرداخت مشتری برای سفارش ${order.orderCode}")
+            // ثبت در حساب مشتری (پیش‌پرداخت)
+            repo.addCustomerPayment(
+                CustomerPayment(
+                    orderId = order.id.toString(),
+                    amount = customerPaid,
+                    source = "ADVANCE",
+                    note = "پیش‌پرداخت سفارش ${order.orderCode}"
+                )
+            )
         }
 
         repo.createOrder(order)

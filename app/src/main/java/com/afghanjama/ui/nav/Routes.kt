@@ -13,6 +13,6 @@ object Routes {
     const val REVIEW = "review"
     const val SALES = "sales"
 
-    const val WALLET = "wallet"
+    const val FINANCE = "finance"
     const val MASTER = "master"
 }

@@ -49,6 +49,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.OrderStatus
+import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.vm.FinanceViewModel
 import com.afghanjama.ui.vm.InventoryViewModel
 import com.afghanjama.ui.vm.UserRole
@@ -188,7 +189,7 @@ fun InventoryScreen(
                         ) {
                             Column {
                                 Text("کیف پول", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text("$wallet ؋", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                                Text(wallet.afn(), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                             }
                             Button(
                                 onClick = { addTarget = "WALLET"; showAddMoney = true }
@@ -208,7 +209,7 @@ fun InventoryScreen(
                         ) {
                             Column {
                                 Text("فایده", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text("$profit ؋", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                                Text(profit.afn(), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                             }
                             Button(
                                 onClick = { addTarget = "PROFIT"; showAddMoney = true }
@@ -342,7 +343,7 @@ private fun OrderCard(
                     )
                 }
                 Text(
-                    text = "$total ؋",
+                    text = total.afn(),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )

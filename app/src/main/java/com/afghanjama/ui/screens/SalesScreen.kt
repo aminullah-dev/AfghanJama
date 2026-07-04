@@ -42,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.sound.PlayRawSoundOnce
 import com.afghanjama.ui.vm.SalesViewModel
 import java.util.UUID
@@ -94,8 +95,8 @@ fun SalesScreen(
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("کیف پول: $wallet ؋", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text("فایده: $profit ؋", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("کیف پول: ${wallet.afn()}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("فایده: ${profit.afn()}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     ui.message?.let {
                         Text(
                             it,
@@ -158,7 +159,7 @@ fun SalesScreen(
                                     )
                                 }
                                 Text(
-                                    text = "هزینه: $cost ؋",
+                                    text = "هزینه: ${cost.afn()}",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.SemiBold
                                 )

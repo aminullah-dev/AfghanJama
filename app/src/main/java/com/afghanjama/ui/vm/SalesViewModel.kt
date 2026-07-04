@@ -3,6 +3,7 @@ package com.afghanjama.ui.vm
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.afghanjama.data.entities.CustomerPayment
 import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.OrderStatus
 import com.afghanjama.data.repo.Repo
@@ -64,6 +65,16 @@ class SalesViewModel(private val repo: Repo) : ViewModel() {
 
         // 1) پول مشتری وارد WALLET
         repo.income("WALLET", rev, "فروش سفارش ${order.orderCode}")
+
+        // ثبت در حساب مشتری (دریافتی فروش)
+        repo.addCustomerPayment(
+            CustomerPayment(
+                orderId = order.id.toString(),
+                amount = rev,
+                source = "SALE",
+                note = "دریافتی فروش سفارش ${order.orderCode}"
+            )
+        )
 
         // 2) سود -> انتقال از WALLET به PROFIT
         if (profit > 0L) {

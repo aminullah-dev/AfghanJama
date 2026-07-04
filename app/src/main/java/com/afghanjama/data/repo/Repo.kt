@@ -2,6 +2,7 @@ package com.afghanjama.data.repo
 
 import com.afghanjama.data.AppDatabase
 import com.afghanjama.data.entities.Customer
+import com.afghanjama.data.entities.CustomerPayment
 import com.afghanjama.data.entities.DesignItem
 import com.afghanjama.data.entities.FabricColor
 import com.afghanjama.data.entities.FabricType
@@ -10,6 +11,7 @@ import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.OrderCounter
 import com.afghanjama.data.entities.SizeItem
 import com.afghanjama.data.entities.Tailor
+import com.afghanjama.data.entities.TailorWage
 import com.afghanjama.data.entities.Transaction
 import com.afghanjama.data.entities.WorkCost
 import kotlinx.coroutines.flow.Flow
@@ -23,6 +25,9 @@ class Repo(private val db: AppDatabase) {
 
     fun observeOrdersByStatus(status: String): Flow<List<Order>> =
         db.orderDao().observeByStatus(status)
+
+    fun observeAllOrders(): Flow<List<Order>> =
+        db.orderDao().observeAll()
 
     suspend fun getOrder(id: UUID): Order? =
         db.orderDao().getById(id)
@@ -78,6 +83,38 @@ class Repo(private val db: AppDatabase) {
             )
         )
     }
+
+    // =========================
+    // Tailor Wages (کارمزد خیاط)
+    // =========================
+
+    fun observePendingWages(): Flow<List<TailorWage>> =
+        db.tailorWageDao().observePending()
+
+    fun observeAllWages(): Flow<List<TailorWage>> =
+        db.tailorWageDao().observeAll()
+
+    suspend fun addTailorWage(wage: TailorWage) =
+        db.tailorWageDao().insert(wage)
+
+    /**
+     * تسویه هفتگی: همه کارمزدهای باز خیاط بسته می‌شود و مبلغ به عنوان
+     * پرداخت از کیف پول در بخش مالی عمومی ثبت می‌شود.
+     */
+    suspend fun settleTailorWages(tailorLabel: String, total: Long) {
+        db.tailorWageDao().settleForTailor(tailorLabel, System.currentTimeMillis())
+        spend("WALLET", total, "تسویه کارمزد خیاط $tailorLabel")
+    }
+
+    // =========================
+    // Customer Payments (حساب فروشگاه/مشتری)
+    // =========================
+
+    fun observeCustomerPayments(): Flow<List<CustomerPayment>> =
+        db.customerPaymentDao().observeAll()
+
+    suspend fun addCustomerPayment(payment: CustomerPayment) =
+        db.customerPaymentDao().insert(payment)
 
     // =========================
     // Master Data
