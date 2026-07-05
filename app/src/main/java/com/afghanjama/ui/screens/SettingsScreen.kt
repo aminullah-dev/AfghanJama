@@ -9,11 +9,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
@@ -36,21 +41,49 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.afghanjama.ui.vm.AuthViewModel
+import com.afghanjama.ui.vm.BackupViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
-/** تنظیمات: اطلاعات پایه (مدیر)، تغییر رمز، خروج از حساب. */
+/** تنظیمات: اطلاعات پایه، پشتیبان‌گیری، خروجی CSV، تغییر رمز، خروج. */
 @Composable
 fun SettingsScreen(
     authVm: AuthViewModel,
+    backupVm: BackupViewModel,
     canManageMaster: Boolean,
+    canBackup: Boolean,
     onGoMaster: () -> Unit,
     onLoggedOut: () -> Unit
 ) {
     val ui by authVm.ui.collectAsState()
+    val backupUi by backupVm.ui.collectAsState()
+    val context = LocalContext.current
+
+    fun stamp(): String =
+        SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())
+
+    val backupLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/octet-stream")
+    ) { uri -> uri?.let { backupVm.backupTo(context, it) } }
+
+    val restoreLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri -> uri?.let { backupVm.restoreFrom(context, it) } }
+
+    val ordersCsvLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri -> uri?.let { backupVm.exportOrdersCsv(context, it) } }
+
+    val txCsvLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri -> uri?.let { backupVm.exportTransactionsCsv(context, it) } }
 
     var oldPin by remember { mutableStateOf("") }
     var newPin by remember { mutableStateOf("") }
@@ -155,6 +188,74 @@ fun SettingsScreen(
                             else MaterialTheme.colorScheme.primary,
                             style = MaterialTheme.typography.bodyMedium
                         )
+                    }
+                }
+            }
+
+            // پشتیبان‌گیری و خروجی داده‌ها — فقط مدیر
+            if (canBackup) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            "پشتیبان‌گیری و خروجی داده‌ها",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            "از کل دیتابیس نسخه پشتیبان بگیرید یا خروجی اکسل (CSV) تهیه کنید.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        OutlinedButton(
+                            onClick = { backupLauncher.launch("afghanjama-backup-${stamp()}.db") },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.CloudUpload, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("پشتیبان‌گیری از دیتابیس")
+                        }
+
+                        OutlinedButton(
+                            onClick = { restoreLauncher.launch(arrayOf("*/*")) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.CloudDownload, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("بازیابی از فایل پشتیبان")
+                        }
+
+                        OutlinedButton(
+                            onClick = { ordersCsvLauncher.launch("orders-${stamp()}.csv") },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Description, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("خروجی سفارش‌ها (CSV)")
+                        }
+
+                        OutlinedButton(
+                            onClick = { txCsvLauncher.launch("transactions-${stamp()}.csv") },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Description, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("خروجی تراکنش‌ها (CSV)")
+                        }
+
+                        backupUi.message?.let { msg ->
+                            Text(
+                                msg,
+                                color = if (backupUi.isError) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = if (backupUi.restartRequired) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
                     }
                 }
             }

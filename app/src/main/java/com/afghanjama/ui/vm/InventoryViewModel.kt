@@ -40,13 +40,9 @@ class InventoryViewModel(private val repo: Repo) : ViewModel() {
             return@launch
         }
 
-        repo.updateOrder(
-            o.copy(
-                designTitle = selectedDesign.ifBlank { o.designTitle },
-                status = OrderStatus.CUTTING.name,
-                stageChangedAt = System.currentTimeMillis()
-            )
-        )
+        repo.changeOrderStatus(o, OrderStatus.CUTTING.name) {
+            it.copy(designTitle = selectedDesign.ifBlank { it.designTitle })
+        }
         _state.update { it.copy(navigateToCutting = true, message = null, isError = false) }
     }
 

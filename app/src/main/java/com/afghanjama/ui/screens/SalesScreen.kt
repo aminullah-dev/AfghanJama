@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -60,6 +61,8 @@ fun SalesScreen(
 
     // مبلغ دریافتی برای هر سفارش
     val paidMap = remember { mutableStateMapOf<UUID, String>() }
+    // تسویه کامل با تخفیف
+    val discountMap = remember { mutableStateMapOf<UUID, Boolean>() }
 
     // ✅ پخش صدا وقتی earningSoundKey تغییر کند
     PlayRawSoundOnce(
@@ -184,13 +187,29 @@ fun SalesScreen(
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.SemiBold
                                 )
+
+                                // اگر کمتر از قیمت توافقی دریافت می‌شود: تخفیف؟
+                                val paidNow = paidText.toLongOrNull() ?: 0L
+                                if (paidNow in 1 until o.agreedPrice) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Checkbox(
+                                            checked = discountMap[o.id] == true,
+                                            onCheckedChange = { discountMap[o.id] = it }
+                                        )
+                                        Text(
+                                            "تسویه کامل با تخفیف (${(o.agreedPrice - paidNow).afn()})",
+                                            style = MaterialTheme.typography.bodySmall
+                                        )
+                                    }
+                                }
                             }
 
                             Button(
                                 onClick = {
                                     val paid = paidText.toLongOrNull() ?: 0L
-                                    vm.completeSale(o.id, paid)
+                                    vm.completeSale(o.id, paid, discountMap[o.id] == true)
                                     paidMap.remove(o.id)
+                                    discountMap.remove(o.id)
                                 },
                                 modifier = Modifier.fillMaxWidth()
                             ) {

@@ -68,7 +68,8 @@ class StockViewModel(private val repo: Repo) : ViewModel() {
                 category = "خرید پارچه"
             )
         }
-        repo.changeFabricStock(type, color, unit, amount)
+        // موجودی + قیمت میانگین (بهای تمام‌شده) به‌روزرسانی می‌شود
+        repo.addFabricPurchase(type, color, unit, amount, totalPrice)
         _ui.update { it.copy(message = "✅ خرید پارچه ثبت و موجودی به‌روز شد.", isError = false) }
     }
 

@@ -48,12 +48,19 @@ class SalesViewModel(private val repo: Repo) : ViewModel() {
     /** برگشت به نظارت (اصلاح اشتباه). */
     fun backToReview(orderId: UUID) = viewModelScope.launch {
         val o = repo.getOrder(orderId) ?: return@launch
-        repo.updateOrder(
-            o.copy(status = OrderStatus.REVIEW.name, stageChangedAt = System.currentTimeMillis())
-        )
+        repo.changeOrderStatus(o, OrderStatus.REVIEW.name)
     }
 
-    fun completeSale(orderId: UUID, revenue: Long) = viewModelScope.launch {
+    /**
+     * تکمیل فروش. اگر [settleWithDiscount] فعال باشد و مبلغ دریافتی از
+     * قیمت توافقی کمتر باشد، اختلاف به عنوان تخفیف ثبت و حساب مشتری
+     * برای این سفارش کاملاً تسویه می‌شود.
+     */
+    fun completeSale(
+        orderId: UUID,
+        revenue: Long,
+        settleWithDiscount: Boolean = false
+    ) = viewModelScope.launch {
         clearMessage()
 
         val order = repo.getOrder(orderId)
@@ -91,20 +98,25 @@ class SalesViewModel(private val repo: Repo) : ViewModel() {
             repo.income("PROFIT", profit, "سود سفارش ${order.orderCode}")
         }
 
-        // 3) وضعیت نهایی
-        repo.updateOrder(
-            order.copy(status = OrderStatus.SENT.name, stageChangedAt = System.currentTimeMillis())
-        )
+        // 3) تخفیف (در صورت انتخاب): قیمت توافقی به مبلغ دریافتی کاهش می‌یابد
+        val discount =
+            if (settleWithDiscount && order.agreedPrice > rev) order.agreedPrice - rev else 0L
 
-        // 4) پیام + صدا
+        // 4) وضعیت نهایی
+        repo.changeOrderStatus(order, OrderStatus.SENT.name) {
+            if (discount > 0) it.copy(agreedPrice = rev) else it
+        }
+
+        // 5) پیام + صدا
+        val discountNote = if (discount > 0) " (تخفیف: $discount ؋)" else ""
         _ui.value = if (profit > 0L) {
             _ui.value.copy(
-                message = "✅ فروش ثبت شد. سود: $profit ؋",
+                message = "✅ فروش ثبت شد. سود: $profit ؋$discountNote",
                 isError = false,
                 earningSoundKey = _ui.value.earningSoundKey + 1
             )
         } else {
-            _ui.value.copy(message = "✅ فروش ثبت شد.", isError = false)
+            _ui.value.copy(message = "✅ فروش ثبت شد.$discountNote", isError = false)
         }
     }
 }

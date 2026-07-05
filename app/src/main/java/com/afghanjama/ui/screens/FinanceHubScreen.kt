@@ -122,6 +122,30 @@ private fun DashboardTab(vm: DashboardViewModel) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        // ⏰ یادآوری تسویه هفتگی کارمزد
+        if (s.wageReminderDue) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                ) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            "⏰ یادآوری تسویه هفتگی",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Text(
+                            "قدیمی‌ترین کارمزد باز ${s.oldestPendingWageDays} روز پیش ثبت شده. مجموع ${s.openWagesTotal.afn()} در تب «کارمزد خیاط» منتظر تسویه است.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                }
+            }
+        }
+
         // وضعیت تولید
         item {
             Card(
@@ -280,6 +304,53 @@ private fun DashboardTab(vm: DashboardViewModel) {
             }
         }
 
+        // بهره‌وری خیاط‌ها
+        if (s.tailorStats.isNotEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "بهره‌وری خیاط‌ها (۳۰ روز)",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        s.tailorStats.forEach { t ->
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        t.label,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        "${t.ordersDone} سفارش • ${t.piecesDone} عدد لباس",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Text(
+                                    t.earned.afn(),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // کارمزد باز
         item {
             Card(
@@ -368,9 +439,68 @@ private val expenseCategories = listOf(
 private fun WalletTab(vm: FinanceViewModel) {
     val wallet by vm.walletBalance.collectAsState()
     val profit by vm.profitBalance.collectAsState()
+    val bank by vm.bankBalance.collectAsState()
     val txList by vm.tx.collectAsState()
 
     var showExpense by remember { mutableStateOf(false) }
+    var showTransfer by remember { mutableStateOf(false) }
+
+    fun boxLabel(v: String) = when (v) {
+        "BANK" -> "بانک"
+        "PROFIT" -> "فایده"
+        else -> "کیف پول"
+    }
+
+    if (showTransfer) {
+        var fromBox by remember { mutableStateOf("WALLET") }
+        var toBox by remember { mutableStateOf("BANK") }
+        var amountText by remember { mutableStateOf("") }
+        var fromMenu by remember { mutableStateOf(false) }
+        var toMenu by remember { mutableStateOf(false) }
+        val boxes = listOf("WALLET", "BANK", "PROFIT")
+
+        AlertDialog(
+            onDismissRequest = { showTransfer = false },
+            title = { Text("انتقال بین صندوق‌ها") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { fromMenu = true }, modifier = Modifier.fillMaxWidth()) {
+                        Text("از: " + boxLabel(fromBox))
+                    }
+                    DropdownMenu(expanded = fromMenu, onDismissRequest = { fromMenu = false }) {
+                        boxes.forEach { b ->
+                            DropdownMenuItem(text = { Text(boxLabel(b)) }, onClick = { fromBox = b; fromMenu = false })
+                        }
+                    }
+                    OutlinedButton(onClick = { toMenu = true }, modifier = Modifier.fillMaxWidth()) {
+                        Text("به: " + boxLabel(toBox))
+                    }
+                    DropdownMenu(expanded = toMenu, onDismissRequest = { toMenu = false }) {
+                        boxes.forEach { b ->
+                            DropdownMenuItem(text = { Text(boxLabel(b)) }, onClick = { toBox = b; toMenu = false })
+                        }
+                    }
+                    OutlinedTextField(
+                        value = amountText,
+                        onValueChange = { amountText = it.filter(Char::isDigit) },
+                        label = { Text("مبلغ (؋)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val amount = amountText.toLongOrNull() ?: 0L
+                    if (amount > 0 && fromBox != toBox) {
+                        vm.transfer(fromBox, toBox, amount, "انتقال از ${boxLabel(fromBox)} به ${boxLabel(toBox)}")
+                    }
+                    showTransfer = false
+                }) { Text("انتقال") }
+            },
+            dismissButton = { TextButton(onClick = { showTransfer = false }) { Text("لغو") } }
+        )
+    }
     if (showExpense) {
         var category by remember { mutableStateOf("") }
         var amountText by remember { mutableStateOf("") }
@@ -449,7 +579,19 @@ private fun WalletTab(vm: FinanceViewModel) {
                     )
                     Text(
                         wallet.afn(),
-                        style = MaterialTheme.typography.titleLarge,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        "بانک",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        bank.afn(),
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
@@ -461,12 +603,16 @@ private fun WalletTab(vm: FinanceViewModel) {
                     )
                     Text(
                         profit.afn(),
-                        style = MaterialTheme.typography.titleLarge,
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
             }
+        }
+
+        OutlinedButton(onClick = { showTransfer = true }, modifier = Modifier.fillMaxWidth()) {
+            Text("⇄ انتقال بین صندوق‌ها")
         }
 
         Button(onClick = { showExpense = true }, modifier = Modifier.fillMaxWidth()) {

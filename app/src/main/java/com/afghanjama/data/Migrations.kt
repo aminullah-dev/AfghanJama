@@ -39,3 +39,25 @@ val MIGRATION_19_20 = object : Migration(19, 20) {
         )
     }
 }
+
+val MIGRATION_20_21 = object : Migration(20, 21) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // قیمت میانگین خرید پارچه (بهای تمام‌شده)
+        db.execSQL("ALTER TABLE fabric_stock ADD COLUMN avgPrice REAL NOT NULL DEFAULT 0")
+
+        // تاریخچه مراحل سفارش
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `order_stage_logs` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`orderId` TEXT NOT NULL, " +
+                "`orderCode` TEXT NOT NULL, " +
+                "`fromStatus` TEXT NOT NULL, " +
+                "`toStatus` TEXT NOT NULL, " +
+                "`at` INTEGER NOT NULL)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_order_stage_logs_orderId` " +
+                "ON `order_stage_logs` (`orderId`)"
+        )
+    }
+}

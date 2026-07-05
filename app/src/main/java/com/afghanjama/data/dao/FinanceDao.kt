@@ -43,4 +43,18 @@ interface FinanceDao {
         """
     )
     fun observeProfitBalance(): Flow<Long>
+
+    @Query(
+        """
+        SELECT COALESCE(SUM(
+            CASE
+                WHEN source = 'BANK' AND type = 'IN'  THEN amount
+                WHEN source = 'BANK' AND type = 'OUT' THEN -amount
+                ELSE 0
+            END
+        ), 0)
+        FROM finance_transactions
+        """
+    )
+    fun observeBankBalance(): Flow<Long>
 }

@@ -29,14 +29,12 @@ class ReviewViewModel(
      */
     fun approve(orderId: UUID, inspectorLabel: String) = viewModelScope.launch {
         val o = repo.getOrder(orderId) ?: return@launch
-        repo.updateOrder(
-            o.copy(
-                assignedInspector = inspectorLabel.ifBlank { o.assignedInspector },
-                reviewed = true,
-                status = OrderStatus.SALES.name,
-                stageChangedAt = System.currentTimeMillis()
+        repo.changeOrderStatus(o, OrderStatus.SALES.name) {
+            it.copy(
+                assignedInspector = inspectorLabel.ifBlank { it.assignedInspector },
+                reviewed = true
             )
-        )
+        }
     }
 
     /**
@@ -44,13 +42,11 @@ class ReviewViewModel(
      */
     fun backToSewing(orderId: UUID, inspectorLabel: String) = viewModelScope.launch {
         val o = repo.getOrder(orderId) ?: return@launch
-        repo.updateOrder(
-            o.copy(
-                assignedInspector = inspectorLabel.ifBlank { o.assignedInspector },
-                reviewed = false,
-                status = OrderStatus.SEWING.name,
-                stageChangedAt = System.currentTimeMillis()
+        repo.changeOrderStatus(o, OrderStatus.SEWING.name) {
+            it.copy(
+                assignedInspector = inspectorLabel.ifBlank { it.assignedInspector },
+                reviewed = false
             )
-        )
+        }
     }
 }

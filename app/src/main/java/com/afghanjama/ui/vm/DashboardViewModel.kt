@@ -24,7 +24,20 @@ data class DashboardStats(
     val openWagesTotal: Long = 0,
     val openWagesCount: Int = 0,
     val expenses30: Long = 0,    // هزینه‌های عمومی ۳۰ روز اخیر
-    val recentSales: List<RecentSale> = emptyList()
+    val recentSales: List<RecentSale> = emptyList(),
+    val tailorStats: List<TailorStat> = emptyList(),
+    /** قدیمی‌ترین کارمزد باز چند روز است؟ (برای یادآوری تسویه هفتگی) */
+    val oldestPendingWageDays: Long = 0
+) {
+    val wageReminderDue: Boolean get() = oldestPendingWageDays >= 7
+}
+
+/** بهره‌وری خیاط در ۳۰ روز اخیر. */
+data class TailorStat(
+    val label: String,
+    val ordersDone: Int,
+    val piecesDone: Int,
+    val earned: Long
 )
 
 /** فروش اخیر با سود واقعی. */
@@ -45,8 +58,9 @@ class DashboardViewModel(repo: Repo) : ViewModel() {
             repo.observeAllOrders(),
             repo.observeCustomerPayments(),
             repo.observeTx(),
-            repo.observePendingWages()
-        ) { orders, payments, tx, wages ->
+            repo.observeAllWages()
+        ) { orders, payments, tx, allWages ->
+            val wages = allWages.filter { !it.settled }
             val now = System.currentTimeMillis()
             val d7 = now - 7L * 24 * 3600 * 1000
             val d30 = now - 30L * 24 * 3600 * 1000
@@ -66,6 +80,24 @@ class DashboardViewModel(repo: Repo) : ViewModel() {
             val saleByOrder = payments
                 .filter { it.source == "SALE" }
                 .groupBy { it.orderId }
+
+            // بهره‌وری خیاط‌ها در ۳۰ روز اخیر (بر اساس دوخت‌های تمام‌شده)
+            val qtyByOrder = orders.associate { it.id.toString() to it.qty }
+            val tailorStats = allWages
+                .filter { it.createdAt >= d30 }
+                .groupBy { it.tailorLabel }
+                .map { (label, ws) ->
+                    TailorStat(
+                        label = label,
+                        ordersDone = ws.size,
+                        piecesDone = ws.sumOf { qtyByOrder[it.orderId] ?: 1 },
+                        earned = ws.sumOf { it.amount }
+                    )
+                }
+                .sortedByDescending { it.piecesDone }
+
+            val oldestPendingDays = wages.minOfOrNull { it.createdAt }
+                ?.let { (now - it) / 86_400_000L } ?: 0L
 
             val recentSales = orders
                 .filter { it.status == OrderStatus.SENT.name }
@@ -97,7 +129,9 @@ class DashboardViewModel(repo: Repo) : ViewModel() {
                 openWagesTotal = wages.sumOf { it.amount },
                 openWagesCount = wages.size,
                 expenses30 = expenses30,
-                recentSales = recentSales
+                recentSales = recentSales,
+                tailorStats = tailorStats,
+                oldestPendingWageDays = oldestPendingDays
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DashboardStats())
 }

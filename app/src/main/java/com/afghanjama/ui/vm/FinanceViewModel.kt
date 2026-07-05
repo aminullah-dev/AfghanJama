@@ -23,6 +23,10 @@ class FinanceViewModel(private val repo: Repo) : ViewModel() {
         repo.observeProfitBalance()
             .stateIn(viewModelScope, SharingStarted.Eagerly, 0L)
 
+    val bankBalance: StateFlow<Long> =
+        repo.observeBankBalance()
+            .stateIn(viewModelScope, SharingStarted.Eagerly, 0L)
+
     val tx: StateFlow<List<Transaction>> =
         repo.observeTx()
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
@@ -44,6 +48,13 @@ class FinanceViewModel(private val repo: Repo) : ViewModel() {
     fun spendWallet(amount: Long, note: String) =
         viewModelScope.launch {
             repo.spend("WALLET", amount, note)
+        }
+
+    /** انتقال بین صندوق‌ها (WALLET / BANK / PROFIT). */
+    fun transfer(from: String, to: String, amount: Long, note: String = "") =
+        viewModelScope.launch {
+            if (amount <= 0L || from == to) return@launch
+            repo.transfer(from, to, amount, note.trim().ifBlank { "انتقال بین صندوق‌ها" })
         }
 
     /** ثبت هزینه عمومی کارگاه (کرایه، برق و آب، معاش، ...) از کیف پول. */

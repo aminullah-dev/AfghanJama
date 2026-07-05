@@ -1,23 +1,29 @@
 // app/src/main/java/com/afghanjama/MainActivity.kt
 package com.afghanjama
 
+import android.Manifest
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.remember
 import androidx.room.Room
 import com.afghanjama.data.AppDatabase
 import com.afghanjama.data.MIGRATION_19_20
+import com.afghanjama.data.MIGRATION_20_21
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.ui.nav.AppNav
 import com.afghanjama.ui.theme.AfghanJamaTheme
 import com.afghanjama.ui.vm.AuthViewModel
+import com.afghanjama.ui.vm.BackupViewModel
 import com.afghanjama.ui.vm.CustomerAccountsViewModel
 import com.afghanjama.ui.vm.CuttingViewModel
 import com.afghanjama.ui.vm.DashboardViewModel
 import com.afghanjama.ui.vm.FinanceViewModel
 import com.afghanjama.ui.vm.InventoryViewModel
 import com.afghanjama.ui.vm.MasterDataViewModel
+import com.afghanjama.ui.vm.OrderDetailViewModel
 import com.afghanjama.ui.vm.OrderSearchViewModel
 import com.afghanjama.ui.vm.PurchaseViewModel
 import com.afghanjama.ui.vm.ReviewViewModel
@@ -31,12 +37,18 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // مجوز نوتیفیکیشن برای یادآوری تسویه هفتگی (اندروید ۱۳+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
+                .launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+
         val db = Room.databaseBuilder(
             applicationContext,
             AppDatabase::class.java,
             "afghanjama.db"
         )
-            .addMigrations(MIGRATION_19_20)
+            .addMigrations(MIGRATION_19_20, MIGRATION_20_21)
             .fallbackToDestructiveMigration()
             .build()
 
@@ -58,6 +70,8 @@ class MainActivity : ComponentActivity() {
                 val dashboardVm = remember { DashboardViewModel(repo) }
                 val searchVm = remember { OrderSearchViewModel(repo) }
                 val stockVm = remember { StockViewModel(repo) }
+                val backupVm = remember { BackupViewModel(repo) }
+                val orderDetailVm = remember { OrderDetailViewModel(repo) }
 
                 AppNav(
                     authVm = authVm,
@@ -73,7 +87,9 @@ class MainActivity : ComponentActivity() {
                     customersVm = customersVm,
                     dashboardVm = dashboardVm,
                     searchVm = searchVm,
-                    stockVm = stockVm
+                    stockVm = stockVm,
+                    backupVm = backupVm,
+                    orderDetailVm = orderDetailVm
                 )
             }
         }

@@ -14,6 +14,10 @@ interface TailorWageDao {
     @Query("SELECT * FROM tailor_wages WHERE settled = 0 ORDER BY createdAt DESC")
     fun observePending(): Flow<List<TailorWage>>
 
+    /** نسخه یک‌باره برای Worker یادآوری. */
+    @Query("SELECT * FROM tailor_wages WHERE settled = 0")
+    suspend fun pendingList(): List<TailorWage>
+
     /** تاریخچه کامل کارمزدها. */
     @Query("SELECT * FROM tailor_wages ORDER BY createdAt DESC")
     fun observeAll(): Flow<List<TailorWage>>

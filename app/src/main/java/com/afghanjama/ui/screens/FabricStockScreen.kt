@@ -62,6 +62,7 @@ private fun unitLabel(v: String): String = when (v.trim().uppercase()) {
 @Composable
 fun FabricStockScreen(
     vm: StockViewModel,
+    canAdjust: Boolean,
     onBack: () -> Unit
 ) {
     val stocks by vm.stocks.collectAsState()
@@ -135,10 +136,17 @@ fun FabricStockScreen(
                     )
 
                     OutlinedButton(onClick = { payMenu = true }, modifier = Modifier.fillMaxWidth()) {
-                        Text("پرداخت از: " + if (paySource == "WALLET") "کیف پول" else "فایده")
+                        Text(
+                            "پرداخت از: " + when (paySource) {
+                                "BANK" -> "بانک"
+                                "PROFIT" -> "فایده"
+                                else -> "کیف پول"
+                            }
+                        )
                     }
                     DropdownMenu(expanded = payMenu, onDismissRequest = { payMenu = false }) {
                         DropdownMenuItem(text = { Text("کیف پول") }, onClick = { paySource = "WALLET"; payMenu = false })
+                        DropdownMenuItem(text = { Text("بانک") }, onClick = { paySource = "BANK"; payMenu = false })
                         DropdownMenuItem(text = { Text("فایده") }, onClick = { paySource = "PROFIT"; payMenu = false })
                     }
                 }
@@ -290,7 +298,10 @@ fun FabricStockScreen(
                                             fontWeight = FontWeight.SemiBold
                                         )
                                         Text(
-                                            "حد هشدار: ${st.minLevel} ${unitLabel(st.fabricUnit)}",
+                                            "حد هشدار: ${st.minLevel} ${unitLabel(st.fabricUnit)}" +
+                                                if (st.avgPrice > 0)
+                                                    " • میانگین خرید: ${st.avgPrice.toLong().afn()}/${unitLabel(st.fabricUnit)}"
+                                                else "",
                                             style = MaterialTheme.typography.labelMedium,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -327,13 +338,15 @@ fun FabricStockScreen(
                                     Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    OutlinedButton(
-                                        onClick = { adjustTarget = st },
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        Icon(Icons.Default.Edit, contentDescription = null)
-                                        Spacer(Modifier.width(6.dp))
-                                        Text("اصلاح")
+                                    if (canAdjust) {
+                                        OutlinedButton(
+                                            onClick = { adjustTarget = st },
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Icon(Icons.Default.Edit, contentDescription = null)
+                                            Spacer(Modifier.width(6.dp))
+                                            Text("اصلاح")
+                                        }
                                     }
                                     OutlinedButton(
                                         onClick = { minTarget = st },

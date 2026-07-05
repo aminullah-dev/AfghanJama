@@ -76,6 +76,7 @@ fun PurchasePlanScreen(
         return when (src) {
             PaymentSource.WALLET -> "کیف پول"
             PaymentSource.PROFIT -> "فایده"
+            PaymentSource.BANK -> "بانک"
             PaymentSource.CUSTOMER -> "مشتری"
             null -> "کیف پول"
         }

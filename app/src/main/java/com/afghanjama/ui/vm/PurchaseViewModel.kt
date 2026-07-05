@@ -92,8 +92,6 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
 
         val qty = s.qty.toIntOrNull()?.coerceAtLeast(1) ?: 1
         val fromStock = s.fabricSource == "STOCK"
-        // پارچهٔ از موجودی، قیمت خرید جداگانه ندارد
-        val fabricPrice = if (fromStock) 0L else s.fabricPrice.toLongOrNull()?.coerceAtLeast(0) ?: 0L
         val fabricAmount = s.fabricAmount.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
         val customerPaid = s.customerPaid.toLongOrNull()?.coerceAtLeast(0) ?: 0L
         val agreedPrice = s.agreedPrice.toLongOrNull()?.coerceAtLeast(0) ?: 0L
@@ -103,7 +101,8 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
             return@launch
         }
 
-        // مصرف از موجودی انبار: اول کنترل موجودی
+        // مصرف از موجودی انبار: کنترل موجودی + بهای تمام‌شده از قیمت میانگین
+        var fabricPrice = if (fromStock) 0L else s.fabricPrice.toLongOrNull()?.coerceAtLeast(0) ?: 0L
         if (fromStock) {
             val stock = repo.getFabricStock(s.fabricType.trim(), s.fabricColor.trim(), s.fabricUnit.trim())
             val available = stock?.amount ?: 0.0
@@ -116,21 +115,27 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
                 }
                 return@launch
             }
+            // پول پارچه قبلاً هنگام خرید انبار پرداخت شده؛ فقط برای سود روی سفارش ثبت می‌شود
+            fabricPrice = ((stock?.avgPrice ?: 0.0) * fabricAmount).toLong()
         }
 
         // ✅ خرج کار برای هر عدد است و در تعداد ضرب می‌شود
         val workCostTotal = s.workCostPrice * qty
-        val cost = (fabricPrice + workCostTotal).coerceAtLeast(0)
+        // آنچه الان باید پرداخت شود (پارچهٔ از موجودی، پرداخت مجدد ندارد)
+        val payNow = (workCostTotal + if (fromStock) 0L else fabricPrice).coerceAtLeast(0)
+        val cost = payNow
 
         val paySrc = runCatching { PaymentSource.valueOf(s.paymentSource.trim().uppercase()) }
             .getOrNull() ?: PaymentSource.WALLET
 
         val wallet = repo.observeWalletBalance().first()
         val profit = repo.observeProfitBalance().first()
+        val bank = repo.observeBankBalance().first()
 
         val canPay = when (paySrc) {
             PaymentSource.WALLET -> wallet >= cost
             PaymentSource.PROFIT -> profit >= cost
+            PaymentSource.BANK -> bank >= cost
             PaymentSource.CUSTOMER -> true
         }
 
@@ -138,6 +143,7 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
             val srcLabel = when (paySrc) {
                 PaymentSource.WALLET -> "کیف پول"
                 PaymentSource.PROFIT -> "فایده"
+                PaymentSource.BANK -> "بانک"
                 PaymentSource.CUSTOMER -> "مشتری"
             }
             _ui.update { it.copy(message = "موجودی $srcLabel کافی نیست. هزینه: $cost ؋", isError = true) }
@@ -167,10 +173,11 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
             stageChangedAt = System.currentTimeMillis()
         )
 
-        if (cost > 0) {
+        if (payNow > 0) {
             when (paySrc) {
-                PaymentSource.WALLET -> repo.spend("WALLET", cost, "خرید/ثبت سفارش ${order.orderCode}")
-                PaymentSource.PROFIT -> repo.spend("PROFIT", cost, "خرید/ثبت سفارش ${order.orderCode}")
+                PaymentSource.WALLET -> repo.spend("WALLET", payNow, "خرید/ثبت سفارش ${order.orderCode}")
+                PaymentSource.PROFIT -> repo.spend("PROFIT", payNow, "خرید/ثبت سفارش ${order.orderCode}")
+                PaymentSource.BANK -> repo.spend("BANK", payNow, "خرید/ثبت سفارش ${order.orderCode}")
                 PaymentSource.CUSTOMER -> { /* فعلاً هیچ */ }
             }
         }

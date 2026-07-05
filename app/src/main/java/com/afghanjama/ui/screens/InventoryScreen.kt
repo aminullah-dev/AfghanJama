@@ -2,6 +2,7 @@
 
 package com.afghanjama.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -66,7 +67,8 @@ fun InventoryScreen(
     onGoSettings: () -> Unit,
     onGoSearch: () -> Unit,
     onGoStock: () -> Unit,
-    onGoCutting: () -> Unit
+    onGoCutting: () -> Unit,
+    onOpenDetail: (Order) -> Unit
 ) {
     val orders by vm.ordersInStock.collectAsState(initial = emptyList())
     val wallet by financeVm.walletBalance.collectAsState(initial = 0L)
@@ -259,7 +261,8 @@ fun InventoryScreen(
                             canSend = canPurchase,
                             onSendToCutting = {
                                 vm.sendToCutting(o.id, o.designTitle)
-                            }
+                            },
+                            onClick = { onOpenDetail(o) }
                         )
                     }
                     item { Spacer(Modifier.height(80.dp)) }
@@ -325,12 +328,15 @@ private fun EmptyInventory(
 private fun OrderCard(
     order: Order,
     canSend: Boolean,
-    onSendToCutting: () -> Unit
+    onSendToCutting: () -> Unit,
+    onClick: () -> Unit
 ) {
     val total = order.fabricPrice + order.workCost
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {

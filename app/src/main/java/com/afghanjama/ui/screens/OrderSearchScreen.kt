@@ -2,6 +2,7 @@
 
 package com.afghanjama.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -59,7 +60,8 @@ private val stageOrder = listOf(
 @Composable
 fun OrderSearchScreen(
     vm: OrderSearchViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onOpenDetail: (Order) -> Unit
 ) {
     val query by vm.query.collectAsState()
     val results by vm.results.collectAsState()
@@ -121,7 +123,7 @@ fun OrderSearchScreen(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         items(results, key = { it.id }) { o ->
-                            SearchResultCard(o)
+                            SearchResultCard(o, onClick = { onOpenDetail(o) })
                         }
                         item { Spacer(Modifier.height(80.dp)) }
                     }
@@ -146,14 +148,16 @@ private fun receiptText(order: Order, stageLabel: String): String = buildString 
 }
 
 @Composable
-private fun SearchResultCard(order: Order) {
+private fun SearchResultCard(order: Order, onClick: () -> Unit) {
     val context = LocalContext.current
     val stageIndex = stageOrder.indexOfFirst { it.first == order.status }.coerceAtLeast(0)
     val stageLabel = stageOrder.getOrNull(stageIndex)?.second ?: order.status
     val progress = (stageIndex + 1) / stageOrder.size.toFloat()
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {

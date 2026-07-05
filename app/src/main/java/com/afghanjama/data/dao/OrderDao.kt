@@ -33,6 +33,9 @@ interface OrderDao {
     @Query("SELECT * FROM orders WHERE id = :id")
     suspend fun getById(id: UUID): Order?
 
+    @Query("SELECT * FROM orders WHERE id = :id")
+    fun observeById(id: UUID): Flow<Order?>
+
     /**
      * درج سفارش جدید یا جایگزینی در صورت تداخل.
      */

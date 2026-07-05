@@ -1,5 +1,6 @@
 package com.afghanjama.data.entities
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -19,5 +20,10 @@ data class FabricStock(
     val fabricUnit: String,           // METER / YARD
     val amount: Double,               // موجودی فعلی
     val minLevel: Double,             // حد هشدار کمبود
+
+    // قیمت میانگین خرید هر واحد (برای بهای تمام‌شده سفارش‌های «از موجودی»)
+    @ColumnInfo(defaultValue = "0")
+    val avgPrice: Double = 0.0,
+
     val updatedAt: Long
 )

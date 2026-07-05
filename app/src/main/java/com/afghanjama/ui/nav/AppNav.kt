@@ -23,12 +23,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
+import androidx.navigation.navArgument
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.afghanjama.ui.screens.CuttingScreen
 import com.afghanjama.ui.screens.FabricStockScreen
+import com.afghanjama.ui.screens.OrderDetailScreen
 import com.afghanjama.ui.screens.FinanceHubScreen
 import com.afghanjama.ui.screens.InventoryScreen
 import com.afghanjama.ui.screens.LoginScreen
@@ -41,16 +44,19 @@ import com.afghanjama.ui.screens.SalesScreen
 import com.afghanjama.ui.screens.SettingsScreen
 import com.afghanjama.ui.screens.SewingScreen
 import com.afghanjama.ui.vm.AuthViewModel
+import com.afghanjama.ui.vm.BackupViewModel
 import com.afghanjama.ui.vm.CustomerAccountsViewModel
 import com.afghanjama.ui.vm.CuttingViewModel
 import com.afghanjama.ui.vm.DashboardViewModel
 import com.afghanjama.ui.vm.FinanceViewModel
 import com.afghanjama.ui.vm.InventoryViewModel
 import com.afghanjama.ui.vm.MasterDataViewModel
+import com.afghanjama.ui.vm.OrderDetailViewModel
 import com.afghanjama.ui.vm.OrderSearchViewModel
 import com.afghanjama.ui.vm.PurchaseViewModel
 import com.afghanjama.ui.vm.ReviewViewModel
 import com.afghanjama.ui.vm.SalesViewModel
+import com.afghanjama.ui.vm.Permissions
 import com.afghanjama.ui.vm.SewingViewModel
 import com.afghanjama.ui.vm.StockViewModel
 import com.afghanjama.ui.vm.UserRole
@@ -113,7 +119,9 @@ fun AppNav(
     customersVm: CustomerAccountsViewModel,
     dashboardVm: DashboardViewModel,
     searchVm: OrderSearchViewModel,
-    stockVm: StockViewModel
+    stockVm: StockViewModel,
+    backupVm: BackupViewModel,
+    orderDetailVm: OrderDetailViewModel
 ) {
     val navController = rememberNavController()
     val authUi by authVm.ui.collectAsState()
@@ -211,7 +219,8 @@ fun AppNav(
                     onGoSettings = { navController.navigate(Routes.SETTINGS) },
                     onGoSearch = { navController.navigate(Routes.SEARCH) },
                     onGoStock = { navController.navigate(Routes.STOCK) },
-                    onGoCutting = { navController.navigate(Routes.CUTTING) }
+                    onGoCutting = { navController.navigate(Routes.CUTTING) },
+                    onOpenDetail = { o -> navController.navigate("${Routes.ORDER_DETAIL}/${o.id}") }
                 )
             }
 
@@ -244,7 +253,9 @@ fun AppNav(
             composable(Routes.SETTINGS) {
                 SettingsScreen(
                     authVm = authVm,
-                    canManageMaster = authUi.role == UserRole.MANAGER,
+                    backupVm = backupVm,
+                    canManageMaster = Permissions.canManageMaster(authUi.role),
+                    canBackup = Permissions.canBackup(authUi.role),
                     onGoMaster = { navController.navigate(Routes.MASTER) },
                     onLoggedOut = {
                         navController.navigate(Routes.LOGIN) {
@@ -258,6 +269,19 @@ fun AppNav(
             composable(Routes.SEARCH) {
                 OrderSearchScreen(
                     vm = searchVm,
+                    onBack = { navController.popBackStack() },
+                    onOpenDetail = { o -> navController.navigate("${Routes.ORDER_DETAIL}/${o.id}") }
+                )
+            }
+
+            composable(
+                route = "${Routes.ORDER_DETAIL}/{orderId}",
+                arguments = listOf(navArgument("orderId") { type = NavType.StringType })
+            ) { entry ->
+                OrderDetailScreen(
+                    vm = orderDetailVm,
+                    orderIdText = entry.arguments?.getString("orderId"),
+                    canReturnSale = Permissions.canReturnSale(authUi.role),
                     onBack = { navController.popBackStack() }
                 )
             }
@@ -265,6 +289,7 @@ fun AppNav(
             composable(Routes.STOCK) {
                 FabricStockScreen(
                     vm = stockVm,
+                    canAdjust = Permissions.canAdjustStock(authUi.role),
                     onBack = { navController.popBackStack() }
                 )
             }

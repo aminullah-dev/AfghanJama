@@ -10,6 +10,7 @@ import com.afghanjama.data.entities.FabricType
 import com.afghanjama.data.entities.Inspector
 import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.OrderCounter
+import com.afghanjama.data.entities.OrderStageLog
 import com.afghanjama.data.entities.SizeItem
 import com.afghanjama.data.entities.Tailor
 import com.afghanjama.data.entities.TailorWage
@@ -33,11 +34,51 @@ class Repo(private val db: AppDatabase) {
     suspend fun getOrder(id: UUID): Order? =
         db.orderDao().getById(id)
 
+    fun observeOrderById(id: UUID): Flow<Order?> =
+        db.orderDao().observeById(id)
+
     suspend fun updateOrder(order: Order) =
         db.orderDao().update(order)
 
-    suspend fun createOrder(order: Order) =
+    suspend fun createOrder(order: Order) {
         db.orderDao().insert(order)
+        // ثبت اولین رکورد تایم‌لاین سفارش
+        db.orderStageLogDao().insert(
+            OrderStageLog(
+                orderId = order.id.toString(),
+                orderCode = order.orderCode,
+                fromStatus = "NEW",
+                toStatus = order.status
+            )
+        )
+    }
+
+    /**
+     * تغییر مرحله سفارش از یک نقطه مرکزی:
+     * زمان مرحله به‌روز و در تاریخچه مراحل ثبت می‌شود.
+     */
+    suspend fun changeOrderStatus(
+        order: Order,
+        newStatus: String,
+        mutate: (Order) -> Order = { it }
+    ) {
+        val now = System.currentTimeMillis()
+        db.orderDao().update(
+            mutate(order).copy(status = newStatus, stageChangedAt = now)
+        )
+        db.orderStageLogDao().insert(
+            OrderStageLog(
+                orderId = order.id.toString(),
+                orderCode = order.orderCode,
+                fromStatus = order.status,
+                toStatus = newStatus,
+                at = now
+            )
+        )
+    }
+
+    fun observeStageLogs(orderId: String): Flow<List<OrderStageLog>> =
+        db.orderStageLogDao().observeForOrder(orderId)
 
     // ✅ NEW: delete order (برای حذف سفارش)
     suspend fun deleteOrder(order: Order) =
@@ -59,6 +100,9 @@ class Repo(private val db: AppDatabase) {
 
     fun observeProfitBalance(): Flow<Long> =
         db.financeDao().observeProfitBalance()
+
+    fun observeBankBalance(): Flow<Long> =
+        db.financeDao().observeBankBalance()
 
     fun observeTx(): Flow<List<Transaction>> =
         db.financeDao().observeTx()
@@ -84,6 +128,20 @@ class Repo(private val db: AppDatabase) {
                 category = category
             )
         )
+    }
+
+    /** انتقال بین صندوق‌ها (کیف پول / بانک / فایده). */
+    suspend fun transfer(from: String, to: String, amount: Long, note: String) {
+        if (from == to || amount <= 0) return
+        spend(from, amount, note)
+        income(to, amount, note)
+    }
+
+    /** یکپارچه‌سازی WAL قبل از پشتیبان‌گیری فایل دیتابیس. */
+    fun checkpoint() {
+        db.openHelper.writableDatabase
+            .query("PRAGMA wal_checkpoint(FULL)")
+            .use { it.moveToFirst() }
     }
 
     // =========================
@@ -127,6 +185,37 @@ class Repo(private val db: AppDatabase) {
 
     suspend fun getFabricStock(type: String, color: String, unit: String): FabricStock? =
         db.fabricStockDao().find(type.trim(), color.trim(), unit.trim())
+
+    /**
+     * خرید پارچه: موجودی زیاد و قیمت میانگین هر واحد به‌روزرسانی می‌شود
+     * (میانگین وزنی برای بهای تمام‌شده سفارش‌های «از موجودی»).
+     */
+    suspend fun addFabricPurchase(
+        type: String,
+        color: String,
+        unit: String,
+        amount: Double,
+        totalPrice: Long
+    ) {
+        if (amount <= 0.0) return
+        val now = System.currentTimeMillis()
+        val cur = db.fabricStockDao().find(type.trim(), color.trim(), unit.trim())
+            ?: FabricStock(
+                fabricType = type.trim(),
+                fabricColor = color.trim(),
+                fabricUnit = unit.trim(),
+                amount = 0.0,
+                minLevel = 0.0,
+                updatedAt = now
+            )
+        val newAmount = cur.amount + amount
+        val newAvg =
+            if (newAmount > 0.0) ((cur.amount * cur.avgPrice) + totalPrice) / newAmount
+            else 0.0
+        db.fabricStockDao().upsert(
+            cur.copy(amount = newAmount, avgPrice = newAvg, updatedAt = now)
+        )
+    }
 
     /** افزایش/کاهش موجودی؛ delta منفی برای مصرف. موجودی زیر صفر نمی‌رود. */
     suspend fun changeFabricStock(type: String, color: String, unit: String, delta: Double) {
