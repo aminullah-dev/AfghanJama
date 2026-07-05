@@ -18,7 +18,7 @@ import kotlinx.coroutines.launch
 
 data class PurchaseUi(
     val designTitle: String = "",
-    val qty: String = "1",
+    val qty: String = "",   // خالی؛ کاربر باید تعداد را وارد کند
 
     val customerName: String = "",
     val customerPhone: String = "",
@@ -56,7 +56,7 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
     val ui: StateFlow<PurchaseUi> = _ui
 
     fun setDesignTitle(v: String) = _ui.update { it.copy(designTitle = v, message = null, isError = false) }
-    fun setQty(v: String) = _ui.update { it.copy(qty = v.filter(Char::isDigit).ifBlank { "1" }, message = null, isError = false) }
+    fun setQty(v: String) = _ui.update { it.copy(qty = v.filter(Char::isDigit), message = null, isError = false) }
 
     fun setCustomerName(v: String) = _ui.update { it.copy(customerName = v, message = null, isError = false) }
     fun setCustomerPhone(v: String) = _ui.update { it.copy(customerPhone = v, message = null, isError = false) }
@@ -85,12 +85,19 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
         val s = _ui.value
         _ui.update { it.copy(message = null, isError = false) }
 
+        // تعداد باید توسط کاربر وارد شود (بدون پیش‌فرض)
+        val qtyInput = s.qty.toIntOrNull()
+        if (qtyInput == null || qtyInput < 1) {
+            _ui.update { it.copy(message = "تعداد سفارش را وارد کنید (حداقل ۱).", isError = true) }
+            return@launch
+        }
+
         if (s.fabricUnit.isBlank()) {
             _ui.update { it.copy(message = "واحد اندازه‌گیری را انتخاب کنید (متر/یارد).", isError = true) }
             return@launch
         }
 
-        val qty = s.qty.toIntOrNull()?.coerceAtLeast(1) ?: 1
+        val qty = qtyInput
         val fromStock = s.fabricSource == "STOCK"
         val fabricAmount = s.fabricAmount.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
         val customerPaid = s.customerPaid.toLongOrNull()?.coerceAtLeast(0) ?: 0L

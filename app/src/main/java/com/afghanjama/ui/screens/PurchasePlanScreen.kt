@@ -102,7 +102,8 @@ fun PurchasePlanScreen(
     var workCostExpanded by remember { mutableStateOf(false) }
     var payExpanded by remember { mutableStateOf(false) }
 
-    val canSubmit = ui.fabricUnit.isNotBlank()
+    val qtyValid = (ui.qty.toIntOrNull() ?: 0) >= 1
+    val canSubmit = ui.fabricUnit.isNotBlank() && qtyValid
 
     Column(
         modifier = Modifier
@@ -156,6 +157,7 @@ fun PurchasePlanScreen(
                     value = ui.qty,
                     onValueChange = vm::setQty,
                     label = { Text("تعداد") },
+                    placeholder = { Text("مثلاً: 10") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
@@ -468,7 +470,7 @@ fun PurchasePlanScreen(
 
             // خلاصه
             item {
-                val qty = ui.qty.toIntOrNull()?.coerceAtLeast(1) ?: 1
+                val qty = ui.qty.toIntOrNull()?.coerceAtLeast(0) ?: 0
                 val fabricPrice = if (ui.fabricSource == "STOCK") 0L else ui.fabricPrice.toLongOrNull() ?: 0L
                 val workTotal = ui.workCostPrice * qty
                 val total = fabricPrice + workTotal
@@ -499,7 +501,13 @@ fun PurchasePlanScreen(
                 ) {
                     Icon(Icons.Default.ShoppingCart, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text(if (canSubmit) "تکمیل خرید → ثبت سفارش" else "اول واحد را انتخاب کنید")
+                    Text(
+                        when {
+                            !qtyValid -> "تعداد را وارد کنید"
+                            ui.fabricUnit.isBlank() -> "اول واحد را انتخاب کنید"
+                            else -> "تکمیل خرید → ثبت سفارش"
+                        }
+                    )
                 }
             }
 

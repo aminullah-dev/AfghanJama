@@ -2,6 +2,7 @@
 
 package com.afghanjama.ui.screens
 
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -19,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -47,6 +49,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -205,6 +208,21 @@ fun SewingScreen(
     }
 }
 
+/** متن رسید تحویل به خیاط برای اشتراک در واتساپ و... */
+private fun handoverReceipt(order: Order, unitWage: Long): String = buildString {
+    appendLine("🧵 رسید تحویل به خیاط — AfghanJama")
+    appendLine("──────────────")
+    appendLine("کد سفارش: ${order.orderCode}")
+    appendLine("طرح: ${order.designTitle}")
+    appendLine("تعداد: ${order.qty} عدد")
+    appendLine("رنگ: ${order.fabricColor.ifBlank { "-" }}")
+    appendLine("سایز: ${order.size.ifBlank { "-" }}")
+    order.assignedTailor?.takeIf { it.isNotBlank() }?.let { appendLine("خیاط: $it") }
+    appendLine("──────────────")
+    appendLine("کارمزد این نوع کار: ${unitWage.afn()} فی عدد")
+    appendLine("جمع کارمزد: ${order.workCost.afn()}")
+}
+
 @Composable
 private fun HandoverRow(label: String, value: String, highlight: Boolean = false) {
     Row(
@@ -308,6 +326,24 @@ private fun SewingOrderCard(
                     HorizontalDivider(thickness = 0.5.dp)
                     HandoverRow("کارمزد این نوع کار", "${unitWage.afn()} فی عدد")
                     HandoverRow("جمع کارمزد", order.workCost.afn(), highlight = true)
+
+                    val context = LocalContext.current
+                    OutlinedButton(
+                        onClick = {
+                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, handoverReceipt(order, unitWage))
+                            }
+                            context.startActivity(
+                                Intent.createChooser(intent, "اشتراک رسید تحویل به خیاط")
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Share, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("اشتراک رسید تحویل (واتساپ)")
+                    }
                 }
             }
 
