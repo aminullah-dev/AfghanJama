@@ -2,6 +2,7 @@
 
 package com.afghanjama.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -205,6 +206,27 @@ fun SewingScreen(
 }
 
 @Composable
+private fun HandoverRow(label: String, value: String, highlight: Boolean = false) {
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (highlight) FontWeight.Bold else FontWeight.Medium,
+            color = if (highlight) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
+@Composable
 private fun SewingOrderCard(
     order: Order,
     primaryLabel: String,
@@ -259,6 +281,35 @@ private fun SewingOrderCard(
                 color = if (days >= STAGE_WARN_DAYS) MaterialTheme.colorScheme.error
                 else MaterialTheme.colorScheme.onSurfaceVariant
             )
+
+            // 📋 مشخصات تحویل به خیاط — تعداد، رنگ، سایز و کارمزد این نوع کار
+            if (tailorPicker != null) {
+                val unitWage = if (order.qty > 0) order.workCost / order.qty else order.workCost
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            MaterialTheme.colorScheme.surfaceVariant,
+                            MaterialTheme.shapes.medium
+                        )
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        "📋 مشخصات تحویل به خیاط",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    HandoverRow("تعداد", "${order.qty} عدد")
+                    HandoverRow("رنگ", order.fabricColor.ifBlank { "-" })
+                    HandoverRow("سایز", order.size.ifBlank { "-" })
+                    HandoverRow("طرح", order.designTitle.ifBlank { "-" })
+                    HorizontalDivider(thickness = 0.5.dp)
+                    HandoverRow("کارمزد این نوع کار", "${unitWage.afn()} فی عدد")
+                    HandoverRow("جمع کارمزد", order.workCost.afn(), highlight = true)
+                }
+            }
 
             // خیاط تعیین‌شده (در حال دوخت)
             order.assignedTailor?.takeIf { it.isNotBlank() }?.let {

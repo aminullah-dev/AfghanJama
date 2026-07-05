@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.rememberScrollState
@@ -19,6 +21,7 @@ import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
@@ -260,6 +263,44 @@ fun SettingsScreen(
                 }
             }
 
+            // 📞 پشتیبانی — برای همه نقش‌ها
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "پشتیبانی",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        "برای گزارش مشکل، پیشنهاد یا سؤال با ما در تماس شوید.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedButton(
+                        onClick = {
+                            runCatching {
+                                val intent = Intent(Intent.ACTION_SENDTO).apply {
+                                    data = Uri.parse("mailto:$SUPPORT_EMAIL")
+                                    putExtra(Intent.EXTRA_SUBJECT, "پشتیبانی اپ AfghanJama")
+                                }
+                                context.startActivity(
+                                    Intent.createChooser(intent, "ارسال ایمیل به پشتیبانی")
+                                )
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Email, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(SUPPORT_EMAIL)
+                    }
+                }
+            }
+
             // خروج از حساب
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -292,3 +333,5 @@ fun SettingsScreen(
         }
     }
 }
+
+private const val SUPPORT_EMAIL = "aminhashemi979@gmail.com"
