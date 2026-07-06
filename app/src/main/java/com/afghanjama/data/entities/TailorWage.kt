@@ -12,7 +12,7 @@ import androidx.room.PrimaryKey
  */
 @Entity(
     tableName = "tailor_wages",
-    indices = [Index(value = ["orderId"], unique = true)]
+    indices = [Index(value = ["orderId"])]
 )
 data class TailorWage(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -20,6 +20,9 @@ data class TailorWage(
     val orderCode: String,
     val tailorLabel: String,          // مثلاً: [T10] احمد
     val amount: Long,
+    // تحویل مرتبط (۰ برای کارمزدهای قدیمیِ کل‌سفارش). برای هر تحویل یک کارمزد.
+    @androidx.room.ColumnInfo(defaultValue = "0")
+    val assignmentId: Long = 0,
     val settled: Boolean = false,
     val settledAt: Long? = null,
     val createdAt: Long = System.currentTimeMillis()

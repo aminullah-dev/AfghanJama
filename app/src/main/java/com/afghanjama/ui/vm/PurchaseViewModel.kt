@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.afghanjama.data.CodeGen
 import com.afghanjama.data.entities.CustomerPayment
 import com.afghanjama.data.entities.Order
+import com.afghanjama.data.entities.OrderFabric
 import com.afghanjama.data.entities.OrderStatus
 import com.afghanjama.data.entities.PaymentSource
 import com.afghanjama.data.repo.Repo
@@ -16,6 +17,16 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/** یک پارچهٔ افزوده‌شده به سفارش. */
+data class FabricLine(
+    val fabricType: String,
+    val fabricColor: String,
+    val fabricUnit: String,
+    val amount: Double,
+    val price: Long,        // برای NEW: قیمت خرید
+    val source: String      // NEW / STOCK
+)
+
 data class PurchaseUi(
     val designTitle: String = "",
     val qty: String = "",   // خالی؛ کاربر باید تعداد را وارد کند
@@ -23,23 +34,25 @@ data class PurchaseUi(
     val customerName: String = "",
     val customerPhone: String = "",
 
+    // ---- ویرایشگر پارچهٔ فعلی (یک ردیف) ----
     val fabricType: String = "",
     val fabricColor: String = "",
     val size: String = "",
-
-    // ✅ بدون پیش‌فرض: کاربر باید انتخاب کند
     val fabricUnit: String = "",
     val fabricAmount: String = "",
-
     val fabricPrice: String = "",
+    // NEW = خرید پارچه جدید، STOCK = مصرف از موجودی انبار
+    val fabricSource: String = "NEW",
+
+    // ---- پارچه‌های افزوده‌شده به سفارش ----
+    val fabrics: List<FabricLine> = emptyList(),
+
     val workCostTitle: String = "",
     val workCostPrice: Long = 0,
 
     val paymentSource: String = PaymentSource.WALLET.name,
     val customerPaid: String = "",
 
-    // NEW = خرید پارچه جدید برای سفارش، STOCK = مصرف از موجودی انبار
-    val fabricSource: String = "NEW",
     // قیمت فروش توافق‌شده با مشتری (اختیاری)
     val agreedPrice: String = "",
 
@@ -71,15 +84,59 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
     fun setFabricPrice(v: String) =
         _ui.update { it.copy(fabricPrice = v.filter(Char::isDigit), message = null, isError = false) }
 
+    fun setFabricSource(v: String) = _ui.update { it.copy(fabricSource = v.trim(), message = null, isError = false) }
+
     fun pickWorkCost(title: String, price: Long) =
         _ui.update { it.copy(workCostTitle = title, workCostPrice = price, message = null, isError = false) }
 
     fun setPaymentSource(v: String) = _ui.update { it.copy(paymentSource = v.trim(), message = null, isError = false) }
-    fun setFabricSource(v: String) = _ui.update { it.copy(fabricSource = v.trim(), message = null, isError = false) }
     fun setAgreedPrice(v: String) =
         _ui.update { it.copy(agreedPrice = v.filter(Char::isDigit), message = null, isError = false) }
     fun setCustomerPaid(v: String) =
         _ui.update { it.copy(customerPaid = v.filter(Char::isDigit), message = null, isError = false) }
+
+    /** ویرایشگر پارچهٔ فعلی را به لیست پارچه‌های سفارش اضافه می‌کند. */
+    fun addFabricLine() {
+        val s = _ui.value
+        val line = buildLineFromEditor(s) ?: run {
+            _ui.update { it.copy(message = "برای افزودن پارچه: نوع، رنگ، واحد و مقدار را کامل کنید.", isError = true) }
+            return
+        }
+        _ui.update {
+            it.copy(
+                fabrics = it.fabrics + line,
+                // پاک‌کردن ویرایشگر برای پارچهٔ بعدی
+                fabricType = "",
+                fabricColor = "",
+                fabricUnit = "",
+                fabricAmount = "",
+                fabricPrice = "",
+                fabricSource = "NEW",
+                message = null,
+                isError = false
+            )
+        }
+    }
+
+    fun removeFabricLine(index: Int) = _ui.update {
+        if (index in it.fabrics.indices) it.copy(fabrics = it.fabrics.toMutableList().apply { removeAt(index) })
+        else it
+    }
+
+    private fun buildLineFromEditor(s: PurchaseUi): FabricLine? {
+        if (s.fabricType.isBlank() || s.fabricColor.isBlank() || s.fabricUnit.isBlank()) return null
+        val amount = s.fabricAmount.toDoubleOrNull() ?: return null
+        if (amount <= 0.0) return null
+        val price = if (s.fabricSource == "STOCK") 0L else s.fabricPrice.toLongOrNull()?.coerceAtLeast(0) ?: 0L
+        return FabricLine(
+            fabricType = s.fabricType.trim(),
+            fabricColor = s.fabricColor.trim(),
+            fabricUnit = s.fabricUnit.trim(),
+            amount = amount,
+            price = price,
+            source = s.fabricSource
+        )
+    }
 
     fun completePurchase() = viewModelScope.launch {
         val s = _ui.value
@@ -91,46 +148,64 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
             _ui.update { it.copy(message = "تعداد سفارش را وارد کنید (حداقل ۱).", isError = true) }
             return@launch
         }
-
-        if (s.fabricUnit.isBlank()) {
-            _ui.update { it.copy(message = "واحد اندازه‌گیری را انتخاب کنید (متر/یارد).", isError = true) }
-            return@launch
-        }
-
         val qty = qtyInput
-        val fromStock = s.fabricSource == "STOCK"
-        val fabricAmount = s.fabricAmount.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
-        val customerPaid = s.customerPaid.toLongOrNull()?.coerceAtLeast(0) ?: 0L
-        val agreedPrice = s.agreedPrice.toLongOrNull()?.coerceAtLeast(0) ?: 0L
 
-        if (fabricAmount <= 0.0) {
-            _ui.update { it.copy(message = "مقدار پارچه را وارد کنید (بزرگ‌تر از صفر).", isError = true) }
+        // پارچه‌ها: لیست افزوده‌شده + در صورت خالی‌بودن، ویرایشگر فعلی
+        val lines = s.fabrics.toMutableList()
+        if (lines.isEmpty()) {
+            val editorLine = buildLineFromEditor(s)
+            if (editorLine != null) lines.add(editorLine)
+        }
+        if (lines.isEmpty()) {
+            _ui.update { it.copy(message = "حداقل یک پارچه برای سفارش اضافه کنید.", isError = true) }
             return@launch
         }
 
-        // مصرف از موجودی انبار: کنترل موجودی + بهای تمام‌شده از قیمت میانگین
-        var fabricPrice = if (fromStock) 0L else s.fabricPrice.toLongOrNull()?.coerceAtLeast(0) ?: 0L
-        if (fromStock) {
-            val stock = repo.getFabricStock(s.fabricType.trim(), s.fabricColor.trim(), s.fabricUnit.trim())
-            val available = stock?.amount ?: 0.0
-            if (available < fabricAmount) {
-                _ui.update {
-                    it.copy(
-                        message = "موجودی پارچه کافی نیست. موجود: $available — لازم: $fabricAmount",
-                        isError = true
-                    )
+        // بهای هر پارچه: NEW از ورودی، STOCK از میانگین انبار + کنترل موجودی
+        val resolved = ArrayList<OrderFabric>(lines.size)
+        var payNow = 0L
+        for (l in lines) {
+            val fromStock = l.source == "STOCK"
+            val price: Long
+            if (fromStock) {
+                val stock = repo.getFabricStock(l.fabricType, l.fabricColor, l.fabricUnit)
+                val available = stock?.amount ?: 0.0
+                if (available < l.amount) {
+                    _ui.update {
+                        it.copy(
+                            message = "موجودی «${l.fabricType} ${l.fabricColor}» کافی نیست. موجود: $available — لازم: ${l.amount}",
+                            isError = true
+                        )
+                    }
+                    return@launch
                 }
-                return@launch
+                price = ((stock?.avgPrice ?: 0.0) * l.amount).toLong()
+                // پارچهٔ از موجودی قبلاً پرداخت شده؛ به payNow اضافه نمی‌شود
+            } else {
+                price = l.price
+                payNow += l.price
             }
-            // پول پارچه قبلاً هنگام خرید انبار پرداخت شده؛ فقط برای سود روی سفارش ثبت می‌شود
-            fabricPrice = ((stock?.avgPrice ?: 0.0) * fabricAmount).toLong()
+            resolved.add(
+                OrderFabric(
+                    orderId = "",
+                    fabricType = l.fabricType,
+                    fabricColor = l.fabricColor,
+                    fabricUnit = l.fabricUnit,
+                    amount = l.amount,
+                    price = price,
+                    source = l.source
+                )
+            )
         }
 
+        val fabricPriceTotal = resolved.sumOf { it.price }
         // ✅ خرج کار برای هر عدد است و در تعداد ضرب می‌شود
         val workCostTotal = s.workCostPrice * qty
-        // آنچه الان باید پرداخت شود (پارچهٔ از موجودی، پرداخت مجدد ندارد)
-        val payNow = (workCostTotal + if (fromStock) 0L else fabricPrice).coerceAtLeast(0)
+        payNow += workCostTotal
         val cost = payNow
+
+        val agreedPrice = s.agreedPrice.toLongOrNull()?.coerceAtLeast(0) ?: 0L
+        val customerPaid = s.customerPaid.toLongOrNull()?.coerceAtLeast(0) ?: 0L
 
         val paySrc = runCatching { PaymentSource.valueOf(s.paymentSource.trim().uppercase()) }
             .getOrNull() ?: PaymentSource.WALLET
@@ -160,18 +235,20 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
         val orderCode = CodeGen.makeOrderCode(nextNumber = repo.nextOrderNumber())
         val shortCode = CodeGen.makeShortCode()
 
+        // فیلدهای تک‌پارچهٔ سفارش = خلاصه (اولین پارچه + جمع قیمت) تا صفحات دیگر کار کنند
+        val first = resolved.first()
         val order = Order(
             orderCode = orderCode,
             shortCode = shortCode,
             designTitle = s.designTitle.trim(),
             qty = qty,
-            fabricType = s.fabricType.trim(),
-            fabricColor = s.fabricColor.trim(),
+            fabricType = if (resolved.size > 1) "${first.fabricType} +${resolved.size - 1}" else first.fabricType,
+            fabricColor = if (resolved.size > 1) "چند رنگ" else first.fabricColor,
             size = s.size.trim(),
-            fabricUnit = s.fabricUnit.trim(),
-            fabricAmount = fabricAmount,
-            fabricSource = s.fabricSource,
-            fabricPrice = fabricPrice,
+            fabricUnit = first.fabricUnit,
+            fabricAmount = first.amount,
+            fabricSource = if (resolved.all { it.source == "STOCK" }) "STOCK" else "NEW",
+            fabricPrice = fabricPriceTotal,
             workCost = workCostTotal,
             agreedPrice = agreedPrice,
             customerName = s.customerName.trim(),
@@ -189,14 +266,13 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
             }
         }
 
-        // کسر پارچه از موجودی انبار
-        if (fromStock) {
-            repo.changeFabricStock(s.fabricType, s.fabricColor, s.fabricUnit, -fabricAmount)
+        // کسر پارچه‌های «از موجودی» از انبار
+        resolved.filter { it.source == "STOCK" }.forEach {
+            repo.changeFabricStock(it.fabricType, it.fabricColor, it.fabricUnit, -it.amount)
         }
 
         if (customerPaid > 0) {
             repo.income("WALLET", customerPaid, "پرداخت مشتری برای سفارش ${order.orderCode}")
-            // ثبت در حساب مشتری (پیش‌پرداخت)
             repo.addCustomerPayment(
                 CustomerPayment(
                     orderId = order.id.toString(),
@@ -208,7 +284,7 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
             )
         }
 
-        repo.createOrder(order)
+        repo.createOrder(order, resolved)
 
         _ui.update { PurchaseUi(message = "✅ خرید ثبت شد و سفارش وارد انبار شد.", isError = false) }
     }

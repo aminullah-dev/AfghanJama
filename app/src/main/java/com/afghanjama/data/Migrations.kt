@@ -61,3 +61,53 @@ val MIGRATION_20_21 = object : Migration(20, 21) {
         )
     }
 }
+
+/**
+ * چند پارچه در هر سفارش + تحویل بخشی از سفارش به چند خیاط.
+ */
+val MIGRATION_21_22 = object : Migration(21, 22) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // چند پارچه در هر سفارش
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `order_fabrics` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`orderId` TEXT NOT NULL, " +
+                "`fabricType` TEXT NOT NULL, " +
+                "`fabricColor` TEXT NOT NULL, " +
+                "`fabricUnit` TEXT NOT NULL, " +
+                "`amount` REAL NOT NULL, " +
+                "`price` INTEGER NOT NULL, " +
+                "`source` TEXT NOT NULL)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_order_fabrics_orderId` " +
+                "ON `order_fabrics` (`orderId`)"
+        )
+
+        // تحویل بخشی از سفارش به خیاط
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `sewing_assignments` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`orderId` TEXT NOT NULL, " +
+                "`orderCode` TEXT NOT NULL, " +
+                "`tailorLabel` TEXT NOT NULL, " +
+                "`qty` INTEGER NOT NULL, " +
+                "`unitWage` INTEGER NOT NULL, " +
+                "`status` TEXT NOT NULL, " +
+                "`createdAt` INTEGER NOT NULL, " +
+                "`doneAt` INTEGER)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_sewing_assignments_orderId` " +
+                "ON `sewing_assignments` (`orderId`)"
+        )
+
+        // کارمزد خیاط: ستون assignmentId + حذف قید یکتای orderId
+        db.execSQL("ALTER TABLE tailor_wages ADD COLUMN assignmentId INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("DROP INDEX IF EXISTS `index_tailor_wages_orderId`")
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_tailor_wages_orderId` " +
+                "ON `tailor_wages` (`orderId`)"
+        )
+    }
+}

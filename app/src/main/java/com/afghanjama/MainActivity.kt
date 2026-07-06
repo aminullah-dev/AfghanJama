@@ -12,6 +12,7 @@ import androidx.room.Room
 import com.afghanjama.data.AppDatabase
 import com.afghanjama.data.MIGRATION_19_20
 import com.afghanjama.data.MIGRATION_20_21
+import com.afghanjama.data.MIGRATION_21_22
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.ui.nav.AppNav
 import com.afghanjama.ui.theme.AfghanJamaTheme
@@ -48,7 +49,7 @@ class MainActivity : ComponentActivity() {
             AppDatabase::class.java,
             "afghanjama.db"
         )
-            .addMigrations(MIGRATION_19_20, MIGRATION_20_21)
+            .addMigrations(MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22)
             .fallbackToDestructiveMigration()
             .build()
 

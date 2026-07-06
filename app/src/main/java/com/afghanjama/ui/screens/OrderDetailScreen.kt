@@ -81,6 +81,8 @@ fun OrderDetailScreen(
     val order by vm.order.collectAsState()
     val logs by vm.stageLogs.collectAsState()
     val payments by vm.payments.collectAsState()
+    val fabrics by vm.fabrics.collectAsState()
+    val assignments by vm.assignments.collectAsState()
     val ui by vm.ui.collectAsState()
 
     var showReturn by remember { mutableStateOf(false) }
@@ -239,6 +241,76 @@ fun OrderDetailScreen(
                         Icon(Icons.Default.Replay, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
                         Text("برگشت فروش (مرجوعی)")
+                    }
+                }
+            }
+
+            // ---------- پارچه‌های سفارش ----------
+            if (fabrics.isNotEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    ) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                "پارچه‌های سفارش (${fabrics.size})",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            fabrics.forEach { f ->
+                                val unitFa = when (f.fabricUnit.uppercase()) {
+                                    FabricUnit.METER.name -> "متر"
+                                    FabricUnit.YARD.name -> "یارد"
+                                    else -> f.fabricUnit
+                                }
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text("${f.fabricType} • ${f.fabricColor}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                        Text(
+                                            "${f.amount} $unitFa • " + if (f.source == "STOCK") "از موجودی" else "خرید جدید",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Text(f.price.afn(), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ---------- تحویل به خیاط‌ها ----------
+            if (assignments.isNotEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    ) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                "تحویل به خیاط‌ها",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            assignments.forEach { a ->
+                                val done = a.status == "DONE"
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(
+                                            "${a.tailorLabel} — ${a.qty} عدد" + if (done) " ✔" else " (در حال دوخت)",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Medium,
+                                            color = if (done) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                    Text(a.totalWage.afn(), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+                        }
                     }
                 }
             }

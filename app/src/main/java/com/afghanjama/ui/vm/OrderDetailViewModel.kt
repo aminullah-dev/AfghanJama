@@ -45,6 +45,16 @@ class OrderDetailViewModel(private val repo: Repo) : ViewModel() {
             .flatMapLatest { repo.observeStageLogs(it.toString()) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    val fabrics: StateFlow<List<com.afghanjama.data.entities.OrderFabric>> =
+        orderId.filterNotNull()
+            .flatMapLatest { repo.observeOrderFabrics(it.toString()) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val assignments: StateFlow<List<com.afghanjama.data.entities.SewingAssignment>> =
+        orderId.filterNotNull()
+            .flatMapLatest { repo.observeAssignmentsForOrder(it.toString()) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     val payments: StateFlow<List<CustomerPayment>> =
         combine(orderId.filterNotNull(), repo.observeCustomerPayments()) { id, all ->
             all.filter { it.orderId == id.toString() }

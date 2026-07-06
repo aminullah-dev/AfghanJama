@@ -26,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -103,7 +104,11 @@ fun PurchasePlanScreen(
     var payExpanded by remember { mutableStateOf(false) }
 
     val qtyValid = (ui.qty.toIntOrNull() ?: 0) >= 1
-    val canSubmit = ui.fabricUnit.isNotBlank() && qtyValid
+    // پارچه معتبر: یا حداقل یک پارچه اضافه شده، یا ویرایشگر فعلی کامل است
+    val editorHasFabric = ui.fabricType.isNotBlank() && ui.fabricColor.isNotBlank() &&
+        ui.fabricUnit.isNotBlank() && (ui.fabricAmount.toDoubleOrNull() ?: 0.0) > 0.0
+    val hasFabric = ui.fabrics.isNotEmpty() || editorHasFabric
+    val canSubmit = qtyValid && hasFabric
 
     Column(
         modifier = Modifier
@@ -384,6 +389,48 @@ fun PurchasePlanScreen(
                 }
             }
 
+            // افزودن پارچه به سفارش (چند پارچه در یک لباس)
+            item {
+                OutlinedButton(
+                    onClick = { vm.addFabricLine() },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("➕ افزودن این پارچه به سفارش")
+                }
+            }
+
+            // لیست پارچه‌های افزوده‌شده
+            if (ui.fabrics.isNotEmpty()) {
+                item {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("پارچه‌های این سفارش", fontWeight = FontWeight.SemiBold)
+                            ui.fabrics.forEachIndexed { i, f ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                                ) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(
+                                            "${f.fabricType} • ${f.fabricColor} • ${f.amount} ${unitLabel(f.fabricUnit)}",
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                        Text(
+                                            if (f.source == "STOCK") "از موجودی انبار"
+                                            else "قیمت: ${f.price.afn()}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    TextButton(onClick = { vm.removeFabricLine(i) }) { Text("حذف") }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // خرج کار
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -471,20 +518,22 @@ fun PurchasePlanScreen(
             // خلاصه
             item {
                 val qty = ui.qty.toIntOrNull()?.coerceAtLeast(0) ?: 0
-                val fabricPrice = if (ui.fabricSource == "STOCK") 0L else ui.fabricPrice.toLongOrNull() ?: 0L
+                // جمع قیمت پارچه‌های «خرید جدید» افزوده‌شده + ویرایشگر فعلی (اگر خرید جدید)
+                val addedNewPrice = ui.fabrics.filter { it.source != "STOCK" }.sumOf { it.price }
+                val editorNewPrice = if (ui.fabricSource != "STOCK") ui.fabricPrice.toLongOrNull() ?: 0L else 0L
+                val fabricPrice = addedNewPrice + editorNewPrice
                 val workTotal = ui.workCostPrice * qty
                 val total = fabricPrice + workTotal
 
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (ui.fabrics.isNotEmpty()) {
+                            Text("تعداد پارچه‌ها: ${ui.fabrics.size}")
+                        }
                         if (ui.workCostPrice > 0) {
                             Text("خرج کار: ${ui.workCostPrice.afn()} × $qty عدد = ${workTotal.afn()}")
                         }
-                        if (ui.fabricSource == "STOCK") {
-                            Text("پارچه از موجودی انبار مصرف می‌شود.")
-                        } else {
-                            Text("قیمت پارچه: ${fabricPrice.afn()}")
-                        }
+                        Text("جمع قیمت پارچه‌های خریدنی: ${fabricPrice.afn()}")
                         Text("جمع کل هزینه: ${total.afn()}", fontWeight = FontWeight.SemiBold)
                         Text("کیف پول: ${walletBalance.afn()}")
                         Text("فایده: ${profitBalance.afn()}")
@@ -504,7 +553,7 @@ fun PurchasePlanScreen(
                     Text(
                         when {
                             !qtyValid -> "تعداد را وارد کنید"
-                            ui.fabricUnit.isBlank() -> "اول واحد را انتخاب کنید"
+                            !hasFabric -> "حداقل یک پارچه اضافه کنید"
                             else -> "تکمیل خرید → ثبت سفارش"
                         }
                     )

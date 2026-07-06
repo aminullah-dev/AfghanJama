@@ -10,7 +10,9 @@ import com.afghanjama.data.entities.FabricType
 import com.afghanjama.data.entities.Inspector
 import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.OrderCounter
+import com.afghanjama.data.entities.OrderFabric
 import com.afghanjama.data.entities.OrderStageLog
+import com.afghanjama.data.entities.SewingAssignment
 import com.afghanjama.data.entities.SizeItem
 import com.afghanjama.data.entities.Tailor
 import com.afghanjama.data.entities.TailorWage
@@ -40,8 +42,12 @@ class Repo(private val db: AppDatabase) {
     suspend fun updateOrder(order: Order) =
         db.orderDao().update(order)
 
-    suspend fun createOrder(order: Order) {
+    suspend fun createOrder(order: Order, fabrics: List<OrderFabric> = emptyList()) {
         db.orderDao().insert(order)
+        // پارچه‌های چندگانه سفارش (اگر داده شده باشد)
+        if (fabrics.isNotEmpty()) {
+            db.orderFabricDao().insertAll(fabrics.map { it.copy(orderId = order.id.toString()) })
+        }
         // ثبت اولین رکورد تایم‌لاین سفارش
         db.orderStageLogDao().insert(
             OrderStageLog(
@@ -52,6 +58,9 @@ class Repo(private val db: AppDatabase) {
             )
         )
     }
+
+    fun observeOrderFabrics(orderId: String): Flow<List<OrderFabric>> =
+        db.orderFabricDao().observeForOrder(orderId)
 
     /**
      * تغییر مرحله سفارش از یک نقطه مرکزی:
@@ -80,9 +89,105 @@ class Repo(private val db: AppDatabase) {
     fun observeStageLogs(orderId: String): Flow<List<OrderStageLog>> =
         db.orderStageLogDao().observeForOrder(orderId)
 
-    // ✅ NEW: delete order (برای حذف سفارش)
-    suspend fun deleteOrder(order: Order) =
+    // ✅ NEW: delete order (برای حذف سفارش) + پاک‌کردن جدول‌های فرزند
+    suspend fun deleteOrder(order: Order) {
+        db.orderFabricDao().deleteForOrder(order.id.toString())
+        db.sewingAssignmentDao().deleteForOrder(order.id.toString())
         db.orderDao().delete(order)
+    }
+
+    // =========================
+    // Sewing Assignments (تحویل بخشی به خیاط)
+    // =========================
+
+    fun observeAssignmentsForOrder(orderId: String): Flow<List<SewingAssignment>> =
+        db.sewingAssignmentDao().observeForOrder(orderId)
+
+    fun observeAssignmentsInProgress(): Flow<List<SewingAssignment>> =
+        db.sewingAssignmentDao().observeInProgress()
+
+    fun observeAllAssignments(): Flow<List<SewingAssignment>> =
+        db.sewingAssignmentDao().observeAll()
+
+    /**
+     * تحویل بخشی از سفارش به یک خیاط. اگر مجموع تحویل‌شده‌ها به تعداد
+     * کل سفارش برسد، وضعیت سفارش به «دوخت» می‌رود.
+     */
+    suspend fun handoutToTailor(order: Order, tailorLabel: String, qty: Int, unitWage: Long) {
+        db.sewingAssignmentDao().insert(
+            SewingAssignment(
+                orderId = order.id.toString(),
+                orderCode = order.orderCode,
+                tailorLabel = tailorLabel,
+                qty = qty,
+                unitWage = unitWage,
+                status = "SEWING"
+            )
+        )
+        val handed = db.sewingAssignmentDao().listForOrder(order.id.toString()).sumOf { it.qty }
+        val label = summarizeTailors(order.id.toString())
+        if (handed >= order.qty && order.status == "CUT_DONE") {
+            changeOrderStatus(order, "SEWING") { it.copy(assignedTailor = label) }
+        } else {
+            db.orderDao().update(order.copy(assignedTailor = label))
+        }
+    }
+
+    /** لغو یک تحویل (اصلاح اشتباه) — فقط تا وقتی دوخت تمام نشده. */
+    suspend fun cancelAssignment(assignmentId: Long) {
+        val a = db.sewingAssignmentDao().getById(assignmentId) ?: return
+        if (a.status != "SEWING") return
+        db.sewingAssignmentDao().deleteById(assignmentId)
+        val order = db.orderDao().getById(java.util.UUID.fromString(a.orderId)) ?: return
+        // اگر سفارش به دوخت رفته بود ولی حالا تحویل ناقص شد، به آماده‌دوخت برگردد
+        val handed = db.sewingAssignmentDao().listForOrder(a.orderId).sumOf { it.qty }
+        val label = summarizeTailors(a.orderId)
+        if (handed < order.qty && order.status == "SEWING") {
+            changeOrderStatus(order, "CUT_DONE") { it.copy(assignedTailor = label) }
+        } else {
+            db.orderDao().update(order.copy(assignedTailor = label))
+        }
+    }
+
+    /**
+     * دوخت یک تحویل تمام شد: کارمزد آن خیاط ثبت و تحویل بسته می‌شود.
+     * اگر همه تحویل‌ها تمام و سفارش کامل تحویل شده باشد، به «نظارت» می‌رود.
+     */
+    suspend fun completeAssignment(assignmentId: Long) {
+        val a = db.sewingAssignmentDao().getById(assignmentId) ?: return
+        if (a.status != "SEWING") return
+        db.sewingAssignmentDao().update(a.copy(status = "DONE", doneAt = System.currentTimeMillis()))
+
+        if (a.totalWage > 0) {
+            db.tailorWageDao().insert(
+                TailorWage(
+                    orderId = a.orderId,
+                    orderCode = a.orderCode,
+                    tailorLabel = a.tailorLabel,
+                    amount = a.totalWage,
+                    assignmentId = a.id
+                )
+            )
+        }
+
+        val order = db.orderDao().getById(java.util.UUID.fromString(a.orderId)) ?: return
+        val all = db.sewingAssignmentDao().listForOrder(a.orderId)
+        val handed = all.sumOf { it.qty }
+        val allDone = all.isNotEmpty() && all.all { it.status == "DONE" }
+        if (allDone && handed >= order.qty && order.status == "SEWING") {
+            changeOrderStatus(order, "REVIEW")
+        }
+    }
+
+    /** خلاصهٔ خیاط‌های یک سفارش برای نمایش در فیلد assignedTailor. */
+    private suspend fun summarizeTailors(orderId: String): String {
+        val list = db.sewingAssignmentDao().listForOrder(orderId)
+        return when {
+            list.isEmpty() -> ""
+            list.size == 1 -> list.first().tailorLabel
+            else -> "${list.size} خیاط"
+        }
+    }
 
     // شماره ترتیبی سفارش (برای جلوگیری از تکراری شدن کد سفارش)
     suspend fun nextOrderNumber(): Int {
