@@ -100,6 +100,7 @@ fun PurchasePlanScreen(
     var colorExpanded by remember { mutableStateOf(false) }
     var sizeExpanded by remember { mutableStateOf(false) }
     var unitExpanded by remember { mutableStateOf(false) }
+    var amountModeExpanded by remember { mutableStateOf(false) }
     var workCostExpanded by remember { mutableStateOf(false) }
     var payExpanded by remember { mutableStateOf(false) }
 
@@ -332,6 +333,29 @@ fun PurchasePlanScreen(
                             }
                         }
                     }
+
+                    // مقدار بر اساس: کل سفارش یا فی‌عدد
+                    OutlinedTextField(
+                        value = if (ui.fabricAmountPerPiece) "فی عدد (× تعداد)" else "کل سفارش",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("این مقدار برای…") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    OutlinedButton(onClick = { amountModeExpanded = true }, modifier = Modifier.fillMaxWidth()) {
+                        Text("انتخاب نوع مقدار")
+                    }
+                    DropdownMenu(expanded = amountModeExpanded, onDismissRequest = { amountModeExpanded = false }) {
+                        DropdownMenuItem(
+                            text = { Text("کل سفارش") },
+                            onClick = { vm.setFabricAmountPerPiece(false); amountModeExpanded = false }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("فی عدد (× تعداد لباس)") },
+                            onClick = { vm.setFabricAmountPerPiece(true); amountModeExpanded = false }
+                        )
+                    }
                 }
             }
 
@@ -434,31 +458,47 @@ fun PurchasePlanScreen(
             // خرج کار (چند مورد: دکمه، لایی چسب، نوار زیبایی، ...)
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    val workLabel =
-                        if (ui.workCostTitle.isBlank()) "انتخاب خرج کار (اختیاری)"
-                        else "${ui.workCostTitle} — ${ui.workCostPrice.afn()}"
+                    Text(
+                        "خرج کار (قیمت‌ها فی‌عدد است)",
+                        style = MaterialTheme.typography.labelLarge
+                    )
 
+                    // ورود دستی/زنده — یا انتخاب از کاتالوگ که همین‌ها را پر می‌کند
                     OutlinedTextField(
-                        value = workLabel,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("خرج کار") },
+                        value = ui.workCostTitle,
+                        onValueChange = vm::setWorkCostTitle,
+                        label = { Text("عنوان خرج کار (مثلاً: دکمه)") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
+                    OutlinedTextField(
+                        value = if (ui.workCostPrice > 0) ui.workCostPrice.toString() else "",
+                        onValueChange = vm::setWorkCostPrice,
+                        label = { Text("قیمت فی‌عدد (؋)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
                     OutlinedButton(onClick = { workCostExpanded = true }, modifier = Modifier.fillMaxWidth()) {
-                        Text("انتخاب از لیست خرج کار")
+                        Text("یا انتخاب از لیست خرج کار (فی‌عدد)")
                     }
 
                     DropdownMenu(expanded = workCostExpanded, onDismissRequest = { workCostExpanded = false }) {
-                        workCosts.forEach { w ->
+                        if (workCosts.isEmpty()) {
                             DropdownMenuItem(
-                                text = { Text("${w.title} — ${w.price.afn()}") },
-                                onClick = {
-                                    vm.pickWorkCost(w.title, w.price)
-                                    workCostExpanded = false
-                                }
+                                text = { Text("لیستی ثبت نشده — دستی وارد کنید") },
+                                onClick = { workCostExpanded = false }
                             )
+                        } else {
+                            workCosts.forEach { w ->
+                                DropdownMenuItem(
+                                    text = { Text("${w.title} — ${w.price.afn()} فی‌عدد") },
+                                    onClick = {
+                                        vm.pickWorkCost(w.title, w.price)
+                                        workCostExpanded = false
+                                    }
+                                )
+                            }
                         }
                     }
 

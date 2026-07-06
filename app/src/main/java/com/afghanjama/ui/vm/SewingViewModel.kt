@@ -81,4 +81,15 @@ class SewingViewModel(
         val o = repo.getOrder(orderId) ?: return@launch
         repo.changeOrderStatus(o, OrderStatus.CUTTING.name)
     }
+
+    /**
+     * ارسال سفارش به نظارت در هر لحظه — بدون نیاز به تکمیل همه تحویل‌ها.
+     * (هرچه آماده است جلو می‌رود؛ تحویل‌های در حال دوخت همچنان قابل تکمیل‌اند.)
+     */
+    fun sendToReview(orderId: UUID) = viewModelScope.launch {
+        val o = repo.getOrder(orderId) ?: return@launch
+        if (o.status == OrderStatus.CUT_DONE.name || o.status == OrderStatus.SEWING.name) {
+            repo.changeOrderStatus(o, OrderStatus.REVIEW.name)
+        }
+    }
 }

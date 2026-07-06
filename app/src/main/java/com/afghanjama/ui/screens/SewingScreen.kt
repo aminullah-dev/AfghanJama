@@ -116,7 +116,11 @@ fun SewingScreen(
                                 tailorLabels = tailors.map { "[${it.code}] ${it.name}" },
                                 onHandout = { label, qty, wage -> vm.handout(h.order.id, label, qty, wage) },
                                 onCancelAssignment = { vm.cancelAssignment(it) },
-                                onBackToCutting = { vm.backToCutting(h.order.id) }
+                                onBackToCutting = { vm.backToCutting(h.order.id) },
+                                onSendToReview = {
+                                    vm.sendToReview(h.order.id)
+                                    onGoReview()
+                                }
                             )
                         }
                         item { Spacer(Modifier.height(40.dp)) }
@@ -168,7 +172,8 @@ private fun HandoutCard(
     tailorLabels: List<String>,
     onHandout: (String, Int, Long) -> Unit,
     onCancelAssignment: (Long) -> Unit,
-    onBackToCutting: () -> Unit
+    onBackToCutting: () -> Unit,
+    onSendToReview: () -> Unit
 ) {
     val order = handout.order
     val unitWage = if (order.qty > 0) order.workCost / order.qty else order.workCost
@@ -293,6 +298,17 @@ private fun HandoutCard(
                     TextButton(onClick = onBackToCutting, modifier = Modifier.fillMaxWidth()) {
                         Text("↩ برگشت به برش (اصلاح اشتباه)")
                     }
+                }
+            }
+
+            // ارسال به نظارت در هر لحظه (بدون نیاز به تکمیل همه)
+            if (handout.assignments.isNotEmpty()) {
+                HorizontalDivider(thickness = 0.5.dp)
+                Button(
+                    onClick = onSendToReview,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("ارسال به نظارت (هرچه آماده است)")
                 }
             }
         }

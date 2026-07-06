@@ -24,6 +24,7 @@ data class FabricLine(
     val fabricColor: String,
     val fabricUnit: String,
     val amount: Double,
+    val perPiece: Boolean,  // مقدار فی‌عدد است یا کل سفارش
     val price: Long,        // برای NEW: قیمت خرید
     val source: String      // NEW / STOCK
 )
@@ -47,6 +48,8 @@ data class PurchaseUi(
     val size: String = "",
     val fabricUnit: String = "",
     val fabricAmount: String = "",
+    // مقدار پارچه فی‌عدد است یا کل سفارش (پیش‌فرض: کل)
+    val fabricAmountPerPiece: Boolean = false,
     val fabricPrice: String = "",
     // NEW = خرید پارچه جدید، STOCK = مصرف از موجودی انبار
     val fabricSource: String = "NEW",
@@ -90,14 +93,19 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
 
     fun setFabricUnit(v: String) = _ui.update { it.copy(fabricUnit = v.trim(), message = null, isError = false) }
     fun setFabricAmount(v: String) = _ui.update { it.copy(fabricAmount = v, message = null, isError = false) }
+    fun setFabricAmountPerPiece(b: Boolean) = _ui.update { it.copy(fabricAmountPerPiece = b, message = null, isError = false) }
 
     fun setFabricPrice(v: String) =
         _ui.update { it.copy(fabricPrice = v.filter(Char::isDigit), message = null, isError = false) }
 
     fun setFabricSource(v: String) = _ui.update { it.copy(fabricSource = v.trim(), message = null, isError = false) }
 
+    // خرج کار: انتخاب از کاتالوگ یا ورود دستی (زنده)
     fun pickWorkCost(title: String, price: Long) =
         _ui.update { it.copy(workCostTitle = title, workCostPrice = price, message = null, isError = false) }
+    fun setWorkCostTitle(v: String) = _ui.update { it.copy(workCostTitle = v, message = null, isError = false) }
+    fun setWorkCostPrice(v: String) =
+        _ui.update { it.copy(workCostPrice = v.filter(Char::isDigit).toLongOrNull() ?: 0L, message = null, isError = false) }
 
     /** خرج‌کارِ انتخاب‌شدهٔ فعلی را به لیست سفارش اضافه می‌کند. */
     fun addWorkItem() {
@@ -143,6 +151,7 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
                 fabricColor = "",
                 fabricUnit = "",
                 fabricAmount = "",
+                fabricAmountPerPiece = false,
                 fabricPrice = "",
                 fabricSource = "NEW",
                 message = null,
@@ -166,6 +175,7 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
             fabricColor = s.fabricColor.trim(),
             fabricUnit = s.fabricUnit.trim(),
             amount = amount,
+            perPiece = s.fabricAmountPerPiece,
             price = price,
             source = s.fabricSource
         )
@@ -199,20 +209,22 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
         var payNow = 0L
         for (l in lines) {
             val fromStock = l.source == "STOCK"
+            // مقدار مؤثر کل: اگر فی‌عدد باشد در تعداد ضرب می‌شود
+            val totalAmount = if (l.perPiece) l.amount * qty else l.amount
             val price: Long
             if (fromStock) {
                 val stock = repo.getFabricStock(l.fabricType, l.fabricColor, l.fabricUnit)
                 val available = stock?.amount ?: 0.0
-                if (available < l.amount) {
+                if (available < totalAmount) {
                     _ui.update {
                         it.copy(
-                            message = "موجودی «${l.fabricType} ${l.fabricColor}» کافی نیست. موجود: $available — لازم: ${l.amount}",
+                            message = "موجودی «${l.fabricType} ${l.fabricColor}» کافی نیست. موجود: $available — لازم: $totalAmount",
                             isError = true
                         )
                     }
                     return@launch
                 }
-                price = ((stock?.avgPrice ?: 0.0) * l.amount).toLong()
+                price = ((stock?.avgPrice ?: 0.0) * totalAmount).toLong()
                 // پارچهٔ از موجودی قبلاً پرداخت شده؛ به payNow اضافه نمی‌شود
             } else {
                 price = l.price
@@ -224,7 +236,7 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
                     fabricType = l.fabricType,
                     fabricColor = l.fabricColor,
                     fabricUnit = l.fabricUnit,
-                    amount = l.amount,
+                    amount = totalAmount,   // مقدار کل مصرف ذخیره می‌شود
                     price = price,
                     source = l.source
                 )
