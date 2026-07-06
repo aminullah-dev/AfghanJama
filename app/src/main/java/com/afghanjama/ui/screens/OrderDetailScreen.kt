@@ -82,6 +82,7 @@ fun OrderDetailScreen(
     val logs by vm.stageLogs.collectAsState()
     val payments by vm.payments.collectAsState()
     val fabrics by vm.fabrics.collectAsState()
+    val workItems by vm.workItems.collectAsState()
     val assignments by vm.assignments.collectAsState()
     val ui by vm.ui.collectAsState()
 
@@ -276,6 +277,36 @@ fun OrderDetailScreen(
                                     }
                                     Text(f.price.afn(), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                                 }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ---------- خرج‌کارهای سفارش ----------
+            if (workItems.isNotEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    ) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                "خرج‌کارها (فی‌عدد)",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            workItems.forEach { w ->
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text(w.title, style = MaterialTheme.typography.bodyMedium)
+                                    Text(w.price.afn(), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+                            HorizontalDivider(thickness = 0.5.dp)
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("جمع فی‌عدد × ${o.qty}", fontWeight = FontWeight.Medium)
+                                Text(o.workCost.afn(), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                             }
                         }
                     }

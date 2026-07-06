@@ -7,6 +7,7 @@ import com.afghanjama.data.entities.CustomerPayment
 import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.OrderFabric
 import com.afghanjama.data.entities.OrderStatus
+import com.afghanjama.data.entities.OrderWorkItem
 import com.afghanjama.data.entities.PaymentSource
 import com.afghanjama.data.repo.Repo
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +26,12 @@ data class FabricLine(
     val amount: Double,
     val price: Long,        // برای NEW: قیمت خرید
     val source: String      // NEW / STOCK
+)
+
+/** یک خرج‌کار افزوده‌شده به سفارش (دکمه، لایی چسب، ...). قیمت فی‌عدد. */
+data class WorkItemLine(
+    val title: String,
+    val price: Long
 )
 
 data class PurchaseUi(
@@ -47,8 +54,11 @@ data class PurchaseUi(
     // ---- پارچه‌های افزوده‌شده به سفارش ----
     val fabrics: List<FabricLine> = emptyList(),
 
+    // ویرایشگر خرج‌کار فعلی (انتخاب از کاتالوگ)
     val workCostTitle: String = "",
     val workCostPrice: Long = 0,
+    // خرج‌کارهای افزوده‌شده به سفارش
+    val workItems: List<WorkItemLine> = emptyList(),
 
     val paymentSource: String = PaymentSource.WALLET.name,
     val customerPaid: String = "",
@@ -88,6 +98,29 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
 
     fun pickWorkCost(title: String, price: Long) =
         _ui.update { it.copy(workCostTitle = title, workCostPrice = price, message = null, isError = false) }
+
+    /** خرج‌کارِ انتخاب‌شدهٔ فعلی را به لیست سفارش اضافه می‌کند. */
+    fun addWorkItem() {
+        val s = _ui.value
+        if (s.workCostTitle.isBlank() || s.workCostPrice <= 0L) {
+            _ui.update { it.copy(message = "یک خرج‌کار از لیست انتخاب کنید.", isError = true) }
+            return
+        }
+        _ui.update {
+            it.copy(
+                workItems = it.workItems + WorkItemLine(s.workCostTitle, s.workCostPrice),
+                workCostTitle = "",
+                workCostPrice = 0,
+                message = null,
+                isError = false
+            )
+        }
+    }
+
+    fun removeWorkItem(index: Int) = _ui.update {
+        if (index in it.workItems.indices) it.copy(workItems = it.workItems.toMutableList().apply { removeAt(index) })
+        else it
+    }
 
     fun setPaymentSource(v: String) = _ui.update { it.copy(paymentSource = v.trim(), message = null, isError = false) }
     fun setAgreedPrice(v: String) =
@@ -199,8 +232,15 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
         }
 
         val fabricPriceTotal = resolved.sumOf { it.price }
-        // ✅ خرج کار برای هر عدد است و در تعداد ضرب می‌شود
-        val workCostTotal = s.workCostPrice * qty
+
+        // خرج‌کارها: لیست افزوده‌شده + ویرایشگر فعلی (اگر انتخاب شده و اضافه نشده)
+        val workLines = s.workItems.toMutableList()
+        if (s.workCostTitle.isNotBlank() && s.workCostPrice > 0L) {
+            workLines.add(WorkItemLine(s.workCostTitle, s.workCostPrice))
+        }
+        // ✅ خرج کار فی‌عدد است و در تعداد ضرب می‌شود
+        val workPerPiece = workLines.sumOf { it.price }
+        val workCostTotal = workPerPiece * qty
         payNow += workCostTotal
         val cost = payNow
 
@@ -284,7 +324,8 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
             )
         }
 
-        repo.createOrder(order, resolved)
+        val workItemRows = workLines.map { OrderWorkItem(orderId = "", title = it.title, price = it.price) }
+        repo.createOrder(order, resolved, workItemRows)
 
         _ui.update { PurchaseUi(message = "✅ خرید ثبت شد و سفارش وارد انبار شد.", isError = false) }
     }

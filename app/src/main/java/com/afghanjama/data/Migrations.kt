@@ -111,3 +111,22 @@ val MIGRATION_21_22 = object : Migration(21, 22) {
         )
     }
 }
+
+/**
+ * چند خرج کار در هر سفارش (دکمه، لایی چسب، نوار زیبایی، ...).
+ */
+val MIGRATION_22_23 = object : Migration(22, 23) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `order_work_items` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`orderId` TEXT NOT NULL, " +
+                "`title` TEXT NOT NULL, " +
+                "`price` INTEGER NOT NULL)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_order_work_items_orderId` " +
+                "ON `order_work_items` (`orderId`)"
+        )
+    }
+}

@@ -12,6 +12,7 @@ import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.OrderCounter
 import com.afghanjama.data.entities.OrderFabric
 import com.afghanjama.data.entities.OrderStageLog
+import com.afghanjama.data.entities.OrderWorkItem
 import com.afghanjama.data.entities.SewingAssignment
 import com.afghanjama.data.entities.SizeItem
 import com.afghanjama.data.entities.Tailor
@@ -42,11 +43,19 @@ class Repo(private val db: AppDatabase) {
     suspend fun updateOrder(order: Order) =
         db.orderDao().update(order)
 
-    suspend fun createOrder(order: Order, fabrics: List<OrderFabric> = emptyList()) {
+    suspend fun createOrder(
+        order: Order,
+        fabrics: List<OrderFabric> = emptyList(),
+        workItems: List<OrderWorkItem> = emptyList()
+    ) {
         db.orderDao().insert(order)
         // پارچه‌های چندگانه سفارش (اگر داده شده باشد)
         if (fabrics.isNotEmpty()) {
             db.orderFabricDao().insertAll(fabrics.map { it.copy(orderId = order.id.toString()) })
+        }
+        // خرج‌کارهای چندگانه سفارش
+        if (workItems.isNotEmpty()) {
+            db.orderWorkItemDao().insertAll(workItems.map { it.copy(orderId = order.id.toString()) })
         }
         // ثبت اولین رکورد تایم‌لاین سفارش
         db.orderStageLogDao().insert(
@@ -61,6 +70,9 @@ class Repo(private val db: AppDatabase) {
 
     fun observeOrderFabrics(orderId: String): Flow<List<OrderFabric>> =
         db.orderFabricDao().observeForOrder(orderId)
+
+    fun observeOrderWorkItems(orderId: String): Flow<List<OrderWorkItem>> =
+        db.orderWorkItemDao().observeForOrder(orderId)
 
     /**
      * تغییر مرحله سفارش از یک نقطه مرکزی:
@@ -92,6 +104,7 @@ class Repo(private val db: AppDatabase) {
     // ✅ NEW: delete order (برای حذف سفارش) + پاک‌کردن جدول‌های فرزند
     suspend fun deleteOrder(order: Order) {
         db.orderFabricDao().deleteForOrder(order.id.toString())
+        db.orderWorkItemDao().deleteForOrder(order.id.toString())
         db.sewingAssignmentDao().deleteForOrder(order.id.toString())
         db.orderDao().delete(order)
     }

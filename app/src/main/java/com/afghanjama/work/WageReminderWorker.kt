@@ -13,6 +13,7 @@ import com.afghanjama.data.AppDatabase
 import com.afghanjama.data.MIGRATION_19_20
 import com.afghanjama.data.MIGRATION_20_21
 import com.afghanjama.data.MIGRATION_21_22
+import com.afghanjama.data.MIGRATION_22_23
 
 /**
  * یادآوری هفتگی تسویه کارمزد خیاط‌ها.
@@ -29,7 +30,7 @@ class WageReminderWorker(
             AppDatabase::class.java,
             "afghanjama.db"
         )
-            .addMigrations(MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22)
+            .addMigrations(MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23)
             .fallbackToDestructiveMigration()
             .build()
 

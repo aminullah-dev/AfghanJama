@@ -431,12 +431,12 @@ fun PurchasePlanScreen(
                 }
             }
 
-            // خرج کار
+            // خرج کار (چند مورد: دکمه، لایی چسب، نوار زیبایی، ...)
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     val workLabel =
                         if (ui.workCostTitle.isBlank()) "انتخاب خرج کار (اختیاری)"
-                        else "${ui.workCostTitle} — ${ui.workCostPrice} ؋"
+                        else "${ui.workCostTitle} — ${ui.workCostPrice.afn()}"
 
                     OutlinedTextField(
                         value = workLabel,
@@ -453,12 +453,39 @@ fun PurchasePlanScreen(
                     DropdownMenu(expanded = workCostExpanded, onDismissRequest = { workCostExpanded = false }) {
                         workCosts.forEach { w ->
                             DropdownMenuItem(
-                                text = { Text("${w.title} — ${w.price} ؋") },
+                                text = { Text("${w.title} — ${w.price.afn()}") },
                                 onClick = {
                                     vm.pickWorkCost(w.title, w.price)
                                     workCostExpanded = false
                                 }
                             )
+                        }
+                    }
+
+                    OutlinedButton(onClick = { vm.addWorkItem() }, modifier = Modifier.fillMaxWidth()) {
+                        Text("➕ افزودن این خرج کار به سفارش")
+                    }
+                }
+            }
+
+            // لیست خرج‌کارهای افزوده‌شده
+            if (ui.workItems.isNotEmpty()) {
+                item {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("خرج‌کارهای این سفارش (فی‌عدد)", fontWeight = FontWeight.SemiBold)
+                            ui.workItems.forEachIndexed { i, w ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                                ) {
+                                    Text("${w.title} — ${w.price.afn()}", style = MaterialTheme.typography.bodyMedium)
+                                    TextButton(onClick = { vm.removeWorkItem(i) }) { Text("حذف") }
+                                }
+                            }
+                            val sum = ui.workItems.sumOf { it.price }
+                            Text("جمع خرج کار فی‌عدد: ${sum.afn()}", fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
@@ -522,7 +549,10 @@ fun PurchasePlanScreen(
                 val addedNewPrice = ui.fabrics.filter { it.source != "STOCK" }.sumOf { it.price }
                 val editorNewPrice = if (ui.fabricSource != "STOCK") ui.fabricPrice.toLongOrNull() ?: 0L else 0L
                 val fabricPrice = addedNewPrice + editorNewPrice
-                val workTotal = ui.workCostPrice * qty
+                // جمع خرج‌کارهای افزوده‌شده + ویرایشگر فعلی، فی‌عدد
+                val workPerPiece = ui.workItems.sumOf { it.price } +
+                    (if (ui.workCostPrice > 0) ui.workCostPrice else 0L)
+                val workTotal = workPerPiece * qty
                 val total = fabricPrice + workTotal
 
                 Card(modifier = Modifier.fillMaxWidth()) {
@@ -530,8 +560,8 @@ fun PurchasePlanScreen(
                         if (ui.fabrics.isNotEmpty()) {
                             Text("تعداد پارچه‌ها: ${ui.fabrics.size}")
                         }
-                        if (ui.workCostPrice > 0) {
-                            Text("خرج کار: ${ui.workCostPrice.afn()} × $qty عدد = ${workTotal.afn()}")
+                        if (workPerPiece > 0) {
+                            Text("خرج کار: ${workPerPiece.afn()} × $qty عدد = ${workTotal.afn()}")
                         }
                         Text("جمع قیمت پارچه‌های خریدنی: ${fabricPrice.afn()}")
                         Text("جمع کل هزینه: ${total.afn()}", fontWeight = FontWeight.SemiBold)

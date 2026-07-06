@@ -13,6 +13,7 @@ import com.afghanjama.data.dao.OrderCounterDao
 import com.afghanjama.data.dao.OrderDao
 import com.afghanjama.data.dao.OrderFabricDao
 import com.afghanjama.data.dao.OrderStageLogDao
+import com.afghanjama.data.dao.OrderWorkItemDao
 import com.afghanjama.data.dao.SewingAssignmentDao
 import com.afghanjama.data.dao.TailorWageDao
 import com.afghanjama.data.entities.Customer
@@ -27,6 +28,7 @@ import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.OrderCounter
 import com.afghanjama.data.entities.OrderFabric
 import com.afghanjama.data.entities.OrderStageLog
+import com.afghanjama.data.entities.OrderWorkItem
 import com.afghanjama.data.entities.SewingAssignment
 import com.afghanjama.data.entities.SizeItem
 import com.afghanjama.data.entities.Tailor
@@ -53,9 +55,10 @@ import com.afghanjama.data.entities.WorkCost
         FabricStock::class,
         OrderStageLog::class,
         OrderFabric::class,
-        SewingAssignment::class
+        SewingAssignment::class,
+        OrderWorkItem::class
     ],
-    version = 22,
+    version = 23,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -71,4 +74,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun orderStageLogDao(): OrderStageLogDao
     abstract fun orderFabricDao(): OrderFabricDao
     abstract fun sewingAssignmentDao(): SewingAssignmentDao
+    abstract fun orderWorkItemDao(): OrderWorkItemDao
 }
