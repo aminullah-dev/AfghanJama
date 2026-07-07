@@ -45,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.afghanjama.ui.format.afn
+import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.sound.PlayRawSoundOnce
 import com.afghanjama.ui.vm.SalesViewModel
 import java.util.UUID
@@ -173,7 +174,7 @@ fun SalesScreen(
 
                             OutlinedTextField(
                                 value = paidText,
-                                onValueChange = { paidMap[o.id] = it.filter(Char::isDigit) },
+                                onValueChange = { paidMap[o.id] = it.digitsOnly() },
                                 label = { Text("مبلغ دریافتی از مشتری (؋)") },
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),

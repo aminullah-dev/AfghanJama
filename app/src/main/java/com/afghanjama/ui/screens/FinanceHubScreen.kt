@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -26,6 +27,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -49,17 +51,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.afghanjama.data.entities.Transaction
+import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
+import com.afghanjama.ui.format.digitsOnly
+import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.vm.CustomerAccount
 import com.afghanjama.ui.vm.CustomerAccountsViewModel
 import com.afghanjama.ui.vm.DashboardViewModel
 import com.afghanjama.ui.vm.FinanceViewModel
 import com.afghanjama.ui.vm.TailorWageGroup
 import com.afghanjama.ui.vm.WagesViewModel
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-
 /**
  * بخش مالی: گزارش‌ها + کیف پول و تراکنش‌ها + کارمزد خیاط (تسویه هفتگی)
  * + حساب فروشگاه‌ها.
@@ -396,7 +398,7 @@ private fun DashboardTab(vm: DashboardViewModel) {
 private fun StageStat(label: String, count: Int) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
-            count.toString(),
+            count.fa(),
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = if (count > 0) MaterialTheme.colorScheme.primary
@@ -444,11 +446,42 @@ private fun WalletTab(vm: FinanceViewModel) {
 
     var showExpense by remember { mutableStateOf(false) }
     var showTransfer by remember { mutableStateOf(false) }
+    var deleteTarget by remember { mutableStateOf<Transaction?>(null) }
 
     fun boxLabel(v: String) = when (v) {
         "BANK" -> "بانک"
         "PROFIT" -> "فایده"
         else -> "کیف پول"
+    }
+
+    // ---------- دیالوگ حذف تراکنش ----------
+    deleteTarget?.let { t ->
+        AlertDialog(
+            onDismissRequest = { deleteTarget = null },
+            title = { Text("حذف تراکنش؟") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(t.note.ifBlank { if (t.type == "IN") "دریافت" else "پرداخت" })
+                    Text(
+                        (if (t.type == "IN") "+" else "−") + t.amount.afn() +
+                            " • " + boxLabel(t.source),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        "موجودی صندوق‌ها بازمحاسبه می‌شود. رکوردهای مرتبط (حساب مشتری، کارمزد خیاط) دست نمی‌خورند — این حذف فقط برای اصلاح تراکنش اشتباه است.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.deleteTx(t.id)
+                    deleteTarget = null
+                }) { Text("حذف", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text("لغو") } }
+        )
     }
 
     if (showTransfer) {
@@ -482,7 +515,7 @@ private fun WalletTab(vm: FinanceViewModel) {
                     }
                     OutlinedTextField(
                         value = amountText,
-                        onValueChange = { amountText = it.filter(Char::isDigit) },
+                        onValueChange = { amountText = it.digitsOnly() },
                         label = { Text("مبلغ (؋)") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
@@ -522,7 +555,7 @@ private fun WalletTab(vm: FinanceViewModel) {
                     }
                     OutlinedTextField(
                         value = amountText,
-                        onValueChange = { amountText = it.filter(Char::isDigit) },
+                        onValueChange = { amountText = it.digitsOnly() },
                         label = { Text("مبلغ (؋)") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
@@ -656,7 +689,7 @@ private fun WalletTab(vm: FinanceViewModel) {
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
-                                    "${if (t.source == "WALLET") "کیف پول" else "فایده"}" +
+                                    boxLabel(t.source) +
                                         (t.category.takeIf { it.isNotBlank() }?.let { " • $it" } ?: "") +
                                         " • ${formatDate(t.createdAt)}",
                                     style = MaterialTheme.typography.labelSmall,
@@ -670,6 +703,13 @@ private fun WalletTab(vm: FinanceViewModel) {
                                 color = if (isIn) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.error
                             )
+                            IconButton(onClick = { deleteTarget = t }) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = "حذف تراکنش",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }
@@ -910,7 +950,7 @@ private fun CustomersTab(vm: CustomerAccountsViewModel) {
                     }
                     OutlinedTextField(
                         value = payAmountText,
-                        onValueChange = { payAmountText = it.filter(Char::isDigit) },
+                        onValueChange = { payAmountText = it.digitsOnly() },
                         label = { Text("مبلغ (؋)") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
@@ -1094,5 +1134,4 @@ private fun EmptyHint(text: String) {
     }
 }
 
-private fun formatDate(millis: Long): String =
-    SimpleDateFormat("yyyy/MM/dd", Locale.US).format(Date(millis))
+private fun formatDate(millis: Long): String = PersianDate.short(millis)

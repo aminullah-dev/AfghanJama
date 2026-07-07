@@ -5,7 +5,10 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.afghanjama.data.repo.Repo
+import com.afghanjama.util.ShareUtil
+import com.afghanjama.work.AutoBackupWorker
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -43,6 +46,37 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
             _ui.update { it.copy(message = "خطا در پشتیبان‌گیری: ${e.message}", isError = true) }
         }
     }
+
+    // ------------------------------------------------
+    // ارسال بکاپ به Drive/واتساپ/تلگرام از طریق صفحه اشتراک
+    // ------------------------------------------------
+    fun shareBackup(context: Context) = viewModelScope.launch(Dispatchers.IO) {
+        runCatching {
+            repo.checkpoint()
+            val dbFile = context.getDatabasePath(DB_NAME)
+            val out = java.io.File(
+                ShareUtil.sharedDir(context),
+                "afghanjama-backup.db"
+            )
+            dbFile.copyTo(out, overwrite = true)
+            out
+        }.onSuccess { file ->
+            withContext(Dispatchers.Main) {
+                ShareUtil.shareFile(
+                    context, file,
+                    mime = "application/octet-stream",
+                    chooserTitle = "ارسال بکاپ (Drive، واتساپ، ...)"
+                )
+            }
+        }.onFailure { e ->
+            _ui.update { it.copy(message = "خطا در آماده‌سازی بکاپ: ${e.message}", isError = true) }
+        }
+    }
+
+    /** زمان آخرین بکاپ خودکار (۰ = هنوز اجرا نشده). */
+    fun lastAutoBackupTime(context: Context): Long =
+        context.getSharedPreferences(AutoBackupWorker.PREFS, Context.MODE_PRIVATE)
+            .getLong(AutoBackupWorker.KEY_LAST, 0L)
 
     // ------------------------------------------------
     // بازیابی: جایگزینی فایل دیتابیس + نیاز به راه‌اندازی دوباره اپ
@@ -143,9 +177,9 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
 
     private fun csv(v: String): String = "\"" + v.replace("\"", "\"\"") + "\""
 
+    // تاریخ شمسی با ارقام لاتین — قابل مرتب‌سازی در اکسل
     private fun formatDate(millis: Long): String =
-        java.text.SimpleDateFormat("yyyy/MM/dd HH:mm", java.util.Locale.US)
-            .format(java.util.Date(millis))
+        com.afghanjama.ui.format.PersianDate.csv(millis)
 
     companion object {
         const val DB_NAME = "afghanjama.db"

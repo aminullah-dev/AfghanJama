@@ -101,6 +101,26 @@ class Repo(private val db: AppDatabase) {
     fun observeStageLogs(orderId: String): Flow<List<OrderStageLog>> =
         db.orderStageLogDao().observeForOrder(orderId)
 
+    /**
+     * حذف امن سفارشِ داخل انبار: پارچه‌های «از موجودی» (چندپارچه‌ای)
+     * به انبار برگردانده می‌شود و بعد سفارش با جدول‌های فرزند پاک می‌شود.
+     */
+    suspend fun deleteOrderWithStockReturn(order: Order) {
+        if (order.status == "IN_STOCK") {
+            val rows = db.orderFabricDao().listForOrder(order.id.toString())
+                .filter { it.source == "STOCK" }
+            if (rows.isNotEmpty()) {
+                rows.forEach {
+                    changeFabricStock(it.fabricType, it.fabricColor, it.fabricUnit, it.amount)
+                }
+            } else if (order.fabricSource == "STOCK") {
+                // سفارش‌های قدیمی که ردیف پارچه ندارند
+                changeFabricStock(order.fabricType, order.fabricColor, order.fabricUnit, order.fabricAmount)
+            }
+        }
+        deleteOrder(order)
+    }
+
     // ✅ NEW: delete order (برای حذف سفارش) + پاک‌کردن جدول‌های فرزند
     suspend fun deleteOrder(order: Order) {
         db.orderFabricDao().deleteForOrder(order.id.toString())
@@ -247,6 +267,10 @@ class Repo(private val db: AppDatabase) {
             )
         )
     }
+
+    /** حذف تراکنش مالی (اصلاح اشتباه) — موجودی صندوق‌ها بازمحاسبه می‌شود. */
+    suspend fun deleteTx(id: UUID) =
+        db.financeDao().deleteTx(id)
 
     /** انتقال بین صندوق‌ها (کیف پول / بانک / فایده). */
     suspend fun transfer(from: String, to: String, amount: Long, note: String) {

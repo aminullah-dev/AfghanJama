@@ -18,6 +18,9 @@ object Permissions {
     /** برگشت فروش (سفارش تحویل‌شده). */
     fun canReturnSale(role: UserRole) = role == UserRole.MANAGER
 
+    /** ویرایش مشخصات و حذف سفارش. */
+    fun canEditOrder(role: UserRole) = role == UserRole.MANAGER
+
     /** اصلاح دستی موجودی پارچه (شمارش انبار). */
     fun canAdjustStock(role: UserRole) = role == UserRole.MANAGER
 

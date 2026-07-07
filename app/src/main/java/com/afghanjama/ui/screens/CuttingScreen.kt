@@ -32,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.afghanjama.ui.format.STAGE_WARN_DAYS
+import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.format.stageDays
 import com.afghanjama.ui.vm.CuttingViewModel
 
@@ -115,7 +116,7 @@ fun CuttingScreen(
 
                                 val days = stageDays(o.stageChangedAt, o.createdAt)
                                 Text(
-                                    text = "⏱ $days روز در این مرحله" +
+                                    text = "⏱ ${days.fa()} روز در این مرحله" +
                                         if (days >= STAGE_WARN_DAYS) " — معطل مانده!" else "",
                                     style = MaterialTheme.typography.labelMedium,
                                     color = if (days >= STAGE_WARN_DAYS) MaterialTheme.colorScheme.error

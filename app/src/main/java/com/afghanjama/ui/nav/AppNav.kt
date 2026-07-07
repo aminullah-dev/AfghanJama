@@ -282,6 +282,7 @@ fun AppNav(
                     vm = orderDetailVm,
                     orderIdText = entry.arguments?.getString("orderId"),
                     canReturnSale = Permissions.canReturnSale(authUi.role),
+                    canEdit = Permissions.canEditOrder(authUi.role),
                     onBack = { navController.popBackStack() }
                 )
             }

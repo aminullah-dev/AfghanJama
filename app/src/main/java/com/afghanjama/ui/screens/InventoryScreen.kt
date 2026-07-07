@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.OrderStatus
 import com.afghanjama.ui.format.afn
+import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.vm.FinanceViewModel
 import com.afghanjama.ui.vm.InventoryViewModel
 import com.afghanjama.ui.vm.UserRole
@@ -116,7 +117,7 @@ fun InventoryScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        val amount = addAmountText.filter { it.isDigit() }.toLongOrNull() ?: 0L
+                        val amount = addAmountText.digitsOnly().toLongOrNull() ?: 0L
                         if (amount > 0L) {
                             val note = addNote.trim().ifBlank {
                                 if (addTarget == "WALLET") "افزایش کیف پول" else "افزایش فایده"
@@ -136,7 +137,7 @@ fun InventoryScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
                         value = addAmountText,
-                        onValueChange = { addAmountText = it.filter(Char::isDigit) },
+                        onValueChange = { addAmountText = it.digitsOnly() },
                         label = { Text("مبلغ (؋)") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()

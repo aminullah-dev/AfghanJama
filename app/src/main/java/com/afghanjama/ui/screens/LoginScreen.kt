@@ -35,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.vm.AuthViewModel
 import com.afghanjama.ui.vm.UserRole
 
@@ -128,7 +129,7 @@ fun LoginScreen(
                 // ✅ رمز
                 OutlinedTextField(
                     value = pin,
-                    onValueChange = { pin = it.filter(Char::isDigit).take(8) },
+                    onValueChange = { pin = it.digitsOnly().take(8) },
                     label = { Text("رمز") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),

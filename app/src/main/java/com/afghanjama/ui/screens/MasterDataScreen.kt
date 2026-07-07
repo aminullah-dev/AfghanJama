@@ -48,6 +48,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.afghanjama.data.entities.WorkCost
+import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.vm.MasterDataViewModel
 
 @Composable
@@ -213,7 +214,7 @@ private fun WorkCostEditor(
 
         OutlinedTextField(
             value = priceText,
-            onValueChange = { priceText = it.filter(Char::isDigit) },
+            onValueChange = { priceText = it.digitsOnly() },
             modifier = Modifier.fillMaxWidth(),
             placeholder = { Text("قیمت (؋)") },
             singleLine = true,
@@ -281,7 +282,7 @@ private fun WorkCostEditor(
                     )
                     OutlinedTextField(
                         value = editPriceText,
-                        onValueChange = { editPriceText = it.filter(Char::isDigit) },
+                        onValueChange = { editPriceText = it.digitsOnly() },
                         label = { Text("قیمت (؋)") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()

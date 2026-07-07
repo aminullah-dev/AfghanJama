@@ -51,11 +51,7 @@ class InventoryViewModel(private val repo: Repo) : ViewModel() {
 
     fun deleteOrder(orderId: UUID) = viewModelScope.launch {
         val o = repo.getOrder(orderId) ?: return@launch
-        // اگر پارچه از موجودی رزرو شده بود و هنوز برش نخورده، برگردان
-        if (o.fabricSource == "STOCK" && o.status == OrderStatus.IN_STOCK.name) {
-            repo.changeFabricStock(o.fabricType, o.fabricColor, o.fabricUnit, o.fabricAmount)
-        }
-        repo.deleteOrder(o)
+        repo.deleteOrderWithStockReturn(o)
     }
 
     fun deleteOrder(order: Order) = viewModelScope.launch {

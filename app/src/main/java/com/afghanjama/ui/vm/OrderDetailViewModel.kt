@@ -21,7 +21,8 @@ import java.util.UUID
 
 data class OrderDetailUi(
     val message: String? = null,
-    val isError: Boolean = false
+    val isError: Boolean = false,
+    val deleted: Boolean = false
 )
 
 /** جزئیات کامل یک سفارش: مشخصات + تایم‌لاین مراحل + پرداخت‌ها + برگشت فروش. */
@@ -69,6 +70,59 @@ class OrderDetailViewModel(private val repo: Repo) : ViewModel() {
     val ui: StateFlow<OrderDetailUi> = _ui
 
     fun clearMessage() = _ui.update { it.copy(message = null, isError = false) }
+
+    /**
+     * ویرایش مشخصات سفارش (فقط مدیر). مرحله، مالیات‌ها و جدول‌های فرزند
+     * دست نمی‌خورند — فقط مشخصات ظاهری/قراردادی.
+     */
+    fun updateDetails(
+        designTitle: String,
+        size: String,
+        customerName: String,
+        customerPhone: String,
+        agreedPrice: Long
+    ) = viewModelScope.launch {
+        val id = orderId.value ?: return@launch
+        val o = repo.getOrder(id) ?: return@launch
+
+        if (designTitle.isBlank()) {
+            _ui.update { it.copy(message = "نام طرح نمی‌تواند خالی باشد.", isError = true) }
+            return@launch
+        }
+        repo.updateOrder(
+            o.copy(
+                designTitle = designTitle.trim(),
+                size = size.trim(),
+                customerName = customerName.trim(),
+                customerPhone = customerPhone.trim(),
+                agreedPrice = agreedPrice
+            )
+        )
+        _ui.update { it.copy(message = "✅ مشخصات سفارش ذخیره شد.", isError = false) }
+    }
+
+    /**
+     * حذف امن سفارش (فقط مدیر و فقط در مرحله انبار).
+     * پارچه‌های «از موجودی» به انبار برمی‌گردند؛ تراکنش‌های مالی ثبت‌شده
+     * (خرید پارچه، پیش‌پرداخت) عمداً حذف نمی‌شوند و در صورت نیاز باید
+     * از تب کیف پول اصلاح شوند.
+     */
+    fun deleteOrder() = viewModelScope.launch {
+        val id = orderId.value ?: return@launch
+        val o = repo.getOrder(id) ?: return@launch
+
+        if (o.status != OrderStatus.IN_STOCK.name) {
+            _ui.update {
+                it.copy(
+                    message = "فقط سفارشی که هنوز در انبار است قابل حذف است. سفارش واردشده به خط تولید را نمی‌توان حذف کرد.",
+                    isError = true
+                )
+            }
+            return@launch
+        }
+        repo.deleteOrderWithStockReturn(o)
+        _ui.update { it.copy(deleted = true) }
+    }
 
     /**
      * برگشت فروش: مبلغ برگشتی از کیف پول خارج، در حساب مشتری با مقدار

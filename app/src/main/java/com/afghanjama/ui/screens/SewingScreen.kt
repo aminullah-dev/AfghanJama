@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.SewingAssignment
 import com.afghanjama.ui.format.afn
+import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.vm.OrderHandout
 import com.afghanjama.ui.vm.SewingViewModel
 
@@ -257,14 +258,14 @@ private fun HandoutCard(
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = qtyText,
-                        onValueChange = { qtyText = it.filter(Char::isDigit) },
+                        onValueChange = { qtyText = it.digitsOnly() },
                         label = { Text("تعداد (حداکثر ${handout.remaining})") },
                         singleLine = true,
                         modifier = Modifier.weight(1f)
                     )
                     OutlinedTextField(
                         value = wageText,
-                        onValueChange = { wageText = it.filter(Char::isDigit) },
+                        onValueChange = { wageText = it.digitsOnly() },
                         label = { Text("کارمزد فی‌عدد") },
                         singleLine = true,
                         modifier = Modifier.weight(1f)

@@ -6,12 +6,16 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.afghanjama.data.entities.Transaction
 import kotlinx.coroutines.flow.Flow
+import java.util.UUID
 
 @Dao
 interface FinanceDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTx(tx: Transaction)
+
+    @Query("DELETE FROM finance_transactions WHERE id = :id")
+    suspend fun deleteTx(id: UUID)
 
     @Query("SELECT * FROM finance_transactions ORDER BY createdAt DESC")
     fun observeTx(): Flow<List<Transaction>>

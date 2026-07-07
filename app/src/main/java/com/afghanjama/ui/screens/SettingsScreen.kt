@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -49,6 +50,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.afghanjama.ui.format.digitsOnly
+import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.vm.AuthViewModel
 import com.afghanjama.ui.vm.BackupViewModel
 import java.text.SimpleDateFormat
@@ -152,7 +155,7 @@ fun SettingsScreen(
 
                     OutlinedTextField(
                         value = oldPin,
-                        onValueChange = { oldPin = it.filter(Char::isDigit).take(8) },
+                        onValueChange = { oldPin = it.digitsOnly().take(8) },
                         label = { Text("رمز فعلی") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
@@ -162,7 +165,7 @@ fun SettingsScreen(
 
                     OutlinedTextField(
                         value = newPin,
-                        onValueChange = { newPin = it.filter(Char::isDigit).take(8) },
+                        onValueChange = { newPin = it.digitsOnly().take(8) },
                         label = { Text("رمز جدید (حداقل ۴ رقم)") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
@@ -213,6 +216,26 @@ fun SettingsScreen(
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+
+                        // وضعیت بکاپ خودکار روزانه
+                        val lastAuto = backupVm.lastAutoBackupTime(context)
+                        Text(
+                            if (lastAuto > 0)
+                                "🔄 بکاپ خودکار روزانه فعال است — آخرین بکاپ: ${PersianDate.shortWithTime(lastAuto)} (پوشه Downloads/AfghanJama)"
+                            else
+                                "🔄 بکاپ خودکار روزانه فعال است — اولین بکاپ به‌زودی در Downloads/AfghanJama ذخیره می‌شود.",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+
+                        OutlinedButton(
+                            onClick = { backupVm.shareBackup(context) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Share, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("ارسال بکاپ به Drive / واتساپ")
+                        }
 
                         OutlinedButton(
                             onClick = { backupLauncher.launch("afghanjama-backup-${stamp()}.db") },

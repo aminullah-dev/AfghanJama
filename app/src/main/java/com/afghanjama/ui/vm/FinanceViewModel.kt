@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.afghanjama.data.entities.Transaction
 import com.afghanjama.data.repo.Repo
+import java.util.UUID
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -49,6 +50,9 @@ class FinanceViewModel(private val repo: Repo) : ViewModel() {
         viewModelScope.launch {
             repo.spend("WALLET", amount, note)
         }
+
+    /** حذف تراکنش (اصلاح اشتباه). */
+    fun deleteTx(id: UUID) = viewModelScope.launch { repo.deleteTx(id) }
 
     /** انتقال بین صندوق‌ها (WALLET / BANK / PROFIT). */
     fun transfer(from: String, to: String, amount: Long, note: String = "") =

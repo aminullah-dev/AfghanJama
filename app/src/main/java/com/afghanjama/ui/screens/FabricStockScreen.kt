@@ -50,6 +50,8 @@ import androidx.compose.ui.unit.dp
 import com.afghanjama.data.entities.FabricStock
 import com.afghanjama.data.entities.FabricUnit
 import com.afghanjama.ui.format.afn
+import com.afghanjama.ui.format.decimalOnly
+import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.vm.StockViewModel
 
 private fun unitLabel(v: String): String = when (v.trim().uppercase()) {
@@ -122,14 +124,14 @@ fun FabricStockScreen(
 
                     OutlinedTextField(
                         value = amountText,
-                        onValueChange = { v -> amountText = v.filter { it.isDigit() || it == '.' } },
+                        onValueChange = { v -> amountText = v.decimalOnly() },
                         label = { Text("مقدار") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
                         value = priceText,
-                        onValueChange = { priceText = it.filter(Char::isDigit) },
+                        onValueChange = { priceText = it.digitsOnly() },
                         label = { Text("قیمت کل (؋)") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
@@ -181,7 +183,7 @@ fun FabricStockScreen(
                     Text("${st.fabricType} • ${st.fabricColor} (${unitLabel(st.fabricUnit)})")
                     OutlinedTextField(
                         value = newAmount,
-                        onValueChange = { v -> newAmount = v.filter { it.isDigit() || it == '.' } },
+                        onValueChange = { v -> newAmount = v.decimalOnly() },
                         label = { Text("موجودی جدید (بعد از شمارش)") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
@@ -209,7 +211,7 @@ fun FabricStockScreen(
                     Text("وقتی موجودی «${st.fabricType} ${st.fabricColor}» از این حد کمتر شود، هشدار نمایش داده می‌شود.")
                     OutlinedTextField(
                         value = minText,
-                        onValueChange = { v -> minText = v.filter { it.isDigit() || it == '.' } },
+                        onValueChange = { v -> minText = v.decimalOnly() },
                         label = { Text("حد هشدار (${unitLabel(st.fabricUnit)})") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()

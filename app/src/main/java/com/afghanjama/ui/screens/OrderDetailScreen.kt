@@ -15,6 +15,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -38,18 +41,24 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.afghanjama.data.entities.FabricUnit
 import com.afghanjama.data.entities.OrderStatus
+import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
+import com.afghanjama.ui.format.digitsOnly
+import com.afghanjama.pdf.InvoicePdf
 import com.afghanjama.ui.vm.OrderDetailViewModel
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import com.afghanjama.util.ShareUtil
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.UUID
 
 private fun statusFa(s: String): String = when (s) {
@@ -64,14 +73,14 @@ private fun statusFa(s: String): String = when (s) {
     else -> s
 }
 
-private fun fmtDate(millis: Long): String =
-    SimpleDateFormat("yyyy/MM/dd HH:mm", Locale.US).format(Date(millis))
+private fun fmtDate(millis: Long): String = PersianDate.shortWithTime(millis)
 
 @Composable
 fun OrderDetailScreen(
     vm: OrderDetailViewModel,
     orderIdText: String?,
     canReturnSale: Boolean,
+    canEdit: Boolean,
     onBack: () -> Unit
 ) {
     LaunchedEffect(orderIdText) {
@@ -87,6 +96,115 @@ fun OrderDetailScreen(
     val ui by vm.ui.collectAsState()
 
     var showReturn by remember { mutableStateOf(false) }
+    var showEdit by remember { mutableStateOf(false) }
+    var showDelete by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    // بعد از حذف موفق، برگشت به صفحه قبلی
+    LaunchedEffect(ui.deleted) {
+        if (ui.deleted) onBack()
+    }
+
+    // ---------- دیالوگ ویرایش مشخصات ----------
+    if (showEdit) order?.let { o ->
+        var designTitle by remember(o.id) { mutableStateOf(o.designTitle) }
+        var size by remember(o.id) { mutableStateOf(o.size) }
+        var customerName by remember(o.id) { mutableStateOf(o.customerName) }
+        var customerPhone by remember(o.id) { mutableStateOf(o.customerPhone) }
+        var agreedText by remember(o.id) {
+            mutableStateOf(o.agreedPrice.takeIf { it > 0 }?.toString() ?: "")
+        }
+
+        AlertDialog(
+            onDismissRequest = { showEdit = false },
+            title = { Text("ویرایش مشخصات سفارش") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "مرحله تولید، پارچه‌ها و حساب‌های ثبت‌شده تغییر نمی‌کنند.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = designTitle,
+                        onValueChange = { designTitle = it },
+                        label = { Text("نام طرح") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = size,
+                        onValueChange = { size = it },
+                        label = { Text("سایز") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = customerName,
+                        onValueChange = { customerName = it },
+                        label = { Text("نام مشتری") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = customerPhone,
+                        onValueChange = { customerPhone = it },
+                        label = { Text("شماره مشتری") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = agreedText,
+                        onValueChange = { agreedText = it.digitsOnly() },
+                        label = { Text("قیمت توافقی (؋)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.updateDetails(
+                        designTitle = designTitle,
+                        size = size,
+                        customerName = customerName,
+                        customerPhone = customerPhone,
+                        agreedPrice = agreedText.toLongOrNull() ?: 0L
+                    )
+                    showEdit = false
+                }) { Text("ذخیره") }
+            },
+            dismissButton = { TextButton(onClick = { showEdit = false }) { Text("لغو") } }
+        )
+    }
+
+    // ---------- دیالوگ تأیید حذف ----------
+    if (showDelete) order?.let { o ->
+        AlertDialog(
+            onDismissRequest = { showDelete = false },
+            title = { Text("حذف سفارش ${o.shortCode}؟") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("فقط سفارشی که هنوز در انبار است قابل حذف است.")
+                    Text("پارچه‌های برداشته‌شده از موجودی، به انبار برگردانده می‌شوند.")
+                    Text(
+                        "توجه: تراکنش‌های مالی ثبت‌شده (خرید پارچه، پیش‌پرداخت) به‌صورت خودکار برگشت نمی‌خورند و در صورت نیاز باید از تب کیف پول اصلاح شوند.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.deleteOrder()
+                    showDelete = false
+                }) { Text("حذف", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { showDelete = false }) { Text("لغو") } }
+        )
+    }
 
     // ---------- دیالوگ برگشت فروش ----------
     if (showReturn) {
@@ -101,7 +219,7 @@ fun OrderDetailScreen(
                     Text("مبلغ برگشتی از کیف پول خارج و سفارش به مرحله فروش برمی‌گردد.")
                     OutlinedTextField(
                         value = refundText,
-                        onValueChange = { refundText = it.filter(Char::isDigit) },
+                        onValueChange = { refundText = it.digitsOnly() },
                         label = { Text("مبلغ برگشتی (؋)") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
@@ -125,6 +243,20 @@ fun OrderDetailScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "برگشت")
+                    }
+                },
+                actions = {
+                    if (canEdit && order != null) {
+                        IconButton(onClick = { showEdit = true }) {
+                            Icon(Icons.Default.Edit, contentDescription = "ویرایش سفارش")
+                        }
+                        IconButton(onClick = { showDelete = true }) {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = "حذف سفارش",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -205,6 +337,34 @@ fun OrderDetailScreen(
                         o.assignedInspector?.takeIf { it.isNotBlank() }?.let { DetailRow("ناظر", it) }
                         DetailRow("تاریخ ثبت", fmtDate(o.createdAt))
                     }
+                }
+            }
+
+            // ---------- فاکتور PDF ----------
+            item {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            runCatching {
+                                withContext(Dispatchers.IO) {
+                                    InvoicePdf.create(context, o, fabrics, workItems, payments)
+                                }
+                            }.onSuccess { file ->
+                                ShareUtil.shareFile(context, file, "application/pdf", "اشتراک فاکتور")
+                            }.onFailure {
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "ساخت فاکتور ناموفق بود: ${it.message}",
+                                    android.widget.Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.PictureAsPdf, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("فاکتور PDF — چاپ / اشتراک")
                 }
             }
 

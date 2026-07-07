@@ -10,6 +10,7 @@ import com.afghanjama.data.entities.OrderStatus
 import com.afghanjama.data.entities.OrderWorkItem
 import com.afghanjama.data.entities.PaymentSource
 import com.afghanjama.data.repo.Repo
+import com.afghanjama.ui.format.digitsOnly
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -82,7 +83,7 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
     val ui: StateFlow<PurchaseUi> = _ui
 
     fun setDesignTitle(v: String) = _ui.update { it.copy(designTitle = v, message = null, isError = false) }
-    fun setQty(v: String) = _ui.update { it.copy(qty = v.filter(Char::isDigit), message = null, isError = false) }
+    fun setQty(v: String) = _ui.update { it.copy(qty = v.digitsOnly(), message = null, isError = false) }
 
     fun setCustomerName(v: String) = _ui.update { it.copy(customerName = v, message = null, isError = false) }
     fun setCustomerPhone(v: String) = _ui.update { it.copy(customerPhone = v, message = null, isError = false) }
@@ -96,7 +97,7 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
     fun setFabricAmountPerPiece(b: Boolean) = _ui.update { it.copy(fabricAmountPerPiece = b, message = null, isError = false) }
 
     fun setFabricPrice(v: String) =
-        _ui.update { it.copy(fabricPrice = v.filter(Char::isDigit), message = null, isError = false) }
+        _ui.update { it.copy(fabricPrice = v.digitsOnly(), message = null, isError = false) }
 
     fun setFabricSource(v: String) = _ui.update { it.copy(fabricSource = v.trim(), message = null, isError = false) }
 
@@ -105,7 +106,7 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
         _ui.update { it.copy(workCostTitle = title, workCostPrice = price, message = null, isError = false) }
     fun setWorkCostTitle(v: String) = _ui.update { it.copy(workCostTitle = v, message = null, isError = false) }
     fun setWorkCostPrice(v: String) =
-        _ui.update { it.copy(workCostPrice = v.filter(Char::isDigit).toLongOrNull() ?: 0L, message = null, isError = false) }
+        _ui.update { it.copy(workCostPrice = v.digitsOnly().toLongOrNull() ?: 0L, message = null, isError = false) }
 
     /** خرج‌کارِ انتخاب‌شدهٔ فعلی را به لیست سفارش اضافه می‌کند. */
     fun addWorkItem() {
@@ -132,9 +133,9 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
 
     fun setPaymentSource(v: String) = _ui.update { it.copy(paymentSource = v.trim(), message = null, isError = false) }
     fun setAgreedPrice(v: String) =
-        _ui.update { it.copy(agreedPrice = v.filter(Char::isDigit), message = null, isError = false) }
+        _ui.update { it.copy(agreedPrice = v.digitsOnly(), message = null, isError = false) }
     fun setCustomerPaid(v: String) =
-        _ui.update { it.copy(customerPaid = v.filter(Char::isDigit), message = null, isError = false) }
+        _ui.update { it.copy(customerPaid = v.digitsOnly(), message = null, isError = false) }
 
     /** ویرایشگر پارچهٔ فعلی را به لیست پارچه‌های سفارش اضافه می‌کند. */
     fun addFabricLine() {
