@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Replay
+import androidx.compose.material.icons.filled.Warehouse
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -69,6 +70,7 @@ private fun statusFa(s: String): String = when (s) {
     OrderStatus.SEWING.name -> "دوخت"
     OrderStatus.REVIEW.name -> "نظارت"
     OrderStatus.SALES.name -> "فروش"
+    OrderStatus.STORED.name -> "در انبار محصول"
     OrderStatus.SENT.name -> "تحویل شد"
     else -> s
 }
@@ -388,6 +390,24 @@ fun OrderDetailScreen(
                             color = if (ui.isError) MaterialTheme.colorScheme.onErrorContainer
                             else MaterialTheme.colorScheme.onPrimaryContainer
                         )
+                    }
+                }
+            }
+
+            // ---------- تحویل به انبار محصول نهایی (سفارش آماده فروش) ----------
+            if (o.status == OrderStatus.SALES.name) {
+                item {
+                    Button(
+                        onClick = { vm.depositToFinished() },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Warehouse, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("تحویل ${o.qty} عدد به انبار محصول")
                     }
                 }
             }

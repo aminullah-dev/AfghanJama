@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Storefront
@@ -54,6 +55,7 @@ fun HomeDashboardScreen(
     onGoWarehouse: () -> Unit,
     onGoProduction: () -> Unit,
     onGoStartProduction: () -> Unit,
+    onGoFinishedSales: () -> Unit,
     onGoSales: () -> Unit,
     onGoFinance: () -> Unit,
     onGoSearch: () -> Unit,
@@ -66,7 +68,8 @@ fun HomeDashboardScreen(
         HomeAction("انبار مواد", Icons.Default.Warehouse, onGoWarehouse),
         HomeAction("شروع تولید", Icons.Default.ContentCut, onGoStartProduction),
         HomeAction("خط تولید", Icons.Default.Checkroom, onGoProduction),
-        HomeAction("فروش", Icons.Default.Storefront, onGoSales),
+        HomeAction("فروش انبار", Icons.Default.Sell, onGoFinishedSales),
+        HomeAction("فروش سفارش", Icons.Default.Storefront, onGoSales),
         HomeAction("مالی", Icons.Default.Payments, onGoFinance),
         HomeAction("جستجو", Icons.Default.Search, onGoSearch),
         HomeAction("تنظیمات", Icons.Default.Settings, onGoSettings)
@@ -125,7 +128,7 @@ fun HomeDashboardScreen(
         }
 
         item { StatCard("در تولید", s.inProduction.fa(), "سفارش در جریان") }
-        item { StatCard("آماده فروش", s.readyForSale.fa(), "منتظر فروش") }
+        item { StatCard("انبار محصول", s.finishedPieces.fa(), "عدد آماده فروش") }
         item { StatCard("کیف پول", s.wallet.afn(), "موجودی نقد") }
         item { StatCard("بانک", s.bank.afn(), "موجودی بانک") }
 

@@ -102,6 +102,27 @@ class OrderDetailViewModel(private val repo: Repo) : ViewModel() {
     }
 
     /**
+     * تحویل سفارشِ آمادهٔ فروش به انبار محصول نهایی: تعداد لباس با بهای
+     * تمام‌شده وارد انبار محصول می‌شود و سفارش بایگانی (STORED) می‌گردد.
+     * سپس می‌توان از انبار محصول به‌صورت جزئی فروخت.
+     */
+    fun depositToFinished() = viewModelScope.launch {
+        val id = orderId.value ?: return@launch
+        val o = repo.getOrder(id) ?: return@launch
+        if (o.status != OrderStatus.SALES.name) {
+            _ui.update { it.copy(message = "فقط سفارشِ آمادهٔ فروش قابل تحویل به انبار محصول است.", isError = true) }
+            return@launch
+        }
+        repo.depositOrderToFinished(o)
+        _ui.update {
+            it.copy(
+                message = "✅ ${o.qty} عدد «${o.designTitle}» به انبار محصول اضافه شد. اکنون می‌توانید از انبار محصول جزئی بفروشید.",
+                isError = false
+            )
+        }
+    }
+
+    /**
      * حذف امن سفارش (فقط مدیر و فقط در مرحله انبار).
      * پارچه‌های «از موجودی» به انبار برمی‌گردند؛ تراکنش‌های مالی ثبت‌شده
      * (خرید پارچه، پیش‌پرداخت) عمداً حذف نمی‌شوند و در صورت نیاز باید

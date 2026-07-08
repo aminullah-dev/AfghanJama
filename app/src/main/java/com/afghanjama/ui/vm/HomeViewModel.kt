@@ -17,6 +17,7 @@ data class HomeSummary(
     val inProduction: Int = 0,           // سفارش‌های در جریان تولید
     val inStock: Int = 0,                // در انبار سفارش‌ها
     val readyForSale: Int = 0,           // آماده فروش
+    val finishedPieces: Int = 0,         // مجموع عددهای انبار محصول نهایی
     val wallet: Long = 0,
     val bank: Long = 0,
     val profit: Long = 0
@@ -24,7 +25,7 @@ data class HomeSummary(
 
 class HomeViewModel(repo: Repo) : ViewModel() {
 
-    val summary: StateFlow<HomeSummary> =
+    private val base: kotlinx.coroutines.flow.Flow<HomeSummary> =
         combine(
             repo.observeMaterialStock(),
             repo.observeAllOrders(),
@@ -49,5 +50,10 @@ class HomeViewModel(repo: Repo) : ViewModel() {
                 bank = bank,
                 profit = profit
             )
+        }
+
+    val summary: StateFlow<HomeSummary> =
+        combine(base, repo.observeFinishedStock()) { s, finished ->
+            s.copy(finishedPieces = finished.sumOf { it.qty })
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeSummary())
 }

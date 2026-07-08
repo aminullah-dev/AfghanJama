@@ -5,14 +5,18 @@ import com.afghanjama.data.entities.Customer
 import com.afghanjama.data.entities.CustomerPayment
 import com.afghanjama.data.entities.DesignItem
 import com.afghanjama.data.entities.FabricColor
+import com.afghanjama.data.CodeGen
 import com.afghanjama.data.entities.FabricStock
 import com.afghanjama.data.entities.FabricType
+import com.afghanjama.data.entities.FinishedSale
+import com.afghanjama.data.entities.FinishedStock
 import com.afghanjama.data.entities.Inspector
 import com.afghanjama.data.entities.MaterialStock
 import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.OrderCounter
 import com.afghanjama.data.entities.OrderFabric
 import com.afghanjama.data.entities.OrderStageLog
+import com.afghanjama.data.entities.OrderStatus
 import com.afghanjama.data.entities.OrderWorkItem
 import com.afghanjama.data.entities.PurchaseInvoice
 import com.afghanjama.data.entities.PurchaseItem
@@ -466,6 +470,90 @@ class Repo(private val db: AppDatabase) {
         if (invoice.total > 0 && invoice.paySource != "CUSTOMER") {
             spend(invoice.paySource, invoice.total, "خرید مواد ${invoice.code}", category = "خرید مواد")
         }
+    }
+
+    // =========================
+    // Finished Goods (انبار محصول نهایی + فروش جزئی)
+    // =========================
+
+    fun observeFinishedStock(): Flow<List<FinishedStock>> =
+        db.finishedStockDao().observeAvailable()
+
+    fun observeFinishedSales(): Flow<List<FinishedSale>> =
+        db.finishedStockDao().observeSales()
+
+    /** افزودن محصول تولیدشده به انبار با میانگین وزنی بهای تمام‌شده. */
+    suspend fun addFinishedStock(name: String, size: String, qty: Int, avgCostPerPiece: Long) {
+        if (qty <= 0) return
+        val now = System.currentTimeMillis()
+        val cur = db.finishedStockDao().find(name.trim(), size.trim())
+            ?: FinishedStock(name = name.trim(), size = size.trim(), qty = 0, updatedAt = now)
+        val newQty = cur.qty + qty
+        val newAvg =
+            if (newQty > 0) ((cur.qty * cur.avgCost) + (qty * avgCostPerPiece)) / newQty
+            else 0L
+        db.finishedStockDao().upsert(cur.copy(qty = newQty, avgCost = newAvg, updatedAt = now))
+    }
+
+    /**
+     * تحویل یک سفارشِ آمادهٔ فروش به انبار محصول نهایی:
+     * تعداد سفارش با بهای تمام‌شدهٔ هر عدد وارد انبار می‌شود و وضعیت
+     * سفارش به STORED (بایگانی تولید) تغییر می‌کند.
+     */
+    suspend fun depositOrderToFinished(order: Order) {
+        val perPieceCost = if (order.qty > 0)
+            (order.fabricPrice + order.workCost) / order.qty else 0L
+        addFinishedStock(order.designTitle, order.size, order.qty, perPieceCost)
+        changeOrderStatus(order, OrderStatus.STORED.name)
+    }
+
+    /**
+     * فروش جزئی از انبار محصول نهایی: موجودی کم، درآمد وارد کیف پول و
+     * سود به فایده منتقل و سابقهٔ فروش ثبت می‌شود.
+     */
+    suspend fun sellFinished(
+        item: FinishedStock,
+        qty: Int,
+        unitPrice: Long,
+        customerName: String
+    ): Boolean {
+        if (qty <= 0 || qty > item.qty || unitPrice <= 0) return false
+        val now = System.currentTimeMillis()
+        val revenue = qty * unitPrice
+        val cost = qty * item.avgCost
+        val profit = revenue - cost
+
+        db.finishedStockDao().upsert(item.copy(qty = item.qty - qty, updatedAt = now))
+
+        val code = CodeGen.makePurchaseCode().replaceFirst("KH", "FR")
+        db.finishedStockDao().insertSale(
+            FinishedSale(
+                code = code,
+                productName = item.name,
+                size = item.size,
+                qty = qty,
+                unitPrice = unitPrice,
+                total = revenue,
+                cost = cost,
+                customerName = customerName.trim()
+            )
+        )
+
+        income("WALLET", revenue, "فروش $qty عدد «${item.name}» ($code)")
+        addCustomerPayment(
+            CustomerPayment(
+                orderId = "FINISHED",
+                customerName = customerName.trim(),
+                amount = revenue,
+                source = "SALE",
+                note = "فروش $qty عدد «${item.name}» از انبار محصول"
+            )
+        )
+        if (profit > 0L) {
+            spend("WALLET", profit, "انتقال سود فروش «${item.name}» به فایده")
+            income("PROFIT", profit, "سود فروش «${item.name}»")
+        }
+        return true
     }
 
     // =========================

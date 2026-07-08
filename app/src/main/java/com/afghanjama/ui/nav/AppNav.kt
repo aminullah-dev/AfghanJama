@@ -31,6 +31,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.afghanjama.ui.screens.CuttingScreen
 import com.afghanjama.ui.screens.FabricStockScreen
+import com.afghanjama.ui.screens.FinishedWarehouseScreen
 import com.afghanjama.ui.screens.HomeDashboardScreen
 import com.afghanjama.ui.screens.OrderDetailScreen
 import com.afghanjama.ui.screens.FinanceHubScreen
@@ -53,6 +54,7 @@ import com.afghanjama.ui.vm.CustomerAccountsViewModel
 import com.afghanjama.ui.vm.CuttingViewModel
 import com.afghanjama.ui.vm.DashboardViewModel
 import com.afghanjama.ui.vm.FinanceViewModel
+import com.afghanjama.ui.vm.FinishedSaleViewModel
 import com.afghanjama.ui.vm.HomeViewModel
 import com.afghanjama.ui.vm.InventoryViewModel
 import com.afghanjama.ui.vm.MasterDataViewModel
@@ -133,7 +135,8 @@ fun AppNav(
     procurementVm: ProcurementViewModel,
     warehouseVm: WarehouseViewModel,
     homeVm: HomeViewModel,
-    productionVm: ProductionViewModel
+    productionVm: ProductionViewModel,
+    finishedSaleVm: FinishedSaleViewModel
 ) {
     val navController = rememberNavController()
     val authUi by authVm.ui.collectAsState()
@@ -229,6 +232,7 @@ fun AppNav(
                     onGoWarehouse = { navController.navigate(Routes.WAREHOUSE) },
                     onGoProduction = { navController.navigate(Routes.INVENTORY) },
                     onGoStartProduction = { navController.navigate(Routes.PRODUCTION_ORDER) },
+                    onGoFinishedSales = { navController.navigate(Routes.FINISHED_SALES) },
                     onGoSales = { navController.navigate(Routes.SALES) },
                     onGoFinance = { navController.navigate(Routes.FINANCE) },
                     onGoSearch = { navController.navigate(Routes.SEARCH) },
@@ -239,6 +243,13 @@ fun AppNav(
             composable(Routes.PRODUCTION_ORDER) {
                 ProductionOrderScreen(
                     vm = productionVm,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Routes.FINISHED_SALES) {
+                FinishedWarehouseScreen(
+                    vm = finishedSaleVm,
                     onBack = { navController.popBackStack() }
                 )
             }

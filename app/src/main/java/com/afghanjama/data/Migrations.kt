@@ -182,3 +182,39 @@ val MIGRATION_23_24 = object : Migration(23, 24) {
         )
     }
 }
+
+/**
+ * انبار محصول نهایی + سابقهٔ فروش‌های جزئی. افزوده‌شده و بدون تغییر
+ * جدول‌های قبلی؛ داده‌ها حفظ می‌شوند.
+ */
+val MIGRATION_24_25 = object : Migration(24, 25) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `finished_stock` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`name` TEXT NOT NULL, " +
+                "`size` TEXT NOT NULL, " +
+                "`qty` INTEGER NOT NULL, " +
+                "`avgCost` INTEGER NOT NULL DEFAULT 0, " +
+                "`updatedAt` INTEGER NOT NULL)"
+        )
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_finished_stock_name_size` " +
+                "ON `finished_stock` (`name`, `size`)"
+        )
+
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `finished_sales` (" +
+                "`id` TEXT PRIMARY KEY NOT NULL, " +
+                "`code` TEXT NOT NULL, " +
+                "`productName` TEXT NOT NULL, " +
+                "`size` TEXT NOT NULL, " +
+                "`qty` INTEGER NOT NULL, " +
+                "`unitPrice` INTEGER NOT NULL, " +
+                "`total` INTEGER NOT NULL, " +
+                "`cost` INTEGER NOT NULL, " +
+                "`customerName` TEXT NOT NULL, " +
+                "`createdAt` INTEGER NOT NULL)"
+        )
+    }
+}

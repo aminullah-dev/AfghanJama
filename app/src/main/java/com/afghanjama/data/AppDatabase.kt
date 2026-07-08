@@ -8,6 +8,7 @@ import com.afghanjama.data.dao.CatalogDao
 import com.afghanjama.data.dao.CustomerPaymentDao
 import com.afghanjama.data.dao.FabricStockDao
 import com.afghanjama.data.dao.FinanceDao
+import com.afghanjama.data.dao.FinishedStockDao
 import com.afghanjama.data.dao.MasterDataDao
 import com.afghanjama.data.dao.MaterialStockDao
 import com.afghanjama.data.dao.OrderCounterDao
@@ -24,6 +25,8 @@ import com.afghanjama.data.entities.DesignItem
 import com.afghanjama.data.entities.FabricColor
 import com.afghanjama.data.entities.FabricStock
 import com.afghanjama.data.entities.FabricType
+import com.afghanjama.data.entities.FinishedSale
+import com.afghanjama.data.entities.FinishedStock
 import com.afghanjama.data.entities.GarmentDesign
 import com.afghanjama.data.entities.Inspector
 import com.afghanjama.data.entities.MaterialStock
@@ -64,9 +67,11 @@ import com.afghanjama.data.entities.WorkCost
         OrderWorkItem::class,
         MaterialStock::class,
         PurchaseInvoice::class,
-        PurchaseItem::class
+        PurchaseItem::class,
+        FinishedStock::class,
+        FinishedSale::class
     ],
-    version = 24,
+    version = 25,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -85,4 +90,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun orderWorkItemDao(): OrderWorkItemDao
     abstract fun materialStockDao(): MaterialStockDao
     abstract fun procurementDao(): ProcurementDao
+    abstract fun finishedStockDao(): FinishedStockDao
 }

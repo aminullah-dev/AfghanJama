@@ -8,5 +8,6 @@ enum class OrderStatus {
     SEWING,
     REVIEW,
     SALES,
+    STORED,     // تکمیل‌شده و در انبار محصول نهایی (آمادهٔ فروش جزئی)
     SENT
 }

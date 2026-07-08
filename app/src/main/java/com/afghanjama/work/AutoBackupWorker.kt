@@ -15,6 +15,7 @@ import com.afghanjama.data.MIGRATION_20_21
 import com.afghanjama.data.MIGRATION_21_22
 import com.afghanjama.data.MIGRATION_22_23
 import com.afghanjama.data.MIGRATION_23_24
+import com.afghanjama.data.MIGRATION_24_25
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -42,7 +43,7 @@ class AutoBackupWorker(
         )
             .addMigrations(
                 MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22,
-                MIGRATION_22_23, MIGRATION_23_24
+                MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25
             )
             .fallbackToDestructiveMigration()
             .build()

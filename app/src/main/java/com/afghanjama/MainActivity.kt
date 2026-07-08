@@ -15,6 +15,7 @@ import com.afghanjama.data.MIGRATION_20_21
 import com.afghanjama.data.MIGRATION_21_22
 import com.afghanjama.data.MIGRATION_22_23
 import com.afghanjama.data.MIGRATION_23_24
+import com.afghanjama.data.MIGRATION_24_25
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.ui.nav.AppNav
 import com.afghanjama.ui.theme.AfghanJamaTheme
@@ -24,6 +25,7 @@ import com.afghanjama.ui.vm.CustomerAccountsViewModel
 import com.afghanjama.ui.vm.CuttingViewModel
 import com.afghanjama.ui.vm.DashboardViewModel
 import com.afghanjama.ui.vm.FinanceViewModel
+import com.afghanjama.ui.vm.FinishedSaleViewModel
 import com.afghanjama.ui.vm.HomeViewModel
 import com.afghanjama.ui.vm.InventoryViewModel
 import com.afghanjama.ui.vm.MasterDataViewModel
@@ -57,7 +59,7 @@ class MainActivity : ComponentActivity() {
         )
             .addMigrations(
                 MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22,
-                MIGRATION_22_23, MIGRATION_23_24
+                MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25
             )
             .fallbackToDestructiveMigration()
             .build()
@@ -86,6 +88,7 @@ class MainActivity : ComponentActivity() {
                 val warehouseVm = remember { WarehouseViewModel(repo) }
                 val homeVm = remember { HomeViewModel(repo) }
                 val productionVm = remember { ProductionViewModel(repo) }
+                val finishedSaleVm = remember { FinishedSaleViewModel(repo) }
 
                 AppNav(
                     authVm = authVm,
@@ -107,7 +110,8 @@ class MainActivity : ComponentActivity() {
                     procurementVm = procurementVm,
                     warehouseVm = warehouseVm,
                     homeVm = homeVm,
-                    productionVm = productionVm
+                    productionVm = productionVm,
+                    finishedSaleVm = finishedSaleVm
                 )
             }
         }
