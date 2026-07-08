@@ -4,6 +4,7 @@ import com.afghanjama.data.AppDatabase
 import com.afghanjama.data.entities.Customer
 import com.afghanjama.data.entities.CustomerMeasurement
 import com.afghanjama.data.entities.CustomerPayment
+import com.afghanjama.data.entities.CuttingRecord
 import com.afghanjama.data.entities.DesignItem
 import com.afghanjama.data.entities.FabricColor
 import com.afghanjama.data.CodeGen
@@ -109,6 +110,31 @@ class Repo(private val db: AppDatabase) {
 
     fun observeStageLogs(orderId: String): Flow<List<OrderStageLog>> =
         db.orderStageLogDao().observeForOrder(orderId)
+
+    // =========================
+    // Cutting record (رکورد برش)
+    // =========================
+
+    fun observeCuttingForOrder(orderId: String): Flow<List<CuttingRecord>> =
+        db.cuttingRecordDao().observeForOrder(orderId)
+
+    /**
+     * ثبت رکورد برش و انتقال سفارش به «برش تمام». مواد قبلاً هنگام شروع
+     * تولید کسر شده‌اند؛ اینجا فقط جزئیات عملیاتی برش مستند می‌شود.
+     */
+    suspend fun completeCutting(order: Order, cutter: String, pieces: Int, waste: String, note: String) {
+        db.cuttingRecordDao().insert(
+            CuttingRecord(
+                orderId = order.id.toString(),
+                orderCode = order.orderCode,
+                cutter = cutter.trim(),
+                pieces = pieces,
+                waste = waste.trim(),
+                note = note.trim()
+            )
+        )
+        changeOrderStatus(order, OrderStatus.CUT_DONE.name)
+    }
 
     /**
      * حذف امن سفارشِ داخل انبار: پارچه‌های «از موجودی» (چندپارچه‌ای)

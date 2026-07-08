@@ -95,6 +95,7 @@ fun OrderDetailScreen(
     val fabrics by vm.fabrics.collectAsState()
     val workItems by vm.workItems.collectAsState()
     val assignments by vm.assignments.collectAsState()
+    val cuttingRecords by vm.cuttingRecords.collectAsState()
     val ui by vm.ui.collectAsState()
 
     var showReturn by remember { mutableStateOf(false) }
@@ -568,6 +569,39 @@ fun OrderDetailScreen(
                                         color = if (pmt.amount >= 0) MaterialTheme.colorScheme.primary
                                         else MaterialTheme.colorScheme.error
                                     )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ---------- رکورد برش ----------
+            if (cuttingRecords.isNotEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    ) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("برش", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            cuttingRecords.forEach { rec ->
+                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("مسئول برش: ${rec.cutter}", fontWeight = FontWeight.Medium)
+                                        Text("${rec.pieces} دست")
+                                    }
+                                    if (rec.waste.isNotBlank()) {
+                                        Text("ضایعات: ${rec.waste}", style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.error)
+                                    }
+                                    if (rec.note.isNotBlank()) {
+                                        Text(rec.note, style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    Text(fmtDate(rec.createdAt), style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         }

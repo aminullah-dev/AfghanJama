@@ -1,9 +1,13 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@file:OptIn(
+    androidx.compose.material3.ExperimentalMaterial3Api::class,
+    androidx.compose.foundation.layout.ExperimentalLayoutApi::class
+)
 
 package com.afghanjama.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,27 +15,38 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Done
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.afghanjama.data.entities.Order
 import com.afghanjama.ui.format.STAGE_WARN_DAYS
+import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.format.stageDays
 import com.afghanjama.ui.vm.CuttingViewModel
@@ -43,6 +58,76 @@ fun CuttingScreen(
     onGoSewing: () -> Unit
 ) {
     val orders by vm.ordersCutting.collectAsState(initial = emptyList())
+    val tailors by vm.tailors.collectAsState(initial = emptyList())
+
+    var cutTarget by remember { mutableStateOf<Order?>(null) }
+
+    // ---------- دیالوگ ثبت برش ----------
+    cutTarget?.let { o ->
+        var cutter by remember(o.id) { mutableStateOf("") }
+        var pieces by remember(o.id) { mutableStateOf(o.qty.toString()) }
+        var waste by remember(o.id) { mutableStateOf("") }
+        var note by remember(o.id) { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { cutTarget = null },
+            title = { Text("ثبت برش — ${o.designTitle.ifBlank { o.orderCode }}") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = cutter,
+                        onValueChange = { cutter = it },
+                        label = { Text("مسئول برش") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (tailors.isNotEmpty()) {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            tailors.take(8).forEach { t ->
+                                FilterChip(
+                                    selected = cutter == t.name,
+                                    onClick = { cutter = t.name },
+                                    label = { Text(t.name) }
+                                )
+                            }
+                        }
+                    }
+                    OutlinedTextField(
+                        value = pieces,
+                        onValueChange = { pieces = it.digitsOnly() },
+                        label = { Text("تعداد دستِ برش‌شده") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = waste,
+                        onValueChange = { waste = it },
+                        label = { Text("ضایعات (اختیاری، مثلاً ۲ متر)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = note,
+                        onValueChange = { note = it },
+                        label = { Text("یادداشت (اختیاری)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = cutter.isNotBlank(),
+                    onClick = {
+                        vm.markCutDone(o.id, cutter, pieces.toIntOrNull() ?: o.qty, waste, note)
+                        cutTarget = null
+                        onGoSewing()
+                    }
+                ) { Text("ثبت و انتقال به دوخت") }
+            },
+            dismissButton = { TextButton(onClick = { cutTarget = null }) { Text("لغو") } }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -126,15 +211,12 @@ fun CuttingScreen(
                                 Spacer(Modifier.height(2.dp))
 
                                 androidx.compose.material3.Button(
-                                    onClick = {
-                                        vm.markCutDone(o.id)
-                                        onGoSewing()
-                                    },
+                                    onClick = { cutTarget = o },
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Icon(Icons.Default.Done, contentDescription = null)
                                     Spacer(Modifier.height(0.dp))
-                                    Text("برش تمام شد → انتقال به دوخت")
+                                    Text("ثبت برش → انتقال به دوخت")
                                 }
 
                                 androidx.compose.material3.TextButton(

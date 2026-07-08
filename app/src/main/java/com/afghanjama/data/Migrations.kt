@@ -323,3 +323,26 @@ val MIGRATION_28_29 = object : Migration(28, 29) {
         )
     }
 }
+
+/**
+ * رکورد واقعیِ مرحلهٔ برش (مسئول، تعداد دست، ضایعات).
+ */
+val MIGRATION_29_30 = object : Migration(29, 30) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `cutting_records` (" +
+                "`id` TEXT PRIMARY KEY NOT NULL, " +
+                "`orderId` TEXT NOT NULL, " +
+                "`orderCode` TEXT NOT NULL, " +
+                "`cutter` TEXT NOT NULL, " +
+                "`pieces` INTEGER NOT NULL, " +
+                "`waste` TEXT NOT NULL, " +
+                "`note` TEXT NOT NULL, " +
+                "`createdAt` INTEGER NOT NULL)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_cutting_records_orderId` " +
+                "ON `cutting_records` (`orderId`)"
+        )
+    }
+}
