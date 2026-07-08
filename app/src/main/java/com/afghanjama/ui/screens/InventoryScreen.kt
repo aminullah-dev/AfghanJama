@@ -16,12 +16,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -63,7 +63,7 @@ fun InventoryScreen(
     vm: InventoryViewModel,
     financeVm: FinanceViewModel,
     role: UserRole,
-    onGoPurchase: () -> Unit,
+    onGoStartProduction: () -> Unit,
     onGoWallet: () -> Unit,
     onGoSettings: () -> Unit,
     onGoSearch: () -> Unit,
@@ -157,7 +157,7 @@ fun InventoryScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("انبار") },
+                title = { Text("خط تولید") },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
                 actions = {
                     IconButton(onClick = onGoSearch) {
@@ -241,7 +241,7 @@ fun InventoryScreen(
             // لیست انبار
             if (orders.isEmpty()) {
                 EmptyInventory(
-                    onAdd = onGoPurchase,
+                    onAdd = onGoStartProduction,
                     canAdd = canPurchase,
                     modifier = Modifier.fillMaxSize()
                 )
@@ -273,12 +273,12 @@ fun InventoryScreen(
             // CTA پایین فقط برای خرید/مدیر
             if (canPurchase) {
                 Button(
-                    onClick = onGoPurchase,
+                    onClick = onGoStartProduction,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(Icons.Default.ShoppingCart, contentDescription = null)
+                    Icon(Icons.Default.ContentCut, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("ثبت سفارش مشتری")
+                    Text("شروع تولید")
                 }
             }
         }
@@ -309,7 +309,7 @@ private fun EmptyInventory(
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            text = "برای شروع، یک سفارش مشتری ثبت کن تا وارد انبار شود.",
+            text = "برای شروع، یک تولید جدید ثبت کن تا وارد خط تولید شود.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -319,7 +319,7 @@ private fun EmptyInventory(
             Button(onClick = onAdd) {
                 Icon(Icons.Default.Add, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
-                Text("ثبت سفارش")
+                Text("شروع تولید")
             }
         }
     }

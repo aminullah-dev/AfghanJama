@@ -89,7 +89,7 @@ private data class BottomItem(
 /** آیتم‌های نوار پایین بر اساس نقش کاربر. */
 private fun bottomItemsFor(role: UserRole): List<BottomItem> = when (role) {
     UserRole.MANAGER -> listOf(
-        BottomItem(Routes.INVENTORY, "انبار", Icons.Default.Inventory2),
+        BottomItem(Routes.INVENTORY, "تولید", Icons.Default.Inventory2),
         BottomItem(Routes.CUTTING, "برش", Icons.Default.ContentCut),
         BottomItem(Routes.SEWING, "دوخت", Icons.Default.Checkroom),
         BottomItem(Routes.REVIEW, "نظارت", Icons.Default.VerifiedUser),
@@ -242,8 +242,6 @@ fun AppNav(
                     onGoWarehouse = { navController.navigate(Routes.WAREHOUSE) },
                     onGoStockLedger = { navController.navigate(Routes.STOCK_LEDGER) },
                     onGoProduction = { navController.navigate(Routes.INVENTORY) },
-                    onGoStartProduction = { navController.navigate(Routes.PRODUCTION_ORDER) },
-                    // stock ledger wired above
                     onGoFinishedSales = { navController.navigate(Routes.FINISHED_SALES) },
                     onGoSuppliers = { navController.navigate(Routes.SUPPLIERS) },
                     onGoCustomers = { navController.navigate(Routes.CUSTOMERS) },
@@ -324,7 +322,7 @@ fun AppNav(
                     vm = inventoryVm,
                     financeVm = financeVm,
                     role = authUi.role,
-                    onGoPurchase = { navController.navigate(Routes.PURCHASE) },
+                    onGoStartProduction = { navController.navigate(Routes.PRODUCTION_ORDER) },
                     onGoWallet = { navController.navigate(Routes.FINANCE) },
                     onGoSettings = { navController.navigate(Routes.SETTINGS) },
                     onGoSearch = { navController.navigate(Routes.SEARCH) },

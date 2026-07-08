@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Checkroom
-import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Payments
@@ -61,7 +60,6 @@ fun HomeDashboardScreen(
     onGoWarehouse: () -> Unit,
     onGoStockLedger: () -> Unit,
     onGoProduction: () -> Unit,
-    onGoStartProduction: () -> Unit,
     onGoFinishedSales: () -> Unit,
     onGoSuppliers: () -> Unit,
     onGoCustomers: () -> Unit,
@@ -79,7 +77,6 @@ fun HomeDashboardScreen(
         add(HomeAction("انبار مواد", Icons.Default.Warehouse, onGoWarehouse))
         if (isManager) add(HomeAction("گردش انبار", Icons.Default.History, onGoStockLedger))
         add(HomeAction("قرض فروشنده", Icons.Default.ReceiptLong, onGoSuppliers))
-        if (isManager) add(HomeAction("شروع تولید", Icons.Default.ContentCut, onGoStartProduction))
         if (isManager) add(HomeAction("خط تولید", Icons.Default.Checkroom, onGoProduction))
         if (isManager) add(HomeAction("فروش انبار", Icons.Default.Sell, onGoFinishedSales))
     }
@@ -119,7 +116,7 @@ fun HomeDashboardScreen(
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "جریان اصلی: خرید مواد ← شروع تولید ← فروش انبار",
+                    "جریان اصلی: خرید مواد ← خط تولید ← فروش انبار",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
