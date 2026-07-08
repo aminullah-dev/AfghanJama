@@ -9,11 +9,13 @@ import com.afghanjama.data.dao.CustomerPaymentDao
 import com.afghanjama.data.dao.FabricStockDao
 import com.afghanjama.data.dao.FinanceDao
 import com.afghanjama.data.dao.MasterDataDao
+import com.afghanjama.data.dao.MaterialStockDao
 import com.afghanjama.data.dao.OrderCounterDao
 import com.afghanjama.data.dao.OrderDao
 import com.afghanjama.data.dao.OrderFabricDao
 import com.afghanjama.data.dao.OrderStageLogDao
 import com.afghanjama.data.dao.OrderWorkItemDao
+import com.afghanjama.data.dao.ProcurementDao
 import com.afghanjama.data.dao.SewingAssignmentDao
 import com.afghanjama.data.dao.TailorWageDao
 import com.afghanjama.data.entities.Customer
@@ -24,11 +26,14 @@ import com.afghanjama.data.entities.FabricStock
 import com.afghanjama.data.entities.FabricType
 import com.afghanjama.data.entities.GarmentDesign
 import com.afghanjama.data.entities.Inspector
+import com.afghanjama.data.entities.MaterialStock
 import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.OrderCounter
 import com.afghanjama.data.entities.OrderFabric
 import com.afghanjama.data.entities.OrderStageLog
 import com.afghanjama.data.entities.OrderWorkItem
+import com.afghanjama.data.entities.PurchaseInvoice
+import com.afghanjama.data.entities.PurchaseItem
 import com.afghanjama.data.entities.SewingAssignment
 import com.afghanjama.data.entities.SizeItem
 import com.afghanjama.data.entities.Tailor
@@ -56,9 +61,12 @@ import com.afghanjama.data.entities.WorkCost
         OrderStageLog::class,
         OrderFabric::class,
         SewingAssignment::class,
-        OrderWorkItem::class
+        OrderWorkItem::class,
+        MaterialStock::class,
+        PurchaseInvoice::class,
+        PurchaseItem::class
     ],
-    version = 23,
+    version = 24,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -75,4 +83,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun orderFabricDao(): OrderFabricDao
     abstract fun sewingAssignmentDao(): SewingAssignmentDao
     abstract fun orderWorkItemDao(): OrderWorkItemDao
+    abstract fun materialStockDao(): MaterialStockDao
+    abstract fun procurementDao(): ProcurementDao
 }

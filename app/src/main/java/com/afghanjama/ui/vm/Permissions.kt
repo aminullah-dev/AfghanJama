@@ -28,6 +28,13 @@ object Permissions {
     fun canBuyFabric(role: UserRole) =
         role == UserRole.MANAGER || role == UserRole.PURCHASE
 
+    /** خرید مواد خام (فاکتور آزاد چند قلمی). */
+    fun canBuyMaterial(role: UserRole) =
+        role == UserRole.MANAGER || role == UserRole.PURCHASE
+
+    /** اصلاح دستی انبار مواد. */
+    fun canAdjustMaterial(role: UserRole) = role == UserRole.MANAGER
+
     /** مدیریت اطلاعات پایه. */
     fun canManageMaster(role: UserRole) = role == UserRole.MANAGER
 }

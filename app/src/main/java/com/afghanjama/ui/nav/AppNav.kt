@@ -31,13 +31,16 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.afghanjama.ui.screens.CuttingScreen
 import com.afghanjama.ui.screens.FabricStockScreen
+import com.afghanjama.ui.screens.HomeDashboardScreen
 import com.afghanjama.ui.screens.OrderDetailScreen
 import com.afghanjama.ui.screens.FinanceHubScreen
 import com.afghanjama.ui.screens.InventoryScreen
 import com.afghanjama.ui.screens.LoginScreen
 import com.afghanjama.ui.screens.MasterDataScreen
+import com.afghanjama.ui.screens.MaterialWarehouseScreen
 import com.afghanjama.ui.screens.OrderSearchScreen
 import com.afghanjama.ui.screens.PostLoginQuoteScreen
+import com.afghanjama.ui.screens.ProcurementScreen
 import com.afghanjama.ui.screens.PurchasePlanScreen
 import com.afghanjama.ui.screens.ReviewScreen
 import com.afghanjama.ui.screens.SalesScreen
@@ -49,10 +52,12 @@ import com.afghanjama.ui.vm.CustomerAccountsViewModel
 import com.afghanjama.ui.vm.CuttingViewModel
 import com.afghanjama.ui.vm.DashboardViewModel
 import com.afghanjama.ui.vm.FinanceViewModel
+import com.afghanjama.ui.vm.HomeViewModel
 import com.afghanjama.ui.vm.InventoryViewModel
 import com.afghanjama.ui.vm.MasterDataViewModel
 import com.afghanjama.ui.vm.OrderDetailViewModel
 import com.afghanjama.ui.vm.OrderSearchViewModel
+import com.afghanjama.ui.vm.ProcurementViewModel
 import com.afghanjama.ui.vm.PurchaseViewModel
 import com.afghanjama.ui.vm.ReviewViewModel
 import com.afghanjama.ui.vm.SalesViewModel
@@ -61,6 +66,7 @@ import com.afghanjama.ui.vm.SewingViewModel
 import com.afghanjama.ui.vm.StockViewModel
 import com.afghanjama.ui.vm.UserRole
 import com.afghanjama.ui.vm.WagesViewModel
+import com.afghanjama.ui.vm.WarehouseViewModel
 
 /** آیتم نوار پایین. */
 private data class BottomItem(
@@ -121,7 +127,10 @@ fun AppNav(
     searchVm: OrderSearchViewModel,
     stockVm: StockViewModel,
     backupVm: BackupViewModel,
-    orderDetailVm: OrderDetailViewModel
+    orderDetailVm: OrderDetailViewModel,
+    procurementVm: ProcurementViewModel,
+    warehouseVm: WarehouseViewModel,
+    homeVm: HomeViewModel
 ) {
     val navController = rememberNavController()
     val authUi by authVm.ui.collectAsState()
@@ -146,7 +155,8 @@ fun AppNav(
         bottomItems.size >= 2 &&
         currentRoute != null &&
         currentRoute != Routes.LOGIN &&
-        currentRoute != Routes.POST_LOGIN
+        currentRoute != Routes.POST_LOGIN &&
+        currentRoute != Routes.HOME
 
     Scaffold(
         bottomBar = {
@@ -201,11 +211,39 @@ fun AppNav(
             composable(Routes.POST_LOGIN) {
                 PostLoginQuoteScreen(
                     onContinue = {
-                        navController.navigate(Routes.INVENTORY) {
+                        navController.navigate(Routes.HOME) {
                             popUpTo(Routes.POST_LOGIN) { inclusive = true }
                             launchSingleTop = true
                         }
                     }
+                )
+            }
+
+            composable(Routes.HOME) {
+                HomeDashboardScreen(
+                    vm = homeVm,
+                    onGoProcurement = { navController.navigate(Routes.PROCUREMENT) },
+                    onGoWarehouse = { navController.navigate(Routes.WAREHOUSE) },
+                    onGoProduction = { navController.navigate(Routes.INVENTORY) },
+                    onGoSales = { navController.navigate(Routes.SALES) },
+                    onGoFinance = { navController.navigate(Routes.FINANCE) },
+                    onGoSearch = { navController.navigate(Routes.SEARCH) },
+                    onGoSettings = { navController.navigate(Routes.SETTINGS) }
+                )
+            }
+
+            composable(Routes.PROCUREMENT) {
+                ProcurementScreen(
+                    vm = procurementVm,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Routes.WAREHOUSE) {
+                MaterialWarehouseScreen(
+                    vm = warehouseVm,
+                    canAdjust = Permissions.canAdjustMaterial(authUi.role),
+                    onBack = { navController.popBackStack() }
                 )
             }
 

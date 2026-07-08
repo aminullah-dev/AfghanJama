@@ -130,3 +130,55 @@ val MIGRATION_22_23 = object : Migration(22, 23) {
         )
     }
 }
+
+/**
+ * انبار عمومی مواد خام + فاکتورهای خرید آزاد (چند قلم دلخواه).
+ * افزوده‌شده و بدون دست‌زدن به جدول‌های قبلی؛ داده‌ها حفظ می‌شوند.
+ */
+val MIGRATION_23_24 = object : Migration(23, 24) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // انبار عمومی مواد
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `material_stock` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`name` TEXT NOT NULL, " +
+                "`unit` TEXT NOT NULL, " +
+                "`amount` REAL NOT NULL, " +
+                "`avgPrice` REAL NOT NULL DEFAULT 0, " +
+                "`minLevel` REAL NOT NULL DEFAULT 0, " +
+                "`updatedAt` INTEGER NOT NULL)"
+        )
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_material_stock_name_unit` " +
+                "ON `material_stock` (`name`, `unit`)"
+        )
+
+        // سرِ فاکتور خرید
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `purchase_invoices` (" +
+                "`id` TEXT PRIMARY KEY NOT NULL, " +
+                "`code` TEXT NOT NULL, " +
+                "`supplier` TEXT NOT NULL, " +
+                "`note` TEXT NOT NULL, " +
+                "`total` INTEGER NOT NULL, " +
+                "`paySource` TEXT NOT NULL, " +
+                "`createdAt` INTEGER NOT NULL)"
+        )
+
+        // اقلام فاکتور خرید
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `purchase_items` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`invoiceId` TEXT NOT NULL, " +
+                "`name` TEXT NOT NULL, " +
+                "`unit` TEXT NOT NULL, " +
+                "`qty` REAL NOT NULL, " +
+                "`unitPrice` INTEGER NOT NULL, " +
+                "`total` INTEGER NOT NULL)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_purchase_items_invoiceId` " +
+                "ON `purchase_items` (`invoiceId`)"
+        )
+    }
+}

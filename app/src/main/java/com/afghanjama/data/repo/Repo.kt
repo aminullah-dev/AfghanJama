@@ -8,11 +8,14 @@ import com.afghanjama.data.entities.FabricColor
 import com.afghanjama.data.entities.FabricStock
 import com.afghanjama.data.entities.FabricType
 import com.afghanjama.data.entities.Inspector
+import com.afghanjama.data.entities.MaterialStock
 import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.OrderCounter
 import com.afghanjama.data.entities.OrderFabric
 import com.afghanjama.data.entities.OrderStageLog
 import com.afghanjama.data.entities.OrderWorkItem
+import com.afghanjama.data.entities.PurchaseInvoice
+import com.afghanjama.data.entities.PurchaseItem
 import com.afghanjama.data.entities.SewingAssignment
 import com.afghanjama.data.entities.SizeItem
 import com.afghanjama.data.entities.Tailor
@@ -390,6 +393,70 @@ class Repo(private val db: AppDatabase) {
         db.fabricStockDao().upsert(
             cur.copy(minLevel = minLevel.coerceAtLeast(0.0), updatedAt = now)
         )
+    }
+
+    // =========================
+    // Material Stock (انبار عمومی مواد خام)
+    // =========================
+
+    fun observeMaterialStock(): Flow<List<MaterialStock>> =
+        db.materialStockDao().observeAll()
+
+    suspend fun getMaterialStock(name: String, unit: String): MaterialStock? =
+        db.materialStockDao().find(name.trim(), unit.trim())
+
+    /** افزودن خرید یک قلم به انبار با میانگین وزنی قیمت. */
+    suspend fun addMaterialPurchase(name: String, unit: String, amount: Double, totalPrice: Long) {
+        if (amount <= 0.0) return
+        val now = System.currentTimeMillis()
+        val cur = db.materialStockDao().find(name.trim(), unit.trim())
+            ?: MaterialStock(name = name.trim(), unit = unit.trim(), amount = 0.0, updatedAt = now)
+        val newAmount = cur.amount + amount
+        val newAvg =
+            if (newAmount > 0.0) ((cur.amount * cur.avgPrice) + totalPrice) / newAmount
+            else 0.0
+        db.materialStockDao().upsert(cur.copy(amount = newAmount, avgPrice = newAvg, updatedAt = now))
+    }
+
+    /** افزایش/کاهش موجودی یک قلم؛ delta منفی برای مصرف. زیر صفر نمی‌رود. */
+    suspend fun changeMaterialStock(name: String, unit: String, delta: Double) {
+        val now = System.currentTimeMillis()
+        val cur = db.materialStockDao().find(name.trim(), unit.trim())
+            ?: MaterialStock(name = name.trim(), unit = unit.trim(), amount = 0.0, updatedAt = now)
+        db.materialStockDao().upsert(
+            cur.copy(amount = (cur.amount + delta).coerceAtLeast(0.0), updatedAt = now)
+        )
+    }
+
+    suspend fun setMaterialMinLevel(name: String, unit: String, minLevel: Double) {
+        val now = System.currentTimeMillis()
+        val cur = db.materialStockDao().find(name.trim(), unit.trim())
+            ?: MaterialStock(name = name.trim(), unit = unit.trim(), amount = 0.0, updatedAt = now)
+        db.materialStockDao().upsert(cur.copy(minLevel = minLevel.coerceAtLeast(0.0), updatedAt = now))
+    }
+
+    // =========================
+    // Procurement (خرید مواد خام — فاکتور چند قلمی)
+    // =========================
+
+    fun observePurchaseInvoices(): Flow<List<PurchaseInvoice>> =
+        db.procurementDao().observeInvoices()
+
+    fun observePurchaseItems(invoiceId: String): Flow<List<PurchaseItem>> =
+        db.procurementDao().observeItems(invoiceId)
+
+    /**
+     * ثبت یک فاکتور خرید: فاکتور و اقلامش ذخیره، هر قلم وارد انبار و
+     * مبلغ کل از منبع انتخابی پرداخت می‌شود. صندوق پرداخت‌کننده باید از
+     * قبل موجودی کافی داشته باشد (کنترل در ViewModel).
+     */
+    suspend fun recordPurchaseInvoice(invoice: PurchaseInvoice, items: List<PurchaseItem>) {
+        db.procurementDao().insertInvoice(invoice)
+        db.procurementDao().insertItems(items)
+        items.forEach { addMaterialPurchase(it.name, it.unit, it.qty, it.total) }
+        if (invoice.total > 0 && invoice.paySource != "CUSTOMER") {
+            spend(invoice.paySource, invoice.total, "خرید مواد ${invoice.code}", category = "خرید مواد")
+        }
     }
 
     // =========================

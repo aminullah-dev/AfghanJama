@@ -1,0 +1,158 @@
+package com.afghanjama.ui.vm
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.afghanjama.data.CodeGen
+import com.afghanjama.data.entities.PaymentSource
+import com.afghanjama.data.entities.PurchaseInvoice
+import com.afghanjama.data.entities.PurchaseItem
+import com.afghanjama.data.repo.Repo
+import com.afghanjama.ui.format.decimalOnly
+import com.afghanjama.ui.format.digitsOnly
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+
+/** یک قلمِ خریدِ افزوده‌شده به فاکتور. */
+data class MaterialLine(
+    val name: String,
+    val unit: String,
+    val qty: Double,
+    val unitPrice: Long
+) {
+    val total: Long get() = (qty * unitPrice).toLong()
+}
+
+data class ProcurementUi(
+    // ---- ویرایشگر قلم فعلی ----
+    val name: String = "",
+    val unit: String = "",
+    val qty: String = "",
+    val unitPrice: String = "",
+
+    // ---- اقلام افزوده‌شده ----
+    val items: List<MaterialLine> = emptyList(),
+
+    // ---- اطلاعات فاکتور ----
+    val supplier: String = "",
+    val note: String = "",
+    val paymentSource: String = PaymentSource.WALLET.name,
+
+    val message: String? = null,
+    val isError: Boolean = false
+) {
+    val itemsTotal: Long get() = items.sumOf { it.total }
+}
+
+/**
+ * خرید مواد خام: کاربر هر قلم را با نام، واحد، تعداد و قیمتِ دلخواه
+ * وارد می‌کند و با «+» به فاکتور می‌افزاید. با اتمام خرید، همهٔ اقلام
+ * وارد انبار عمومی می‌شوند و مبلغ کل از صندوق انتخابی کم می‌شود.
+ */
+class ProcurementViewModel(private val repo: Repo) : ViewModel() {
+
+    private val _ui = MutableStateFlow(ProcurementUi())
+    val ui: StateFlow<ProcurementUi> = _ui
+
+    private fun clear() = _ui.update { it.copy(message = null, isError = false) }
+
+    fun setName(v: String) = _ui.update { it.copy(name = v, message = null, isError = false) }
+    fun setUnit(v: String) = _ui.update { it.copy(unit = v, message = null, isError = false) }
+    fun setQty(v: String) = _ui.update { it.copy(qty = v.decimalOnly(), message = null, isError = false) }
+    fun setUnitPrice(v: String) = _ui.update { it.copy(unitPrice = v.digitsOnly(), message = null, isError = false) }
+
+    fun setSupplier(v: String) = _ui.update { it.copy(supplier = v, message = null, isError = false) }
+    fun setNote(v: String) = _ui.update { it.copy(note = v, message = null, isError = false) }
+    fun setPaymentSource(v: String) = _ui.update { it.copy(paymentSource = v.trim(), message = null, isError = false) }
+
+    private fun buildLine(s: ProcurementUi): MaterialLine? {
+        if (s.name.isBlank() || s.unit.isBlank()) return null
+        val qty = s.qty.toDoubleOrNull() ?: return null
+        if (qty <= 0.0) return null
+        val price = s.unitPrice.toLongOrNull()?.coerceAtLeast(0) ?: 0L
+        return MaterialLine(s.name.trim(), s.unit.trim(), qty, price)
+    }
+
+    /** قلمِ فعلی را به فاکتور اضافه و ویرایشگر را پاک می‌کند. */
+    fun addLine() {
+        val line = buildLine(_ui.value) ?: run {
+            _ui.update { it.copy(message = "برای افزودن قلم: نام، واحد و تعداد را کامل کنید.", isError = true) }
+            return
+        }
+        _ui.update {
+            it.copy(
+                items = it.items + line,
+                name = "", unit = "", qty = "", unitPrice = "",
+                message = null, isError = false
+            )
+        }
+    }
+
+    fun removeLine(index: Int) = _ui.update {
+        if (index in it.items.indices) it.copy(items = it.items.toMutableList().apply { removeAt(index) })
+        else it
+    }
+
+    /** اتمام خرید و ارسال به انبار. */
+    fun completePurchase() = viewModelScope.launch {
+        clear()
+        val s = _ui.value
+
+        // اقلام: لیست + در صورت خالی‌بودن، ویرایشگر فعلی
+        val lines = s.items.toMutableList()
+        if (lines.isEmpty()) buildLine(s)?.let { lines.add(it) }
+        if (lines.isEmpty()) {
+            _ui.update { it.copy(message = "حداقل یک قلم به فاکتور اضافه کنید.", isError = true) }
+            return@launch
+        }
+
+        val total = lines.sumOf { it.total }
+        val paySrc = runCatching { PaymentSource.valueOf(s.paymentSource.trim().uppercase()) }
+            .getOrNull() ?: PaymentSource.WALLET
+
+        // کنترل موجودی صندوق (به‌جز پرداخت توسط مشتری/بعداً)
+        if (paySrc != PaymentSource.CUSTOMER && total > 0) {
+            val balance = when (paySrc) {
+                PaymentSource.WALLET -> repo.observeWalletBalance().first()
+                PaymentSource.PROFIT -> repo.observeProfitBalance().first()
+                PaymentSource.BANK -> repo.observeBankBalance().first()
+                PaymentSource.CUSTOMER -> Long.MAX_VALUE
+            }
+            if (balance < total) {
+                val label = when (paySrc) {
+                    PaymentSource.WALLET -> "کیف پول"
+                    PaymentSource.PROFIT -> "فایده"
+                    PaymentSource.BANK -> "بانک"
+                    PaymentSource.CUSTOMER -> "مشتری"
+                }
+                _ui.update { it.copy(message = "موجودی $label کافی نیست. مبلغ خرید: $total ؋", isError = true) }
+                return@launch
+            }
+        }
+
+        val invoice = PurchaseInvoice(
+            code = CodeGen.makePurchaseCode(),
+            supplier = s.supplier.trim(),
+            note = s.note.trim(),
+            total = total,
+            paySource = paySrc.name
+        )
+        val rows = lines.map {
+            PurchaseItem(
+                invoiceId = invoice.id.toString(),
+                name = it.name,
+                unit = it.unit,
+                qty = it.qty,
+                unitPrice = it.unitPrice,
+                total = it.total
+            )
+        }
+        repo.recordPurchaseInvoice(invoice, rows)
+
+        _ui.update {
+            ProcurementUi(message = "✅ خرید ثبت شد و ${rows.size} قلم وارد انبار شد.", isError = false)
+        }
+    }
+}

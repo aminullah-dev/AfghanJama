@@ -5,8 +5,11 @@ object Routes {
     const val LOGIN = "login"
     const val POST_LOGIN = "post_login"
 
+    const val HOME = "home"
     const val INVENTORY = "inventory"
     const val PURCHASE = "purchase"
+    const val PROCUREMENT = "procurement"
+    const val WAREHOUSE = "warehouse"
 
     const val CUTTING = "cutting"
     const val SEWING = "sewing"
