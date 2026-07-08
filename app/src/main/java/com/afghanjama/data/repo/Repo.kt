@@ -22,6 +22,7 @@ import com.afghanjama.data.entities.PurchaseInvoice
 import com.afghanjama.data.entities.PurchaseItem
 import com.afghanjama.data.entities.SewingAssignment
 import com.afghanjama.data.entities.SizeItem
+import com.afghanjama.data.entities.StockMovement
 import com.afghanjama.data.entities.SupplierLedger
 import com.afghanjama.data.entities.Tailor
 import com.afghanjama.data.entities.TailorWage
@@ -123,15 +124,18 @@ class Repo(private val db: AppDatabase) {
             when {
                 stockRows.isNotEmpty() || materialRows.isNotEmpty() -> {
                     stockRows.forEach {
-                        changeMaterialStock(fabricMaterialName(it.fabricType, it.fabricColor), it.fabricUnit, it.amount)
+                        changeMaterialStock(fabricMaterialName(it.fabricType, it.fabricColor), it.fabricUnit, it.amount,
+                            reason = "برگشت به انبار", note = "حذف سفارش ${order.orderCode}")
                     }
                     materialRows.forEach {
-                        changeMaterialStock(it.fabricType, it.fabricUnit, it.amount)
+                        changeMaterialStock(it.fabricType, it.fabricUnit, it.amount,
+                            reason = "برگشت به انبار", note = "حذف سفارش ${order.orderCode}")
                     }
                 }
                 order.fabricSource == "STOCK" -> {
                     // سفارش‌های قدیمی که ردیف پارچه ندارند
-                    changeMaterialStock(fabricMaterialName(order.fabricType, order.fabricColor), order.fabricUnit, order.fabricAmount)
+                    changeMaterialStock(fabricMaterialName(order.fabricType, order.fabricColor), order.fabricUnit, order.fabricAmount,
+                        reason = "برگشت به انبار", note = "حذف سفارش ${order.orderCode}")
                 }
             }
         }
@@ -353,11 +357,21 @@ class Repo(private val db: AppDatabase) {
     fun observeMaterialStock(): Flow<List<MaterialStock>> =
         db.materialStockDao().observeAll()
 
+    fun observeStockMovements(): Flow<List<StockMovement>> =
+        db.stockMovementDao().observeRecent()
+
     suspend fun getMaterialStock(name: String, unit: String): MaterialStock? =
         db.materialStockDao().find(name.trim(), unit.trim())
 
+    /** ثبت یک ردیفِ گردش انبار (کاردکس). */
+    private suspend fun logMovement(name: String, unit: String, delta: Double, reason: String, note: String) {
+        db.stockMovementDao().insert(
+            StockMovement(name = name.trim(), unit = unit.trim(), delta = delta, reason = reason, note = note)
+        )
+    }
+
     /** افزودن خرید یک قلم به انبار با میانگین وزنی قیمت. */
-    suspend fun addMaterialPurchase(name: String, unit: String, amount: Double, totalPrice: Long) {
+    suspend fun addMaterialPurchase(name: String, unit: String, amount: Double, totalPrice: Long, note: String = "") {
         if (amount <= 0.0) return
         val now = System.currentTimeMillis()
         val cur = db.materialStockDao().find(name.trim(), unit.trim())
@@ -367,16 +381,28 @@ class Repo(private val db: AppDatabase) {
             if (newAmount > 0.0) ((cur.amount * cur.avgPrice) + totalPrice) / newAmount
             else 0.0
         db.materialStockDao().upsert(cur.copy(amount = newAmount, avgPrice = newAvg, updatedAt = now))
+        logMovement(name, unit, amount, "خرید", note)
     }
 
-    /** افزایش/کاهش موجودی یک قلم؛ delta منفی برای مصرف. زیر صفر نمی‌رود. */
-    suspend fun changeMaterialStock(name: String, unit: String, delta: Double) {
+    /**
+     * افزایش/کاهش موجودی یک قلم؛ delta منفی برای مصرف. زیر صفر نمی‌رود.
+     * هر تغییر با «دلیل» در کاردکس ثبت می‌شود (رد حسابرسی).
+     */
+    suspend fun changeMaterialStock(
+        name: String,
+        unit: String,
+        delta: Double,
+        reason: String = "اصلاح",
+        note: String = ""
+    ) {
+        if (delta == 0.0) return
         val now = System.currentTimeMillis()
         val cur = db.materialStockDao().find(name.trim(), unit.trim())
             ?: MaterialStock(name = name.trim(), unit = unit.trim(), amount = 0.0, updatedAt = now)
         db.materialStockDao().upsert(
             cur.copy(amount = (cur.amount + delta).coerceAtLeast(0.0), updatedAt = now)
         )
+        logMovement(name, unit, delta, reason, note)
     }
 
     suspend fun setMaterialMinLevel(name: String, unit: String, minLevel: Double) {

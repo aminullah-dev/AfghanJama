@@ -324,7 +324,8 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
         // کسر پارچه‌های «از موجودی» از انبار مواد
         resolved.filter { it.source == "STOCK" }.forEach {
             repo.changeMaterialStock(
-                repo.fabricMaterialName(it.fabricType, it.fabricColor), it.fabricUnit, -it.amount
+                repo.fabricMaterialName(it.fabricType, it.fabricColor), it.fabricUnit, -it.amount,
+                reason = "مصرف سفارش", note = order.orderCode
             )
         }
 

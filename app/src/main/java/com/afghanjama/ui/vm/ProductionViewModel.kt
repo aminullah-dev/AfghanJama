@@ -185,7 +185,12 @@ class ProductionViewModel(private val repo: Repo) : ViewModel() {
         )
 
         // کسر مواد از انبار (مواد قبلاً پرداخت شده‌اند؛ پول دوباره کم نمی‌شود)
-        resolved.forEach { repo.changeMaterialStock(it.fabricType, it.fabricUnit, -it.amount) }
+        resolved.forEach {
+            repo.changeMaterialStock(
+                it.fabricType, it.fabricUnit, -it.amount,
+                reason = "مصرف تولید", note = "سفارش ${order.orderCode}"
+            )
+        }
 
         repo.createOrder(order, resolved, emptyList())
 

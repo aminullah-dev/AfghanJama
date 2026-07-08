@@ -50,6 +50,7 @@ import com.afghanjama.ui.screens.ReviewScreen
 import com.afghanjama.ui.screens.SalesScreen
 import com.afghanjama.ui.screens.SettingsScreen
 import com.afghanjama.ui.screens.SewingScreen
+import com.afghanjama.ui.screens.StockLedgerScreen
 import com.afghanjama.ui.screens.SupplierScreen
 import com.afghanjama.ui.vm.AuthViewModel
 import com.afghanjama.ui.vm.BackupViewModel
@@ -239,8 +240,10 @@ fun AppNav(
                     isManager = authUi.role == UserRole.MANAGER,
                     onGoProcurement = { navController.navigate(Routes.PROCUREMENT) },
                     onGoWarehouse = { navController.navigate(Routes.WAREHOUSE) },
+                    onGoStockLedger = { navController.navigate(Routes.STOCK_LEDGER) },
                     onGoProduction = { navController.navigate(Routes.INVENTORY) },
                     onGoStartProduction = { navController.navigate(Routes.PRODUCTION_ORDER) },
+                    // stock ledger wired above
                     onGoFinishedSales = { navController.navigate(Routes.FINISHED_SALES) },
                     onGoSuppliers = { navController.navigate(Routes.SUPPLIERS) },
                     onGoCustomers = { navController.navigate(Routes.CUSTOMERS) },
@@ -305,6 +308,13 @@ fun AppNav(
                 MaterialWarehouseScreen(
                     vm = warehouseVm,
                     canAdjust = Permissions.canAdjustMaterial(authUi.role),
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Routes.STOCK_LEDGER) {
+                StockLedgerScreen(
+                    vm = warehouseVm,
                     onBack = { navController.popBackStack() }
                 )
             }

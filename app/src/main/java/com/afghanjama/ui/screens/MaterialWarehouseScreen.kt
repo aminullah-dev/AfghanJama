@@ -64,6 +64,7 @@ fun MaterialWarehouseScreen(
     editTarget?.let { item ->
         var amountText by remember(item.id) { mutableStateOf(fmtAmountLatin(item.amount)) }
         var minText by remember(item.id) { mutableStateOf(fmtAmountLatin(item.minLevel)) }
+        var wasteText by remember(item.id) { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { editTarget = null },
             title = { Text("اصلاح «${item.name}»") },
@@ -90,11 +91,25 @@ fun MaterialWarehouseScreen(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth()
                     )
+                    OutlinedTextField(
+                        value = wasteText,
+                        onValueChange = { wasteText = it.decimalOnly() },
+                        label = { Text("ثبت ضایعات (خروج از موجودی)") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             },
             confirmButton = {
                 TextButton(onClick = {
-                    amountText.toDoubleOrNull()?.let { vm.setAmount(item, it) }
+                    val waste = wasteText.toDoubleOrNull()
+                    if (waste != null && waste > 0.0) {
+                        // ثبت ضایعات: موجودی از رقمِ فعلی کم می‌شود (نه تنظیم مطلق)
+                        vm.recordWaste(item, waste)
+                    } else {
+                        amountText.toDoubleOrNull()?.let { vm.setAmount(item, it) }
+                    }
                     minText.toDoubleOrNull()?.let { vm.setMinLevel(item, it) }
                     editTarget = null
                 }) { Text("ذخیره") }

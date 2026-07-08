@@ -301,3 +301,25 @@ val MIGRATION_27_28 = object : Migration(27, 28) {
         )
     }
 }
+
+/**
+ * کاردکس/گردش انبار مواد با دلیل هر تغییر موجودی.
+ */
+val MIGRATION_28_29 = object : Migration(28, 29) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `stock_movements` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`name` TEXT NOT NULL, " +
+                "`unit` TEXT NOT NULL, " +
+                "`delta` REAL NOT NULL, " +
+                "`reason` TEXT NOT NULL, " +
+                "`note` TEXT NOT NULL, " +
+                "`createdAt` INTEGER NOT NULL)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_stock_movements_name` " +
+                "ON `stock_movements` (`name`)"
+        )
+    }
+}
