@@ -87,7 +87,7 @@ class MainActivity : ComponentActivity() {
                 val productionVm = remember { ProductionViewModel(repo) }
                 val finishedSaleVm = remember { FinishedSaleViewModel(repo) }
                 val supplierVm = remember { SupplierViewModel(repo) }
-                val customersVm = remember { CustomersViewModel(repo) }
+                val customerDirVm = remember { CustomersViewModel(repo) }
                 val customerDetailVm = remember { CustomerDetailViewModel(repo) }
 
                 AppNav(
@@ -113,7 +113,7 @@ class MainActivity : ComponentActivity() {
                     productionVm = productionVm,
                     finishedSaleVm = finishedSaleVm,
                     supplierVm = supplierVm,
-                    customersVm = customersVm,
+                    customerDirVm = customerDirVm,
                     customerDetailVm = customerDetailVm
                 )
             }

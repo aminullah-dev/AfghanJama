@@ -145,7 +145,7 @@ fun AppNav(
     productionVm: ProductionViewModel,
     finishedSaleVm: FinishedSaleViewModel,
     supplierVm: SupplierViewModel,
-    customersVm: CustomersViewModel,
+    customerDirVm: CustomersViewModel,
     customerDetailVm: CustomerDetailViewModel
 ) {
     val navController = rememberNavController()
@@ -279,7 +279,7 @@ fun AppNav(
 
             composable(Routes.CUSTOMERS) {
                 CustomersScreen(
-                    vm = customersVm,
+                    vm = customerDirVm,
                     onBack = { navController.popBackStack() },
                     onOpenCustomer = { id -> navController.navigate("${Routes.CUSTOMER_DETAIL}/$id") }
                 )
