@@ -20,6 +20,8 @@ import com.afghanjama.ui.theme.AfghanJamaTheme
 import com.afghanjama.ui.vm.AuthViewModel
 import com.afghanjama.ui.vm.BackupViewModel
 import com.afghanjama.ui.vm.CustomerAccountsViewModel
+import com.afghanjama.ui.vm.CustomerDetailViewModel
+import com.afghanjama.ui.vm.CustomersViewModel
 import com.afghanjama.ui.vm.CuttingViewModel
 import com.afghanjama.ui.vm.DashboardViewModel
 import com.afghanjama.ui.vm.FinanceViewModel
@@ -85,6 +87,8 @@ class MainActivity : ComponentActivity() {
                 val productionVm = remember { ProductionViewModel(repo) }
                 val finishedSaleVm = remember { FinishedSaleViewModel(repo) }
                 val supplierVm = remember { SupplierViewModel(repo) }
+                val customersVm = remember { CustomersViewModel(repo) }
+                val customerDetailVm = remember { CustomerDetailViewModel(repo) }
 
                 AppNav(
                     authVm = authVm,
@@ -108,7 +112,9 @@ class MainActivity : ComponentActivity() {
                     homeVm = homeVm,
                     productionVm = productionVm,
                     finishedSaleVm = finishedSaleVm,
-                    supplierVm = supplierVm
+                    supplierVm = supplierVm,
+                    customersVm = customersVm,
+                    customerDetailVm = customerDetailVm
                 )
             }
         }

@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Checkroom
 import androidx.compose.material.icons.filled.ContentCut
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.ReceiptLong
@@ -61,6 +62,7 @@ fun HomeDashboardScreen(
     onGoStartProduction: () -> Unit,
     onGoFinishedSales: () -> Unit,
     onGoSuppliers: () -> Unit,
+    onGoCustomers: () -> Unit,
     onGoCustomerOrder: () -> Unit,
     onGoSales: () -> Unit,
     onGoFinance: () -> Unit,
@@ -79,8 +81,9 @@ fun HomeDashboardScreen(
         if (isManager) add(HomeAction("فروش انبار", Icons.Default.Sell, onGoFinishedSales))
     }
 
-    // مسیر «سفارش مشتری» (make-to-order)
+    // مشتریان و سفارش
     val customerFlow = buildList {
+        add(HomeAction("مشتریان", Icons.Default.Group, onGoCustomers))
         add(HomeAction("سفارش مشتری", Icons.Default.PersonAdd, onGoCustomerOrder))
         if (isManager) add(HomeAction("فروش سفارش", Icons.Default.Storefront, onGoSales))
     }
@@ -94,7 +97,7 @@ fun HomeDashboardScreen(
 
     val sections = listOf(
         "موجودی و تولید" to stockFlow,
-        "سفارش مشتری" to customerFlow,
+        "مشتریان و سفارش" to customerFlow,
         "عمومی" to general
     )
 

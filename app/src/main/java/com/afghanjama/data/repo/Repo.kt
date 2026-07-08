@@ -2,6 +2,7 @@ package com.afghanjama.data.repo
 
 import com.afghanjama.data.AppDatabase
 import com.afghanjama.data.entities.Customer
+import com.afghanjama.data.entities.CustomerMeasurement
 import com.afghanjama.data.entities.CustomerPayment
 import com.afghanjama.data.entities.DesignItem
 import com.afghanjama.data.entities.FabricColor
@@ -571,6 +572,19 @@ class Repo(private val db: AppDatabase) {
 
     suspend fun addCustomer(item: Customer) =
         db.masterDataDao().insertCustomer(item)
+
+    // =========================
+    // Customer measurements (اندازه‌های مشتری)
+    // =========================
+
+    fun observeMeasurements(customerId: Long): Flow<List<CustomerMeasurement>> =
+        db.customerMeasurementDao().observeForCustomer(customerId)
+
+    suspend fun upsertMeasurement(row: CustomerMeasurement) =
+        db.customerMeasurementDao().upsert(row.copy(updatedAt = System.currentTimeMillis()))
+
+    suspend fun deleteMeasurement(id: Long) =
+        db.customerMeasurementDao().deleteById(id)
 
     // =========================
     // Work Costs (CatalogDao)

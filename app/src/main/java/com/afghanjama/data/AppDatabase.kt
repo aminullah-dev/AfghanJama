@@ -7,6 +7,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.afghanjama.data.dao.CatalogDao
+import com.afghanjama.data.dao.CustomerMeasurementDao
 import com.afghanjama.data.dao.CustomerPaymentDao
 import com.afghanjama.data.dao.FinanceDao
 import com.afghanjama.data.dao.FinishedStockDao
@@ -22,6 +23,7 @@ import com.afghanjama.data.dao.ProcurementDao
 import com.afghanjama.data.dao.SewingAssignmentDao
 import com.afghanjama.data.dao.TailorWageDao
 import com.afghanjama.data.entities.Customer
+import com.afghanjama.data.entities.CustomerMeasurement
 import com.afghanjama.data.entities.CustomerPayment
 import com.afghanjama.data.entities.DesignItem
 import com.afghanjama.data.entities.FabricColor
@@ -71,9 +73,10 @@ import com.afghanjama.data.entities.WorkCost
         PurchaseItem::class,
         FinishedStock::class,
         FinishedSale::class,
-        SupplierLedger::class
+        SupplierLedger::class,
+        CustomerMeasurement::class
     ],
-    version = 27,
+    version = 28,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -93,12 +96,14 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun procurementDao(): ProcurementDao
     abstract fun finishedStockDao(): FinishedStockDao
     abstract fun supplierDao(): SupplierDao
+    abstract fun customerMeasurementDao(): CustomerMeasurementDao
 }
 
 /** همهٔ Migrationها یک‌جا تا Workerها و اپ هرگز از هم جدا نیفتند. */
 val ALL_MIGRATIONS = arrayOf(
     MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23,
-    MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27
+    MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27,
+    MIGRATION_27_28
 )
 
 const val DB_NAME = "afghanjama.db"

@@ -281,3 +281,23 @@ val MIGRATION_26_27 = object : Migration(26, 27) {
         )
     }
 }
+
+/**
+ * اندازه‌های بدنِ مشتری (پروندهٔ خیاطی).
+ */
+val MIGRATION_27_28 = object : Migration(27, 28) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `customer_measurements` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`customerId` INTEGER NOT NULL, " +
+                "`label` TEXT NOT NULL, " +
+                "`value` TEXT NOT NULL, " +
+                "`updatedAt` INTEGER NOT NULL)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_customer_measurements_customerId` " +
+                "ON `customer_measurements` (`customerId`)"
+        )
+    }
+}

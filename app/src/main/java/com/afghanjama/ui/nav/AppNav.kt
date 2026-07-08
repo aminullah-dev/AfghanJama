@@ -30,6 +30,8 @@ import androidx.navigation.navArgument
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.afghanjama.ui.screens.CustomerDetailScreen
+import com.afghanjama.ui.screens.CustomersScreen
 import com.afghanjama.ui.screens.CuttingScreen
 import com.afghanjama.ui.screens.FinishedWarehouseScreen
 import com.afghanjama.ui.screens.HomeDashboardScreen
@@ -52,6 +54,8 @@ import com.afghanjama.ui.screens.SupplierScreen
 import com.afghanjama.ui.vm.AuthViewModel
 import com.afghanjama.ui.vm.BackupViewModel
 import com.afghanjama.ui.vm.CustomerAccountsViewModel
+import com.afghanjama.ui.vm.CustomerDetailViewModel
+import com.afghanjama.ui.vm.CustomersViewModel
 import com.afghanjama.ui.vm.CuttingViewModel
 import com.afghanjama.ui.vm.DashboardViewModel
 import com.afghanjama.ui.vm.FinanceViewModel
@@ -139,7 +143,9 @@ fun AppNav(
     homeVm: HomeViewModel,
     productionVm: ProductionViewModel,
     finishedSaleVm: FinishedSaleViewModel,
-    supplierVm: SupplierViewModel
+    supplierVm: SupplierViewModel,
+    customersVm: CustomersViewModel,
+    customerDetailVm: CustomerDetailViewModel
 ) {
     val navController = rememberNavController()
     val authUi by authVm.ui.collectAsState()
@@ -237,7 +243,9 @@ fun AppNav(
                     onGoStartProduction = { navController.navigate(Routes.PRODUCTION_ORDER) },
                     onGoFinishedSales = { navController.navigate(Routes.FINISHED_SALES) },
                     onGoSuppliers = { navController.navigate(Routes.SUPPLIERS) },
+                    onGoCustomers = { navController.navigate(Routes.CUSTOMERS) },
                     onGoCustomerOrder = { navController.navigate(Routes.PURCHASE) },
+                    // -- customers wired --
                     onGoSales = { navController.navigate(Routes.SALES) },
                     onGoFinance = { navController.navigate(Routes.FINANCE) },
                     onGoSearch = { navController.navigate(Routes.SEARCH) },
@@ -263,6 +271,26 @@ fun AppNav(
                 SupplierScreen(
                     vm = supplierVm,
                     onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Routes.CUSTOMERS) {
+                CustomersScreen(
+                    vm = customersVm,
+                    onBack = { navController.popBackStack() },
+                    onOpenCustomer = { id -> navController.navigate("${Routes.CUSTOMER_DETAIL}/$id") }
+                )
+            }
+
+            composable(
+                route = "${Routes.CUSTOMER_DETAIL}/{customerId}",
+                arguments = listOf(navArgument("customerId") { type = NavType.LongType })
+            ) { entry ->
+                CustomerDetailScreen(
+                    vm = customerDetailVm,
+                    customerId = entry.arguments?.getLong("customerId") ?: 0L,
+                    onBack = { navController.popBackStack() },
+                    onOpenOrder = { oid -> navController.navigate("${Routes.ORDER_DETAIL}/$oid") }
                 )
             }
 
