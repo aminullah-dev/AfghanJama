@@ -16,8 +16,9 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Checkroom
 import androidx.compose.material.icons.filled.ContentCut
-import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material.icons.filled.Settings
@@ -48,31 +49,53 @@ private data class HomeAction(
     val onClick: () -> Unit
 )
 
+private fun fullSpan() = androidx.compose.foundation.lazy.grid.GridItemSpan(2)
+
 @Composable
 fun HomeDashboardScreen(
     vm: HomeViewModel,
+    isManager: Boolean,
     onGoProcurement: () -> Unit,
     onGoWarehouse: () -> Unit,
     onGoProduction: () -> Unit,
     onGoStartProduction: () -> Unit,
     onGoFinishedSales: () -> Unit,
+    onGoCustomerOrder: () -> Unit,
     onGoSales: () -> Unit,
+    onGoFabricStock: () -> Unit,
     onGoFinance: () -> Unit,
     onGoSearch: () -> Unit,
     onGoSettings: () -> Unit
 ) {
     val s by vm.summary.collectAsState()
 
-    val actions = listOf(
-        HomeAction("خرید مواد", Icons.Default.ShoppingCart, onGoProcurement),
-        HomeAction("انبار مواد", Icons.Default.Warehouse, onGoWarehouse),
-        HomeAction("شروع تولید", Icons.Default.ContentCut, onGoStartProduction),
-        HomeAction("خط تولید", Icons.Default.Checkroom, onGoProduction),
-        HomeAction("فروش انبار", Icons.Default.Sell, onGoFinishedSales),
-        HomeAction("فروش سفارش", Icons.Default.Storefront, onGoSales),
-        HomeAction("مالی", Icons.Default.Payments, onGoFinance),
-        HomeAction("جستجو", Icons.Default.Search, onGoSearch),
-        HomeAction("تنظیمات", Icons.Default.Settings, onGoSettings)
+    // جریان اصلی «تولید انبار» (make-to-stock)
+    val stockFlow = buildList {
+        add(HomeAction("خرید مواد", Icons.Default.ShoppingCart, onGoProcurement))
+        add(HomeAction("انبار مواد", Icons.Default.Warehouse, onGoWarehouse))
+        if (isManager) add(HomeAction("شروع تولید", Icons.Default.ContentCut, onGoStartProduction))
+        if (isManager) add(HomeAction("خط تولید", Icons.Default.Checkroom, onGoProduction))
+        if (isManager) add(HomeAction("فروش انبار", Icons.Default.Sell, onGoFinishedSales))
+    }
+
+    // مسیر «سفارش مشتری» (make-to-order)
+    val customerFlow = buildList {
+        add(HomeAction("سفارش مشتری", Icons.Default.PersonAdd, onGoCustomerOrder))
+        if (isManager) add(HomeAction("فروش سفارش", Icons.Default.Storefront, onGoSales))
+        add(HomeAction("انبار پارچه", Icons.Default.Layers, onGoFabricStock))
+    }
+
+    // عمومی
+    val general = buildList {
+        if (isManager) add(HomeAction("مالی", Icons.Default.Payments, onGoFinance))
+        add(HomeAction("جستجو", Icons.Default.Search, onGoSearch))
+        add(HomeAction("تنظیمات", Icons.Default.Settings, onGoSettings))
+    }
+
+    val sections = listOf(
+        "موجودی و تولید" to stockFlow,
+        "سفارش مشتری" to customerFlow,
+        "عمومی" to general
     )
 
     LazyVerticalGrid(
@@ -81,7 +104,7 @@ fun HomeDashboardScreen(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
+        item(span = { fullSpan() }) {
             Column {
                 Text(
                     "کارگاه خیاطی AfghanJama",
@@ -90,7 +113,7 @@ fun HomeDashboardScreen(
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "خلاصهٔ امروز کارگاه",
+                    "جریان اصلی: خرید مواد ← شروع تولید ← فروش انبار",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -132,43 +155,49 @@ fun HomeDashboardScreen(
         item { StatCard("کیف پول", s.wallet.afn(), "موجودی نقد") }
         item { StatCard("بانک", s.bank.afn(), "موجودی بانک") }
 
-        // ---------- دسترسی سریع ----------
-        item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
-            Text(
-                "دسترسی سریع",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-        }
-
-        items(actions) { action ->
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(96.dp)
-                    .clickable(onClick = action.onClick),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-            ) {
-                Column(
-                    Modifier.fillMaxSize().padding(12.dp),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(
-                        action.icon,
-                        contentDescription = action.label,
-                        tint = MaterialTheme.colorScheme.primary
+        // ---------- بخش‌های دسترسی سریع ----------
+        sections.forEach { (title, list) ->
+            if (list.isNotEmpty()) {
+                item(span = { fullSpan() }) {
+                    Text(
+                        title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(top = 4.dp)
                     )
-                    Spacer(Modifier.height(8.dp))
-                    Text(action.label, fontWeight = FontWeight.Medium)
                 }
+                items(list) { action -> ActionCard(action) }
             }
         }
 
-        item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
+        item(span = { fullSpan() }) {
             Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
+@Composable
+private fun ActionCard(action: HomeAction) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(96.dp)
+            .clickable(onClick = action.onClick),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            Modifier.fillMaxSize().padding(12.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                action.icon,
+                contentDescription = action.label,
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(action.label, fontWeight = FontWeight.Medium)
         }
     }
 }

@@ -278,7 +278,7 @@ fun InventoryScreen(
                 ) {
                     Icon(Icons.Default.ShoppingCart, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("ثبت خرید جدید")
+                    Text("ثبت سفارش مشتری")
                 }
             }
         }
@@ -309,7 +309,7 @@ private fun EmptyInventory(
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            text = "برای شروع، یک خرید ثبت کن تا سفارش وارد انبار شود.",
+            text = "برای شروع، یک سفارش مشتری ثبت کن تا وارد انبار شود.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -319,7 +319,7 @@ private fun EmptyInventory(
             Button(onClick = onAdd) {
                 Icon(Icons.Default.Add, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
-                Text("ثبت خرید")
+                Text("ثبت سفارش")
             }
         }
     }

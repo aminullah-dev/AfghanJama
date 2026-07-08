@@ -4,6 +4,7 @@ package com.afghanjama.ui.nav
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Checkroom
 import androidx.compose.material.icons.filled.ContentCut
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Payments
@@ -91,8 +92,8 @@ private fun bottomItemsFor(role: UserRole): List<BottomItem> = when (role) {
     )
 
     UserRole.PURCHASE -> listOf(
-        BottomItem(Routes.INVENTORY, "انبار", Icons.Default.Inventory2),
-        BottomItem(Routes.PURCHASE, "خرید", Icons.Default.ShoppingCart),
+        BottomItem(Routes.HOME, "خانه", Icons.Default.Home),
+        BottomItem(Routes.PURCHASE, "سفارش", Icons.Default.ShoppingCart),
         BottomItem(Routes.STOCK, "پارچه", Icons.Default.Layers),
         BottomItem(Routes.SETTINGS, "تنظیمات", Icons.Default.Settings)
     )
@@ -145,7 +146,7 @@ fun AppNav(
         !authUi.isLoggedIn -> Routes.LOGIN
         else -> when (authUi.role) {
             UserRole.MANAGER -> Routes.POST_LOGIN
-            UserRole.PURCHASE -> Routes.PURCHASE
+            UserRole.PURCHASE -> Routes.HOME
             UserRole.SEWING -> Routes.SEWING
             UserRole.REVIEW -> Routes.REVIEW
             UserRole.SALES -> Routes.SALES
@@ -161,8 +162,7 @@ fun AppNav(
         bottomItems.size >= 2 &&
         currentRoute != null &&
         currentRoute != Routes.LOGIN &&
-        currentRoute != Routes.POST_LOGIN &&
-        currentRoute != Routes.HOME
+        currentRoute != Routes.POST_LOGIN
 
     Scaffold(
         bottomBar = {
@@ -201,7 +201,7 @@ fun AppNav(
                     onLoggedIn = {
                         val next = when (authVm.ui.value.role) {
                             UserRole.MANAGER -> Routes.POST_LOGIN
-                            UserRole.PURCHASE -> Routes.PURCHASE
+                            UserRole.PURCHASE -> Routes.HOME
                             UserRole.SEWING -> Routes.SEWING
                             UserRole.REVIEW -> Routes.REVIEW
                             UserRole.SALES -> Routes.SALES
@@ -228,12 +228,15 @@ fun AppNav(
             composable(Routes.HOME) {
                 HomeDashboardScreen(
                     vm = homeVm,
+                    isManager = authUi.role == UserRole.MANAGER,
                     onGoProcurement = { navController.navigate(Routes.PROCUREMENT) },
                     onGoWarehouse = { navController.navigate(Routes.WAREHOUSE) },
                     onGoProduction = { navController.navigate(Routes.INVENTORY) },
                     onGoStartProduction = { navController.navigate(Routes.PRODUCTION_ORDER) },
                     onGoFinishedSales = { navController.navigate(Routes.FINISHED_SALES) },
+                    onGoCustomerOrder = { navController.navigate(Routes.PURCHASE) },
                     onGoSales = { navController.navigate(Routes.SALES) },
+                    onGoFabricStock = { navController.navigate(Routes.STOCK) },
                     onGoFinance = { navController.navigate(Routes.FINANCE) },
                     onGoSearch = { navController.navigate(Routes.SEARCH) },
                     onGoSettings = { navController.navigate(Routes.SETTINGS) }
