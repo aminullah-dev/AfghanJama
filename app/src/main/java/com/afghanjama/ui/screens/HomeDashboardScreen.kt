@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Checkroom
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material.icons.filled.Settings
@@ -59,6 +60,7 @@ fun HomeDashboardScreen(
     onGoProduction: () -> Unit,
     onGoStartProduction: () -> Unit,
     onGoFinishedSales: () -> Unit,
+    onGoSuppliers: () -> Unit,
     onGoCustomerOrder: () -> Unit,
     onGoSales: () -> Unit,
     onGoFinance: () -> Unit,
@@ -71,6 +73,7 @@ fun HomeDashboardScreen(
     val stockFlow = buildList {
         add(HomeAction("خرید مواد", Icons.Default.ShoppingCart, onGoProcurement))
         add(HomeAction("انبار مواد", Icons.Default.Warehouse, onGoWarehouse))
+        add(HomeAction("قرض فروشنده", Icons.Default.ReceiptLong, onGoSuppliers))
         if (isManager) add(HomeAction("شروع تولید", Icons.Default.ContentCut, onGoStartProduction))
         if (isManager) add(HomeAction("خط تولید", Icons.Default.Checkroom, onGoProduction))
         if (isManager) add(HomeAction("فروش انبار", Icons.Default.Sell, onGoFinishedSales))

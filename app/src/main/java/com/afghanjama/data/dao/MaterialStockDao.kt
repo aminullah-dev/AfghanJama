@@ -16,6 +16,10 @@ interface MaterialStockDao {
     @Query("SELECT * FROM material_stock WHERE name = :name AND unit = :unit LIMIT 1")
     suspend fun find(name: String, unit: String): MaterialStock?
 
+    /** اقلامی که به حد هشدار کمبود رسیده‌اند. */
+    @Query("SELECT * FROM material_stock WHERE minLevel > 0 AND amount <= minLevel ORDER BY name ASC")
+    suspend fun lowStock(): List<MaterialStock>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(stock: MaterialStock)
 

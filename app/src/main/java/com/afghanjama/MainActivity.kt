@@ -7,18 +7,15 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.room.Room
-import com.afghanjama.data.AppDatabase
-import com.afghanjama.data.MIGRATION_19_20
-import com.afghanjama.data.MIGRATION_20_21
-import com.afghanjama.data.MIGRATION_21_22
-import com.afghanjama.data.MIGRATION_22_23
-import com.afghanjama.data.MIGRATION_23_24
-import com.afghanjama.data.MIGRATION_24_25
-import com.afghanjama.data.MIGRATION_25_26
+import androidx.compose.runtime.setValue
+import com.afghanjama.data.buildAppDatabase
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.ui.nav.AppNav
+import com.afghanjama.ui.screens.PinLockScreen
+import com.afghanjama.util.AppLock
 import com.afghanjama.ui.theme.AfghanJamaTheme
 import com.afghanjama.ui.vm.AuthViewModel
 import com.afghanjama.ui.vm.BackupViewModel
@@ -39,6 +36,7 @@ import com.afghanjama.ui.vm.ReviewViewModel
 import com.afghanjama.ui.vm.SalesViewModel
 import com.afghanjama.ui.vm.SewingViewModel
 import com.afghanjama.ui.vm.StockViewModel
+import com.afghanjama.ui.vm.SupplierViewModel
 import com.afghanjama.ui.vm.WagesViewModel
 import com.afghanjama.ui.vm.WarehouseViewModel
 
@@ -53,22 +51,18 @@ class MainActivity : ComponentActivity() {
                 .launch(Manifest.permission.POST_NOTIFICATIONS)
         }
 
-        val db = Room.databaseBuilder(
-            applicationContext,
-            AppDatabase::class.java,
-            "afghanjama.db"
-        )
-            .addMigrations(
-                MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22,
-                MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26
-            )
-            .fallbackToDestructiveMigration()
-            .build()
-
+        val db = buildAppDatabase(applicationContext)
         val repo = Repo(db)
 
         setContent {
             AfghanJamaTheme {
+                // قفل اپ: اگر رمز تنظیم شده باشد، اول باید باز شود
+                var unlocked by remember { mutableStateOf(!AppLock.isPinSet(applicationContext)) }
+                if (!unlocked) {
+                    PinLockScreen(onUnlock = { unlocked = true })
+                    return@AfghanJamaTheme
+                }
+
                 val authVm = remember { AuthViewModel(application) }
                 val financeVm = remember { FinanceViewModel(repo) }
                 val purchaseVm = remember { PurchaseViewModel(repo) }
@@ -90,6 +84,7 @@ class MainActivity : ComponentActivity() {
                 val homeVm = remember { HomeViewModel(repo) }
                 val productionVm = remember { ProductionViewModel(repo) }
                 val finishedSaleVm = remember { FinishedSaleViewModel(repo) }
+                val supplierVm = remember { SupplierViewModel(repo) }
 
                 AppNav(
                     authVm = authVm,
@@ -112,7 +107,8 @@ class MainActivity : ComponentActivity() {
                     warehouseVm = warehouseVm,
                     homeVm = homeVm,
                     productionVm = productionVm,
-                    finishedSaleVm = finishedSaleVm
+                    finishedSaleVm = finishedSaleVm,
+                    supplierVm = supplierVm
                 )
             }
         }

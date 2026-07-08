@@ -5,6 +5,7 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.afghanjama.work.AutoBackupWorker
+import com.afghanjama.work.LowStockWorker
 import com.afghanjama.work.WageReminderWorker
 import java.util.concurrent.TimeUnit
 
@@ -33,6 +34,17 @@ class App : Application() {
             AutoBackupWorker.WORK_NAME,
             ExistingPeriodicWorkPolicy.KEEP,
             backupRequest
+        )
+
+        // اعلان روزانهٔ کمبود موجودی انبار
+        val lowStockRequest = PeriodicWorkRequestBuilder<LowStockWorker>(1, TimeUnit.DAYS)
+            .setInitialDelay(3, TimeUnit.HOURS)
+            .build()
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            LowStockWorker.WORK_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            lowStockRequest
         )
     }
 }

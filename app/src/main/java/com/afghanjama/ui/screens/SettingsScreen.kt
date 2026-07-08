@@ -4,6 +4,7 @@ package com.afghanjama.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,6 +26,7 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -36,6 +38,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -52,6 +55,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.format.PersianDate
+import com.afghanjama.util.AppLock
 import com.afghanjama.ui.vm.AuthViewModel
 import com.afghanjama.ui.vm.BackupViewModel
 import java.text.SimpleDateFormat
@@ -90,6 +94,46 @@ fun SettingsScreen(
     val txCsvLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/csv")
     ) { uri -> uri?.let { backupVm.exportTransactionsCsv(context, it) } }
+
+    // قفل اپ با رمز عددی
+    var appLockSet by remember { mutableStateOf(AppLock.isPinSet(context)) }
+    var showAppLockDialog by remember { mutableStateOf(false) }
+    if (showAppLockDialog) {
+        var newLockPin by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showAppLockDialog = false },
+            title = { Text(if (appLockSet) "تغییر رمز قفل اپ" else "تنظیم رمز قفل اپ") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "با تنظیم رمز، هر بار باز کردن اپ رمز عددی خواسته می‌شود.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = newLockPin,
+                        onValueChange = { newLockPin = it.digitsOnly().take(8) },
+                        label = { Text("رمز عددی (حداقل ۴ رقم)") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = newLockPin.length >= 4,
+                    onClick = {
+                        AppLock.setPin(context, newLockPin)
+                        appLockSet = true
+                        showAppLockDialog = false
+                    }
+                ) { Text("ذخیره") }
+            },
+            dismissButton = { TextButton(onClick = { showAppLockDialog = false }) { Text("لغو") } }
+        )
+    }
 
     var oldPin by remember { mutableStateOf("") }
     var newPin by remember { mutableStateOf("") }
@@ -135,6 +179,34 @@ fun SettingsScreen(
                             Icon(Icons.Default.Tune, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
                             Text("باز کردن اطلاعات پایه")
+                        }
+                    }
+                }
+            }
+
+            // قفل اپ با رمز عددی
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("قفل اپ", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        if (appLockSet) "قفل فعال است؛ هنگام باز کردن اپ رمز خواسته می‌شود."
+                        else "با تنظیم رمز عددی، اپ هنگام باز شدن قفل می‌شود.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = { showAppLockDialog = true }, modifier = Modifier.weight(1f)) {
+                            Text(if (appLockSet) "تغییر رمز" else "تنظیم رمز")
+                        }
+                        if (appLockSet) {
+                            OutlinedButton(
+                                onClick = { AppLock.clearPin(context); appLockSet = false },
+                                modifier = Modifier.weight(1f)
+                            ) { Text("حذف قفل") }
                         }
                     }
                 }

@@ -6,17 +6,9 @@ import android.content.Context
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
-import androidx.room.Room
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.afghanjama.data.AppDatabase
-import com.afghanjama.data.MIGRATION_19_20
-import com.afghanjama.data.MIGRATION_20_21
-import com.afghanjama.data.MIGRATION_21_22
-import com.afghanjama.data.MIGRATION_22_23
-import com.afghanjama.data.MIGRATION_23_24
-import com.afghanjama.data.MIGRATION_24_25
-import com.afghanjama.data.MIGRATION_25_26
+import com.afghanjama.data.buildAppDatabase
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -37,17 +29,7 @@ class AutoBackupWorker(
 
     override suspend fun doWork(): Result {
         // WAL را یکپارچه کن تا فایل اصلی دیتابیس کامل باشد
-        val db = Room.databaseBuilder(
-            applicationContext,
-            AppDatabase::class.java,
-            DB_NAME
-        )
-            .addMigrations(
-                MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22,
-                MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26
-            )
-            .fallbackToDestructiveMigration()
-            .build()
+        val db = buildAppDatabase(applicationContext)
         try {
             db.openHelper.writableDatabase
                 .query("PRAGMA wal_checkpoint(FULL)")

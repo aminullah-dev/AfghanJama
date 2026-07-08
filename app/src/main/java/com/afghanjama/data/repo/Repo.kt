@@ -21,6 +21,7 @@ import com.afghanjama.data.entities.PurchaseInvoice
 import com.afghanjama.data.entities.PurchaseItem
 import com.afghanjama.data.entities.SewingAssignment
 import com.afghanjama.data.entities.SizeItem
+import com.afghanjama.data.entities.SupplierLedger
 import com.afghanjama.data.entities.Tailor
 import com.afghanjama.data.entities.TailorWage
 import com.afghanjama.data.entities.Transaction
@@ -403,9 +404,42 @@ class Repo(private val db: AppDatabase) {
         db.procurementDao().insertInvoice(invoice)
         db.procurementDao().insertItems(items)
         items.forEach { addMaterialPurchase(it.name, it.unit, it.qty, it.total) }
-        if (invoice.total > 0 && invoice.paySource != "CUSTOMER") {
-            spend(invoice.paySource, invoice.total, "خرید مواد ${invoice.code}", category = "خرید مواد")
+        if (invoice.total > 0) {
+            when (invoice.paySource) {
+                "CUSTOMER" -> { /* بعداً */ }
+                // نسیه: پول کم نمی‌شود؛ به‌عنوان بدهی فروشنده ثبت می‌شود
+                "CREDIT" -> recordSupplierCredit(
+                    invoice.supplier.ifBlank { "نامشخص" },
+                    invoice.total,
+                    "خرید نسیه ${invoice.code}"
+                )
+                else -> spend(invoice.paySource, invoice.total, "خرید مواد ${invoice.code}", category = "خرید مواد")
+            }
         }
+    }
+
+    // =========================
+    // Supplier credit (قرض/نسیهٔ فروشنده)
+    // =========================
+
+    fun observeSupplierLedger(): Flow<List<SupplierLedger>> =
+        db.supplierDao().observeAll()
+
+    /** ثبت بدهی جدید به فروشنده (خرید نسیه). */
+    suspend fun recordSupplierCredit(supplier: String, amount: Long, note: String) {
+        if (amount <= 0) return
+        db.supplierDao().insert(
+            SupplierLedger(supplier = supplier.trim(), amount = amount, type = "CREDIT", note = note)
+        )
+    }
+
+    /** تسویهٔ (بخشی از) بدهی فروشنده: پول از صندوق کم و بدهی کاهش می‌یابد. */
+    suspend fun settleSupplier(supplier: String, amount: Long, paySource: String, note: String) {
+        if (amount <= 0) return
+        spend(paySource, amount, note.ifBlank { "تسویه قرض $supplier" }, category = "تسویه قرض")
+        db.supplierDao().insert(
+            SupplierLedger(supplier = supplier.trim(), amount = amount, type = "PAYMENT", note = note)
+        )
     }
 
     // =========================

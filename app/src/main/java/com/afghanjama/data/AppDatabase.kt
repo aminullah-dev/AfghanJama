@@ -1,7 +1,9 @@
 // app/src/main/java/com/afghanjama/data/AppDatabase.kt
 package com.afghanjama.data
 
+import android.content.Context
 import androidx.room.Database
+import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.afghanjama.data.dao.CatalogDao
@@ -11,6 +13,7 @@ import com.afghanjama.data.dao.FinishedStockDao
 import com.afghanjama.data.dao.MasterDataDao
 import com.afghanjama.data.dao.MaterialStockDao
 import com.afghanjama.data.dao.OrderCounterDao
+import com.afghanjama.data.dao.SupplierDao
 import com.afghanjama.data.dao.OrderDao
 import com.afghanjama.data.dao.OrderFabricDao
 import com.afghanjama.data.dao.OrderStageLogDao
@@ -37,6 +40,7 @@ import com.afghanjama.data.entities.PurchaseInvoice
 import com.afghanjama.data.entities.PurchaseItem
 import com.afghanjama.data.entities.SewingAssignment
 import com.afghanjama.data.entities.SizeItem
+import com.afghanjama.data.entities.SupplierLedger
 import com.afghanjama.data.entities.Tailor
 import com.afghanjama.data.entities.TailorWage
 import com.afghanjama.data.entities.Transaction
@@ -66,9 +70,10 @@ import com.afghanjama.data.entities.WorkCost
         PurchaseInvoice::class,
         PurchaseItem::class,
         FinishedStock::class,
-        FinishedSale::class
+        FinishedSale::class,
+        SupplierLedger::class
     ],
-    version = 26,
+    version = 27,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -87,4 +92,23 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun materialStockDao(): MaterialStockDao
     abstract fun procurementDao(): ProcurementDao
     abstract fun finishedStockDao(): FinishedStockDao
+    abstract fun supplierDao(): SupplierDao
 }
+
+/** همهٔ Migrationها یک‌جا تا Workerها و اپ هرگز از هم جدا نیفتند. */
+val ALL_MIGRATIONS = arrayOf(
+    MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23,
+    MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27
+)
+
+const val DB_NAME = "afghanjama.db"
+
+/**
+ * ساخت متمرکز دیتابیس. همهٔ نقاط (اپ و Workerها) باید از این استفاده
+ * کنند تا لیست Migration هرگز ناقص نماند (جلوگیری از پاک‌شدن ناخواستهٔ داده).
+ */
+fun buildAppDatabase(context: Context): AppDatabase =
+    Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, DB_NAME)
+        .addMigrations(*ALL_MIGRATIONS)
+        .fallbackToDestructiveMigration()
+        .build()

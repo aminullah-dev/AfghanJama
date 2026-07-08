@@ -48,6 +48,7 @@ import com.afghanjama.ui.screens.ReviewScreen
 import com.afghanjama.ui.screens.SalesScreen
 import com.afghanjama.ui.screens.SettingsScreen
 import com.afghanjama.ui.screens.SewingScreen
+import com.afghanjama.ui.screens.SupplierScreen
 import com.afghanjama.ui.vm.AuthViewModel
 import com.afghanjama.ui.vm.BackupViewModel
 import com.afghanjama.ui.vm.CustomerAccountsViewModel
@@ -68,6 +69,7 @@ import com.afghanjama.ui.vm.SalesViewModel
 import com.afghanjama.ui.vm.Permissions
 import com.afghanjama.ui.vm.SewingViewModel
 import com.afghanjama.ui.vm.StockViewModel
+import com.afghanjama.ui.vm.SupplierViewModel
 import com.afghanjama.ui.vm.UserRole
 import com.afghanjama.ui.vm.WagesViewModel
 import com.afghanjama.ui.vm.WarehouseViewModel
@@ -136,7 +138,8 @@ fun AppNav(
     warehouseVm: WarehouseViewModel,
     homeVm: HomeViewModel,
     productionVm: ProductionViewModel,
-    finishedSaleVm: FinishedSaleViewModel
+    finishedSaleVm: FinishedSaleViewModel,
+    supplierVm: SupplierViewModel
 ) {
     val navController = rememberNavController()
     val authUi by authVm.ui.collectAsState()
@@ -233,6 +236,7 @@ fun AppNav(
                     onGoProduction = { navController.navigate(Routes.INVENTORY) },
                     onGoStartProduction = { navController.navigate(Routes.PRODUCTION_ORDER) },
                     onGoFinishedSales = { navController.navigate(Routes.FINISHED_SALES) },
+                    onGoSuppliers = { navController.navigate(Routes.SUPPLIERS) },
                     onGoCustomerOrder = { navController.navigate(Routes.PURCHASE) },
                     onGoSales = { navController.navigate(Routes.SALES) },
                     onGoFinance = { navController.navigate(Routes.FINANCE) },
@@ -251,6 +255,13 @@ fun AppNav(
             composable(Routes.FINISHED_SALES) {
                 FinishedWarehouseScreen(
                     vm = finishedSaleVm,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Routes.SUPPLIERS) {
+                SupplierScreen(
+                    vm = supplierVm,
                     onBack = { navController.popBackStack() }
                 )
             }

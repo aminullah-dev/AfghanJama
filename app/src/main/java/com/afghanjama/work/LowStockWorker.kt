@@ -11,22 +11,22 @@ import androidx.work.WorkerParameters
 import com.afghanjama.data.buildAppDatabase
 
 /**
- * یادآوری هفتگی تسویه کارمزد خیاط‌ها.
- * هر هفته اجرا می‌شود و اگر کارمزد تسویه‌نشده‌ای باشد، نوتیفیکیشن می‌دهد.
+ * اعلان روزانهٔ کمبود موجودی: اگر قلمی از انبار مواد به حد هشدار رسیده
+ * باشد، نوتیفیکیشن می‌دهد.
  */
-class WageReminderWorker(
+class LowStockWorker(
     context: Context,
     params: WorkerParameters
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
         val db = buildAppDatabase(applicationContext)
-
         try {
-            val pending = db.tailorWageDao().pendingList()
-            if (pending.isNotEmpty()) {
-                val total = pending.sumOf { it.amount }
-                showNotification(pending.size, total)
+            val low = db.materialStockDao().lowStock()
+            if (low.isNotEmpty()) {
+                val names = low.take(3).joinToString("، ") { it.name }
+                val extra = if (low.size > 3) " و ${low.size - 3} قلم دیگر" else ""
+                showNotification(low.size, "$names$extra")
             }
         } finally {
             db.close()
@@ -34,7 +34,7 @@ class WageReminderWorker(
         return Result.success()
     }
 
-    private fun showNotification(count: Int, total: Long) {
+    private fun showNotification(count: Int, names: String) {
         if (!NotificationManagerCompat.from(applicationContext).areNotificationsEnabled()) return
 
         val manager =
@@ -44,16 +44,17 @@ class WageReminderWorker(
             manager.createNotificationChannel(
                 NotificationChannel(
                     CHANNEL_ID,
-                    "یادآوری تسویه کارمزد",
+                    "اعلان کمبود موجودی",
                     NotificationManager.IMPORTANCE_DEFAULT
                 )
             )
         }
 
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("تسویه هفتگی کارمزد خیاط‌ها")
-            .setContentText("$count کارمزد باز به مجموع $total ؋ منتظر تسویه است.")
+            .setSmallIcon(android.R.drawable.stat_sys_warning)
+            .setContentTitle("کمبود موجودی انبار")
+            .setContentText("$count قلم به حد هشدار رسیده: $names")
+            .setStyle(NotificationCompat.BigTextStyle().bigText("$count قلم به حد هشدار رسیده: $names"))
             .setAutoCancel(true)
             .build()
 
@@ -61,8 +62,8 @@ class WageReminderWorker(
     }
 
     companion object {
-        const val CHANNEL_ID = "wage_reminder"
-        const val NOTIFICATION_ID = 1001
-        const val WORK_NAME = "weekly_wage_reminder"
+        const val CHANNEL_ID = "low_stock"
+        const val NOTIFICATION_ID = 1002
+        const val WORK_NAME = "daily_low_stock"
     }
 }

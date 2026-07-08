@@ -1,9 +1,13 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@file:OptIn(
+    androidx.compose.material3.ExperimentalMaterial3Api::class,
+    androidx.compose.foundation.layout.ExperimentalLayoutApi::class
+)
 
 package com.afghanjama.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -185,11 +189,13 @@ fun ProcurementScreen(
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        val isCredit = ui.paymentSource.equals("CREDIT", true)
                         OutlinedTextField(
                             value = ui.supplier,
                             onValueChange = vm::setSupplier,
-                            label = { Text("فروشنده / تأمین‌کننده (اختیاری)") },
+                            label = { Text(if (isCredit) "فروشنده (برای نسیه لازم است)" else "فروشنده / تأمین‌کننده (اختیاری)") },
                             singleLine = true,
+                            isError = isCredit && ui.supplier.isBlank(),
                             modifier = Modifier.fillMaxWidth()
                         )
                         OutlinedTextField(
@@ -200,10 +206,18 @@ fun ProcurementScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
                         Text("پرداخت از:", style = MaterialTheme.typography.labelLarge)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             PaySourceChip(ui.paymentSource, PaymentSource.WALLET.name, "کیف پول", vm::setPaymentSource)
                             PaySourceChip(ui.paymentSource, PaymentSource.BANK.name, "بانک", vm::setPaymentSource)
                             PaySourceChip(ui.paymentSource, PaymentSource.PROFIT.name, "فایده", vm::setPaymentSource)
+                            PaySourceChip(ui.paymentSource, "CREDIT", "نسیه (قرض)", vm::setPaymentSource)
+                        }
+                        if (isCredit) {
+                            Text(
+                                "خرید نسیه: پول اکنون کم نمی‌شود و به‌عنوان بدهی فروشنده ثبت می‌شود. بعداً از «قرض فروشنده» تسویه کنید.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }

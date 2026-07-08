@@ -109,23 +109,26 @@ class ProcurementViewModel(private val repo: Repo) : ViewModel() {
         }
 
         val total = lines.sumOf { it.total }
-        val paySrc = runCatching { PaymentSource.valueOf(s.paymentSource.trim().uppercase()) }
-            .getOrNull() ?: PaymentSource.WALLET
+        val src = s.paymentSource.trim().uppercase()
 
-        // کنترل موجودی صندوق (به‌جز پرداخت توسط مشتری/بعداً)
-        if (paySrc != PaymentSource.CUSTOMER && total > 0) {
-            val balance = when (paySrc) {
-                PaymentSource.WALLET -> repo.observeWalletBalance().first()
-                PaymentSource.PROFIT -> repo.observeProfitBalance().first()
-                PaymentSource.BANK -> repo.observeBankBalance().first()
-                PaymentSource.CUSTOMER -> Long.MAX_VALUE
+        // خرید نسیه: نام فروشنده لازم است (برای دفتر حساب)
+        if (src == "CREDIT" && s.supplier.isBlank()) {
+            _ui.update { it.copy(message = "برای خرید نسیه، نام فروشنده را وارد کنید.", isError = true) }
+            return@launch
+        }
+
+        // کنترل موجودی صندوق (نسیه و مشتری کنترل نمی‌شوند)
+        if (src != "CREDIT" && src != "CUSTOMER" && total > 0) {
+            val balance = when (src) {
+                "PROFIT" -> repo.observeProfitBalance().first()
+                "BANK" -> repo.observeBankBalance().first()
+                else -> repo.observeWalletBalance().first()
             }
             if (balance < total) {
-                val label = when (paySrc) {
-                    PaymentSource.WALLET -> "کیف پول"
-                    PaymentSource.PROFIT -> "فایده"
-                    PaymentSource.BANK -> "بانک"
-                    PaymentSource.CUSTOMER -> "مشتری"
+                val label = when (src) {
+                    "PROFIT" -> "فایده"
+                    "BANK" -> "بانک"
+                    else -> "کیف پول"
                 }
                 _ui.update { it.copy(message = "موجودی $label کافی نیست. مبلغ خرید: $total ؋", isError = true) }
                 return@launch
@@ -137,7 +140,7 @@ class ProcurementViewModel(private val repo: Repo) : ViewModel() {
             supplier = s.supplier.trim(),
             note = s.note.trim(),
             total = total,
-            paySource = paySrc.name
+            paySource = src
         )
         val rows = lines.map {
             PurchaseItem(

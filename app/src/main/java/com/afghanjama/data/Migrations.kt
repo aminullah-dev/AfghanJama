@@ -260,3 +260,24 @@ val MIGRATION_25_26 = object : Migration(25, 26) {
         db.execSQL("DROP TABLE IF EXISTS `fabric_stock`")
     }
 }
+
+/**
+ * دفتر حساب فروشنده برای خرید نسیه (قرض) و تسویهٔ آن.
+ */
+val MIGRATION_26_27 = object : Migration(26, 27) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `supplier_ledger` (" +
+                "`id` TEXT PRIMARY KEY NOT NULL, " +
+                "`supplier` TEXT NOT NULL, " +
+                "`amount` INTEGER NOT NULL, " +
+                "`type` TEXT NOT NULL, " +
+                "`note` TEXT NOT NULL, " +
+                "`createdAt` INTEGER NOT NULL)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_supplier_ledger_supplier` " +
+                "ON `supplier_ledger` (`supplier`)"
+        )
+    }
+}
