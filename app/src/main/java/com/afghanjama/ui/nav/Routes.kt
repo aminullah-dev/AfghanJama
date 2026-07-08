@@ -10,6 +10,7 @@ object Routes {
     const val PURCHASE = "purchase"
     const val PROCUREMENT = "procurement"
     const val WAREHOUSE = "warehouse"
+    const val PRODUCTION_ORDER = "production_order"
 
     const val CUTTING = "cutting"
     const val SEWING = "sewing"

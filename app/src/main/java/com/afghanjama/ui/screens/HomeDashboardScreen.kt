@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Checkroom
+import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Search
@@ -52,6 +53,7 @@ fun HomeDashboardScreen(
     onGoProcurement: () -> Unit,
     onGoWarehouse: () -> Unit,
     onGoProduction: () -> Unit,
+    onGoStartProduction: () -> Unit,
     onGoSales: () -> Unit,
     onGoFinance: () -> Unit,
     onGoSearch: () -> Unit,
@@ -62,6 +64,7 @@ fun HomeDashboardScreen(
     val actions = listOf(
         HomeAction("خرید مواد", Icons.Default.ShoppingCart, onGoProcurement),
         HomeAction("انبار مواد", Icons.Default.Warehouse, onGoWarehouse),
+        HomeAction("شروع تولید", Icons.Default.ContentCut, onGoStartProduction),
         HomeAction("خط تولید", Icons.Default.Checkroom, onGoProduction),
         HomeAction("فروش", Icons.Default.Storefront, onGoSales),
         HomeAction("مالی", Icons.Default.Payments, onGoFinance),

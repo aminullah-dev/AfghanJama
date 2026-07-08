@@ -30,6 +30,7 @@ import com.afghanjama.ui.vm.MasterDataViewModel
 import com.afghanjama.ui.vm.OrderDetailViewModel
 import com.afghanjama.ui.vm.OrderSearchViewModel
 import com.afghanjama.ui.vm.ProcurementViewModel
+import com.afghanjama.ui.vm.ProductionViewModel
 import com.afghanjama.ui.vm.PurchaseViewModel
 import com.afghanjama.ui.vm.ReviewViewModel
 import com.afghanjama.ui.vm.SalesViewModel
@@ -84,6 +85,7 @@ class MainActivity : ComponentActivity() {
                 val procurementVm = remember { ProcurementViewModel(repo) }
                 val warehouseVm = remember { WarehouseViewModel(repo) }
                 val homeVm = remember { HomeViewModel(repo) }
+                val productionVm = remember { ProductionViewModel(repo) }
 
                 AppNav(
                     authVm = authVm,
@@ -104,7 +106,8 @@ class MainActivity : ComponentActivity() {
                     orderDetailVm = orderDetailVm,
                     procurementVm = procurementVm,
                     warehouseVm = warehouseVm,
-                    homeVm = homeVm
+                    homeVm = homeVm,
+                    productionVm = productionVm
                 )
             }
         }

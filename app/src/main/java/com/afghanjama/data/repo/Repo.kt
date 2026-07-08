@@ -110,15 +110,24 @@ class Repo(private val db: AppDatabase) {
      */
     suspend fun deleteOrderWithStockReturn(order: Order) {
         if (order.status == "IN_STOCK") {
-            val rows = db.orderFabricDao().listForOrder(order.id.toString())
-                .filter { it.source == "STOCK" }
-            if (rows.isNotEmpty()) {
-                rows.forEach {
-                    changeFabricStock(it.fabricType, it.fabricColor, it.fabricUnit, it.amount)
+            val allRows = db.orderFabricDao().listForOrder(order.id.toString())
+            // پارچه‌های «از موجودی» به انبار پارچه برمی‌گردند
+            val stockRows = allRows.filter { it.source == "STOCK" }
+            // موادِ مصرفی «از انبار عمومی» به انبار مواد برمی‌گردند
+            val materialRows = allRows.filter { it.source == "MATERIAL" }
+            when {
+                stockRows.isNotEmpty() || materialRows.isNotEmpty() -> {
+                    stockRows.forEach {
+                        changeFabricStock(it.fabricType, it.fabricColor, it.fabricUnit, it.amount)
+                    }
+                    materialRows.forEach {
+                        changeMaterialStock(it.fabricType, it.fabricUnit, it.amount)
+                    }
                 }
-            } else if (order.fabricSource == "STOCK") {
-                // سفارش‌های قدیمی که ردیف پارچه ندارند
-                changeFabricStock(order.fabricType, order.fabricColor, order.fabricUnit, order.fabricAmount)
+                order.fabricSource == "STOCK" -> {
+                    // سفارش‌های قدیمی که ردیف پارچه ندارند
+                    changeFabricStock(order.fabricType, order.fabricColor, order.fabricUnit, order.fabricAmount)
+                }
             }
         }
         deleteOrder(order)

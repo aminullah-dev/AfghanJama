@@ -319,8 +319,12 @@ fun OrderDetailScreen(
                         DetailRow("تعداد", "${o.qty} عدد")
                         DetailRow("پارچه", "${o.fabricType} • ${o.fabricColor} • ${o.fabricAmount} $unitFa")
                         DetailRow(
-                            "منبع پارچه",
-                            if (o.fabricSource == "STOCK") "از موجودی انبار" else "خرید جدید"
+                            "منبع",
+                            when (o.fabricSource) {
+                                "STOCK" -> "از موجودی انبار"
+                                "MATERIAL" -> "از انبار مواد"
+                                else -> "خرید جدید"
+                            }
                         )
                         DetailRow("سایز", o.size.ifBlank { "-" })
                         DetailRow("قیمت پارچه", o.fabricPrice.afn())
@@ -430,7 +434,11 @@ fun OrderDetailScreen(
                                     Column(Modifier.weight(1f)) {
                                         Text("${f.fabricType} • ${f.fabricColor}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                                         Text(
-                                            "${f.amount} $unitFa • " + if (f.source == "STOCK") "از موجودی" else "خرید جدید",
+                                            "${f.amount} $unitFa • " + when (f.source) {
+                                                "STOCK" -> "از موجودی"
+                                                "MATERIAL" -> "از انبار مواد"
+                                                else -> "خرید جدید"
+                                            },
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )

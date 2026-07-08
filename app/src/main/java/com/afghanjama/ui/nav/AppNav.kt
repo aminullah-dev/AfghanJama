@@ -41,6 +41,7 @@ import com.afghanjama.ui.screens.MaterialWarehouseScreen
 import com.afghanjama.ui.screens.OrderSearchScreen
 import com.afghanjama.ui.screens.PostLoginQuoteScreen
 import com.afghanjama.ui.screens.ProcurementScreen
+import com.afghanjama.ui.screens.ProductionOrderScreen
 import com.afghanjama.ui.screens.PurchasePlanScreen
 import com.afghanjama.ui.screens.ReviewScreen
 import com.afghanjama.ui.screens.SalesScreen
@@ -58,6 +59,7 @@ import com.afghanjama.ui.vm.MasterDataViewModel
 import com.afghanjama.ui.vm.OrderDetailViewModel
 import com.afghanjama.ui.vm.OrderSearchViewModel
 import com.afghanjama.ui.vm.ProcurementViewModel
+import com.afghanjama.ui.vm.ProductionViewModel
 import com.afghanjama.ui.vm.PurchaseViewModel
 import com.afghanjama.ui.vm.ReviewViewModel
 import com.afghanjama.ui.vm.SalesViewModel
@@ -130,7 +132,8 @@ fun AppNav(
     orderDetailVm: OrderDetailViewModel,
     procurementVm: ProcurementViewModel,
     warehouseVm: WarehouseViewModel,
-    homeVm: HomeViewModel
+    homeVm: HomeViewModel,
+    productionVm: ProductionViewModel
 ) {
     val navController = rememberNavController()
     val authUi by authVm.ui.collectAsState()
@@ -225,10 +228,18 @@ fun AppNav(
                     onGoProcurement = { navController.navigate(Routes.PROCUREMENT) },
                     onGoWarehouse = { navController.navigate(Routes.WAREHOUSE) },
                     onGoProduction = { navController.navigate(Routes.INVENTORY) },
+                    onGoStartProduction = { navController.navigate(Routes.PRODUCTION_ORDER) },
                     onGoSales = { navController.navigate(Routes.SALES) },
                     onGoFinance = { navController.navigate(Routes.FINANCE) },
                     onGoSearch = { navController.navigate(Routes.SEARCH) },
                     onGoSettings = { navController.navigate(Routes.SETTINGS) }
+                )
+            }
+
+            composable(Routes.PRODUCTION_ORDER) {
+                ProductionOrderScreen(
+                    vm = productionVm,
+                    onBack = { navController.popBackStack() }
                 )
             }
 
