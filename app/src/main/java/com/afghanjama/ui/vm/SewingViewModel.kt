@@ -67,8 +67,8 @@ class SewingViewModel(
     }
 
     /** دوخت یک تحویل تمام شد (کارمزد ثبت و در صورت کامل‌شدن → نظارت). */
-    fun completeAssignment(assignmentId: Long) = viewModelScope.launch {
-        repo.completeAssignment(assignmentId)
+    fun completeAssignment(assignmentId: Long, quality: String = "") = viewModelScope.launch {
+        repo.completeAssignment(assignmentId, quality)
     }
 
     /** لغو یک تحویل (اصلاح اشتباه). */

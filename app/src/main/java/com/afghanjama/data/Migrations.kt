@@ -369,3 +369,12 @@ val MIGRATION_30_31 = object : Migration(30, 31) {
         )
     }
 }
+
+/**
+ * کیفیت کارِ خیاط روی هر تحویلِ دوخت.
+ */
+val MIGRATION_31_32 = object : Migration(31, 32) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE sewing_assignments ADD COLUMN quality TEXT NOT NULL DEFAULT ''")
+    }
+}

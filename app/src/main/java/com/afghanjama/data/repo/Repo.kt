@@ -273,10 +273,12 @@ class Repo(private val db: AppDatabase) {
      * دوخت یک تحویل تمام شد: کارمزد آن خیاط ثبت و تحویل بسته می‌شود.
      * اگر همه تحویل‌ها تمام و سفارش کامل تحویل شده باشد، به «نظارت» می‌رود.
      */
-    suspend fun completeAssignment(assignmentId: Long) {
+    suspend fun completeAssignment(assignmentId: Long, quality: String = "") {
         val a = db.sewingAssignmentDao().getById(assignmentId) ?: return
         if (a.status != "SEWING") return
-        db.sewingAssignmentDao().update(a.copy(status = "DONE", doneAt = System.currentTimeMillis()))
+        db.sewingAssignmentDao().update(
+            a.copy(status = "DONE", doneAt = System.currentTimeMillis(), quality = quality.trim())
+        )
 
         if (a.totalWage > 0) {
             db.tailorWageDao().insert(

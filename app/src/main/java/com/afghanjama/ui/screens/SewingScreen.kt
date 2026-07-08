@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -138,8 +139,8 @@ fun SewingScreen(
                         items(inProgress, key = { it.id }) { a ->
                             InProgressCard(
                                 assignment = a,
-                                onDone = {
-                                    vm.completeAssignment(a.id)
+                                onDone = { quality ->
+                                    vm.completeAssignment(a.id, quality)
                                     onGoReview()
                                 },
                                 onCancel = { vm.cancelAssignment(a.id) }
@@ -319,10 +320,33 @@ private fun HandoutCard(
 @Composable
 private fun InProgressCard(
     assignment: SewingAssignment,
-    onDone: () -> Unit,
+    onDone: (String) -> Unit,
     onCancel: () -> Unit
 ) {
     val context = LocalContext.current
+    var showQuality by remember { mutableStateOf(false) }
+
+    if (showQuality) {
+        AlertDialog(
+            onDismissRequest = { showQuality = false },
+            title = { Text("کیفیت کارِ ${assignment.tailorLabel}") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("کیفیت این کار را ثبت کنید (اختیاری):")
+                    listOf("خوب", "متوسط", "ضعیف").forEach { q ->
+                        Button(
+                            onClick = { showQuality = false; onDone(q) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text(q) }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showQuality = false; onDone("") }) { Text("بدون ثبت کیفیت") }
+            },
+            dismissButton = { TextButton(onClick = { showQuality = false }) { Text("لغو") } }
+        )
+    }
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -360,7 +384,7 @@ private fun InProgressCard(
                     Spacer(Modifier.width(6.dp))
                     Text("رسید")
                 }
-                Button(onClick = onDone, modifier = Modifier.weight(1f)) {
+                Button(onClick = { showQuality = true }, modifier = Modifier.weight(1f)) {
                     Icon(Icons.Default.Done, contentDescription = null)
                     Spacer(Modifier.width(6.dp))
                     Text("دوخت تمام شد")

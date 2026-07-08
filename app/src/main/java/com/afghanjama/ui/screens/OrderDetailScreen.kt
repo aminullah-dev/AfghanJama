@@ -527,6 +527,13 @@ fun OrderDetailScreen(
                                             fontWeight = FontWeight.Medium,
                                             color = if (done) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                         )
+                                        if (a.quality.isNotBlank()) {
+                                            Text(
+                                                "کیفیت: ${a.quality}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
                                     }
                                     Text(a.totalWage.afn(), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                                 }

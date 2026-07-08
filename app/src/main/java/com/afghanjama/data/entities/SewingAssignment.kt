@@ -1,5 +1,6 @@
 package com.afghanjama.data.entities
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -23,7 +24,11 @@ data class SewingAssignment(
     val unitWage: Long,               // کارمزد هر عدد
     val status: String = "SEWING",    // SEWING / DONE
     val createdAt: Long = System.currentTimeMillis(),
-    val doneAt: Long? = null
+    val doneAt: Long? = null,
+
+    // کیفیت کار خیاط هنگام تحویل: خوب / متوسط / ضعیف (خالی = ثبت‌نشده)
+    @ColumnInfo(defaultValue = "")
+    val quality: String = ""
 ) {
     val totalWage: Long get() = unitWage * qty
 }

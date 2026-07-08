@@ -85,7 +85,7 @@ import com.afghanjama.data.entities.WorkCost
         CuttingRecord::class,
         QcRecord::class
     ],
-    version = 31,
+    version = 32,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -115,7 +115,8 @@ abstract class AppDatabase : RoomDatabase() {
 val ALL_MIGRATIONS = arrayOf(
     MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23,
     MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27,
-    MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30, MIGRATION_30_31
+    MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30, MIGRATION_30_31,
+    MIGRATION_31_32
 )
 
 const val DB_NAME = "afghanjama.db"
