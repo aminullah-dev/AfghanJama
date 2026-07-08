@@ -19,6 +19,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.VerifiedUser
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -29,15 +30,19 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -61,6 +66,38 @@ fun ReviewScreen(
 
     val pickMap = remember { mutableStateMapOf<UUID, String>() }
     val menuMap = remember { mutableStateMapOf<UUID, Boolean>() }
+
+    // هدفِ برگشت برای اصلاح: (شناسه سفارش، ناظر)
+    var rejectTarget by remember { mutableStateOf<Pair<UUID, String>?>(null) }
+    rejectTarget?.let { (oid, insp) ->
+        var problem by remember(oid) { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { rejectTarget = null },
+            title = { Text("برگشت برای اصلاح") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("مشکل را ثبت کنید تا در تاریخچهٔ کیفیت بماند و خیاط بداند چه اصلاح شود.")
+                    OutlinedTextField(
+                        value = problem,
+                        onValueChange = { problem = it },
+                        label = { Text("شرح مشکل") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = problem.isNotBlank(),
+                    onClick = {
+                        vm.backToSewing(oid, insp, problem)
+                        rejectTarget = null
+                        onGoSewing()
+                    }
+                ) { Text("برگشت به دوخت") }
+            },
+            dismissButton = { TextButton(onClick = { rejectTarget = null }) { Text("لغو") } }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -191,10 +228,7 @@ fun ReviewScreen(
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 Button(
-                                    onClick = {
-                                        vm.backToSewing(o.id, picked)
-                                        onGoSewing()
-                                    },
+                                    onClick = { rejectTarget = o.id to picked },
                                     enabled = picked.isNotBlank(),
                                     modifier = Modifier.weight(1f)
                                 ) {

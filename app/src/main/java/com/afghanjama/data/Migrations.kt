@@ -346,3 +346,26 @@ val MIGRATION_29_30 = object : Migration(29, 30) {
         )
     }
 }
+
+/**
+ * رکورد کنترل کیفیت (نظارت): نتیجه، مشکل، ناظر و تاریخ.
+ */
+val MIGRATION_30_31 = object : Migration(30, 31) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `qc_records` (" +
+                "`id` TEXT PRIMARY KEY NOT NULL, " +
+                "`orderId` TEXT NOT NULL, " +
+                "`orderCode` TEXT NOT NULL, " +
+                "`inspector` TEXT NOT NULL, " +
+                "`result` TEXT NOT NULL, " +
+                "`problem` TEXT NOT NULL, " +
+                "`note` TEXT NOT NULL, " +
+                "`createdAt` INTEGER NOT NULL)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_qc_records_orderId` " +
+                "ON `qc_records` (`orderId`)"
+        )
+    }
+}

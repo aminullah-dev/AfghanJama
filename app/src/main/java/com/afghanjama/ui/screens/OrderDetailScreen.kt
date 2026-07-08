@@ -96,6 +96,7 @@ fun OrderDetailScreen(
     val workItems by vm.workItems.collectAsState()
     val assignments by vm.assignments.collectAsState()
     val cuttingRecords by vm.cuttingRecords.collectAsState()
+    val qcRecords by vm.qcRecords.collectAsState()
     val ui by vm.ui.collectAsState()
 
     var showReturn by remember { mutableStateOf(false) }
@@ -594,6 +595,44 @@ fun OrderDetailScreen(
                                     }
                                     if (rec.waste.isNotBlank()) {
                                         Text("ضایعات: ${rec.waste}", style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.error)
+                                    }
+                                    if (rec.note.isNotBlank()) {
+                                        Text(rec.note, style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    Text(fmtDate(rec.createdAt), style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ---------- کنترل کیفیت ----------
+            if (qcRecords.isNotEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    ) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("کنترل کیفیت", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            qcRecords.forEach { rec ->
+                                val approved = rec.result == "APPROVED"
+                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text(
+                                            if (approved) "✔ تأیید شد" else "↩ برگشت برای اصلاح",
+                                            fontWeight = FontWeight.Medium,
+                                            color = if (approved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                        )
+                                        if (rec.inspector.isNotBlank()) Text(rec.inspector, style = MaterialTheme.typography.labelMedium)
+                                    }
+                                    if (rec.problem.isNotBlank()) {
+                                        Text("مشکل: ${rec.problem}", style = MaterialTheme.typography.labelMedium,
                                             color = MaterialTheme.colorScheme.error)
                                     }
                                     if (rec.note.isNotBlank()) {

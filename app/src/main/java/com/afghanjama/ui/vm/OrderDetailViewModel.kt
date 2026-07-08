@@ -51,6 +51,11 @@ class OrderDetailViewModel(private val repo: Repo) : ViewModel() {
             .flatMapLatest { repo.observeCuttingForOrder(it.toString()) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    val qcRecords: StateFlow<List<com.afghanjama.data.entities.QcRecord>> =
+        orderId.filterNotNull()
+            .flatMapLatest { repo.observeQcForOrder(it.toString()) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     val fabrics: StateFlow<List<com.afghanjama.data.entities.OrderFabric>> =
         orderId.filterNotNull()
             .flatMapLatest { repo.observeOrderFabrics(it.toString()) }

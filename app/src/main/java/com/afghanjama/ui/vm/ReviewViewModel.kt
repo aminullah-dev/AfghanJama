@@ -27,26 +27,16 @@ class ReviewViewModel(
     /**
      * تایید نهایی: ناظر ثبت می‌شود + وضعیت به SALES
      */
-    fun approve(orderId: UUID, inspectorLabel: String) = viewModelScope.launch {
+    fun approve(orderId: UUID, inspectorLabel: String, note: String = "") = viewModelScope.launch {
         val o = repo.getOrder(orderId) ?: return@launch
-        repo.changeOrderStatus(o, OrderStatus.SALES.name) {
-            it.copy(
-                assignedInspector = inspectorLabel.ifBlank { it.assignedInspector },
-                reviewed = true
-            )
-        }
+        repo.approveQc(o, inspectorLabel, note)
     }
 
     /**
-     * برگشت به دوخت: ناظر ثبت می‌شود (اگر انتخاب شده) + وضعیت به SEWING
+     * برگشت برای اصلاح: مشکل + ناظر ثبت و وضعیت به SEWING.
      */
-    fun backToSewing(orderId: UUID, inspectorLabel: String) = viewModelScope.launch {
+    fun backToSewing(orderId: UUID, inspectorLabel: String, problem: String = "") = viewModelScope.launch {
         val o = repo.getOrder(orderId) ?: return@launch
-        repo.changeOrderStatus(o, OrderStatus.SEWING.name) {
-            it.copy(
-                assignedInspector = inspectorLabel.ifBlank { it.assignedInspector },
-                reviewed = false
-            )
-        }
+        repo.rejectQc(o, inspectorLabel, problem)
     }
 }

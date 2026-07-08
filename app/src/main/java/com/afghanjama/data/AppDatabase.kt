@@ -22,6 +22,7 @@ import com.afghanjama.data.dao.OrderFabricDao
 import com.afghanjama.data.dao.OrderStageLogDao
 import com.afghanjama.data.dao.OrderWorkItemDao
 import com.afghanjama.data.dao.ProcurementDao
+import com.afghanjama.data.dao.QcRecordDao
 import com.afghanjama.data.dao.SewingAssignmentDao
 import com.afghanjama.data.dao.TailorWageDao
 import com.afghanjama.data.entities.Customer
@@ -42,6 +43,7 @@ import com.afghanjama.data.entities.OrderFabric
 import com.afghanjama.data.entities.OrderStageLog
 import com.afghanjama.data.entities.OrderWorkItem
 import com.afghanjama.data.entities.PurchaseInvoice
+import com.afghanjama.data.entities.QcRecord
 import com.afghanjama.data.entities.PurchaseItem
 import com.afghanjama.data.entities.SewingAssignment
 import com.afghanjama.data.entities.SizeItem
@@ -80,9 +82,10 @@ import com.afghanjama.data.entities.WorkCost
         SupplierLedger::class,
         CustomerMeasurement::class,
         StockMovement::class,
-        CuttingRecord::class
+        CuttingRecord::class,
+        QcRecord::class
     ],
-    version = 30,
+    version = 31,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -105,13 +108,14 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun customerMeasurementDao(): CustomerMeasurementDao
     abstract fun stockMovementDao(): StockMovementDao
     abstract fun cuttingRecordDao(): CuttingRecordDao
+    abstract fun qcRecordDao(): QcRecordDao
 }
 
 /** همهٔ Migrationها یک‌جا تا Workerها و اپ هرگز از هم جدا نیفتند. */
 val ALL_MIGRATIONS = arrayOf(
     MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23,
     MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27,
-    MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30
+    MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30, MIGRATION_30_31
 )
 
 const val DB_NAME = "afghanjama.db"

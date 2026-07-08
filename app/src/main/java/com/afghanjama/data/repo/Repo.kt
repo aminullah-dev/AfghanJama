@@ -21,6 +21,7 @@ import com.afghanjama.data.entities.OrderStatus
 import com.afghanjama.data.entities.OrderWorkItem
 import com.afghanjama.data.entities.PurchaseInvoice
 import com.afghanjama.data.entities.PurchaseItem
+import com.afghanjama.data.entities.QcRecord
 import com.afghanjama.data.entities.SewingAssignment
 import com.afghanjama.data.entities.SizeItem
 import com.afghanjama.data.entities.StockMovement
@@ -117,6 +118,45 @@ class Repo(private val db: AppDatabase) {
 
     fun observeCuttingForOrder(orderId: String): Flow<List<CuttingRecord>> =
         db.cuttingRecordDao().observeForOrder(orderId)
+
+    // =========================
+    // Quality control (کنترل کیفیت / نظارت)
+    // =========================
+
+    fun observeQcForOrder(orderId: String): Flow<List<QcRecord>> =
+        db.qcRecordDao().observeForOrder(orderId)
+
+    /** تأیید کیفیت: رکورد QC ثبت و سفارش به مرحلهٔ فروش می‌رود. */
+    suspend fun approveQc(order: Order, inspector: String, note: String) {
+        db.qcRecordDao().insert(
+            QcRecord(
+                orderId = order.id.toString(),
+                orderCode = order.orderCode,
+                inspector = inspector.trim(),
+                result = "APPROVED",
+                note = note.trim()
+            )
+        )
+        changeOrderStatus(order, OrderStatus.SALES.name) {
+            it.copy(assignedInspector = inspector.trim().ifBlank { it.assignedInspector }, reviewed = true)
+        }
+    }
+
+    /** برگشت برای اصلاح: مشکل ثبت و سفارش به مرحلهٔ دوخت برمی‌گردد. */
+    suspend fun rejectQc(order: Order, inspector: String, problem: String) {
+        db.qcRecordDao().insert(
+            QcRecord(
+                orderId = order.id.toString(),
+                orderCode = order.orderCode,
+                inspector = inspector.trim(),
+                result = "REJECTED",
+                problem = problem.trim()
+            )
+        )
+        changeOrderStatus(order, OrderStatus.SEWING.name) {
+            it.copy(assignedInspector = inspector.trim().ifBlank { it.assignedInspector }, reviewed = false)
+        }
+    }
 
     /**
      * ثبت رکورد برش و انتقال سفارش به «برش تمام». مواد قبلاً هنگام شروع
