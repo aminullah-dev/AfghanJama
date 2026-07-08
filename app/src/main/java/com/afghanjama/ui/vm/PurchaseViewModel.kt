@@ -214,7 +214,9 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
             val totalAmount = if (l.perPiece) l.amount * qty else l.amount
             val price: Long
             if (fromStock) {
-                val stock = repo.getFabricStock(l.fabricType, l.fabricColor, l.fabricUnit)
+                val stock = repo.getMaterialStock(
+                    repo.fabricMaterialName(l.fabricType, l.fabricColor), l.fabricUnit
+                )
                 val available = stock?.amount ?: 0.0
                 if (available < totalAmount) {
                     _ui.update {
@@ -319,9 +321,11 @@ class PurchaseViewModel(private val repo: Repo) : ViewModel() {
             }
         }
 
-        // کسر پارچه‌های «از موجودی» از انبار
+        // کسر پارچه‌های «از موجودی» از انبار مواد
         resolved.filter { it.source == "STOCK" }.forEach {
-            repo.changeFabricStock(it.fabricType, it.fabricColor, it.fabricUnit, -it.amount)
+            repo.changeMaterialStock(
+                repo.fabricMaterialName(it.fabricType, it.fabricColor), it.fabricUnit, -it.amount
+            )
         }
 
         if (customerPaid > 0) {

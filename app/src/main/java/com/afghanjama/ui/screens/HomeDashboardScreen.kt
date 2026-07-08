@@ -16,7 +16,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Checkroom
 import androidx.compose.material.icons.filled.ContentCut
-import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Search
@@ -62,7 +61,6 @@ fun HomeDashboardScreen(
     onGoFinishedSales: () -> Unit,
     onGoCustomerOrder: () -> Unit,
     onGoSales: () -> Unit,
-    onGoFabricStock: () -> Unit,
     onGoFinance: () -> Unit,
     onGoSearch: () -> Unit,
     onGoSettings: () -> Unit
@@ -82,7 +80,6 @@ fun HomeDashboardScreen(
     val customerFlow = buildList {
         add(HomeAction("سفارش مشتری", Icons.Default.PersonAdd, onGoCustomerOrder))
         if (isManager) add(HomeAction("فروش سفارش", Icons.Default.Storefront, onGoSales))
-        add(HomeAction("انبار پارچه", Icons.Default.Layers, onGoFabricStock))
     }
 
     // عمومی

@@ -218,3 +218,45 @@ val MIGRATION_24_25 = object : Migration(24, 25) {
         )
     }
 }
+
+/**
+ * ادغام کامل «انبار پارچه» در «انبار مواد»: هر ردیف پارچه با نام
+ * «نوع رنگ» و همان واحد به انبار عمومی منتقل می‌شود (با میانگین وزنی
+ * قیمت در صورت برخورد) و سپس جدول پارچه حذف می‌گردد.
+ *
+ * بدون upsert نوشته شده تا در اندروید ۷ (SQLite قدیمی) هم کار کند.
+ */
+val MIGRATION_25_26 = object : Migration(25, 26) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // ۱) تجمیع پارچه‌ها بر اساس نام «نوع رنگ» + واحد
+        db.execSQL(
+            "CREATE TEMP TABLE IF NOT EXISTS `_fab` AS " +
+                "SELECT TRIM(fabricType || ' ' || fabricColor) AS name, fabricUnit AS unit, " +
+                "SUM(amount) AS amount, " +
+                "CASE WHEN SUM(amount) > 0 THEN SUM(amount * avgPrice) / SUM(amount) ELSE 0 END AS avgPrice, " +
+                "MAX(minLevel) AS minLevel, MAX(updatedAt) AS updatedAt " +
+                "FROM fabric_stock GROUP BY TRIM(fabricType || ' ' || fabricColor), fabricUnit"
+        )
+
+        // ۲) اقلامی که در انبار مواد وجود دارند: میانگین وزنی (مقدار قدیمی مبناست)
+        db.execSQL(
+            "UPDATE material_stock SET " +
+                "avgPrice = CASE WHEN (amount + (SELECT f.amount FROM _fab f WHERE f.name = material_stock.name AND f.unit = material_stock.unit)) > 0 " +
+                "THEN (amount * avgPrice + (SELECT f.amount * f.avgPrice FROM _fab f WHERE f.name = material_stock.name AND f.unit = material_stock.unit)) " +
+                "/ (amount + (SELECT f.amount FROM _fab f WHERE f.name = material_stock.name AND f.unit = material_stock.unit)) ELSE 0 END, " +
+                "amount = amount + (SELECT f.amount FROM _fab f WHERE f.name = material_stock.name AND f.unit = material_stock.unit), " +
+                "updatedAt = (SELECT f.updatedAt FROM _fab f WHERE f.name = material_stock.name AND f.unit = material_stock.unit) " +
+                "WHERE EXISTS (SELECT 1 FROM _fab f WHERE f.name = material_stock.name AND f.unit = material_stock.unit)"
+        )
+
+        // ۳) اقلام جدید (بدون برخورد) درج می‌شوند
+        db.execSQL(
+            "INSERT INTO material_stock (name, unit, amount, avgPrice, minLevel, updatedAt) " +
+                "SELECT f.name, f.unit, f.amount, f.avgPrice, f.minLevel, f.updatedAt FROM _fab f " +
+                "WHERE NOT EXISTS (SELECT 1 FROM material_stock m WHERE m.name = f.name AND m.unit = f.unit)"
+        )
+
+        db.execSQL("DROP TABLE IF EXISTS `_fab`")
+        db.execSQL("DROP TABLE IF EXISTS `fabric_stock`")
+    }
+}

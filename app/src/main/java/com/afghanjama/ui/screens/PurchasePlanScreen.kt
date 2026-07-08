@@ -381,10 +381,11 @@ fun PurchasePlanScreen(
                     }
 
                     if (ui.fabricSource == "STOCK") {
+                        val wantedName = listOf(ui.fabricType.trim(), ui.fabricColor.trim())
+                            .filter { it.isNotEmpty() }.joinToString(" ")
                         val match = stocks.firstOrNull {
-                            it.fabricType.equals(ui.fabricType.trim(), true) &&
-                                it.fabricColor.equals(ui.fabricColor.trim(), true) &&
-                                it.fabricUnit.equals(ui.fabricUnit.trim(), true)
+                            it.name.equals(wantedName, true) &&
+                                it.unit.equals(ui.fabricUnit.trim(), true)
                         }
                         Text(
                             text = if (match != null)

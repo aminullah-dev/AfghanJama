@@ -6,12 +6,12 @@ import androidx.compose.material.icons.filled.Checkroom
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.VerifiedUser
+import androidx.compose.material.icons.filled.Warehouse
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -31,7 +31,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.afghanjama.ui.screens.CuttingScreen
-import com.afghanjama.ui.screens.FabricStockScreen
 import com.afghanjama.ui.screens.FinishedWarehouseScreen
 import com.afghanjama.ui.screens.HomeDashboardScreen
 import com.afghanjama.ui.screens.OrderDetailScreen
@@ -93,8 +92,8 @@ private fun bottomItemsFor(role: UserRole): List<BottomItem> = when (role) {
 
     UserRole.PURCHASE -> listOf(
         BottomItem(Routes.HOME, "خانه", Icons.Default.Home),
-        BottomItem(Routes.PURCHASE, "سفارش", Icons.Default.ShoppingCart),
-        BottomItem(Routes.STOCK, "پارچه", Icons.Default.Layers),
+        BottomItem(Routes.PROCUREMENT, "خرید مواد", Icons.Default.ShoppingCart),
+        BottomItem(Routes.WAREHOUSE, "انبار", Icons.Default.Warehouse),
         BottomItem(Routes.SETTINGS, "تنظیمات", Icons.Default.Settings)
     )
 
@@ -236,7 +235,6 @@ fun AppNav(
                     onGoFinishedSales = { navController.navigate(Routes.FINISHED_SALES) },
                     onGoCustomerOrder = { navController.navigate(Routes.PURCHASE) },
                     onGoSales = { navController.navigate(Routes.SALES) },
-                    onGoFabricStock = { navController.navigate(Routes.STOCK) },
                     onGoFinance = { navController.navigate(Routes.FINANCE) },
                     onGoSearch = { navController.navigate(Routes.SEARCH) },
                     onGoSettings = { navController.navigate(Routes.SETTINGS) }
@@ -281,7 +279,7 @@ fun AppNav(
                     onGoWallet = { navController.navigate(Routes.FINANCE) },
                     onGoSettings = { navController.navigate(Routes.SETTINGS) },
                     onGoSearch = { navController.navigate(Routes.SEARCH) },
-                    onGoStock = { navController.navigate(Routes.STOCK) },
+                    onGoStock = { navController.navigate(Routes.WAREHOUSE) },
                     onGoCutting = { navController.navigate(Routes.CUTTING) },
                     onOpenDetail = { o -> navController.navigate("${Routes.ORDER_DETAIL}/${o.id}") }
                 )
@@ -346,14 +344,6 @@ fun AppNav(
                     orderIdText = entry.arguments?.getString("orderId"),
                     canReturnSale = Permissions.canReturnSale(authUi.role),
                     canEdit = Permissions.canEditOrder(authUi.role),
-                    onBack = { navController.popBackStack() }
-                )
-            }
-
-            composable(Routes.STOCK) {
-                FabricStockScreen(
-                    vm = stockVm,
-                    canAdjust = Permissions.canAdjustStock(authUi.role),
                     onBack = { navController.popBackStack() }
                 )
             }

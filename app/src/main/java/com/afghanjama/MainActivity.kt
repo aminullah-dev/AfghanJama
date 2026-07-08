@@ -16,6 +16,7 @@ import com.afghanjama.data.MIGRATION_21_22
 import com.afghanjama.data.MIGRATION_22_23
 import com.afghanjama.data.MIGRATION_23_24
 import com.afghanjama.data.MIGRATION_24_25
+import com.afghanjama.data.MIGRATION_25_26
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.ui.nav.AppNav
 import com.afghanjama.ui.theme.AfghanJamaTheme
@@ -59,7 +60,7 @@ class MainActivity : ComponentActivity() {
         )
             .addMigrations(
                 MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22,
-                MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25
+                MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26
             )
             .fallbackToDestructiveMigration()
             .build()

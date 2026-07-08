@@ -6,7 +6,6 @@ import com.afghanjama.data.entities.CustomerPayment
 import com.afghanjama.data.entities.DesignItem
 import com.afghanjama.data.entities.FabricColor
 import com.afghanjama.data.CodeGen
-import com.afghanjama.data.entities.FabricStock
 import com.afghanjama.data.entities.FabricType
 import com.afghanjama.data.entities.FinishedSale
 import com.afghanjama.data.entities.FinishedStock
@@ -115,14 +114,14 @@ class Repo(private val db: AppDatabase) {
     suspend fun deleteOrderWithStockReturn(order: Order) {
         if (order.status == "IN_STOCK") {
             val allRows = db.orderFabricDao().listForOrder(order.id.toString())
-            // پارچه‌های «از موجودی» به انبار پارچه برمی‌گردند
+            // پارچه‌های «از موجودی» با نام «نوع رنگ» به انبار مواد برمی‌گردند
             val stockRows = allRows.filter { it.source == "STOCK" }
-            // موادِ مصرفی «از انبار عمومی» به انبار مواد برمی‌گردند
+            // موادِ مصرفی «از انبار عمومی» با نام خودشان به انبار مواد برمی‌گردند
             val materialRows = allRows.filter { it.source == "MATERIAL" }
             when {
                 stockRows.isNotEmpty() || materialRows.isNotEmpty() -> {
                     stockRows.forEach {
-                        changeFabricStock(it.fabricType, it.fabricColor, it.fabricUnit, it.amount)
+                        changeMaterialStock(fabricMaterialName(it.fabricType, it.fabricColor), it.fabricUnit, it.amount)
                     }
                     materialRows.forEach {
                         changeMaterialStock(it.fabricType, it.fabricUnit, it.amount)
@@ -130,7 +129,7 @@ class Repo(private val db: AppDatabase) {
                 }
                 order.fabricSource == "STOCK" -> {
                     // سفارش‌های قدیمی که ردیف پارچه ندارند
-                    changeFabricStock(order.fabricType, order.fabricColor, order.fabricUnit, order.fabricAmount)
+                    changeMaterialStock(fabricMaterialName(order.fabricType, order.fabricColor), order.fabricUnit, order.fabricAmount)
                 }
             }
         }
@@ -335,78 +334,15 @@ class Repo(private val db: AppDatabase) {
         db.customerPaymentDao().insert(payment)
 
     // =========================
-    // Fabric Stock (موجودی پارچه)
+    // Fabric as Material (پارچه به‌عنوان یک نوع ماده در انبار عمومی)
     // =========================
 
-    fun observeFabricStock(): Flow<List<FabricStock>> =
-        db.fabricStockDao().observeAll()
-
-    suspend fun getFabricStock(type: String, color: String, unit: String): FabricStock? =
-        db.fabricStockDao().find(type.trim(), color.trim(), unit.trim())
-
     /**
-     * خرید پارچه: موجودی زیاد و قیمت میانگین هر واحد به‌روزرسانی می‌شود
-     * (میانگین وزنی برای بهای تمام‌شده سفارش‌های «از موجودی»).
+     * نام یکتای پارچه در انبار مواد از «نوع + رنگ» ساخته می‌شود؛ پارچه
+     * دیگر انبار جدا ندارد و مثل هر مادهٔ دیگر در انبار عمومی است.
      */
-    suspend fun addFabricPurchase(
-        type: String,
-        color: String,
-        unit: String,
-        amount: Double,
-        totalPrice: Long
-    ) {
-        if (amount <= 0.0) return
-        val now = System.currentTimeMillis()
-        val cur = db.fabricStockDao().find(type.trim(), color.trim(), unit.trim())
-            ?: FabricStock(
-                fabricType = type.trim(),
-                fabricColor = color.trim(),
-                fabricUnit = unit.trim(),
-                amount = 0.0,
-                minLevel = 0.0,
-                updatedAt = now
-            )
-        val newAmount = cur.amount + amount
-        val newAvg =
-            if (newAmount > 0.0) ((cur.amount * cur.avgPrice) + totalPrice) / newAmount
-            else 0.0
-        db.fabricStockDao().upsert(
-            cur.copy(amount = newAmount, avgPrice = newAvg, updatedAt = now)
-        )
-    }
-
-    /** افزایش/کاهش موجودی؛ delta منفی برای مصرف. موجودی زیر صفر نمی‌رود. */
-    suspend fun changeFabricStock(type: String, color: String, unit: String, delta: Double) {
-        val now = System.currentTimeMillis()
-        val cur = db.fabricStockDao().find(type.trim(), color.trim(), unit.trim())
-            ?: FabricStock(
-                fabricType = type.trim(),
-                fabricColor = color.trim(),
-                fabricUnit = unit.trim(),
-                amount = 0.0,
-                minLevel = 0.0,
-                updatedAt = now
-            )
-        db.fabricStockDao().upsert(
-            cur.copy(amount = (cur.amount + delta).coerceAtLeast(0.0), updatedAt = now)
-        )
-    }
-
-    suspend fun setFabricMinLevel(type: String, color: String, unit: String, minLevel: Double) {
-        val now = System.currentTimeMillis()
-        val cur = db.fabricStockDao().find(type.trim(), color.trim(), unit.trim())
-            ?: FabricStock(
-                fabricType = type.trim(),
-                fabricColor = color.trim(),
-                fabricUnit = unit.trim(),
-                amount = 0.0,
-                minLevel = 0.0,
-                updatedAt = now
-            )
-        db.fabricStockDao().upsert(
-            cur.copy(minLevel = minLevel.coerceAtLeast(0.0), updatedAt = now)
-        )
-    }
+    fun fabricMaterialName(type: String, color: String): String =
+        listOf(type.trim(), color.trim()).filter { it.isNotEmpty() }.joinToString(" ")
 
     // =========================
     // Material Stock (انبار عمومی مواد خام)
