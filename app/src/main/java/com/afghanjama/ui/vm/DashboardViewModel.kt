@@ -108,7 +108,7 @@ class DashboardViewModel(repo: Repo) : ViewModel() {
                         orderCode = o.orderCode,
                         designTitle = o.designTitle,
                         revenue = saleByOrder[o.id.toString()]?.sumOf { it.amount } ?: 0L,
-                        cost = o.fabricPrice + o.workCost,
+                        cost = o.fabricPrice + o.workCost + o.sewingCost,
                         soldAt = if (o.stageChangedAt > 0) o.stageChangedAt else o.createdAt
                     )
                 }

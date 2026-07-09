@@ -135,7 +135,7 @@ fun SalesScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(orders, key = { it.id }) { o ->
-                    val cost = o.fabricPrice + o.workCost
+                    val cost = o.fabricPrice + o.workCost + o.sewingCost
                     // پیش‌فرض: قیمت توافقی ثبت‌شده هنگام سفارش
                     val paidText = paidMap[o.id]
                         ?: o.agreedPrice.takeIf { it > 0 }?.toString().orEmpty()

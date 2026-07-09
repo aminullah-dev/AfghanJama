@@ -75,7 +75,7 @@ class SalesViewModel(private val repo: Repo) : ViewModel() {
             return@launch
         }
 
-        val cost = (order.fabricPrice + order.workCost).coerceAtLeast(0)
+        val cost = (order.fabricPrice + order.workCost + order.sewingCost).coerceAtLeast(0)
         val profit = rev - cost
 
         // 1) پول مشتری وارد WALLET

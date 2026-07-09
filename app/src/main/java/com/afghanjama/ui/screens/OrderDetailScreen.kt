@@ -333,6 +333,8 @@ fun OrderDetailScreen(
                         DetailRow("سایز", o.size.ifBlank { "-" })
                         DetailRow("قیمت پارچه", o.fabricPrice.afn())
                         DetailRow("خرج کار", o.workCost.afn())
+                        if (o.sewingCost > 0) DetailRow("دستمزد دوخت", o.sewingCost.afn())
+                        DetailRow("بهای تمام‌شده", (o.fabricPrice + o.workCost + o.sewingCost).afn())
                         if (o.agreedPrice > 0) DetailRow("قیمت توافقی", o.agreedPrice.afn())
                         if (o.customerName.isNotBlank()) {
                             DetailRow(

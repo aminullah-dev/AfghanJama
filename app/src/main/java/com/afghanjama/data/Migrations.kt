@@ -378,3 +378,12 @@ val MIGRATION_31_32 = object : Migration(31, 32) {
         db.execSQL("ALTER TABLE sewing_assignments ADD COLUMN quality TEXT NOT NULL DEFAULT ''")
     }
 }
+
+/**
+ * دستمزد دوخت به‌عنوان بخشی از بهای تمام‌شدهٔ سفارش (اصلاح محاسبهٔ سود).
+ */
+val MIGRATION_32_33 = object : Migration(32, 33) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE orders ADD COLUMN sewingCost INTEGER NOT NULL DEFAULT 0")
+    }
+}

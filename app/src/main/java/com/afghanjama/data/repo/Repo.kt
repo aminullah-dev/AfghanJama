@@ -292,7 +292,11 @@ class Repo(private val db: AppDatabase) {
             )
         }
 
-        val order = db.orderDao().getById(java.util.UUID.fromString(a.orderId)) ?: return
+        val orderFetched = db.orderDao().getById(java.util.UUID.fromString(a.orderId)) ?: return
+        // دستمزد این تحویل به بهای تمام‌شدهٔ سفارش اضافه می‌شود
+        val order = orderFetched.copy(sewingCost = orderFetched.sewingCost + a.totalWage.coerceAtLeast(0))
+        db.orderDao().update(order)
+
         val all = db.sewingAssignmentDao().listForOrder(a.orderId)
         val handed = all.sumOf { it.qty }
         val allDone = all.isNotEmpty() && all.all { it.status == "DONE" }
@@ -567,7 +571,7 @@ class Repo(private val db: AppDatabase) {
      */
     suspend fun depositOrderToFinished(order: Order) {
         val perPieceCost = if (order.qty > 0)
-            (order.fabricPrice + order.workCost) / order.qty else 0L
+            (order.fabricPrice + order.workCost + order.sewingCost) / order.qty else 0L
         addFinishedStock(order.designTitle, order.size, order.qty, perPieceCost)
         changeOrderStatus(order, OrderStatus.STORED.name)
     }

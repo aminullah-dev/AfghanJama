@@ -31,6 +31,10 @@ data class Order(
     val fabricPrice: Long,
     val workCost: Long,
 
+    // دستمزد دوختِ انباشته از تحویل‌های خیاط (بخشی از بهای تمام‌شده)
+    @ColumnInfo(defaultValue = "0")
+    val sewingCost: Long = 0,
+
     // قیمت فروش توافق‌شده با مشتری (۰ = توافق نشده)
     @ColumnInfo(defaultValue = "0")
     val agreedPrice: Long = 0,

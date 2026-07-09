@@ -144,6 +144,9 @@ object InvoicePdf {
         y = c.section("خلاصه مالی", y, sectionPaint)
         y = c.kv("جمع قیمت پارچه", order.fabricPrice.afn(), MARGIN, y, labelPaint, valuePaint)
         y = c.kv("جمع خرج کار", order.workCost.afn(), MARGIN, y, labelPaint, valuePaint)
+        if (order.sewingCost > 0) {
+            y = c.kv("دستمزد دوخت", order.sewingCost.afn(), MARGIN, y, labelPaint, valuePaint)
+        }
         if (order.agreedPrice > 0) {
             y = c.kv("قیمت توافقی", order.agreedPrice.afn(), MARGIN, y, labelPaint, strongPaint)
         }
