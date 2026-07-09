@@ -60,6 +60,11 @@ class ProductionViewModel(private val repo: Repo) : ViewModel() {
         repo.observeMaterialStock()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** طرح‌های ازقبل‌تعریف‌شده برای انتخابِ «نام طرح/محصول». */
+    val designs: StateFlow<List<com.afghanjama.data.entities.DesignItem>> =
+        repo.observeDesignItems()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     private val _ui = MutableStateFlow(ProductionUi())
     val ui: StateFlow<ProductionUi> = _ui
 

@@ -274,20 +274,35 @@ class Repo(private val db: AppDatabase) {
      * دوخت یک تحویل تمام شد: کارمزد آن خیاط ثبت و تحویل بسته می‌شود.
      * اگر همه تحویل‌ها تمام و سفارش کامل تحویل شده باشد، به «نظارت» می‌رود.
      */
-    suspend fun completeAssignment(assignmentId: Long, quality: String = "") {
+    suspend fun completeAssignment(assignmentId: Long, quality: String = "", deliveredQty: Int? = null) {
         val a = db.sewingAssignmentDao().getById(assignmentId) ?: return
         if (a.status != "SEWING") return
-        db.sewingAssignmentDao().update(
-            a.copy(status = "DONE", doneAt = System.currentTimeMillis(), quality = quality.trim())
-        )
 
-        if (a.totalWage > 0) {
+        // تحویل جزئی: هر مقدار که دوخته شده تحویل می‌شود؛ باقی‌مانده «در حال دوخت» می‌ماند
+        val delivered = (deliveredQty ?: a.qty).coerceIn(1, a.qty)
+        if (delivered < a.qty) {
+            db.sewingAssignmentDao().insert(
+                a.copy(
+                    id = 0,
+                    qty = a.qty - delivered,
+                    status = "SEWING",
+                    doneAt = null,
+                    quality = "",
+                    createdAt = System.currentTimeMillis()
+                )
+            )
+        }
+
+        val done = a.copy(qty = delivered, status = "DONE", doneAt = System.currentTimeMillis(), quality = quality.trim())
+        db.sewingAssignmentDao().update(done)
+
+        if (done.totalWage > 0) {
             db.tailorWageDao().insert(
                 TailorWage(
                     orderId = a.orderId,
                     orderCode = a.orderCode,
                     tailorLabel = a.tailorLabel,
-                    amount = a.totalWage,
+                    amount = done.totalWage,
                     assignmentId = a.id
                 )
             )
@@ -295,7 +310,7 @@ class Repo(private val db: AppDatabase) {
 
         val orderFetched = db.orderDao().getById(java.util.UUID.fromString(a.orderId)) ?: return
         // دستمزد این تحویل به بهای تمام‌شدهٔ سفارش اضافه می‌شود
-        val order = orderFetched.copy(sewingCost = orderFetched.sewingCost + a.totalWage.coerceAtLeast(0))
+        val order = orderFetched.copy(sewingCost = orderFetched.sewingCost + done.totalWage.coerceAtLeast(0))
         db.orderDao().update(order)
 
         val all = db.sewingAssignmentDao().listForOrder(a.orderId)

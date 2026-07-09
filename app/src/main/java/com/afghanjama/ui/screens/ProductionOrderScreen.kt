@@ -57,8 +57,10 @@ fun ProductionOrderScreen(
 ) {
     val ui by vm.ui.collectAsState()
     val materials by vm.materials.collectAsState()
+    val designs by vm.designs.collectAsState()
 
     var pickerOpen by remember { mutableStateOf(false) }
+    var designMenu by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -93,6 +95,19 @@ fun ProductionOrderScreen(
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
+                        if (designs.isNotEmpty()) {
+                            OutlinedButton(onClick = { designMenu = true }, modifier = Modifier.fillMaxWidth()) {
+                                Text("انتخاب از طرح‌های ثبت‌شده")
+                            }
+                            DropdownMenu(expanded = designMenu, onDismissRequest = { designMenu = false }) {
+                                designs.forEach { d ->
+                                    DropdownMenuItem(
+                                        text = { Text(d.title) },
+                                        onClick = { vm.setDesignTitle(d.title); designMenu = false }
+                                    )
+                                }
+                            }
+                        }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedTextField(
                                 value = ui.qty,

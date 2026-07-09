@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -28,6 +29,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -52,6 +54,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.afghanjama.data.entities.Order
@@ -139,9 +142,8 @@ fun SewingScreen(
                         items(inProgress, key = { it.id }) { a ->
                             InProgressCard(
                                 assignment = a,
-                                onDone = { quality ->
-                                    vm.completeAssignment(a.id, quality)
-                                    onGoReview()
+                                onDone = { quality, delivered ->
+                                    vm.completeAssignment(a.id, quality, delivered)
                                 },
                                 onCancel = { vm.cancelAssignment(a.id) }
                             )
@@ -320,31 +322,49 @@ private fun HandoutCard(
 @Composable
 private fun InProgressCard(
     assignment: SewingAssignment,
-    onDone: (String) -> Unit,
+    onDone: (String, Int) -> Unit,
     onCancel: () -> Unit
 ) {
     val context = LocalContext.current
-    var showQuality by remember { mutableStateOf(false) }
+    var showDone by remember { mutableStateOf(false) }
 
-    if (showQuality) {
+    if (showDone) {
+        var deliveredText by remember { mutableStateOf(assignment.qty.toString()) }
+        var quality by remember { mutableStateOf("") }
+        val delivered = deliveredText.toIntOrNull() ?: 0
         AlertDialog(
-            onDismissRequest = { showQuality = false },
-            title = { Text("کیفیت کارِ ${assignment.tailorLabel}") },
+            onDismissRequest = { showDone = false },
+            title = { Text("تحویل دوختِ ${assignment.tailorLabel}") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("کیفیت این کار را ثبت کنید (اختیاری):")
-                    listOf("خوب", "متوسط", "ضعیف").forEach { q ->
-                        Button(
-                            onClick = { showQuality = false; onDone(q) },
-                            modifier = Modifier.fillMaxWidth()
-                        ) { Text(q) }
+                    Text("از ${assignment.qty} عدد، چند عدد دوخته و تحویل شد؟ (باقی‌مانده در حال دوخت می‌ماند)")
+                    OutlinedTextField(
+                        value = deliveredText,
+                        onValueChange = { deliveredText = it.digitsOnly() },
+                        label = { Text("تعداد تحویل‌شده") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text("کیفیت کار (اختیاری):", style = MaterialTheme.typography.labelMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf("خوب", "متوسط", "ضعیف").forEach { q ->
+                            FilterChip(
+                                selected = quality == q,
+                                onClick = { quality = if (quality == q) "" else q },
+                                label = { Text(q) }
+                            )
+                        }
                     }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showQuality = false; onDone("") }) { Text("بدون ثبت کیفیت") }
+                TextButton(
+                    enabled = delivered in 1..assignment.qty,
+                    onClick = { showDone = false; onDone(quality, delivered) }
+                ) { Text("ثبت تحویل") }
             },
-            dismissButton = { TextButton(onClick = { showQuality = false }) { Text("لغو") } }
+            dismissButton = { TextButton(onClick = { showDone = false }) { Text("لغو") } }
         )
     }
     Card(
@@ -384,10 +404,10 @@ private fun InProgressCard(
                     Spacer(Modifier.width(6.dp))
                     Text("رسید")
                 }
-                Button(onClick = { showQuality = true }, modifier = Modifier.weight(1f)) {
+                Button(onClick = { showDone = true }, modifier = Modifier.weight(1f)) {
                     Icon(Icons.Default.Done, contentDescription = null)
                     Spacer(Modifier.width(6.dp))
-                    Text("دوخت تمام شد")
+                    Text("تحویل دوخت")
                 }
             }
             TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) {

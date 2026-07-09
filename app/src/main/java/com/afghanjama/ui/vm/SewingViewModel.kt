@@ -66,10 +66,14 @@ class SewingViewModel(
         repo.handoutToTailor(o, tailorLabel, qty, unitWage)
     }
 
-    /** دوخت یک تحویل تمام شد (کارمزد ثبت و در صورت کامل‌شدن → نظارت). */
-    fun completeAssignment(assignmentId: Long, quality: String = "") = viewModelScope.launch {
-        repo.completeAssignment(assignmentId, quality)
-    }
+    /**
+     * دوخت یک تحویل تمام شد. [deliveredQty] = هر مقدار که دوخته شده (تحویل
+     * جزئی)؛ باقی‌مانده «در حال دوخت» می‌ماند. null یعنی کل تحویل.
+     */
+    fun completeAssignment(assignmentId: Long, quality: String = "", deliveredQty: Int? = null) =
+        viewModelScope.launch {
+            repo.completeAssignment(assignmentId, quality, deliveredQty)
+        }
 
     /** لغو یک تحویل (اصلاح اشتباه). */
     fun cancelAssignment(assignmentId: Long) = viewModelScope.launch {
