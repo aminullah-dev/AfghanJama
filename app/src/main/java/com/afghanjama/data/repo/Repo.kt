@@ -1,6 +1,7 @@
 package com.afghanjama.data.repo
 
 import com.afghanjama.data.AppDatabase
+import com.afghanjama.data.entities.AttendanceRecord
 import com.afghanjama.data.entities.Customer
 import com.afghanjama.data.entities.CustomerMeasurement
 import com.afghanjama.data.entities.CustomerPayment
@@ -670,6 +671,27 @@ class Repo(private val db: AppDatabase) {
 
     suspend fun addCustomer(item: Customer) =
         db.masterDataDao().insertCustomer(item)
+
+    // =========================
+    // Attendance (حضور و غیاب کارمند)
+    // =========================
+
+    fun observeAttendance(): Flow<List<AttendanceRecord>> =
+        db.attendanceDao().observeRecent()
+
+    /** ثبت ورود؛ اگر کارمند از قبل «داخل» باشد کاری نمی‌کند. */
+    suspend fun checkIn(employee: String) {
+        val emp = employee.trim()
+        if (emp.isEmpty()) return
+        if (db.attendanceDao().findOpen(emp) != null) return
+        db.attendanceDao().insert(AttendanceRecord(employee = emp, checkIn = System.currentTimeMillis()))
+    }
+
+    /** ثبت خروج برای بازهٔ بازِ کارمند. */
+    suspend fun checkOut(employee: String) {
+        val open = db.attendanceDao().findOpen(employee.trim()) ?: return
+        db.attendanceDao().update(open.copy(checkOut = System.currentTimeMillis()))
+    }
 
     // =========================
     // Customer measurements (اندازه‌های مشتری)

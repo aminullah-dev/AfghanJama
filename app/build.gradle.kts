@@ -93,6 +93,9 @@ dependencies {
     // WorkManager (یادآوری هفتگی تسویه کارمزد)
     implementation("androidx.work:work-runtime-ktx:2.9.1")
 
+    // Biometric (تأیید اثر انگشت برای حضور و غیاب) — FragmentActivity هم می‌آورد
+    implementation("androidx.biometric:biometric:1.1.0")
+
     // Desugaring
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.2")
 

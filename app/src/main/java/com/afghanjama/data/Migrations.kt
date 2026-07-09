@@ -387,3 +387,23 @@ val MIGRATION_32_33 = object : Migration(32, 33) {
         db.execSQL("ALTER TABLE orders ADD COLUMN sewingCost INTEGER NOT NULL DEFAULT 0")
     }
 }
+
+/**
+ * حضور و غیاب کارمند (ورود/خروج).
+ */
+val MIGRATION_33_34 = object : Migration(33, 34) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `attendance` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`employee` TEXT NOT NULL, " +
+                "`checkIn` INTEGER NOT NULL, " +
+                "`checkOut` INTEGER, " +
+                "`createdAt` INTEGER NOT NULL)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_attendance_employee` " +
+                "ON `attendance` (`employee`)"
+        )
+    }
+}

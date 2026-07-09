@@ -4,8 +4,8 @@ package com.afghanjama
 import android.Manifest
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -17,6 +17,7 @@ import com.afghanjama.ui.nav.AppNav
 import com.afghanjama.ui.screens.PinLockScreen
 import com.afghanjama.util.AppLock
 import com.afghanjama.ui.theme.AfghanJamaTheme
+import com.afghanjama.ui.vm.AttendanceViewModel
 import com.afghanjama.ui.vm.AuthViewModel
 import com.afghanjama.ui.vm.BackupViewModel
 import com.afghanjama.ui.vm.CustomerAccountsViewModel
@@ -42,7 +43,7 @@ import com.afghanjama.ui.vm.SupplierViewModel
 import com.afghanjama.ui.vm.WagesViewModel
 import com.afghanjama.ui.vm.WarehouseViewModel
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -89,6 +90,7 @@ class MainActivity : ComponentActivity() {
                 val supplierVm = remember { SupplierViewModel(repo) }
                 val customerDirVm = remember { CustomersViewModel(repo) }
                 val customerDetailVm = remember { CustomerDetailViewModel(repo) }
+                val attendanceVm = remember { AttendanceViewModel(repo) }
 
                 AppNav(
                     authVm = authVm,
@@ -114,7 +116,8 @@ class MainActivity : ComponentActivity() {
                     finishedSaleVm = finishedSaleVm,
                     supplierVm = supplierVm,
                     customerDirVm = customerDirVm,
-                    customerDetailVm = customerDetailVm
+                    customerDetailVm = customerDetailVm,
+                    attendanceVm = attendanceVm
                 )
             }
         }

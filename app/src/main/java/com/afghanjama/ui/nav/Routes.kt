@@ -16,6 +16,7 @@ object Routes {
     const val SUPPLIERS = "suppliers"
     const val CUSTOMERS = "customers"
     const val CUSTOMER_DETAIL = "customer_detail"
+    const val ATTENDANCE = "attendance"
 
     const val CUTTING = "cutting"
     const val SEWING = "sewing"

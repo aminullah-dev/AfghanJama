@@ -30,6 +30,7 @@ import androidx.navigation.navArgument
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.afghanjama.ui.screens.AttendanceScreen
 import com.afghanjama.ui.screens.CustomerDetailScreen
 import com.afghanjama.ui.screens.CustomersScreen
 import com.afghanjama.ui.screens.CuttingScreen
@@ -52,6 +53,7 @@ import com.afghanjama.ui.screens.SettingsScreen
 import com.afghanjama.ui.screens.SewingScreen
 import com.afghanjama.ui.screens.StockLedgerScreen
 import com.afghanjama.ui.screens.SupplierScreen
+import com.afghanjama.ui.vm.AttendanceViewModel
 import com.afghanjama.ui.vm.AuthViewModel
 import com.afghanjama.ui.vm.BackupViewModel
 import com.afghanjama.ui.vm.CustomerAccountsViewModel
@@ -146,7 +148,8 @@ fun AppNav(
     finishedSaleVm: FinishedSaleViewModel,
     supplierVm: SupplierViewModel,
     customerDirVm: CustomersViewModel,
-    customerDetailVm: CustomerDetailViewModel
+    customerDetailVm: CustomerDetailViewModel,
+    attendanceVm: AttendanceViewModel
 ) {
     val navController = rememberNavController()
     val authUi by authVm.ui.collectAsState()
@@ -244,6 +247,7 @@ fun AppNav(
                     onGoProduction = { navController.navigate(Routes.INVENTORY) },
                     onGoFinishedSales = { navController.navigate(Routes.FINISHED_SALES) },
                     onGoSuppliers = { navController.navigate(Routes.SUPPLIERS) },
+                    onGoAttendance = { navController.navigate(Routes.ATTENDANCE) },
                     onGoCustomers = { navController.navigate(Routes.CUSTOMERS) },
                     onGoCustomerOrder = { navController.navigate(Routes.PURCHASE) },
                     // -- customers wired --
@@ -271,6 +275,13 @@ fun AppNav(
             composable(Routes.SUPPLIERS) {
                 SupplierScreen(
                     vm = supplierVm,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Routes.ATTENDANCE) {
+                AttendanceScreen(
+                    vm = attendanceVm,
                     onBack = { navController.popBackStack() }
                 )
             }
