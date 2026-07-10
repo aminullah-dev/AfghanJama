@@ -53,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.util.AppLock
@@ -179,6 +180,59 @@ fun SettingsScreen(
                             Icon(Icons.Default.Tune, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
                             Text("باز کردن اطلاعات پایه")
+                        }
+                    }
+                }
+            }
+
+            // اطلاعات کارگاه روی رسیدها/PDF — فقط مدیر
+            if (canManageMaster) {
+                val ctx = LocalContext.current
+                var coName by remember { mutableStateOf(CompanyPrefs.name(ctx)) }
+                var coPhone by remember { mutableStateOf(CompanyPrefs.phone(ctx)) }
+                var coAddr by remember { mutableStateOf(CompanyPrefs.address(ctx)) }
+                var coSaved by remember { mutableStateOf(false) }
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "اطلاعات کارگاه (روی رسید و PDF)",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        OutlinedTextField(
+                            value = coName,
+                            onValueChange = { coName = it; coSaved = false },
+                            label = { Text("نام کارگاه / شرکت") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = coPhone,
+                            onValueChange = { coPhone = it; coSaved = false },
+                            label = { Text("تلفن (اختیاری)") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = coAddr,
+                            onValueChange = { coAddr = it; coSaved = false },
+                            label = { Text("آدرس (اختیاری)") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Button(
+                            onClick = {
+                                CompanyPrefs.save(ctx, coName.trim(), coPhone.trim(), coAddr.trim())
+                                coSaved = true
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(if (coSaved) "ذخیره شد ✓" else "ذخیره اطلاعات کارگاه")
                         }
                     }
                 }

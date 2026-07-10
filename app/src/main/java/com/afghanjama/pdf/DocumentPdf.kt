@@ -14,6 +14,7 @@ import android.graphics.pdf.PdfDocument
 import androidx.core.content.res.ResourcesCompat
 import com.afghanjama.R
 import com.afghanjama.data.entities.Document
+import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
 import com.afghanjama.util.QrGen
@@ -74,7 +75,8 @@ object DocumentPdf {
         c.drawCircle(PAGE_W - MARGIN - 24f, 48f, 24f, logoPaint)
         val logoText = paint(22f, BRAND, bold).apply { textAlign = Paint.Align.CENTER }
         c.drawText("✂", PAGE_W - MARGIN - 24f, 56f, logoText)
-        c.drawRtl("AfghanJama — مدیریت کارگاه خیاطی", MARGIN, 28f, titlePaint, CONTENT_W - 60)
+        val coName = CompanyPrefs.name(context).ifBlank { "AfghanJama — مدیریت کارگاه خیاطی" }
+        c.drawRtl(coName, MARGIN, 28f, titlePaint, CONTENT_W - 60)
         c.drawRtl(typeLabel(d.type), MARGIN, 62f, headerSubPaint, CONTENT_W - 60)
 
         var y = 122f
@@ -101,10 +103,14 @@ object DocumentPdf {
         // ---------- پاصفحه ----------
         val footY = PAGE_H - 36f
         c.drawLine(MARGIN, footY - 10f, PAGE_W - MARGIN, footY - 10f, Paint().apply { color = LINE; strokeWidth = 0.8f })
-        c.drawRtl(
-            "این سند با اپلیکیشن AfghanJama صادر شده — پشتیبانی: aminhashemi979@gmail.com",
-            MARGIN, footY, footerPaint, CONTENT_W
-        )
+        val coPhone = CompanyPrefs.phone(context)
+        val coAddr = CompanyPrefs.address(context)
+        val footer = buildString {
+            append("صادرشده با اپلیکیشن AfghanJama")
+            if (coPhone.isNotBlank()) append(" — تلفن: $coPhone")
+            if (coAddr.isNotBlank()) append(" — $coAddr")
+        }
+        c.drawRtl(footer, MARGIN, footY, footerPaint, CONTENT_W)
 
         doc.finishPage(page)
         val file = File(ShareUtil.sharedDir(context), "${d.number}.pdf")
