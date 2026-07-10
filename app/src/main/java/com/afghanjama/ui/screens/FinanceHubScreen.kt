@@ -56,8 +56,6 @@ import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.format.fa
-import com.afghanjama.ui.vm.CustomerAccount
-import com.afghanjama.ui.vm.CustomerAccountsViewModel
 import com.afghanjama.ui.vm.DashboardViewModel
 import com.afghanjama.ui.vm.FinanceViewModel
 import com.afghanjama.ui.vm.TailorWageGroup
@@ -70,11 +68,10 @@ import com.afghanjama.ui.vm.WagesViewModel
 fun FinanceHubScreen(
     financeVm: FinanceViewModel,
     wagesVm: WagesViewModel,
-    customersVm: CustomerAccountsViewModel,
     dashboardVm: DashboardViewModel
 ) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    val tabs = listOf("گزارش", "کیف پول", "کارمزد خیاط", "حساب فروشگاه‌ها")
+    val tabs = listOf("گزارش", "کیف پول", "کارمزد خیاط")
 
     Scaffold(
         topBar = {
@@ -105,7 +102,6 @@ fun FinanceHubScreen(
                 0 -> DashboardTab(dashboardVm)
                 1 -> WalletTab(financeVm)
                 2 -> WagesTab(wagesVm)
-                3 -> CustomersTab(customersVm)
             }
         }
     }
@@ -867,255 +863,6 @@ private fun WagesTab(vm: WagesViewModel) {
         }
 
         item { Spacer(Modifier.height(80.dp)) }
-    }
-}
-
-// ======================================================
-// تب ۳: حساب فروشگاه‌ها / مشتری‌ها + ثبت دریافتی دستی
-// ======================================================
-@Composable
-private fun CustomersTab(vm: CustomerAccountsViewModel) {
-    val accounts by vm.accounts.collectAsState()
-
-    // دیالوگ ثبت دریافتی دستی
-    var payTarget by remember { mutableStateOf<CustomerAccount?>(null) }
-    var payAmountText by remember { mutableStateOf("") }
-    var payNote by remember { mutableStateOf("") }
-
-    // دیالوگ تاریخچه پرداخت‌ها
-    var historyTarget by remember { mutableStateOf<CustomerAccount?>(null) }
-
-    historyTarget?.let { acc ->
-        AlertDialog(
-            onDismissRequest = { historyTarget = null },
-            title = { Text("پرداخت‌های «${acc.name}»") },
-            text = {
-                if (acc.payments.isEmpty()) {
-                    Text("هنوز پرداختی ثبت نشده است.")
-                } else {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        acc.payments.take(15).forEach { pmt ->
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Column(Modifier.weight(1f)) {
-                                    Text(
-                                        pmt.note.ifBlank {
-                                            when (pmt.source) {
-                                                "ADVANCE" -> "پیش‌پرداخت"
-                                                "SALE" -> "دریافتی فروش"
-                                                else -> "دریافتی"
-                                            }
-                                        },
-                                        style = MaterialTheme.typography.bodySmall,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    Text(
-                                        formatDate(pmt.createdAt),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                Text(
-                                    pmt.amount.afn(),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { historyTarget = null }) { Text("بستن") }
-            }
-        )
-    }
-
-    payTarget?.let { acc ->
-        AlertDialog(
-            onDismissRequest = { payTarget = null },
-            title = { Text("ثبت دریافتی از «${acc.name}»") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    if (acc.balance > 0) {
-                        Text(
-                            "باقی‌مانده حساب: ${acc.balance.afn()}",
-                            color = MaterialTheme.colorScheme.error,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                    OutlinedTextField(
-                        value = payAmountText,
-                        onValueChange = { payAmountText = it.digitsOnly() },
-                        label = { Text("مبلغ (؋)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = payNote,
-                        onValueChange = { payNote = it },
-                        label = { Text("یادداشت (اختیاری)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Text(
-                        "مبلغ وارد کیف پول و در حساب مشتری ثبت می‌شود.",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        val amount = payAmountText.toLongOrNull() ?: 0L
-                        if (amount > 0L) {
-                            vm.addManualPayment(acc.name, amount, payNote)
-                        }
-                        payTarget = null
-                        payAmountText = ""
-                        payNote = ""
-                    }
-                ) { Text("ثبت") }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    payTarget = null
-                    payAmountText = ""
-                    payNote = ""
-                }) { Text("لغو") }
-            }
-        )
-    }
-
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        item {
-            Text(
-                "حساب فروشگاه‌ها و مشتری‌ها",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
-
-        if (accounts.isEmpty()) {
-            item { EmptyHint("هنوز سفارشی با نام مشتری ثبت نشده است.") }
-        } else {
-            items(accounts, key = { it.name }) { acc ->
-                CustomerAccountCard(
-                    acc = acc,
-                    onAddPayment = { payTarget = acc },
-                    onShowHistory = { historyTarget = acc }
-                )
-            }
-        }
-
-        item { Spacer(Modifier.height(80.dp)) }
-    }
-}
-
-@Composable
-private fun CustomerAccountCard(
-    acc: CustomerAccount,
-    onAddPayment: () -> Unit,
-    onShowHistory: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        acc.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    if (acc.phone.isNotBlank()) {
-                        Text(
-                            acc.phone,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-                Text(
-                    "${acc.ordersCount} سفارش" +
-                        if (acc.openOrdersCount > 0) " (${acc.openOrdersCount} باز)" else "",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            HorizontalDivider(thickness = 0.5.dp)
-
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                MoneyStat("مبلغ سفارش‌ها", acc.totalDue.afn())
-                MoneyStat("دریافتی", acc.totalPaid.afn())
-                MoneyStat(
-                    label = if (acc.balance > 0) "باقی‌مانده" else "تسویه",
-                    value = if (acc.balance > 0) acc.balance.afn() else "✔",
-                    highlight = acc.balance > 0
-                )
-            }
-
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedButton(
-                    onClick = onShowHistory,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("تاریخچه")
-                }
-                OutlinedButton(
-                    onClick = onAddPayment,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("ثبت دریافتی")
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun MoneyStat(label: String, value: String, highlight: Boolean = false) {
-    Column {
-        Text(
-            label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            value,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
-            color = if (highlight) MaterialTheme.colorScheme.error
-            else MaterialTheme.colorScheme.onSurface
-        )
     }
 }
 

@@ -57,7 +57,6 @@ import com.afghanjama.ui.screens.StockLedgerScreen
 import com.afghanjama.ui.vm.AttendanceViewModel
 import com.afghanjama.ui.vm.AuthViewModel
 import com.afghanjama.ui.vm.BackupViewModel
-import com.afghanjama.ui.vm.CustomerAccountsViewModel
 import com.afghanjama.ui.vm.CustomerDetailViewModel
 import com.afghanjama.ui.vm.CustomersViewModel
 import com.afghanjama.ui.vm.CuttingViewModel
@@ -136,7 +135,6 @@ fun AppNav(
     financeVm: FinanceViewModel,
     masterVm: MasterDataViewModel,
     wagesVm: WagesViewModel,
-    customersVm: CustomerAccountsViewModel,
     dashboardVm: DashboardViewModel,
     searchVm: OrderSearchViewModel,
     stockVm: StockViewModel,
@@ -365,7 +363,6 @@ fun AppNav(
                 FinanceHubScreen(
                     financeVm = financeVm,
                     wagesVm = wagesVm,
-                    customersVm = customersVm,
                     dashboardVm = dashboardVm
                 )
             }
