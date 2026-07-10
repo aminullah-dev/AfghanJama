@@ -13,6 +13,7 @@ import com.afghanjama.data.dao.CustomerPaymentDao
 import com.afghanjama.data.dao.CuttingRecordDao
 import com.afghanjama.data.dao.FinanceDao
 import com.afghanjama.data.dao.FinishedStockDao
+import com.afghanjama.data.dao.LedgerDao
 import com.afghanjama.data.dao.MasterDataDao
 import com.afghanjama.data.dao.MaterialStockDao
 import com.afghanjama.data.dao.OrderCounterDao
@@ -38,7 +39,9 @@ import com.afghanjama.data.entities.FinishedSale
 import com.afghanjama.data.entities.FinishedStock
 import com.afghanjama.data.entities.GarmentDesign
 import com.afghanjama.data.entities.Inspector
+import com.afghanjama.data.entities.LedgerEntry
 import com.afghanjama.data.entities.MaterialStock
+import com.afghanjama.data.entities.Party
 import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.OrderCounter
 import com.afghanjama.data.entities.OrderFabric
@@ -86,9 +89,11 @@ import com.afghanjama.data.entities.WorkCost
         StockMovement::class,
         CuttingRecord::class,
         QcRecord::class,
-        AttendanceRecord::class
+        AttendanceRecord::class,
+        Party::class,
+        LedgerEntry::class
     ],
-    version = 35,
+    version = 36,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -113,6 +118,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun cuttingRecordDao(): CuttingRecordDao
     abstract fun qcRecordDao(): QcRecordDao
     abstract fun attendanceDao(): AttendanceDao
+    abstract fun ledgerDao(): LedgerDao
 }
 
 /** همهٔ Migrationها یک‌جا تا Workerها و اپ هرگز از هم جدا نیفتند. */
@@ -120,7 +126,8 @@ val ALL_MIGRATIONS = arrayOf(
     MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23,
     MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27,
     MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30, MIGRATION_30_31,
-    MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35
+    MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35,
+    MIGRATION_35_36
 )
 
 const val DB_NAME = "afghanjama.db"

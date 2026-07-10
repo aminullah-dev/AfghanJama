@@ -420,3 +420,73 @@ val MIGRATION_34_35 = object : Migration(34, 35) {
         db.execSQL("UPDATE orders SET materialsConsumed = 1")
     }
 }
+
+/**
+ * دفتر کلِ یکپارچه (parties + ledger_entries). این مهاجرت فقط جدول‌های
+ * جدید می‌سازد و داده‌های سه سیستمِ فعلی (قرض فروشنده، پرداخت مشتری،
+ * کارمزد خیاط) را به دفتر کل کپی می‌کند. جدول‌های قدیمی دست‌نخورده
+ * می‌مانند تا فیچرهای فعلی نشکنند؛ دفتر کل یک لایهٔ واحدِ خواندنی است.
+ */
+val MIGRATION_35_36 = object : Migration(35, 36) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        val now = System.currentTimeMillis()
+
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `parties` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`name` TEXT NOT NULL, `type` TEXT NOT NULL, " +
+                "`phone` TEXT NOT NULL, `note` TEXT NOT NULL, " +
+                "`createdAt` INTEGER NOT NULL)"
+        )
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_parties_type_name` " +
+                "ON `parties` (`type`, `name`)"
+        )
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `ledger_entries` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`partyType` TEXT NOT NULL, `partyName` TEXT NOT NULL, " +
+                "`debit` INTEGER NOT NULL, `credit` INTEGER NOT NULL, " +
+                "`refType` TEXT NOT NULL, `refId` TEXT NOT NULL, " +
+                "`note` TEXT NOT NULL, `at` INTEGER NOT NULL)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_ledger_entries_partyType_partyName` " +
+                "ON `ledger_entries` (`partyType`, `partyName`)"
+        )
+
+        // فروشنده: CREDIT(نسیه)→بستانکار، PAYMENT(تسویه)→بدهکار
+        db.execSQL(
+            "INSERT INTO ledger_entries (partyType, partyName, debit, credit, refType, refId, note, at) " +
+                "SELECT 'SUPPLIER', supplier, " +
+                "CASE WHEN type='PAYMENT' THEN amount ELSE 0 END, " +
+                "CASE WHEN type='CREDIT' THEN amount ELSE 0 END, " +
+                "CASE WHEN type='PAYMENT' THEN 'SUPPLIER_PAYMENT' ELSE 'PURCHASE_CREDIT' END, " +
+                "'', note, createdAt FROM supplier_ledger"
+        )
+        // مشتری: پرداختِ مشتری → بستانکار (پول نزد ما)
+        db.execSQL(
+            "INSERT INTO ledger_entries (partyType, partyName, debit, credit, refType, refId, note, at) " +
+                "SELECT 'CUSTOMER', " +
+                "CASE WHEN customerName IS NULL OR customerName='' THEN 'مشتری نامشخص' ELSE customerName END, " +
+                "0, amount, 'CUSTOMER_' || source, orderId, note, createdAt FROM customer_payments"
+        )
+        // خیاط: کارمزد → بستانکار
+        db.execSQL(
+            "INSERT INTO ledger_entries (partyType, partyName, debit, credit, refType, refId, note, at) " +
+                "SELECT 'TAILOR', tailorLabel, 0, amount, 'WAGE', orderCode, '', createdAt FROM tailor_wages"
+        )
+        // کارمزدِ تسویه‌شده → یک بدهکارِ جبرانی تا مانده صفر شود
+        db.execSQL(
+            "INSERT INTO ledger_entries (partyType, partyName, debit, credit, refType, refId, note, at) " +
+                "SELECT 'TAILOR', tailorLabel, amount, 0, 'WAGE_PAID', orderCode, 'تسویه‌شده', " +
+                "COALESCE(settledAt, createdAt) FROM tailor_wages WHERE settled = 1"
+        )
+
+        // ثبت طرف‌ها در دفترچه از روی گردش‌های واردشده
+        db.execSQL(
+            "INSERT OR IGNORE INTO parties (name, type, phone, note, createdAt) " +
+                "SELECT DISTINCT partyName, partyType, '', '', $now FROM ledger_entries"
+        )
+    }
+}

@@ -13,7 +13,9 @@ import com.afghanjama.data.entities.FabricType
 import com.afghanjama.data.entities.FinishedSale
 import com.afghanjama.data.entities.FinishedStock
 import com.afghanjama.data.entities.Inspector
+import com.afghanjama.data.entities.LedgerEntry
 import com.afghanjama.data.entities.MaterialStock
+import com.afghanjama.data.entities.Party
 import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.OrderCounter
 import com.afghanjama.data.entities.OrderFabric
@@ -323,6 +325,8 @@ class Repo(private val db: AppDatabase) {
                     assignmentId = a.id
                 )
             )
+            // آینه در دفتر کل: کارمزدِ کسب‌شده → بستانکارِ حساب خیاط
+            postLedger("TAILOR", a.tailorLabel, 0, done.totalWage, "WAGE", a.orderCode)
         }
 
         val orderFetched = db.orderDao().getById(java.util.UUID.fromString(a.orderId)) ?: return
@@ -422,8 +426,10 @@ class Repo(private val db: AppDatabase) {
     fun observeAllWages(): Flow<List<TailorWage>> =
         db.tailorWageDao().observeAll()
 
-    suspend fun addTailorWage(wage: TailorWage) =
+    suspend fun addTailorWage(wage: TailorWage) {
         db.tailorWageDao().insert(wage)
+        postLedger("TAILOR", wage.tailorLabel, 0, wage.amount, "WAGE", wage.orderCode)
+    }
 
     /**
      * تسویه هفتگی: همه کارمزدهای باز خیاط بسته می‌شود و مبلغ به عنوان
@@ -432,6 +438,8 @@ class Repo(private val db: AppDatabase) {
     suspend fun settleTailorWages(tailorLabel: String, total: Long) {
         db.tailorWageDao().settleForTailor(tailorLabel, System.currentTimeMillis())
         spend("WALLET", total, "تسویه کارمزد خیاط $tailorLabel")
+        // آینه در دفتر کل: پرداختِ کارمزد → بدهکارِ حساب خیاط (کاهش طلب او)
+        postLedger("TAILOR", tailorLabel, total, 0, "WAGE_PAID", note = "تسویه کارمزد")
     }
 
     // =========================
@@ -441,8 +449,55 @@ class Repo(private val db: AppDatabase) {
     fun observeCustomerPayments(): Flow<List<CustomerPayment>> =
         db.customerPaymentDao().observeAll()
 
-    suspend fun addCustomerPayment(payment: CustomerPayment) =
+    suspend fun addCustomerPayment(payment: CustomerPayment) {
         db.customerPaymentDao().insert(payment)
+        // آینه در دفتر کل: پرداختِ مشتری → بستانکارِ حساب مشتری
+        postLedger(
+            "CUSTOMER", payment.customerName, 0, payment.amount,
+            "CUSTOMER_" + payment.source, payment.orderId, payment.note
+        )
+    }
+
+    // =========================
+    // Universal Ledger (دفتر کلِ یکپارچه)
+    // =========================
+
+    fun observeParties(): Flow<List<Party>> =
+        db.ledgerDao().observeParties()
+
+    fun observeLedgerBalances(): Flow<List<com.afghanjama.data.dao.PartyBalance>> =
+        db.ledgerDao().observeBalances()
+
+    fun observeLedgerEntries(type: String, name: String): Flow<List<LedgerEntry>> =
+        db.ledgerDao().observeEntriesForParty(type, name)
+
+    fun observeAllLedgerEntries(): Flow<List<LedgerEntry>> =
+        db.ledgerDao().observeAllEntries()
+
+    /**
+     * ثبت یک سند در دفتر کل و اطمینان از وجودِ طرف در دفترچه. debit/credit
+     * از دیدِ دفترِ ما (بدهکار/بستانکارِ حسابِ طرف). یکی از دو مقدار صفر است.
+     */
+    suspend fun postLedger(
+        type: String,
+        name: String,
+        debit: Long,
+        credit: Long,
+        refType: String,
+        refId: String = "",
+        note: String = ""
+    ) {
+        if (debit == 0L && credit == 0L) return
+        val nm = name.trim().ifBlank { "نامشخص" }
+        db.ledgerDao().insertParty(Party(name = nm, type = type))
+        db.ledgerDao().insertEntry(
+            LedgerEntry(
+                partyType = type, partyName = nm,
+                debit = debit, credit = credit,
+                refType = refType, refId = refId, note = note
+            )
+        )
+    }
 
     // =========================
     // Fabric as Material (پارچه به‌عنوان یک نوع ماده در انبار عمومی)
@@ -563,6 +618,8 @@ class Repo(private val db: AppDatabase) {
         db.supplierDao().insert(
             SupplierLedger(supplier = supplier.trim(), amount = amount, type = "CREDIT", note = note)
         )
+        // آینه در دفتر کل: قرضِ جدید → بستانکارِ حساب فروشنده (بدهیِ ما به او)
+        postLedger("SUPPLIER", supplier, 0, amount, "PURCHASE_CREDIT", note = note)
     }
 
     /** تسویهٔ (بخشی از) بدهی فروشنده: پول از صندوق کم و بدهی کاهش می‌یابد. */
@@ -572,6 +629,8 @@ class Repo(private val db: AppDatabase) {
         db.supplierDao().insert(
             SupplierLedger(supplier = supplier.trim(), amount = amount, type = "PAYMENT", note = note)
         )
+        // آینه در دفتر کل: پرداخت به فروشنده → بدهکارِ حساب او (کاهش بدهیِ ما)
+        postLedger("SUPPLIER", supplier, amount, 0, "SUPPLIER_PAYMENT", note = note)
     }
 
     // =========================
