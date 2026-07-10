@@ -23,6 +23,7 @@ object Routes {
     const val SALES = "sales"
 
     const val FINANCE = "finance"
+    const val LEDGER = "ledger"
     const val MASTER = "master"
     const val SETTINGS = "settings"
     const val SEARCH = "search"

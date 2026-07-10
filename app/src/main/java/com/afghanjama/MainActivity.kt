@@ -29,6 +29,7 @@ import com.afghanjama.ui.vm.FinanceViewModel
 import com.afghanjama.ui.vm.FinishedSaleViewModel
 import com.afghanjama.ui.vm.HomeViewModel
 import com.afghanjama.ui.vm.InventoryViewModel
+import com.afghanjama.ui.vm.LedgerViewModel
 import com.afghanjama.ui.vm.MasterDataViewModel
 import com.afghanjama.ui.vm.OrderDetailViewModel
 import com.afghanjama.ui.vm.OrderSearchViewModel
@@ -84,6 +85,7 @@ class MainActivity : FragmentActivity() {
                 val warehouseVm = remember { WarehouseViewModel(repo) }
                 val homeVm = remember { HomeViewModel(repo) }
                 val productionVm = remember { ProductionViewModel(repo) }
+                val ledgerVm = remember { LedgerViewModel(repo) }
                 val finishedSaleVm = remember { FinishedSaleViewModel(repo) }
                 val supplierVm = remember { SupplierViewModel(repo) }
                 val customerDirVm = remember { CustomersViewModel(repo) }
@@ -110,6 +112,7 @@ class MainActivity : FragmentActivity() {
                     warehouseVm = warehouseVm,
                     homeVm = homeVm,
                     productionVm = productionVm,
+                    ledgerVm = ledgerVm,
                     finishedSaleVm = finishedSaleVm,
                     supplierVm = supplierVm,
                     customerDirVm = customerDirVm,
