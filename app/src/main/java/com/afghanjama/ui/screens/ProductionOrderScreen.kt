@@ -268,7 +268,7 @@ fun ProductionOrderScreen(
 
             item {
                 Button(onClick = vm::completeProduction, modifier = Modifier.fillMaxWidth()) {
-                    Text("ثبت سفارش و کسر مواد از انبار")
+                    Text("ثبت سفارش تولید و ارسال به انبار")
                 }
             }
 

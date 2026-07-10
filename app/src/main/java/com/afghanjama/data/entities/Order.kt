@@ -52,6 +52,12 @@ data class Order(
 
     val reviewed: Boolean = false,
 
+    // آیا موادِ این سفارش از انبار کسر شده؟ در مدل جدید کسرِ مواد هنگام
+    // «برش» انجام می‌شود، نه هنگام ثبت سفارش. مبنای برگشتِ مواد هنگام حذف
+    // سفارش این پرچم است (فقط اگر واقعاً کسر شده باشد).
+    @ColumnInfo(defaultValue = "0")
+    val materialsConsumed: Boolean = false,
+
     // زمان ورود به مرحله فعلی (برای هشدار معطلی)
     @ColumnInfo(defaultValue = "0")
     val stageChangedAt: Long = 0,

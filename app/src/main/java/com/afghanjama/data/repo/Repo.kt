@@ -160,8 +160,10 @@ class Repo(private val db: AppDatabase) {
     }
 
     /**
-     * ثبت رکورد برش و انتقال سفارش به «برش تمام». مواد قبلاً هنگام شروع
-     * تولید کسر شده‌اند؛ اینجا فقط جزئیات عملیاتی برش مستند می‌شود.
+     * ثبت رکورد برش و انتقال سفارش به «برش تمام». کسرِ موادِ سفارش دقیقاً
+     * همین‌جا (لحظهٔ برش) از انبار انجام می‌شود — چون مصرفِ واقعی در برش
+     * اتفاق می‌افتد، نه هنگام ثبت سفارش. اگر مواد قبلاً کسر شده باشند
+     * (سفارش‌های مدل قدیم) دوباره کسر نمی‌شود.
      */
     suspend fun completeCutting(order: Order, cutter: String, pieces: Int, waste: String, note: String) {
         db.cuttingRecordDao().insert(
@@ -174,15 +176,30 @@ class Repo(private val db: AppDatabase) {
                 note = note.trim()
             )
         )
-        changeOrderStatus(order, OrderStatus.CUT_DONE.name)
+        if (!order.materialsConsumed) {
+            db.orderFabricDao().listForOrder(order.id.toString())
+                .filter { it.source == "MATERIAL" || it.source == "STOCK" }
+                .forEach { f ->
+                    val matName =
+                        if (f.source == "STOCK") fabricMaterialName(f.fabricType, f.fabricColor)
+                        else f.fabricType
+                    changeMaterialStock(
+                        matName, f.fabricUnit, -f.amount,
+                        reason = "مصرف برش", note = "سفارش ${order.orderCode}"
+                    )
+                }
+        }
+        changeOrderStatus(order, OrderStatus.CUT_DONE.name) { it.copy(materialsConsumed = true) }
     }
 
     /**
-     * حذف امن سفارشِ داخل انبار: پارچه‌های «از موجودی» (چندپارچه‌ای)
-     * به انبار برگردانده می‌شود و بعد سفارش با جدول‌های فرزند پاک می‌شود.
+     * حذف امن سفارش: اگر موادِ سفارش واقعاً از انبار کسر شده باشد
+     * (materialsConsumed) پارچه/مواد به انبار برگردانده می‌شود و بعد
+     * سفارش با جدول‌های فرزند پاک می‌شود. اگر هنوز کسر نشده (سفارشِ
+     * پیش از برش) چیزی برنمی‌گردد چون چیزی از انبار کم نشده بود.
      */
     suspend fun deleteOrderWithStockReturn(order: Order) {
-        if (order.status == "IN_STOCK") {
+        if (order.materialsConsumed) {
             val allRows = db.orderFabricDao().listForOrder(order.id.toString())
             // پارچه‌های «از موجودی» با نام «نوع رنگ» به انبار مواد برمی‌گردند
             val stockRows = allRows.filter { it.source == "STOCK" }

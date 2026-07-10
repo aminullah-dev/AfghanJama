@@ -189,18 +189,16 @@ class ProductionViewModel(private val repo: Repo) : ViewModel() {
             stageChangedAt = System.currentTimeMillis()
         )
 
-        // کسر مواد از انبار (مواد قبلاً پرداخت شده‌اند؛ پول دوباره کم نمی‌شود)
-        resolved.forEach {
-            repo.changeMaterialStock(
-                it.fabricType, it.fabricUnit, -it.amount,
-                reason = "مصرف تولید", note = "سفارش ${order.orderCode}"
-            )
-        }
-
+        // مواد اینجا کسر نمی‌شوند؛ کسرِ واقعی از انبار هنگام «برش» انجام
+        // می‌شود. سفارش با فهرست موادش (BOM) و بهای تمام‌شدهٔ برآوردی ثبت
+        // می‌گردد و وارد انبار سفارش‌ها می‌شود.
         repo.createOrder(order, resolved, emptyList())
 
         _ui.update {
-            ProductionUi(message = "✅ سفارش تولید ثبت شد و مواد از انبار کسر و وارد مرحلهٔ انبار شد.", isError = false)
+            ProductionUi(
+                message = "✅ سفارش تولید ثبت و وارد انبار شد. مواد هنگام «برش» از انبار کسر می‌شود.",
+                isError = false
+            )
         }
     }
 }

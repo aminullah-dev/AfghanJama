@@ -407,3 +407,16 @@ val MIGRATION_33_34 = object : Migration(33, 34) {
         )
     }
 }
+
+/**
+ * کسرِ موادِ سفارش به مرحلهٔ «برش» منتقل می‌شود (نه هنگام ثبت سفارش).
+ * پرچم materialsConsumed مشخص می‌کند مواد واقعاً کسر شده یا نه.
+ * سفارش‌های موجود در مدل قدیم قبلاً هنگام ثبت مواد را کسر کرده‌اند،
+ * پس همه را «کسرشده=۱» علامت می‌زنیم تا حذفشان مواد را درست برگرداند.
+ */
+val MIGRATION_34_35 = object : Migration(34, 35) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE orders ADD COLUMN materialsConsumed INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("UPDATE orders SET materialsConsumed = 1")
+    }
+}
