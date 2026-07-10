@@ -96,7 +96,7 @@ import com.afghanjama.data.entities.WorkCost
         LedgerEntry::class,
         Document::class
     ],
-    version = 37,
+    version = 38,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -131,7 +131,7 @@ val ALL_MIGRATIONS = arrayOf(
     MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27,
     MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30, MIGRATION_30_31,
     MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35,
-    MIGRATION_35_36, MIGRATION_36_37
+    MIGRATION_35_36, MIGRATION_36_37, MIGRATION_37_38
 )
 
 const val DB_NAME = "afghanjama.db"

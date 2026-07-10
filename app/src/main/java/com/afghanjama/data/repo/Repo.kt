@@ -81,6 +81,14 @@ class Repo(private val db: AppDatabase) {
                 toStatus = order.status
             )
         )
+        // بدهیِ مشتری بابتِ این سفارش → بدهکارِ حساب مشتری در دفتر کل
+        // (پرداخت‌های او بستانکار می‌شوند؛ مانده = طلبِ ما از مشتری).
+        if (order.customerName.isNotBlank() && order.agreedPrice > 0) {
+            postLedger(
+                "CUSTOMER", order.customerName, order.agreedPrice, 0,
+                "SALE_BILLING", order.orderCode, "بدهی بابت سفارش"
+            )
+        }
     }
 
     fun observeOrderFabrics(orderId: String): Flow<List<OrderFabric>> =
@@ -783,6 +791,8 @@ class Repo(private val db: AppDatabase) {
         )
 
         income("WALLET", revenue, "فروش $qty عدد «${item.name}» ($code)")
+        // بدهکارِ فروش در دفتر کل (متقابلِ دریافتی) تا حساب مشتری تراز بماند
+        postLedger("CUSTOMER", customerName, revenue, 0, "SALE_BILLING", code, "فروش از انبار")
         addCustomerPayment(
             CustomerPayment(
                 orderId = "FINISHED",

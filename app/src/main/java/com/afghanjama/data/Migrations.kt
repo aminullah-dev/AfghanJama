@@ -516,3 +516,24 @@ val MIGRATION_36_37 = object : Migration(36, 37) {
         )
     }
 }
+
+/**
+ * تکمیلِ دفتر کل برای حساب مشتری: بدهیِ هر مشتری بابتِ سفارش‌های موجود
+ * (قیمت توافقی) به‌عنوان «بدهکار» ثبت می‌شود تا ماندهٔ مشتری در دفتر کل
+ * برابرِ «مجموع سفارش‌ها − پرداخت‌ها» شود. فقط درج می‌کند؛ چیزی حذف نمی‌شود.
+ */
+val MIGRATION_37_38 = object : Migration(37, 38) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        val now = System.currentTimeMillis()
+        db.execSQL(
+            "INSERT INTO ledger_entries (partyType, partyName, debit, credit, refType, refId, note, at) " +
+                "SELECT 'CUSTOMER', customerName, agreedPrice, 0, 'SALE_BILLING', orderCode, 'بدهی بابت سفارش', createdAt " +
+                "FROM orders WHERE customerName IS NOT NULL AND customerName != '' AND agreedPrice > 0"
+        )
+        db.execSQL(
+            "INSERT OR IGNORE INTO parties (name, type, phone, note, createdAt) " +
+                "SELECT DISTINCT customerName, 'CUSTOMER', '', '', $now FROM orders " +
+                "WHERE customerName IS NOT NULL AND customerName != '' AND agreedPrice > 0"
+        )
+    }
+}

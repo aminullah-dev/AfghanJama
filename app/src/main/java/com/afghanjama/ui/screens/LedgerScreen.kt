@@ -71,6 +71,8 @@ private fun refLabel(r: String): String = when (r) {
     "CUSTOMER_ADVANCE" -> "پیش‌پرداخت مشتری"
     "CUSTOMER_SALE" -> "فروش"
     "CUSTOMER_MANUAL" -> "دریافت دستی"
+    "SALE_BILLING" -> "بدهی بابت سفارش"
+    "DISCOUNT" -> "تخفیف فروش"
     "MANUAL" -> "سند دستی"
     else -> r
 }

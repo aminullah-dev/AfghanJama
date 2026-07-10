@@ -107,6 +107,14 @@ class SalesViewModel(private val repo: Repo) : ViewModel() {
             if (discount > 0) it.copy(agreedPrice = rev) else it
         }
 
+        // تخفیف: بخشی از بدهیِ مشتری بخشوده می‌شود → بستانکارِ حساب مشتری
+        if (discount > 0 && order.customerName.isNotBlank()) {
+            repo.postLedger(
+                "CUSTOMER", order.customerName, 0, discount,
+                "DISCOUNT", order.orderCode, "تخفیف فروش"
+            )
+        }
+
         // 5) پیام + صدا
         val discountNote = if (discount > 0) " (تخفیف: $discount ؋)" else ""
         _ui.value = if (profit > 0L) {
