@@ -547,6 +547,17 @@ class Repo(private val db: AppDatabase) {
                 settleSupplier(name, amount, paySource, note.ifBlank { "تسویه قرض $name" })
                 return
             }
+            // پرداخت به خیاط = تسویهٔ کاملِ کارمزدِ باز (رکوردها بسته و یادآوری قطع
+            // می‌شود). اگر کارمزدِ بازی نباشد، مثل پرداختِ دستیِ عادی ثبت می‌شود.
+            if (type == "TAILOR") {
+                val pending = db.tailorWageDao().pendingList()
+                    .filter { it.tailorLabel == name.trim() }
+                    .sumOf { it.amount }
+                if (pending > 0) {
+                    settleTailorWages(name.trim(), pending)
+                    return
+                }
+            }
             spend(paySource, amount, note.ifBlank { "پرداخت به $name" }, category = "پرداخت دستی")
             postLedger(type, name, amount, 0, "MANUAL", note = note)
             createDocument("PAYMENT", name, amount, note = note.ifBlank { "پرداخت نقدی" })
