@@ -56,6 +56,9 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.activity:activity-compose:1.9.2")
 
+    // تولید QR برای اسناد (کتابخانهٔ خالص جاوا، بدون وابستگی اندرویدی)
+    implementation("com.google.zxing:core:3.5.3")
+
     // ✅ Compose BOM (نسخه‌ها را یکدست می‌کند)
     implementation(platform("androidx.compose:compose-bom:2024.10.00"))
     androidTestImplementation(platform("androidx.compose:compose-bom:2024.10.00"))
