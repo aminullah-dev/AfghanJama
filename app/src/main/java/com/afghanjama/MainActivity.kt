@@ -41,7 +41,6 @@ import com.afghanjama.ui.vm.ReviewViewModel
 import com.afghanjama.ui.vm.SalesViewModel
 import com.afghanjama.ui.vm.SewingViewModel
 import com.afghanjama.ui.vm.StockViewModel
-import com.afghanjama.ui.vm.SupplierViewModel
 import com.afghanjama.ui.vm.WagesViewModel
 import com.afghanjama.ui.vm.WarehouseViewModel
 
@@ -91,7 +90,6 @@ class MainActivity : FragmentActivity() {
                 val documentsVm = remember { DocumentsViewModel(repo) }
                 val reportsVm = remember { ReportsViewModel(repo) }
                 val finishedSaleVm = remember { FinishedSaleViewModel(repo) }
-                val supplierVm = remember { SupplierViewModel(repo) }
                 val customerDirVm = remember { CustomersViewModel(repo) }
                 val customerDetailVm = remember { CustomerDetailViewModel(repo) }
                 val attendanceVm = remember { AttendanceViewModel(repo) }
@@ -120,7 +118,6 @@ class MainActivity : FragmentActivity() {
                     documentsVm = documentsVm,
                     reportsVm = reportsVm,
                     finishedSaleVm = finishedSaleVm,
-                    supplierVm = supplierVm,
                     customerDirVm = customerDirVm,
                     customerDetailVm = customerDetailVm,
                     attendanceVm = attendanceVm

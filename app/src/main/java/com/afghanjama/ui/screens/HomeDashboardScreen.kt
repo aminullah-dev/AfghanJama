@@ -22,7 +22,6 @@ import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Payments
-import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material.icons.filled.Settings
@@ -64,7 +63,6 @@ fun HomeDashboardScreen(
     onGoStockLedger: () -> Unit,
     onGoProduction: () -> Unit,
     onGoFinishedSales: () -> Unit,
-    onGoSuppliers: () -> Unit,
     onGoAttendance: () -> Unit,
     onGoCustomers: () -> Unit,
     onGoSales: () -> Unit,
@@ -82,7 +80,6 @@ fun HomeDashboardScreen(
         add(HomeAction("خرید مواد", Icons.Default.ShoppingCart, onGoProcurement))
         add(HomeAction("انبار مواد", Icons.Default.Warehouse, onGoWarehouse))
         if (isManager) add(HomeAction("گردش انبار", Icons.Default.History, onGoStockLedger))
-        add(HomeAction("قرض فروشنده", Icons.Default.ReceiptLong, onGoSuppliers))
         if (isManager) add(HomeAction("خط تولید", Icons.Default.Checkroom, onGoProduction))
         if (isManager) add(HomeAction("فروش انبار", Icons.Default.Sell, onGoFinishedSales))
     }

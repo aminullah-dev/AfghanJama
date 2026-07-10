@@ -12,7 +12,6 @@ object Routes {
     const val STOCK_LEDGER = "stock_ledger"
     const val PRODUCTION_ORDER = "production_order"
     const val FINISHED_SALES = "finished_sales"
-    const val SUPPLIERS = "suppliers"
     const val CUSTOMERS = "customers"
     const val CUSTOMER_DETAIL = "customer_detail"
     const val ATTENDANCE = "attendance"

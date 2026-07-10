@@ -533,6 +533,12 @@ class Repo(private val db: AppDatabase) {
     ) {
         if (amount <= 0 || name.isBlank()) return
         if (isPayment) {
+            // پرداخت به فروشنده از مسیرِ رسمیِ تسویه می‌رود تا دفترِ قرضِ فروشنده
+            // (و در نتیجه دفتر کل و صندوق و سند) یک‌جا و سازگار به‌روز شود.
+            if (type == "SUPPLIER") {
+                settleSupplier(name, amount, paySource, note.ifBlank { "تسویه قرض $name" })
+                return
+            }
             spend(paySource, amount, note.ifBlank { "پرداخت به $name" }, category = "پرداخت دستی")
             postLedger(type, name, amount, 0, "MANUAL", note = note)
             createDocument("PAYMENT", name, amount, note = note.ifBlank { "پرداخت نقدی" })

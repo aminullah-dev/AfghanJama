@@ -214,7 +214,7 @@ fun ProcurementScreen(
                         }
                         if (isCredit) {
                             Text(
-                                "خرید نسیه: پول اکنون کم نمی‌شود و به‌عنوان بدهی فروشنده ثبت می‌شود. بعداً از «قرض فروشنده» تسویه کنید.",
+                                "خرید نسیه: پول اکنون کم نمی‌شود و به‌عنوان بدهی فروشنده ثبت می‌شود. بعداً از «دفتر کل» تسویه کنید.",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
