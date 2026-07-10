@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Checkroom
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Fingerprint
@@ -70,6 +71,7 @@ fun HomeDashboardScreen(
     onGoFinance: () -> Unit,
     onGoLedger: () -> Unit,
     onGoDocuments: () -> Unit,
+    onGoReports: () -> Unit,
     onGoSearch: () -> Unit,
     onGoSettings: () -> Unit
 ) {
@@ -97,6 +99,7 @@ fun HomeDashboardScreen(
         if (isManager) add(HomeAction("مالی", Icons.Default.Payments, onGoFinance))
         if (isManager) add(HomeAction("دفتر کل", Icons.Default.AccountBalance, onGoLedger))
         if (isManager) add(HomeAction("اسناد", Icons.Default.Description, onGoDocuments))
+        if (isManager) add(HomeAction("گزارش‌ها", Icons.Default.Assessment, onGoReports))
         add(HomeAction("جستجو", Icons.Default.Search, onGoSearch))
         add(HomeAction("تنظیمات", Icons.Default.Settings, onGoSettings))
     }

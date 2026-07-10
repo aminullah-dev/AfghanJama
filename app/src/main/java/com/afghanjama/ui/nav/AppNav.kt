@@ -48,6 +48,7 @@ import com.afghanjama.ui.screens.OrderSearchScreen
 import com.afghanjama.ui.screens.PostLoginQuoteScreen
 import com.afghanjama.ui.screens.ProcurementScreen
 import com.afghanjama.ui.screens.ProductionOrderScreen
+import com.afghanjama.ui.screens.ReportsScreen
 import com.afghanjama.ui.screens.ReviewScreen
 import com.afghanjama.ui.screens.SalesScreen
 import com.afghanjama.ui.screens.SettingsScreen
@@ -73,6 +74,7 @@ import com.afghanjama.ui.vm.OrderDetailViewModel
 import com.afghanjama.ui.vm.OrderSearchViewModel
 import com.afghanjama.ui.vm.ProcurementViewModel
 import com.afghanjama.ui.vm.ProductionViewModel
+import com.afghanjama.ui.vm.ReportsViewModel
 import com.afghanjama.ui.vm.ReviewViewModel
 import com.afghanjama.ui.vm.SalesViewModel
 import com.afghanjama.ui.vm.Permissions
@@ -148,6 +150,7 @@ fun AppNav(
     productionVm: ProductionViewModel,
     ledgerVm: LedgerViewModel,
     documentsVm: DocumentsViewModel,
+    reportsVm: ReportsViewModel,
     finishedSaleVm: FinishedSaleViewModel,
     supplierVm: SupplierViewModel,
     customerDirVm: CustomersViewModel,
@@ -257,6 +260,7 @@ fun AppNav(
                     onGoFinance = { navController.navigate(Routes.FINANCE) },
                     onGoLedger = { navController.navigate(Routes.LEDGER) },
                     onGoDocuments = { navController.navigate(Routes.DOCUMENTS) },
+                    onGoReports = { navController.navigate(Routes.REPORTS) },
                     onGoSearch = { navController.navigate(Routes.SEARCH) },
                     onGoSettings = { navController.navigate(Routes.SETTINGS) }
                 )
@@ -357,6 +361,13 @@ fun AppNav(
             composable(Routes.DOCUMENTS) {
                 DocumentsScreen(
                     vm = documentsVm,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Routes.REPORTS) {
+                ReportsScreen(
+                    vm = reportsVm,
                     onBack = { navController.popBackStack() }
                 )
             }

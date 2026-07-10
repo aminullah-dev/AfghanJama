@@ -25,6 +25,7 @@ object Routes {
     const val FINANCE = "finance"
     const val LEDGER = "ledger"
     const val DOCUMENTS = "documents"
+    const val REPORTS = "reports"
     const val MASTER = "master"
     const val SETTINGS = "settings"
     const val SEARCH = "search"
