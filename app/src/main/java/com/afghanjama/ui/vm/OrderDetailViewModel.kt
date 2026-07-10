@@ -108,6 +108,24 @@ class OrderDetailViewModel(private val repo: Repo) : ViewModel() {
                 agreedPrice = agreedPrice
             )
         )
+
+        // همگام‌سازیِ دفتر کل: بدهیِ مشتری بابتِ سفارش (SALE_BILLING) با
+        // نام/قیمتِ جدید — سندِ قبلی خنثی و سندِ جدید ثبت می‌شود.
+        val newName = customerName.trim()
+        if (o.customerName != newName || o.agreedPrice != agreedPrice) {
+            if (o.customerName.isNotBlank() && o.agreedPrice > 0) {
+                repo.postLedger(
+                    "CUSTOMER", o.customerName, 0, o.agreedPrice,
+                    "SALE_ADJUST", o.orderCode, "اصلاح مشخصات سفارش"
+                )
+            }
+            if (newName.isNotBlank() && agreedPrice > 0) {
+                repo.postLedger(
+                    "CUSTOMER", newName, agreedPrice, 0,
+                    "SALE_BILLING", o.orderCode, "اصلاح مشخصات سفارش"
+                )
+            }
+        }
         _ui.update { it.copy(message = "✅ مشخصات سفارش ذخیره شد.", isError = false) }
     }
 

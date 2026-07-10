@@ -10,10 +10,10 @@ import kotlinx.coroutines.flow.Flow
 interface DocumentDao {
 
     @Insert
-    suspend fun insert(doc: Document)
+    suspend fun insert(doc: Document): Long
 
-    @Query("SELECT COUNT(*) FROM documents")
-    suspend fun count(): Int
+    @Query("UPDATE documents SET number = :number WHERE id = :id")
+    suspend fun setNumber(id: Long, number: String)
 
     @Query("SELECT * FROM documents ORDER BY at DESC")
     fun observeAll(): Flow<List<Document>>

@@ -23,3 +23,17 @@ data class Document(
     val note: String = "",
     val at: Long = System.currentTimeMillis()
 )
+
+/** برچسبِ فارسیِ نوعِ سند — منبعِ واحد برای UI و PDF. */
+fun docTypeLabel(type: String): String = when (type) {
+    "PURCHASE" -> "فاکتور خرید"
+    "SALE" -> "فاکتور فروش"
+    "SUPPLIER_PAYMENT" -> "رسید پرداخت به فروشنده"
+    "WAGE_RECEIPT" -> "رسید کارمزد دوخت"
+    "CUSTOMER_RECEIPT" -> "رسید دریافت از مشتری"
+    "RETURN" -> "سند برگشت"
+    "PROFORMA" -> "پیش‌فاکتور"
+    "PAYMENT" -> "رسید پرداخت"
+    "RECEIPT" -> "رسید دریافت"
+    else -> "سند"
+}

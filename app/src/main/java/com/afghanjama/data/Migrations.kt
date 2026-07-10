@@ -537,3 +537,34 @@ val MIGRATION_37_38 = object : Migration(37, 38) {
         )
     }
 }
+
+/**
+ * ترمیمِ دفتر کل:
+ * ۱) پرداخت‌های قدیمیِ بی‌نام که با orderId به سفارش وصل بودند، در backfill
+ *    زیر «مشتری نامشخص» رفته بودند — به نامِ واقعیِ مشتریِ سفارش برمی‌گردند.
+ * ۲) برگشتی‌های فروش (مبلغ منفی) که به‌صورت بستانکارِ منفی وارد شده بودند،
+ *    به بدهکارِ مثبت تبدیل می‌شوند (نمایش و قرارداد دفتر درست شود).
+ * فقط UPDATE؛ چیزی حذف نمی‌شود.
+ */
+val MIGRATION_38_39 = object : Migration(38, 39) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        val now = System.currentTimeMillis()
+        db.execSQL(
+            "UPDATE ledger_entries SET partyName = " +
+                "(SELECT o.customerName FROM orders o WHERE o.id = ledger_entries.refId) " +
+                "WHERE partyType = 'CUSTOMER' AND partyName = 'مشتری نامشخص' " +
+                "AND EXISTS (SELECT 1 FROM orders o WHERE o.id = ledger_entries.refId " +
+                "AND o.customerName IS NOT NULL AND o.customerName != '')"
+        )
+        db.execSQL(
+            "UPDATE ledger_entries SET debit = -credit, credit = 0 WHERE credit < 0"
+        )
+        db.execSQL(
+            "UPDATE ledger_entries SET credit = -debit, debit = 0 WHERE debit < 0"
+        )
+        db.execSQL(
+            "INSERT OR IGNORE INTO parties (name, type, phone, note, createdAt) " +
+                "SELECT DISTINCT partyName, partyType, '', '', $now FROM ledger_entries"
+        )
+    }
+}

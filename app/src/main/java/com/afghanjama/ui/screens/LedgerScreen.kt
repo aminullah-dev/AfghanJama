@@ -72,6 +72,9 @@ private fun refLabel(r: String): String = when (r) {
     "CUSTOMER_SALE" -> "فروش"
     "CUSTOMER_MANUAL" -> "دریافت دستی"
     "SALE_BILLING" -> "بدهی بابت سفارش"
+    "SALE_ADJUST" -> "اصلاح سفارش"
+    "SALE_CANCEL" -> "لغو سفارش"
+    "CUSTOMER_RETURN" -> "برگشتی فروش"
     "DISCOUNT" -> "تخفیف فروش"
     "MANUAL" -> "سند دستی"
     else -> r
@@ -98,6 +101,7 @@ fun LedgerScreen(
 ) {
     val balances by vm.balances.collectAsState()
     val entries by vm.entries.collectAsState()
+    val message by vm.message.collectAsState()
 
     var typeFilter by remember { mutableStateOf<String?>(null) }
     var selected by remember { mutableStateOf<PartyBalance?>(null) }
@@ -273,6 +277,23 @@ fun LedgerScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 SummaryCard(Modifier.weight(1f), "طلب ما (بدهکاران)", receivable, MaterialTheme.colorScheme.primary)
                 SummaryCard(Modifier.weight(1f), "بدهی ما (بستانکاران)", payable, MaterialTheme.colorScheme.error)
+            }
+
+            message?.let {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(it, color = MaterialTheme.colorScheme.onErrorContainer,
+                            style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                        TextButton(onClick = vm::clearMessage) { Text("باشه") }
+                    }
+                }
             }
 
             if (types.isNotEmpty()) {

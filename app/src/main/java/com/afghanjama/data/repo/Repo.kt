@@ -35,6 +35,7 @@ import com.afghanjama.data.entities.TailorWage
 import com.afghanjama.data.entities.Transaction
 import com.afghanjama.data.entities.WorkCost
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import java.util.UUID
 
 class Repo(private val db: AppDatabase) {
@@ -243,6 +244,14 @@ class Repo(private val db: AppDatabase) {
         db.orderWorkItemDao().deleteForOrder(order.id.toString())
         db.sewingAssignmentDao().deleteForOrder(order.id.toString())
         db.orderDao().delete(order)
+        // بدهیِ مشتری بابتِ این سفارش (SALE_BILLING هنگام ثبت) خنثی می‌شود
+        // تا با حذفِ سفارش، ماندهٔ مشتری در دفتر کل متورم نماند.
+        if (order.customerName.isNotBlank() && order.agreedPrice > 0) {
+            postLedger(
+                "CUSTOMER", order.customerName, 0, order.agreedPrice,
+                "SALE_CANCEL", order.orderCode, "حذف سفارش"
+            )
+        }
     }
 
     // =========================
@@ -462,11 +471,23 @@ class Repo(private val db: AppDatabase) {
 
     suspend fun addCustomerPayment(payment: CustomerPayment) {
         db.customerPaymentDao().insert(payment)
-        // آینه در دفتر کل: پرداختِ مشتری → بستانکارِ حساب مشتری
-        postLedger(
-            "CUSTOMER", payment.customerName, 0, payment.amount,
-            "CUSTOMER_" + payment.source, payment.orderId, payment.note
-        )
+        // آینه در دفتر کل: پرداختِ مشتری → بستانکارِ حساب مشتری.
+        // اگر نامِ مشتری خالی است، از سفارشِ مرتبط پیدا می‌شود؛ پرداختِ
+        // بی‌نامِ بدونِ سفارش آینه نمی‌شود (طرفِ حساب ندارد). مبلغِ منفی
+        // (برگشتی) به‌صورت بدهکار ثبت می‌شود تا سطرِ منفی در دفتر نیاید.
+        val name = payment.customerName.ifBlank {
+            runCatching {
+                db.orderDao().getById(java.util.UUID.fromString(payment.orderId))?.customerName
+            }.getOrNull().orEmpty()
+        }
+        if (name.isBlank()) return
+        if (payment.amount >= 0) {
+            postLedger("CUSTOMER", name, 0, payment.amount,
+                "CUSTOMER_" + payment.source, payment.orderId, payment.note)
+        } else {
+            postLedger("CUSTOMER", name, -payment.amount, 0,
+                "CUSTOMER_" + payment.source, payment.orderId, payment.note)
+        }
     }
 
     // =========================
@@ -505,7 +526,11 @@ class Repo(private val db: AppDatabase) {
         else -> "SND"
     }
 
-    /** تولید یک سندِ مالی با شمارهٔ یکتا (پیشوندِ نوع + شمارهٔ سراسری). */
+    /**
+     * تولید یک سندِ مالی با شمارهٔ یکتا (پیشوندِ نوع + شمارهٔ سراسری).
+     * شماره از idِ خودافزای سطر ساخته می‌شود تا دو ثبتِ هم‌زمان هرگز به
+     * شمارهٔ تکراری (و کرشِ ایندکس یکتا) نخورند.
+     */
     suspend fun createDocument(
         type: String,
         partyName: String,
@@ -514,15 +539,15 @@ class Repo(private val db: AppDatabase) {
         note: String = ""
     ) {
         if (amount <= 0) return
-        val seq = db.documentDao().count() + 1
-        val number = docPrefix(type) + "-" + seq.toString().padStart(5, '0')
-        db.documentDao().insert(
+        val id = db.documentDao().insert(
             Document(
-                number = number, type = type,
+                number = "TMP-" + java.util.UUID.randomUUID(),
+                type = type,
                 partyName = partyName.trim(), amount = amount,
                 refId = refId, note = note
             )
         )
+        db.documentDao().setNumber(id, docPrefix(type) + "-" + id.toString().padStart(5, '0'))
     }
 
     /**
@@ -531,6 +556,14 @@ class Repo(private val db: AppDatabase) {
      * (خروجِ نقد → بدهکارِ حساب)، false یعنی دریافت کردیم (ورودِ نقد →
      * بستانکارِ حساب).
      */
+    /** موجودیِ فعلیِ یک صندوق (برای کنترل قبل از پرداخت). */
+    private suspend fun balanceOf(paySource: String): Long = when (paySource) {
+        "BANK" -> observeBankBalance().first()
+        "PROFIT" -> observeProfitBalance().first()
+        else -> observeWalletBalance().first()
+    }
+
+    /** @return false اگر موجودیِ صندوق برای پرداخت کافی نبود (چیزی ثبت نمی‌شود). */
     suspend fun recordManualLedger(
         type: String,
         name: String,
@@ -538,24 +571,26 @@ class Repo(private val db: AppDatabase) {
         isPayment: Boolean,
         paySource: String = "WALLET",
         note: String = ""
-    ) {
-        if (amount <= 0 || name.isBlank()) return
+    ): Boolean {
+        if (amount <= 0 || name.isBlank()) return false
         if (isPayment) {
+            // مثل صفحهٔ قدیمِ تسویه: پرداختِ بیش از موجودیِ صندوق ممنوع.
+            if (balanceOf(paySource) < amount) return false
             // پرداخت به فروشنده از مسیرِ رسمیِ تسویه می‌رود تا دفترِ قرضِ فروشنده
             // (و در نتیجه دفتر کل و صندوق و سند) یک‌جا و سازگار به‌روز شود.
             if (type == "SUPPLIER") {
                 settleSupplier(name, amount, paySource, note.ifBlank { "تسویه قرض $name" })
-                return
+                return true
             }
-            // پرداخت به خیاط = تسویهٔ کاملِ کارمزدِ باز (رکوردها بسته و یادآوری قطع
-            // می‌شود). اگر کارمزدِ بازی نباشد، مثل پرداختِ دستیِ عادی ثبت می‌شود.
+            // اگر مبلغ، کلِ کارمزدِ بازِ خیاط را بپوشاند، رکوردها تسویه و یادآوری
+            // قطع می‌شود؛ پرداختِ کمتر، پرداختِ جزئیِ عادی است (رکوردها باز می‌مانند).
             if (type == "TAILOR") {
                 val pending = db.tailorWageDao().pendingList()
                     .filter { it.tailorLabel == name.trim() }
                     .sumOf { it.amount }
-                if (pending > 0) {
-                    settleTailorWages(name.trim(), pending)
-                    return
+                if (pending in 1..amount) {
+                    settleTailorWages(name.trim(), amount)
+                    return true
                 }
             }
             spend(paySource, amount, note.ifBlank { "پرداخت به $name" }, category = "پرداخت دستی")
@@ -566,6 +601,7 @@ class Repo(private val db: AppDatabase) {
             postLedger(type, name, 0, amount, "MANUAL", note = note)
             createDocument("RECEIPT", name, amount, note = note.ifBlank { "دریافت نقدی" })
         }
+        return true
     }
 
     /**
@@ -802,8 +838,11 @@ class Repo(private val db: AppDatabase) {
         )
 
         income("WALLET", revenue, "فروش $qty عدد «${item.name}» ($code)")
-        // بدهکارِ فروش در دفتر کل (متقابلِ دریافتی) تا حساب مشتری تراز بماند
-        postLedger("CUSTOMER", customerName, revenue, 0, "SALE_BILLING", code, "فروش از انبار")
+        // بدهکارِ فروش در دفتر کل (متقابلِ دریافتی) تا حساب مشتری تراز بماند؛
+        // فروشِ بی‌نام طرفِ حساب ندارد و آینه نمی‌شود (دریافتی‌اش هم نمی‌شود).
+        if (customerName.isNotBlank()) {
+            postLedger("CUSTOMER", customerName, revenue, 0, "SALE_BILLING", code, "فروش از انبار")
+        }
         addCustomerPayment(
             CustomerPayment(
                 orderId = "FINISHED",

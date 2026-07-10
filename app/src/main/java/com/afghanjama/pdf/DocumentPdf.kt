@@ -14,6 +14,7 @@ import android.graphics.pdf.PdfDocument
 import androidx.core.content.res.ResourcesCompat
 import com.afghanjama.R
 import com.afghanjama.data.entities.Document
+import com.afghanjama.data.entities.docTypeLabel
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
@@ -37,18 +38,7 @@ object DocumentPdf {
     private const val MUTED = 0xFF61605A.toInt()
     private const val LINE = 0xFFE1DFD8.toInt()
 
-    private fun typeLabel(t: String): String = when (t) {
-        "PURCHASE" -> "فاکتور خرید"
-        "SALE" -> "فاکتور فروش"
-        "SUPPLIER_PAYMENT" -> "رسید پرداخت به فروشنده"
-        "WAGE_RECEIPT" -> "رسید کارمزد دوخت"
-        "CUSTOMER_RECEIPT" -> "رسید دریافت از مشتری"
-        "RETURN" -> "سند برگشت"
-        "PROFORMA" -> "پیش‌فاکتور"
-        "PAYMENT" -> "رسید پرداخت"
-        "RECEIPT" -> "رسید دریافت"
-        else -> "سند"
-    }
+    private fun typeLabel(t: String): String = docTypeLabel(t)
 
     fun create(context: Context, d: Document): File {
         val regular = ResourcesCompat.getFont(context, R.font.vazirmatn_regular) ?: Typeface.DEFAULT

@@ -42,6 +42,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,25 +51,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.afghanjama.data.entities.Document
+import com.afghanjama.data.entities.docTypeLabel
 import com.afghanjama.pdf.DocumentPdf
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.vm.DocumentsViewModel
 import com.afghanjama.util.QrGen
 import com.afghanjama.util.ShareUtil
-
-private fun docTypeLabel(t: String): String = when (t) {
-    "PURCHASE" -> "فاکتور خرید"
-    "SALE" -> "فاکتور فروش"
-    "SUPPLIER_PAYMENT" -> "رسید پرداخت به فروشنده"
-    "WAGE_RECEIPT" -> "رسید کارمزد دوخت"
-    "CUSTOMER_RECEIPT" -> "رسید دریافت از مشتری"
-    "RETURN" -> "سند برگشت"
-    "PROFORMA" -> "پیش‌فاکتور"
-    "PAYMENT" -> "رسید پرداخت"
-    "RECEIPT" -> "رسید دریافت"
-    else -> "سند"
-}
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private fun receiptText(d: Document): String = buildString {
     appendLine("افغان‌جامه — ${docTypeLabel(d.type)}")
@@ -86,6 +78,7 @@ fun DocumentsScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val documents by vm.documents.collectAsState()
 
     var typeFilter by remember { mutableStateOf<String?>(null) }
@@ -113,8 +106,11 @@ fun DocumentsScreen(
                         Text("  متن")
                     }
                     Button(onClick = {
-                        val file = DocumentPdf.create(context, d)
-                        ShareUtil.shareFile(context, file, "application/pdf", "اشتراک‌گذاری PDF")
+                        // ساختِ PDF (فونت + رندر + نوشتنِ فایل) خارج از نخِ UI
+                        scope.launch {
+                            val file = withContext(Dispatchers.IO) { DocumentPdf.create(context, d) }
+                            ShareUtil.shareFile(context, file, "application/pdf", "اشتراک‌گذاری PDF")
+                        }
                     }) {
                         Icon(Icons.Default.PictureAsPdf, contentDescription = null)
                         Text("  PDF")
