@@ -46,7 +46,6 @@ import com.afghanjama.ui.screens.OrderSearchScreen
 import com.afghanjama.ui.screens.PostLoginQuoteScreen
 import com.afghanjama.ui.screens.ProcurementScreen
 import com.afghanjama.ui.screens.ProductionOrderScreen
-import com.afghanjama.ui.screens.PurchasePlanScreen
 import com.afghanjama.ui.screens.ReviewScreen
 import com.afghanjama.ui.screens.SalesScreen
 import com.afghanjama.ui.screens.SettingsScreen
@@ -70,7 +69,6 @@ import com.afghanjama.ui.vm.OrderDetailViewModel
 import com.afghanjama.ui.vm.OrderSearchViewModel
 import com.afghanjama.ui.vm.ProcurementViewModel
 import com.afghanjama.ui.vm.ProductionViewModel
-import com.afghanjama.ui.vm.PurchaseViewModel
 import com.afghanjama.ui.vm.ReviewViewModel
 import com.afghanjama.ui.vm.SalesViewModel
 import com.afghanjama.ui.vm.Permissions
@@ -126,7 +124,6 @@ private fun bottomItemsFor(role: UserRole): List<BottomItem> = when (role) {
 @Composable
 fun AppNav(
     authVm: AuthViewModel,
-    purchaseVm: PurchaseViewModel,
     inventoryVm: InventoryViewModel,
     cuttingVm: CuttingViewModel,
     sewingVm: SewingViewModel,
@@ -249,7 +246,6 @@ fun AppNav(
                     onGoSuppliers = { navController.navigate(Routes.SUPPLIERS) },
                     onGoAttendance = { navController.navigate(Routes.ATTENDANCE) },
                     onGoCustomers = { navController.navigate(Routes.CUSTOMERS) },
-                    onGoCustomerOrder = { navController.navigate(Routes.PURCHASE) },
                     // -- customers wired --
                     onGoSales = { navController.navigate(Routes.SALES) },
                     onGoFinance = { navController.navigate(Routes.FINANCE) },
@@ -340,16 +336,6 @@ fun AppNav(
                     onGoStock = { navController.navigate(Routes.WAREHOUSE) },
                     onGoCutting = { navController.navigate(Routes.CUTTING) },
                     onOpenDetail = { o -> navController.navigate("${Routes.ORDER_DETAIL}/${o.id}") }
-                )
-            }
-
-            composable(Routes.PURCHASE) {
-                PurchasePlanScreen(
-                    vm = purchaseVm,
-                    masterVm = masterVm,
-                    financeVm = financeVm,
-                    stockVm = stockVm,
-                    onDone = { navController.popBackStack() }
                 )
             }
 

@@ -19,7 +19,6 @@ import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Payments
-import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sell
@@ -65,7 +64,6 @@ fun HomeDashboardScreen(
     onGoSuppliers: () -> Unit,
     onGoAttendance: () -> Unit,
     onGoCustomers: () -> Unit,
-    onGoCustomerOrder: () -> Unit,
     onGoSales: () -> Unit,
     onGoFinance: () -> Unit,
     onGoSearch: () -> Unit,
@@ -86,7 +84,6 @@ fun HomeDashboardScreen(
     // مشتریان و سفارش
     val customerFlow = buildList {
         add(HomeAction("مشتریان", Icons.Default.Group, onGoCustomers))
-        add(HomeAction("سفارش مشتری", Icons.Default.PersonAdd, onGoCustomerOrder))
         if (isManager) add(HomeAction("فروش سفارش", Icons.Default.Storefront, onGoSales))
     }
 

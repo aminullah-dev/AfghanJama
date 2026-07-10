@@ -7,7 +7,6 @@ object Routes {
 
     const val HOME = "home"
     const val INVENTORY = "inventory"
-    const val PURCHASE = "purchase"
     const val PROCUREMENT = "procurement"
     const val WAREHOUSE = "warehouse"
     const val STOCK_LEDGER = "stock_ledger"
