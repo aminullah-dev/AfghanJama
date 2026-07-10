@@ -3,10 +3,12 @@ package com.afghanjama.ui.vm
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.afghanjama.data.CodeGen
+import com.afghanjama.data.entities.DesignItem
 import com.afghanjama.data.entities.MaterialStock
 import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.OrderFabric
 import com.afghanjama.data.entities.OrderStatus
+import com.afghanjama.data.entities.SizeItem
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.ui.format.decimalOnly
 import com.afghanjama.ui.format.digitsOnly
@@ -61,9 +63,32 @@ class ProductionViewModel(private val repo: Repo) : ViewModel() {
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** طرح‌های ازقبل‌تعریف‌شده برای انتخابِ «نام طرح/محصول». */
-    val designs: StateFlow<List<com.afghanjama.data.entities.DesignItem>> =
+    val designs: StateFlow<List<DesignItem>> =
         repo.observeDesignItems()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** سایزهای ازقبل‌تعریف‌شده (منبعِ واحدِ حقیقت برای سایز). */
+    val sizes: StateFlow<List<SizeItem>> =
+        repo.observeSizes()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** افزودنِ همان‌لحظه‌ایِ طرح تایپ‌شده به کاتالوگ (دکمهٔ +). */
+    fun addDesignToCatalog(title: String) = viewModelScope.launch {
+        val t = title.trim()
+        if (t.isNotBlank()) {
+            repo.addDesign(DesignItem(title = t))
+            _ui.update { it.copy(designTitle = t, message = null, isError = false) }
+        }
+    }
+
+    /** افزودنِ همان‌لحظه‌ایِ سایز تایپ‌شده به کاتالوگ (دکمهٔ +). */
+    fun addSizeToCatalog(title: String) = viewModelScope.launch {
+        val t = title.trim()
+        if (t.isNotBlank()) {
+            repo.addSize(SizeItem(title = t))
+            _ui.update { it.copy(size = t, message = null, isError = false) }
+        }
+    }
 
     private val _ui = MutableStateFlow(ProductionUi())
     val ui: StateFlow<ProductionUi> = _ui

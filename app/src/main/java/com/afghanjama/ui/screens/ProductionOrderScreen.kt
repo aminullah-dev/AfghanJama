@@ -58,9 +58,11 @@ fun ProductionOrderScreen(
     val ui by vm.ui.collectAsState()
     val materials by vm.materials.collectAsState()
     val designs by vm.designs.collectAsState()
+    val sizes by vm.sizes.collectAsState()
 
     var pickerOpen by remember { mutableStateOf(false) }
     var designMenu by remember { mutableStateOf(false) }
+    var sizeMenu by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -95,17 +97,30 @@ fun ProductionOrderScreen(
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
-                        if (designs.isNotEmpty()) {
-                            OutlinedButton(onClick = { designMenu = true }, modifier = Modifier.fillMaxWidth()) {
-                                Text("انتخاب از طرح‌های ثبت‌شده")
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedButton(
+                                onClick = { designMenu = true },
+                                modifier = Modifier.weight(1f),
+                                enabled = designs.isNotEmpty()
+                            ) {
+                                Text(if (designs.isEmpty()) "فهرست طرح خالی است" else "انتخاب از طرح‌های ثبت‌شده")
                             }
-                            DropdownMenu(expanded = designMenu, onDismissRequest = { designMenu = false }) {
-                                designs.forEach { d ->
-                                    DropdownMenuItem(
-                                        text = { Text(d.title) },
-                                        onClick = { vm.setDesignTitle(d.title); designMenu = false }
-                                    )
-                                }
+                            IconButton(
+                                onClick = { vm.addDesignToCatalog(ui.designTitle) },
+                                enabled = ui.designTitle.isNotBlank()
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = "افزودن طرح به کاتالوگ")
+                            }
+                        }
+                        DropdownMenu(expanded = designMenu, onDismissRequest = { designMenu = false }) {
+                            designs.forEach { d ->
+                                DropdownMenuItem(
+                                    text = { Text(d.title) },
+                                    onClick = { vm.setDesignTitle(d.title); designMenu = false }
+                                )
                             }
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -124,6 +139,32 @@ fun ProductionOrderScreen(
                                 singleLine = true,
                                 modifier = Modifier.weight(1f)
                             )
+                        }
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedButton(
+                                onClick = { sizeMenu = true },
+                                modifier = Modifier.weight(1f),
+                                enabled = sizes.isNotEmpty()
+                            ) {
+                                Text(if (sizes.isEmpty()) "فهرست سایز خالی است" else "انتخاب سایز از فهرست")
+                            }
+                            IconButton(
+                                onClick = { vm.addSizeToCatalog(ui.size) },
+                                enabled = ui.size.isNotBlank()
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = "افزودن سایز به کاتالوگ")
+                            }
+                        }
+                        DropdownMenu(expanded = sizeMenu, onDismissRequest = { sizeMenu = false }) {
+                            sizes.forEach { sz ->
+                                DropdownMenuItem(
+                                    text = { Text(sz.title) },
+                                    onClick = { vm.setSize(sz.title); sizeMenu = false }
+                                )
+                            }
                         }
                         OutlinedTextField(
                             value = ui.customerName,
