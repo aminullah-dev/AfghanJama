@@ -5,6 +5,7 @@
 
 package com.afghanjama.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -19,6 +20,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -50,6 +52,8 @@ import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.format.stageDays
 import com.afghanjama.ui.vm.CuttingViewModel
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 
 @Composable
 fun CuttingScreen(
@@ -61,6 +65,20 @@ fun CuttingScreen(
     val tailors by vm.tailors.collectAsState(initial = emptyList())
 
     var cutTarget by remember { mutableStateOf<Order?>(null) }
+    var scanMsg by remember { mutableStateOf<String?>(null) }
+
+    // اسکنِ QR سفارش با دوربین → یافتنِ سفارش در صف برش و بازکردنِ دیالوگ
+    val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
+        val code = result.contents
+        if (code != null) {
+            val match = orders.firstOrNull { it.shortCode == code || it.orderCode == code }
+            if (match != null) {
+                cutTarget = match; scanMsg = null
+            } else {
+                scanMsg = "سفارشی با این کد در صف برش نیست: $code"
+            }
+        }
+    }
 
     // ---------- دیالوگ ثبت برش ----------
     cutTarget?.let { o ->
@@ -149,6 +167,30 @@ fun CuttingScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            androidx.compose.material3.Button(
+                onClick = {
+                    scanLauncher.launch(
+                        ScanOptions().apply {
+                            setPrompt("QR سفارش را اسکن کنید")
+                            setBeepEnabled(true)
+                            setOrientationLocked(false)
+                            setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                        }
+                    )
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.QrCodeScanner, contentDescription = null)
+                Text("  اسکن QR سفارش")
+            }
+            scanMsg?.let {
+                Text(
+                    it,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+
             Text(
                 text = "سفارش‌های در حال برش",
                 style = MaterialTheme.typography.titleMedium,

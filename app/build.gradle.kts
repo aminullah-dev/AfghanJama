@@ -58,6 +58,8 @@ dependencies {
 
     // تولید QR برای اسناد (کتابخانهٔ خالص جاوا، بدون وابستگی اندرویدی)
     implementation("com.google.zxing:core:3.5.3")
+    // اسکنِ QR با دوربین (Activityِ آماده + مدیریت دسترسی دوربین)
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
 
     // ✅ Compose BOM (نسخه‌ها را یکدست می‌کند)
     implementation(platform("androidx.compose:compose-bom:2024.10.00"))

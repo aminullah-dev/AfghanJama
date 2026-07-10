@@ -86,6 +86,11 @@ object InvoicePdf {
 
         c.drawRtl("AfghanJama — مدیریت کارگاه خیاطی", MARGIN, 30f, titlePaint, CONTENT_W - 60)
         c.drawRtl("فاکتور سفارش", MARGIN, 62f, headerSubPaint, CONTENT_W - 60)
+
+        // QR کد کوتاه سفارش (برای اسکن در بخش برش)
+        com.afghanjama.util.QrGen.bitmap(order.shortCode)?.let { qr ->
+            c.drawBitmap(qr, null, android.graphics.RectF(MARGIN, 16f, MARGIN + 64f, 80f), null)
+        }
         y = 120f
 
         // ---------- مشخصات فاکتور ----------
