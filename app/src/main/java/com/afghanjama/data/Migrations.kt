@@ -490,3 +490,29 @@ val MIGRATION_35_36 = object : Migration(35, 36) {
         )
     }
 }
+
+/**
+ * اسنادِ مالی با شمارهٔ یکتا (documents). فقط جدول ساخته می‌شود؛ اسناد
+ * از این پس هنگام هر رویدادِ مالی (خرید، فروش، تسویه، دریافت) تولید
+ * می‌شوند. داده‌های موجود دست‌نخورده می‌مانند.
+ */
+val MIGRATION_36_37 = object : Migration(36, 37) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `documents` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`number` TEXT NOT NULL, `type` TEXT NOT NULL, " +
+                "`partyName` TEXT NOT NULL, `amount` INTEGER NOT NULL, " +
+                "`refId` TEXT NOT NULL, `note` TEXT NOT NULL, " +
+                "`at` INTEGER NOT NULL)"
+        )
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_documents_number` " +
+                "ON `documents` (`number`)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_documents_type` " +
+                "ON `documents` (`type`)"
+        )
+    }
+}

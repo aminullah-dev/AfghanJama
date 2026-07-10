@@ -42,6 +42,7 @@ import com.afghanjama.ui.screens.InventoryScreen
 import com.afghanjama.ui.screens.LoginScreen
 import com.afghanjama.ui.screens.MasterDataScreen
 import com.afghanjama.ui.screens.MaterialWarehouseScreen
+import com.afghanjama.ui.screens.DocumentsScreen
 import com.afghanjama.ui.screens.LedgerScreen
 import com.afghanjama.ui.screens.OrderSearchScreen
 import com.afghanjama.ui.screens.PostLoginQuoteScreen
@@ -61,6 +62,7 @@ import com.afghanjama.ui.vm.CustomerDetailViewModel
 import com.afghanjama.ui.vm.CustomersViewModel
 import com.afghanjama.ui.vm.CuttingViewModel
 import com.afghanjama.ui.vm.DashboardViewModel
+import com.afghanjama.ui.vm.DocumentsViewModel
 import com.afghanjama.ui.vm.FinanceViewModel
 import com.afghanjama.ui.vm.FinishedSaleViewModel
 import com.afghanjama.ui.vm.HomeViewModel
@@ -145,6 +147,7 @@ fun AppNav(
     homeVm: HomeViewModel,
     productionVm: ProductionViewModel,
     ledgerVm: LedgerViewModel,
+    documentsVm: DocumentsViewModel,
     finishedSaleVm: FinishedSaleViewModel,
     supplierVm: SupplierViewModel,
     customerDirVm: CustomersViewModel,
@@ -253,6 +256,7 @@ fun AppNav(
                     onGoSales = { navController.navigate(Routes.SALES) },
                     onGoFinance = { navController.navigate(Routes.FINANCE) },
                     onGoLedger = { navController.navigate(Routes.LEDGER) },
+                    onGoDocuments = { navController.navigate(Routes.DOCUMENTS) },
                     onGoSearch = { navController.navigate(Routes.SEARCH) },
                     onGoSettings = { navController.navigate(Routes.SETTINGS) }
                 )
@@ -346,6 +350,13 @@ fun AppNav(
             composable(Routes.LEDGER) {
                 LedgerScreen(
                     vm = ledgerVm,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Routes.DOCUMENTS) {
+                DocumentsScreen(
+                    vm = documentsVm,
                     onBack = { navController.popBackStack() }
                 )
             }

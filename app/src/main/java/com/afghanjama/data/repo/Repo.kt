@@ -7,6 +7,7 @@ import com.afghanjama.data.entities.CustomerMeasurement
 import com.afghanjama.data.entities.CustomerPayment
 import com.afghanjama.data.entities.CuttingRecord
 import com.afghanjama.data.entities.DesignItem
+import com.afghanjama.data.entities.Document
 import com.afghanjama.data.entities.FabricColor
 import com.afghanjama.data.CodeGen
 import com.afghanjama.data.entities.FabricType
@@ -440,6 +441,8 @@ class Repo(private val db: AppDatabase) {
         spend("WALLET", total, "تسویه کارمزد خیاط $tailorLabel")
         // آینه در دفتر کل: پرداختِ کارمزد → بدهکارِ حساب خیاط (کاهش طلب او)
         postLedger("TAILOR", tailorLabel, total, 0, "WAGE_PAID", note = "تسویه کارمزد")
+        // رسیدِ تسویهٔ کارمزد
+        createDocument("WAGE_RECEIPT", tailorLabel, total, note = "تسویه کارمزد دوخت")
     }
 
     // =========================
@@ -473,6 +476,44 @@ class Repo(private val db: AppDatabase) {
 
     fun observeAllLedgerEntries(): Flow<List<LedgerEntry>> =
         db.ledgerDao().observeAllEntries()
+
+    // =========================
+    // Documents (اسنادِ مالی با شمارهٔ یکتا)
+    // =========================
+
+    fun observeDocuments(): Flow<List<Document>> =
+        db.documentDao().observeAll()
+
+    private fun docPrefix(type: String): String = when (type) {
+        "PURCHASE" -> "KH"           // خرید
+        "SALE" -> "FR"               // فروش
+        "SUPPLIER_PAYMENT" -> "PF"   // پرداخت به فروشنده
+        "WAGE_RECEIPT" -> "KM"       // کارمزد
+        "CUSTOMER_RECEIPT" -> "DR"   // دریافت از مشتری
+        "RETURN" -> "BR"             // برگشت
+        "PROFORMA" -> "PP"           // پیش‌فاکتور
+        else -> "SND"
+    }
+
+    /** تولید یک سندِ مالی با شمارهٔ یکتا (پیشوندِ نوع + شمارهٔ سراسری). */
+    suspend fun createDocument(
+        type: String,
+        partyName: String,
+        amount: Long,
+        refId: String = "",
+        note: String = ""
+    ) {
+        if (amount <= 0) return
+        val seq = db.documentDao().count() + 1
+        val number = docPrefix(type) + "-" + seq.toString().padStart(5, '0')
+        db.documentDao().insert(
+            Document(
+                number = number, type = type,
+                partyName = partyName.trim(), amount = amount,
+                refId = refId, note = note
+            )
+        )
+    }
 
     /**
      * ثبت یک سند در دفتر کل و اطمینان از وجودِ طرف در دفترچه. debit/credit
@@ -603,6 +644,11 @@ class Repo(private val db: AppDatabase) {
                 else -> spend(invoice.paySource, invoice.total, "خرید مواد ${invoice.code}", category = "خرید مواد")
             }
         }
+        // سندِ فاکتور خرید
+        createDocument(
+            "PURCHASE", invoice.supplier.ifBlank { "نامشخص" }, invoice.total,
+            invoice.code, "خرید مواد"
+        )
     }
 
     // =========================
@@ -631,6 +677,8 @@ class Repo(private val db: AppDatabase) {
         )
         // آینه در دفتر کل: پرداخت به فروشنده → بدهکارِ حساب او (کاهش بدهیِ ما)
         postLedger("SUPPLIER", supplier, amount, 0, "SUPPLIER_PAYMENT", note = note)
+        // رسیدِ پرداخت به فروشنده
+        createDocument("SUPPLIER_PAYMENT", supplier, amount, note = note.ifBlank { "تسویه قرض" })
     }
 
     // =========================
@@ -714,6 +762,11 @@ class Repo(private val db: AppDatabase) {
             spend("WALLET", profit, "انتقال سود فروش «${item.name}» به فایده")
             income("PROFIT", profit, "سود فروش «${item.name}»")
         }
+        // فاکتور فروش
+        createDocument(
+            "SALE", customerName, revenue, code,
+            "فروش $qty عدد «${item.name}»"
+        )
         return true
     }
 
