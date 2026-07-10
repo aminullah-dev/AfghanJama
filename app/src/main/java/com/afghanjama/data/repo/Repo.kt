@@ -492,6 +492,8 @@ class Repo(private val db: AppDatabase) {
         "CUSTOMER_RECEIPT" -> "DR"   // دریافت از مشتری
         "RETURN" -> "BR"             // برگشت
         "PROFORMA" -> "PP"           // پیش‌فاکتور
+        "PAYMENT" -> "PY"            // پرداختِ دستی
+        "RECEIPT" -> "RC"            // دریافتِ دستی
         else -> "SND"
     }
 
@@ -513,6 +515,32 @@ class Repo(private val db: AppDatabase) {
                 refId = refId, note = note
             )
         )
+    }
+
+    /**
+     * ثبتِ دستیِ پرداخت/دریافتِ نقدی روی حسابِ یک طرف: هم دفتر کل، هم
+     * صندوق، هم یک سند به‌روز می‌شود. isPayment=true یعنی ما پرداخت کردیم
+     * (خروجِ نقد → بدهکارِ حساب)، false یعنی دریافت کردیم (ورودِ نقد →
+     * بستانکارِ حساب).
+     */
+    suspend fun recordManualLedger(
+        type: String,
+        name: String,
+        amount: Long,
+        isPayment: Boolean,
+        paySource: String = "WALLET",
+        note: String = ""
+    ) {
+        if (amount <= 0 || name.isBlank()) return
+        if (isPayment) {
+            spend(paySource, amount, note.ifBlank { "پرداخت به $name" }, category = "پرداخت دستی")
+            postLedger(type, name, amount, 0, "MANUAL", note = note)
+            createDocument("PAYMENT", name, amount, note = note.ifBlank { "پرداخت نقدی" })
+        } else {
+            income(paySource, amount, note.ifBlank { "دریافت از $name" })
+            postLedger(type, name, 0, amount, "MANUAL", note = note)
+            createDocument("RECEIPT", name, amount, note = note.ifBlank { "دریافت نقدی" })
+        }
     }
 
     /**

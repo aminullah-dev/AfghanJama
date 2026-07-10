@@ -8,6 +8,7 @@ import com.afghanjama.data.repo.Repo
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /** دفتر کلِ یکپارچه: ماندهٔ هر طرف حساب + گردشِ همهٔ اسناد. */
 class LedgerViewModel(private val repo: Repo) : ViewModel() {
@@ -19,4 +20,10 @@ class LedgerViewModel(private val repo: Repo) : ViewModel() {
     val entries: StateFlow<List<LedgerEntry>> =
         repo.observeAllLedgerEntries()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** ثبتِ دستیِ پرداخت (isPayment=true) یا دریافت روی حسابِ یک طرف. */
+    fun recordManual(type: String, name: String, amount: Long, isPayment: Boolean, note: String) =
+        viewModelScope.launch {
+            repo.recordManualLedger(type, name, amount, isPayment, "WALLET", note)
+        }
 }

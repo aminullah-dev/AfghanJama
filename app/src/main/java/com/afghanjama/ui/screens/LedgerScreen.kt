@@ -17,9 +17,12 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -27,6 +30,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -42,10 +46,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.afghanjama.data.dao.PartyBalance
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
+import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.vm.LedgerViewModel
 
 private fun typeLabel(t: String): String = when (t) {
@@ -94,6 +100,14 @@ fun LedgerScreen(
     var typeFilter by remember { mutableStateOf<String?>(null) }
     var selected by remember { mutableStateOf<PartyBalance?>(null) }
 
+    // ---------- حالتِ سند دستی ----------
+    var manualOpen by remember { mutableStateOf(false) }
+    var mType by remember { mutableStateOf("SUPPLIER") }
+    var mName by remember { mutableStateOf("") }
+    var mAmount by remember { mutableStateOf("") }
+    var mIsPayment by remember { mutableStateOf(true) }
+    var mNote by remember { mutableStateOf("") }
+
     val receivable = balances.filter { it.net > 0 }.sumOf { it.net }
     val payable = balances.filter { it.net < 0 }.sumOf { -it.net }
 
@@ -107,7 +121,15 @@ fun LedgerScreen(
         val rows = entries.filter { it.partyType == p.type && it.partyName == p.name }
         AlertDialog(
             onDismissRequest = { selected = null },
-            confirmButton = { TextButton(onClick = { selected = null }) { Text("بستن") } },
+            confirmButton = {
+                TextButton(onClick = {
+                    mType = p.type; mName = p.name; mAmount = ""; mNote = ""
+                    mIsPayment = p.net < 0   // اگر ما به او بدهکاریم، پیش‌فرض «پرداخت»
+                    selected = null
+                    manualOpen = true
+                }) { Text("ثبت پرداخت/دریافت") }
+            },
+            dismissButton = { TextButton(onClick = { selected = null }) { Text("بستن") } },
             title = { Text("${p.name} • ${typeLabel(p.type)}") },
             text = {
                 Column(Modifier.fillMaxWidth()) {
@@ -154,6 +176,74 @@ fun LedgerScreen(
         )
     }
 
+    // ---------- دیالوگ سند دستی ----------
+    if (manualOpen) {
+        AlertDialog(
+            onDismissRequest = { manualOpen = false },
+            confirmButton = {
+                Button(
+                    enabled = mName.isNotBlank() && (mAmount.toLongOrNull() ?: 0L) > 0L,
+                    onClick = {
+                        vm.recordManual(mType, mName.trim(), mAmount.toLongOrNull() ?: 0L, mIsPayment, mNote.trim())
+                        manualOpen = false
+                        mName = ""; mAmount = ""; mNote = ""
+                    }
+                ) { Text("ثبت") }
+            },
+            dismissButton = { TextButton(onClick = { manualOpen = false }) { Text("انصراف") } },
+            title = { Text("ثبت سند دستی") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("نوع طرف", style = MaterialTheme.typography.labelSmall)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf("SUPPLIER", "CUSTOMER", "TAILOR", "INSPECTOR", "EMPLOYEE").forEach { t ->
+                            FilterChip(
+                                selected = mType == t,
+                                onClick = { mType = t },
+                                label = { Text(typeLabel(t)) }
+                            )
+                        }
+                    }
+                    OutlinedTextField(
+                        value = mName,
+                        onValueChange = { mName = it },
+                        label = { Text("نام طرف") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text("جهت", style = MaterialTheme.typography.labelSmall)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        FilterChip(
+                            selected = mIsPayment,
+                            onClick = { mIsPayment = true },
+                            label = { Text("پرداخت به طرف") }
+                        )
+                        FilterChip(
+                            selected = !mIsPayment,
+                            onClick = { mIsPayment = false },
+                            label = { Text("دریافت از طرف") }
+                        )
+                    }
+                    OutlinedTextField(
+                        value = mAmount,
+                        onValueChange = { mAmount = it.digitsOnly() },
+                        label = { Text("مبلغ (؋)") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = mNote,
+                        onValueChange = { mNote = it },
+                        label = { Text("توضیح (اختیاری)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -161,6 +251,13 @@ fun LedgerScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "برگشت")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = {
+                        mName = ""; mAmount = ""; mNote = ""; manualOpen = true
+                    }) {
+                        Icon(Icons.Default.Add, contentDescription = "سند دستی")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)

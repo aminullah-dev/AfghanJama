@@ -58,6 +58,8 @@ private fun docTypeLabel(t: String): String = when (t) {
     "CUSTOMER_RECEIPT" -> "رسید دریافت از مشتری"
     "RETURN" -> "سند برگشت"
     "PROFORMA" -> "پیش‌فاکتور"
+    "PAYMENT" -> "رسید پرداخت"
+    "RECEIPT" -> "رسید دریافت"
     else -> "سند"
 }
 
