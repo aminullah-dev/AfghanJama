@@ -79,7 +79,6 @@ import com.afghanjama.ui.vm.Permissions
 import com.afghanjama.ui.vm.SewingViewModel
 import com.afghanjama.ui.vm.StockViewModel
 import com.afghanjama.ui.vm.UserRole
-import com.afghanjama.ui.vm.WagesViewModel
 import com.afghanjama.ui.vm.WarehouseViewModel
 
 /** آیتم نوار پایین. */
@@ -134,7 +133,6 @@ fun AppNav(
     salesVm: SalesViewModel,
     financeVm: FinanceViewModel,
     masterVm: MasterDataViewModel,
-    wagesVm: WagesViewModel,
     dashboardVm: DashboardViewModel,
     searchVm: OrderSearchViewModel,
     stockVm: StockViewModel,
@@ -362,7 +360,6 @@ fun AppNav(
             composable(Routes.FINANCE) {
                 FinanceHubScreen(
                     financeVm = financeVm,
-                    wagesVm = wagesVm,
                     dashboardVm = dashboardVm
                 )
             }

@@ -58,8 +58,6 @@ import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.vm.DashboardViewModel
 import com.afghanjama.ui.vm.FinanceViewModel
-import com.afghanjama.ui.vm.TailorWageGroup
-import com.afghanjama.ui.vm.WagesViewModel
 /**
  * بخش مالی: گزارش‌ها + کیف پول و تراکنش‌ها + کارمزد خیاط (تسویه هفتگی)
  * + حساب فروشگاه‌ها.
@@ -67,11 +65,10 @@ import com.afghanjama.ui.vm.WagesViewModel
 @Composable
 fun FinanceHubScreen(
     financeVm: FinanceViewModel,
-    wagesVm: WagesViewModel,
     dashboardVm: DashboardViewModel
 ) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    val tabs = listOf("گزارش", "کیف پول", "کارمزد خیاط")
+    val tabs = listOf("گزارش", "کیف پول")
 
     Scaffold(
         topBar = {
@@ -89,7 +86,7 @@ fun FinanceHubScreen(
                 .fillMaxSize()
         ) {
             ScrollableTabRow(
-                selectedTabIndex = tab,
+                selectedTabIndex = tab.coerceIn(0, tabs.lastIndex),
                 edgePadding = 16.dp,
                 containerColor = MaterialTheme.colorScheme.surface
             ) {
@@ -98,10 +95,9 @@ fun FinanceHubScreen(
                 }
             }
 
-            when (tab) {
+            when (tab.coerceIn(0, tabs.lastIndex)) {
                 0 -> DashboardTab(dashboardVm)
                 1 -> WalletTab(financeVm)
-                2 -> WagesTab(wagesVm)
             }
         }
     }
@@ -712,157 +708,6 @@ private fun WalletTab(vm: FinanceViewModel) {
                 item { Spacer(Modifier.height(80.dp)) }
             }
         }
-    }
-}
-
-// ======================================================
-// تب ۲: کارمزد خیاط — جمع می‌شود و هفته‌وار تسویه می‌شود
-// ======================================================
-@Composable
-private fun WagesTab(vm: WagesViewModel) {
-    val groups by vm.pendingGroups.collectAsState()
-    val settled by vm.settledWages.collectAsState()
-
-    var confirmGroup by remember { mutableStateOf<TailorWageGroup?>(null) }
-
-    confirmGroup?.let { g ->
-        AlertDialog(
-            onDismissRequest = { confirmGroup = null },
-            title = { Text("تسویه کارمزد") },
-            text = {
-                Text("مجموع ${g.total.afn()} برای «${g.tailorLabel}» از کیف پول پرداخت و در بخش مالی عمومی ثبت می‌شود. ادامه می‌دهید؟")
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    vm.settle(g)
-                    confirmGroup = null
-                }) { Text("تسویه") }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmGroup = null }) { Text("لغو") }
-            }
-        )
-    }
-
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        item {
-            Text(
-                "کارمزدهای باز (آماده تسویه هفتگی)",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
-
-        if (groups.isEmpty()) {
-            item { EmptyHint("کارمزد تسویه‌نشده‌ای وجود ندارد. با تمام‌شدن دوختِ هر سفارش، کارمزد خیاط اینجا جمع می‌شود.") }
-        } else {
-            items(groups, key = { it.tailorLabel }) { g ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                ) {
-                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                g.tailorLabel,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                g.total.afn(),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-
-                        g.items.forEach { w ->
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    "${w.orderCode} • ${formatDate(w.createdAt)}",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    w.amount.afn(),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-
-                        HorizontalDivider(thickness = 0.5.dp)
-
-                        Button(
-                            onClick = { confirmGroup = g },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.Payments, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text("تسویه حساب (${g.total.afn()})")
-                        }
-                    }
-                }
-            }
-        }
-
-        if (settled.isNotEmpty()) {
-            item {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    "تاریخچه تسویه‌شده",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-            items(settled, key = { it.id }) { w ->
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                ) {
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(w.tailorLabel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                            Text(
-                                "${w.orderCode} • تسویه: ${w.settledAt?.let(::formatDate) ?: "-"}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Default.CheckCircle,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text(w.amount.afn(), style = MaterialTheme.typography.labelLarge)
-                        }
-                    }
-                }
-            }
-        }
-
-        item { Spacer(Modifier.height(80.dp)) }
     }
 }
 
