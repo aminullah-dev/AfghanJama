@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.Warehouse
@@ -95,7 +96,7 @@ private fun bottomItemsFor(role: UserRole): List<BottomItem> = when (role) {
         BottomItem(Routes.CUTTING, "برش", Icons.Default.ContentCut),
         BottomItem(Routes.SEWING, "دوخت", Icons.Default.Checkroom),
         BottomItem(Routes.REVIEW, "نظارت", Icons.Default.VerifiedUser),
-        BottomItem(Routes.SALES, "فروش", Icons.Default.Storefront),
+        BottomItem(Routes.FINISHED_SALES, "فروش", Icons.Default.Storefront),
         BottomItem(Routes.FINANCE, "مالی", Icons.Default.Payments)
     )
 
@@ -118,7 +119,8 @@ private fun bottomItemsFor(role: UserRole): List<BottomItem> = when (role) {
     )
 
     UserRole.SALES -> listOf(
-        BottomItem(Routes.SALES, "فروش", Icons.Default.Storefront),
+        BottomItem(Routes.FINISHED_SALES, "فروش", Icons.Default.Storefront),
+        BottomItem(Routes.SALES, "فروش سفارش", Icons.Default.Receipt),
         BottomItem(Routes.SETTINGS, "تنظیمات", Icons.Default.Settings)
     )
 }
@@ -428,7 +430,6 @@ fun AppNav(
                 ReviewScreen(
                     vm = reviewVm,
                     onBack = { navController.popBackStack() },
-                    onGoSales = { navController.navigate(Routes.SALES) },
                     onGoSewing = { navController.navigate(Routes.SEWING) }
                 )
             }

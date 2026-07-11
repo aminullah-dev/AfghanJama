@@ -58,7 +58,6 @@ import java.util.UUID
 fun ReviewScreen(
     vm: ReviewViewModel,
     onBack: () -> Unit,
-    onGoSales: () -> Unit,
     onGoSewing: () -> Unit
 ) {
     val orders by vm.ordersInReview.collectAsState(initial = emptyList())
@@ -238,16 +237,13 @@ fun ReviewScreen(
                                 }
 
                                 Button(
-                                    onClick = {
-                                        vm.approve(o.id, picked)
-                                        onGoSales()
-                                    },
+                                    onClick = { vm.approve(o.id, picked) },
                                     enabled = picked.isNotBlank(),
                                     modifier = Modifier.weight(1f)
                                 ) {
                                     Icon(Icons.Default.CheckCircle, contentDescription = null)
                                     Spacer(Modifier.width(8.dp))
-                                    Text("تایید → فروش")
+                                    Text("تایید → انبار محصول")
                                 }
                             }
                         }

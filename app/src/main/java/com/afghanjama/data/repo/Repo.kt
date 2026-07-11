@@ -139,7 +139,11 @@ class Repo(private val db: AppDatabase) {
     fun observeQcForOrder(orderId: String): Flow<List<QcRecord>> =
         db.qcRecordDao().observeForOrder(orderId)
 
-    /** تأیید کیفیت: رکورد QC ثبت و سفارش به مرحلهٔ فروش می‌رود. */
+    /**
+     * تأیید کیفیت: رکورد QC ثبت و سفارش مستقیم واردِ انبار محصول می‌شود.
+     * تصمیمِ فروش (مشتری/قیمت/تخفیف) در انبار محصول توسط بخش فروش گرفته
+     * می‌شود — نظارت فقط کیفیت را تأیید می‌کند.
+     */
     suspend fun approveQc(order: Order, inspector: String, note: String) {
         db.qcRecordDao().insert(
             QcRecord(
@@ -150,9 +154,12 @@ class Repo(private val db: AppDatabase) {
                 note = note.trim()
             )
         )
-        changeOrderStatus(order, OrderStatus.SALES.name) {
-            it.copy(assignedInspector = inspector.trim().ifBlank { it.assignedInspector }, reviewed = true)
-        }
+        depositOrderToFinished(
+            order.copy(
+                assignedInspector = inspector.trim().ifBlank { order.assignedInspector },
+                reviewed = true
+            )
+        )
     }
 
     /** برگشت برای اصلاح: مشکل ثبت و سفارش به مرحلهٔ دوخت برمی‌گردد. */
@@ -803,6 +810,15 @@ class Repo(private val db: AppDatabase) {
             (order.fabricPrice + order.workCost + order.sewingCost) / order.qty else 0L
         addFinishedStock(order.designTitle, order.size, order.qty, perPieceCost)
         changeOrderStatus(order, OrderStatus.STORED.name)
+        // سفارش تبدیل به موجودیِ بی‌نامِ انبار شد؛ بدهیِ ازپیش‌ثبت‌شدهٔ مشتری
+        // (SALE_BILLING هنگام ثبت سفارش) خنثی می‌شود — فروشِ واقعی هنگام
+        // فروش از انبار محصول حساب و صورت‌حساب می‌شود.
+        if (order.customerName.isNotBlank() && order.agreedPrice > 0) {
+            postLedger(
+                "CUSTOMER", order.customerName, 0, order.agreedPrice,
+                "SALE_TO_STOCK", order.orderCode, "انتقال به انبار محصول"
+            )
+        }
     }
 
     /**
