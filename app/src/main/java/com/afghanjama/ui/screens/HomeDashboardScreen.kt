@@ -130,22 +130,6 @@ fun HomeDashboardScreen(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item(span = { fullSpan() }) {
-            Column {
-                Text(
-                    "کارگاه خیاطی AfghanJama",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "جریان اصلی: خرید مواد ← خط تولید ← فروش انبار",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-
         // ---------- ساعتِ شیفت (وقتی ورودی باز است) ----------
         if (insideNow.isNotEmpty()) {
             item(span = { fullSpan() }) {
@@ -177,6 +161,23 @@ fun HomeDashboardScreen(
                         )
                     }
                 }
+            }
+        }
+
+
+        item(span = { fullSpan() }) {
+            Column {
+                Text(
+                    "کارگاه خیاطی AfghanJama",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "جریان اصلی: خرید مواد ← خط تولید ← فروش انبار",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
 
