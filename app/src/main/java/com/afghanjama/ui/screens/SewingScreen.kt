@@ -59,8 +59,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.SewingAssignment
+import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.digitsOnly
+import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.vm.OrderHandout
 import com.afghanjama.ui.vm.SewingViewModel
 
@@ -73,6 +75,8 @@ fun SewingScreen(
     val handouts by vm.handouts.collectAsState()
     val inProgress by vm.inProgress.collectAsState()
     val tailors by vm.tailors.collectAsState()
+    val allAssignments by vm.allAssignments.collectAsState()
+    val pendingWages by vm.pendingWages.collectAsState()
 
     var tab by rememberSaveable { mutableStateOf(0) }
     val tabs = listOf("تحویل به خیاط", "در حال دوخت")
@@ -142,6 +146,11 @@ fun SewingScreen(
                         items(inProgress, key = { it.id }) { a ->
                             InProgressCard(
                                 assignment = a,
+                                receiptText = handoverReceipt(
+                                    a, allAssignments,
+                                    pendingWages.filter { it.tailorLabel == a.tailorLabel }
+                                        .sumOf { it.amount }
+                                ),
                                 onDone = { quality, delivered ->
                                     vm.completeAssignment(a.id, quality, delivered)
                                 },
@@ -322,6 +331,7 @@ private fun HandoutCard(
 @Composable
 private fun InProgressCard(
     assignment: SewingAssignment,
+    receiptText: String,
     onDone: (String, Int) -> Unit,
     onCancel: () -> Unit
 ) {
@@ -394,7 +404,7 @@ private fun InProgressCard(
                     onClick = {
                         val intent = Intent(Intent.ACTION_SEND).apply {
                             type = "text/plain"
-                            putExtra(Intent.EXTRA_TEXT, handoverReceipt(assignment))
+                            putExtra(Intent.EXTRA_TEXT, receiptText)
                         }
                         context.startActivity(Intent.createChooser(intent, "اشتراک رسید تحویل به خیاط"))
                     },
@@ -417,14 +427,53 @@ private fun InProgressCard(
     }
 }
 
-/** متن رسید تحویل به خیاط برای اشتراک در واتساپ و... */
-private fun handoverReceipt(a: SewingAssignment): String = buildString {
-    appendLine("🧵 رسید تحویل به خیاط — AfghanJama")
-    appendLine("──────────────")
-    appendLine("کد سفارش: ${a.orderCode}")
+/** امتیازِ کیفیِ خیاط از سابقهٔ کارگاه: خوب=۵، متوسط=۳، ضعیف=۱ → ★ از ۵. */
+private fun tailorStars(history: List<SewingAssignment>): Pair<String, Int> {
+    val scores = history
+        .filter { it.status == "DONE" && it.quality.isNotBlank() }
+        .map { if (it.quality == "خوب") 5 else if (it.quality == "متوسط") 3 else 1 }
+    if (scores.isEmpty()) return "بدون سابقهٔ امتیاز" to 0
+    val avg = (scores.sum().toDouble() / scores.size).toInt().coerceIn(1, 5)
+    return ("★".repeat(avg) + "☆".repeat(5 - avg)) to scores.size
+}
+
+/**
+ * رسیدِ کاملِ تحویل به خیاط: کارِ جدید + کارهای زیرِ دست + آخرین کارِ
+ * تکمیل‌شده + امتیازِ کیفی + یادداشتِ حسابِ کارمزد + یادآوریِ نظارت.
+ */
+private fun handoverReceipt(
+    a: SewingAssignment,
+    all: List<SewingAssignment>,
+    pendingWageTotal: Long
+): String = buildString {
+    val mine = all.filter { it.tailorLabel == a.tailorLabel }
+    val (stars, ratedCount) = tailorStars(mine)
+    val inHand = mine.filter { it.status == "SEWING" && it.id != a.id }
+    val lastDone = mine.filter { it.status == "DONE" }.maxByOrNull { it.doneAt ?: 0L }
+
+    appendLine("🧵 رسید تحویل کار — AfghanJama")
     appendLine("خیاط: ${a.tailorLabel}")
-    appendLine("تعداد: ${a.qty} عدد")
+    appendLine("تاریخ: ${PersianDate.short(System.currentTimeMillis())}")
+    if (ratedCount > 0) appendLine("امتیاز کیفیت در کارگاه: $stars (از ${ratedCount.fa()} کار)")
     appendLine("──────────────")
-    appendLine("کارمزد فی‌عدد: ${a.unitWage.afn()}")
-    appendLine("جمع کارمزد: ${a.totalWage.afn()}")
+    appendLine("✅ این کار به شما تحویل شد:")
+    appendLine("• ${a.orderCode} — ${a.qty.fa()} عدد • کارمزد فی‌عدد ${a.unitWage.afn()} • جمع ${a.totalWage.afn()}")
+    if (inHand.isNotEmpty()) {
+        appendLine("──────────────")
+        appendLine("🧷 کارهای دیگرِ زیرِ دست شما:")
+        inHand.forEach {
+            appendLine("• ${it.orderCode} — ${it.qty.fa()} عدد (از ${PersianDate.short(it.createdAt)})")
+        }
+    }
+    lastDone?.let {
+        appendLine("──────────────")
+        appendLine(
+            "کار قبلی شما: ${it.orderCode} — ${it.qty.fa()} عدد" +
+                (if (it.quality.isNotBlank()) " • کیفیت: ${it.quality}" else "")
+        )
+    }
+    appendLine("──────────────")
+    appendLine("💰 حساب کارمزد: طلبِ تسویه‌نشده تاکنون ${pendingWageTotal.afn()}")
+    appendLine("──────────────")
+    appendLine("⏰ یادآوری: هر کاری که تمام شد، همان لحظه بخش نظارت را در جریان بگذارید.")
 }

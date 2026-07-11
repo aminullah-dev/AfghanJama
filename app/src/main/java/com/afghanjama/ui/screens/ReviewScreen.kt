@@ -16,8 +16,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import android.content.Intent
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Replay
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -45,9 +47,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.afghanjama.data.entities.Order
+import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.STAGE_WARN_DAYS
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.format.stageDays
@@ -60,6 +65,7 @@ fun ReviewScreen(
     onBack: () -> Unit,
     onGoSewing: () -> Unit
 ) {
+    val context = LocalContext.current
     val orders by vm.ordersInReview.collectAsState(initial = emptyList())
     val inspectors by vm.inspectors.collectAsState(initial = emptyList())
 
@@ -105,6 +111,21 @@ fun ReviewScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "برگشت")
+                    }
+                },
+                actions = {
+                    // رسیدِ ناظر: فهرستِ کارهای منتظرِ بررسی + یادآوری
+                    IconButton(
+                        onClick = {
+                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, inspectorBrief(orders))
+                            }
+                            context.startActivity(Intent.createChooser(intent, "اشتراک رسید ناظر"))
+                        },
+                        enabled = orders.isNotEmpty()
+                    ) {
+                        Icon(Icons.Default.Share, contentDescription = "رسید ناظر")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -254,4 +275,25 @@ fun ReviewScreen(
             }
         }
     }
+}
+
+/**
+ * رسیدِ ناظر: فهرستِ کارهایی که همین حالا منتظرِ بررسی‌اند + معطلی هر
+ * کدام + یادآوریِ ثبتِ سریعِ نتیجه.
+ */
+private fun inspectorBrief(orders: List<Order>): String = buildString {
+    appendLine("🛡 رسید ناظر — AfghanJama")
+    appendLine("تاریخ: ${PersianDate.short(System.currentTimeMillis())}")
+    appendLine("کارهای منتظرِ بررسی: ${orders.size.fa()} مورد")
+    appendLine("──────────────")
+    orders.forEach { o ->
+        val days = stageDays(o.stageChangedAt, o.createdAt)
+        appendLine(
+            "• ${o.designTitle.ifBlank { o.orderCode }} — ${o.qty.fa()} عدد" +
+                " • ${o.orderCode} • ${days.fa()} روز در انتظار" +
+                (if (days >= STAGE_WARN_DAYS) " ⚠️" else "")
+        )
+    }
+    appendLine("──────────────")
+    appendLine("⏰ یادآوری: نتیجهٔ هر بررسی (تأیید یا برگشت برای اصلاح) را همان روز ثبت کنید؛ کارِ تأییدشده خودکار وارد انبار محصول می‌شود.")
 }

@@ -35,8 +35,14 @@ class SewingViewModel(
         repo.observeOrdersByStatus(OrderStatus.SEWING.name)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    private val allAssignments: StateFlow<List<SewingAssignment>> =
+    /** همهٔ تحویل‌ها — برای رسیدِ خیاط (سابقه/کارِ زیرِ دست) هم استفاده می‌شود. */
+    val allAssignments: StateFlow<List<SewingAssignment>> =
         repo.observeAllAssignments()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** کارمزدهای تسویه‌نشده — برای یادداشتِ مالیِ رسیدِ خیاط. */
+    val pendingWages: StateFlow<List<com.afghanjama.data.entities.TailorWage>> =
+        repo.observePendingWages()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** سفارش‌هایی که هنوز پارچه/عدد باقی‌مانده برای تحویل دارند. */
