@@ -59,6 +59,7 @@ fun ProductionOrderScreen(
     val materials by vm.materials.collectAsState()
     val designs by vm.designs.collectAsState()
     val sizes by vm.sizes.collectAsState()
+    val designCounts by vm.designCounts.collectAsState()
 
     var pickerOpen by remember { mutableStateOf(false) }
     var designMenu by remember { mutableStateOf(false) }
@@ -117,11 +118,32 @@ fun ProductionOrderScreen(
                         }
                         DropdownMenu(expanded = designMenu, onDismissRequest = { designMenu = false }) {
                             designs.forEach { d ->
+                                val made = designCounts[d.title] ?: 0
                                 DropdownMenuItem(
-                                    text = { Text(d.title) },
+                                    text = {
+                                        Column {
+                                            Text(d.title)
+                                            Text(
+                                                (if (d.code.isNotBlank()) "${d.code} • " else "") +
+                                                    "تولید تاکنون: ${made.toString().toPersianDigits()} عدد",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    },
                                     onClick = { vm.setDesignTitle(d.title); designMenu = false }
                                 )
                             }
+                        }
+                        // کد اختصاصی و شمارندهٔ طرحِ انتخاب‌شده
+                        designs.firstOrNull { it.title == ui.designTitle }?.let { d ->
+                            val made = designCounts[d.title] ?: 0
+                            Text(
+                                (if (d.code.isNotBlank()) "کد طرح: ${d.code} • " else "") +
+                                    "تولید تا این لحظه: ${made.toString().toPersianDigits()} عدد",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedTextField(

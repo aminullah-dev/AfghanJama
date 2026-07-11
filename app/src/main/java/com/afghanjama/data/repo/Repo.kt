@@ -920,8 +920,17 @@ class Repo(private val db: AppDatabase) {
     suspend fun addInspector(item: Inspector) =
         db.masterDataDao().insertInspector(item)
 
-    suspend fun addDesign(item: DesignItem) =
-        db.masterDataDao().insertDesign(item)
+    /** ثبت طرح؛ اگر جدید بود کد اختصاصی (D-003) خودکار از id ساخته می‌شود. */
+    suspend fun addDesign(item: DesignItem) {
+        val rowId = db.masterDataDao().insertDesign(item)
+        if (rowId > 0 && item.code.isBlank()) {
+            db.masterDataDao().setDesignCode(rowId, "D-" + rowId.toString().padStart(3, '0'))
+        }
+    }
+
+    /** شمارندهٔ محصولِ هر طرح تا این لحظه (مجموع تعداد سفارش‌های آن طرح). */
+    fun observeDesignProduction(): Flow<List<com.afghanjama.data.dao.DesignProduction>> =
+        db.orderDao().observeDesignProduction()
 
     suspend fun addCustomer(item: Customer) =
         db.masterDataDao().insertCustomer(item)

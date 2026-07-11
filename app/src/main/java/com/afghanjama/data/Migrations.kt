@@ -568,3 +568,14 @@ val MIGRATION_38_39 = object : Migration(38, 39) {
         )
     }
 }
+
+/**
+ * کد اختصاصیِ هر طرح (مثل D-003). برای طرح‌های موجود از id ساخته می‌شود؛
+ * طرح‌های جدید هنگام ثبت، خودکار کد می‌گیرند.
+ */
+val MIGRATION_39_40 = object : Migration(39, 40) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE design_items ADD COLUMN code TEXT NOT NULL DEFAULT ''")
+        db.execSQL("UPDATE design_items SET code = printf('D-%03d', id) WHERE code = ''")
+    }
+}

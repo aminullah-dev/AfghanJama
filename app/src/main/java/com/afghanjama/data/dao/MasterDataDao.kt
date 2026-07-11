@@ -82,7 +82,10 @@ interface MasterDataDao {
     fun observeDesignItems(): Flow<List<DesignItem>>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insertDesign(item: DesignItem)
+    suspend fun insertDesign(item: DesignItem): Long
+
+    @Query("UPDATE design_items SET code = :code WHERE id = :id")
+    suspend fun setDesignCode(id: Long, code: String)
 
     @Query("DELETE FROM design_items WHERE id = :id")
     suspend fun deleteDesign(id: Long)

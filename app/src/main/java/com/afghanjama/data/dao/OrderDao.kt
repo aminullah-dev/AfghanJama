@@ -11,6 +11,12 @@ import com.afghanjama.data.entities.Order
 import kotlinx.coroutines.flow.Flow
 import java.util.UUID
 
+/** مجموع تولیدِ یک طرح تا این لحظه (از روی سفارش‌ها). */
+data class DesignProduction(
+    val title: String,
+    val total: Int
+)
+
 @Dao
 interface OrderDao {
 
@@ -26,6 +32,10 @@ interface OrderDao {
      */
     @Query("SELECT * FROM orders WHERE status = :status ORDER BY createdAt DESC")
     fun observeByStatus(status: String): Flow<List<Order>>
+
+    /** شمارندهٔ محصولِ هر طرح: مجموع تعدادِ همهٔ سفارش‌های آن طرح تا این لحظه. */
+    @Query("SELECT designTitle AS title, SUM(qty) AS total FROM orders GROUP BY designTitle")
+    fun observeDesignProduction(): Flow<List<DesignProduction>>
 
     /**
      * پیدا کردن یک سفارش خاص بر اساس شناسه منحصر به فرد (UUID).

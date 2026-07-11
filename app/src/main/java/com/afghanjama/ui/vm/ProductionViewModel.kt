@@ -15,6 +15,7 @@ import com.afghanjama.ui.format.digitsOnly
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -71,6 +72,12 @@ class ProductionViewModel(private val repo: Repo) : ViewModel() {
     val sizes: StateFlow<List<SizeItem>> =
         repo.observeSizes()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** شمارندهٔ محصولِ هر طرح تا این لحظه: نام طرح → مجموع تعداد. */
+    val designCounts: StateFlow<Map<String, Int>> =
+        repo.observeDesignProduction()
+            .map { list -> list.associate { it.title to it.total } }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     /** افزودنِ همان‌لحظه‌ایِ طرح تایپ‌شده به کاتالوگ (دکمهٔ +). */
     fun addDesignToCatalog(title: String) = viewModelScope.launch {
