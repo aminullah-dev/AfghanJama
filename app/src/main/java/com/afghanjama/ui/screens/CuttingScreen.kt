@@ -66,18 +66,48 @@ fun CuttingScreen(
 
     var cutTarget by remember { mutableStateOf<Order?>(null) }
     var scanMsg by remember { mutableStateOf<String?>(null) }
+    var manualCodeOpen by remember { mutableStateOf(false) }
 
-    // اسکنِ QR سفارش با دوربین → یافتنِ سفارش در صف برش و بازکردنِ دیالوگ
-    val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
-        val code = result.contents
-        if (code != null) {
-            val match = orders.firstOrNull { it.shortCode == code || it.orderCode == code }
-            if (match != null) {
-                cutTarget = match; scanMsg = null
-            } else {
-                scanMsg = "سفارشی با این کد در صف برش نیست: $code"
-            }
+    // یافتنِ سفارش در صف برش از روی کدِ اسکن‌شده/تایپ‌شده و بازکردنِ دیالوگ
+    fun handleCode(code: String) {
+        val c = code.trim()
+        if (c.isBlank()) return
+        val match = orders.firstOrNull { it.shortCode == c || it.orderCode == c }
+        if (match != null) {
+            cutTarget = match; scanMsg = null
+        } else {
+            scanMsg = "سفارشی با این کد در صف برش نیست: $c"
         }
+    }
+
+    // اسکنِ QR سفارش با دوربین
+    val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
+        result.contents?.let { handleCode(it) }
+    }
+
+    // ---------- ورود دستی کد (وقتی دوربین/اسکنر در دسترس نیست) ----------
+    if (manualCodeOpen) {
+        var typed by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { manualCodeOpen = false },
+            title = { Text("کد سفارش") },
+            text = {
+                OutlinedTextField(
+                    value = typed,
+                    onValueChange = { typed = it },
+                    label = { Text("کد کوتاه یا کد کامل سفارش") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = typed.isNotBlank(),
+                    onClick = { manualCodeOpen = false; handleCode(typed) }
+                ) { Text("باز کردن") }
+            },
+            dismissButton = { TextButton(onClick = { manualCodeOpen = false }) { Text("لغو") } }
+        )
     }
 
     // ---------- دیالوگ ثبت برش ----------
@@ -169,20 +199,30 @@ fun CuttingScreen(
         ) {
             androidx.compose.material3.Button(
                 onClick = {
-                    scanLauncher.launch(
-                        ScanOptions().apply {
-                            setPrompt("QR سفارش را اسکن کنید")
-                            setBeepEnabled(true)
-                            setOrientationLocked(false)
-                            setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                        }
-                    )
+                    // اگر اسکنر به هر دلیل بالا نیامد، به ورودِ دستیِ کد برمی‌گردیم
+                    try {
+                        scanLauncher.launch(
+                            ScanOptions().apply {
+                                setPrompt("QR سفارش را اسکن کنید")
+                                setBeepEnabled(true)
+                                setOrientationLocked(true)
+                                setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                            }
+                        )
+                    } catch (e: Exception) {
+                        scanMsg = "اسکنر باز نشد؛ کد را دستی وارد کنید."
+                        manualCodeOpen = true
+                    }
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(Icons.Default.QrCodeScanner, contentDescription = null)
                 Text("  اسکن QR سفارش")
             }
+            androidx.compose.material3.TextButton(
+                onClick = { manualCodeOpen = true },
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("ورود دستی کد سفارش") }
             scanMsg?.let {
                 Text(
                     it,

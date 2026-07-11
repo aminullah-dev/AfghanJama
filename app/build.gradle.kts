@@ -56,8 +56,10 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.activity:activity-compose:1.9.2")
 
-    // تولید QR برای اسناد (کتابخانهٔ خالص جاوا، بدون وابستگی اندرویدی)
-    implementation("com.google.zxing:core:3.5.3")
+    // تولید QR برای اسناد (کتابخانهٔ خالص جاوا، بدون وابستگی اندرویدی).
+    // نسخه باید با zxing-android-embedded هم‌خوان بماند (4.3.0 ← core 3.4.1)؛
+    // نسخهٔ بالاتر باعث ناسازگاری باینری و کرش هنگام اسکن می‌شود.
+    implementation("com.google.zxing:core:3.4.1")
     // اسکنِ QR با دوربین (Activityِ آماده + مدیریت دسترسی دوربین)
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
 
