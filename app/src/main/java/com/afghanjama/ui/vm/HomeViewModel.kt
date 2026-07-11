@@ -7,6 +7,7 @@ import com.afghanjama.data.repo.Repo
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 /** خلاصهٔ زندهٔ کارگاه برای داشبورد صفحهٔ اصلی. */
@@ -56,4 +57,10 @@ class HomeViewModel(repo: Repo) : ViewModel() {
         combine(base, repo.observeFinishedStock()) { s, finished ->
             s.copy(finishedPieces = finished.sumOf { it.qty })
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeSummary())
+
+    /** بازه‌های بازِ حضور (کارمندانِ داخل کارگاه) برای ساعتِ شیفتِ داشبورد. */
+    val insideNow: StateFlow<List<com.afghanjama.data.entities.AttendanceRecord>> =
+        repo.observeAttendance()
+            .map { list -> list.filter { it.checkOut == null } }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 }

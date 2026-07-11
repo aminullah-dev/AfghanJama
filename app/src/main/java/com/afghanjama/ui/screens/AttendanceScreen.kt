@@ -28,8 +28,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -39,7 +43,10 @@ import androidx.fragment.app.FragmentActivity
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.vm.AttendanceViewModel
+import com.afghanjama.ui.format.elapsedHm
 import com.afghanjama.util.BiometricAuth
+import com.afghanjama.work.ShiftReminderWorker
+import kotlinx.coroutines.delay
 
 private fun clock(millis: Long): String = PersianDate.shortWithTime(millis)
 
@@ -57,7 +64,17 @@ fun AttendanceScreen(
 ) {
     val employees by vm.employees.collectAsState()
     val records by vm.records.collectAsState()
-    val activity = LocalContext.current as? FragmentActivity
+    val context = LocalContext.current
+    val activity = context as? FragmentActivity
+
+    // ساعتِ زنده: مدتِ حضورِ هر کارمند هر ۳۰ ثانیه به‌روز می‌شود
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(30_000)
+            now = System.currentTimeMillis()
+        }
+    }
 
     fun gate(title: String, action: () -> Unit) {
         if (activity != null) {
@@ -120,16 +137,36 @@ fun AttendanceScreen(
                         ) {
                             Column(Modifier.weight(1f)) {
                                 Text(e.name, fontWeight = FontWeight.SemiBold)
+                                val nearShiftEnd = e.isIn && e.since != null &&
+                                    (now - e.since) >= ShiftReminderWorker.WARN_AFTER_MS
                                 Text(
-                                    if (e.isIn && e.since != null) "داخل — از ${clock(e.since)}" else "بیرون",
+                                    if (e.isIn && e.since != null)
+                                        "داخل — از ${clock(e.since)} • ${elapsedHm(e.since, now)} ساعت"
+                                    else "بیرون",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = if (e.isIn) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = when {
+                                        nearShiftEnd -> MaterialTheme.colorScheme.error
+                                        e.isIn -> MaterialTheme.colorScheme.primary
+                                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                    }
                                 )
+                                if (nearShiftEnd) {
+                                    Text(
+                                        "⚠ نزدیک پایان شیفت ۸ ساعته — خروج را ثبت کنید",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.error,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
                             }
                             if (e.isIn) {
                                 Button(
-                                    onClick = { gate("ثبت خروج ${e.name}") { vm.checkOut(e.name) } },
+                                    onClick = {
+                                        gate("ثبت خروج ${e.name}") {
+                                            vm.checkOut(e.name)
+                                            ShiftReminderWorker.cancel(context, e.name)
+                                        }
+                                    },
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = MaterialTheme.colorScheme.errorContainer,
                                         contentColor = MaterialTheme.colorScheme.onErrorContainer
@@ -140,7 +177,12 @@ fun AttendanceScreen(
                                     Text("خروج")
                                 }
                             } else {
-                                Button(onClick = { gate("ثبت ورود ${e.name}") { vm.checkIn(e.name) } }) {
+                                Button(onClick = {
+                                    gate("ثبت ورود ${e.name}") {
+                                        vm.checkIn(e.name)
+                                        ShiftReminderWorker.schedule(context, e.name)
+                                    }
+                                }) {
                                     Icon(Icons.Default.Fingerprint, contentDescription = null)
                                     Spacer(Modifier.width(6.dp))
                                     Text("ورود")

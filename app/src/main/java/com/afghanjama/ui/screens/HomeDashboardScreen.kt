@@ -35,16 +35,23 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.afghanjama.ui.format.afn
+import com.afghanjama.ui.format.elapsedHm
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.vm.HomeViewModel
+import com.afghanjama.work.ShiftReminderWorker
+import kotlinx.coroutines.delay
 
 private data class HomeAction(
     val label: String,
@@ -74,6 +81,16 @@ fun HomeDashboardScreen(
     onGoSettings: () -> Unit
 ) {
     val s by vm.summary.collectAsState()
+    val insideNow by vm.insideNow.collectAsState()
+
+    // ساعتِ شیفت: هر ۳۰ ثانیه تیک می‌خورد تا مدتِ حضورِ باز دیده شود
+    var nowTick by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(insideNow.isNotEmpty()) {
+        while (insideNow.isNotEmpty()) {
+            nowTick = System.currentTimeMillis()
+            delay(30_000)
+        }
+    }
 
     // جریان اصلی «تولید انبار» (make-to-stock)
     val stockFlow = buildList {
@@ -126,6 +143,40 @@ fun HomeDashboardScreen(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+        }
+
+        // ---------- ساعتِ شیفت (وقتی ورودی باز است) ----------
+        if (insideNow.isNotEmpty()) {
+            item(span = { fullSpan() }) {
+                val oldest = insideNow.minByOrNull { it.checkIn }!!
+                val nearEnd = insideNow.any {
+                    (nowTick - it.checkIn) >= ShiftReminderWorker.WARN_AFTER_MS
+                }
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (nearEnd) MaterialTheme.colorScheme.errorContainer
+                        else MaterialTheme.colorScheme.secondaryContainer
+                    )
+                ) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            "🕐 ${insideNow.size.fa()} کارمند در کارگاه — قدیمی‌ترین ورود: ${elapsedHm(oldest.checkIn, nowTick)} ساعت پیش",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (nearEnd) MaterialTheme.colorScheme.onErrorContainer
+                            else MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        Text(
+                            if (nearEnd) "⚠ شیفت ۸ ساعته رو به پایان است — خروج‌ها را ثبت کنید"
+                            else "یادآور پایان شیفت (۸ ساعت) فعال است؛ ۳۰ دقیقه قبل با لرزش خبر می‌دهد.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (nearEnd) MaterialTheme.colorScheme.onErrorContainer
+                            else MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
+                }
             }
         }
 
