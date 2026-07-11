@@ -87,8 +87,20 @@ interface MasterDataDao {
     @Query("UPDATE design_items SET code = :code WHERE id = :id")
     suspend fun setDesignCode(id: Long, code: String)
 
+    @Query("UPDATE design_items SET code = :code WHERE title = :title")
+    suspend fun setDesignCodeByTitle(title: String, code: String)
+
     @Query("DELETE FROM design_items WHERE id = :id")
     suspend fun deleteDesign(id: Long)
+
+    // ----------------------------
+    // Staff (کارکنان: آشپز، حسابدار، مدیر، …)
+    // ----------------------------
+    @Query("SELECT * FROM staff ORDER BY name ASC")
+    fun observeStaff(): Flow<List<com.afghanjama.data.entities.Staff>>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertStaff(item: com.afghanjama.data.entities.Staff)
 
 
     // ----------------------------

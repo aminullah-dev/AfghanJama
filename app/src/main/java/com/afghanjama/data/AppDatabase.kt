@@ -54,6 +54,7 @@ import com.afghanjama.data.entities.QcRecord
 import com.afghanjama.data.entities.PurchaseItem
 import com.afghanjama.data.entities.SewingAssignment
 import com.afghanjama.data.entities.SizeItem
+import com.afghanjama.data.entities.Staff
 import com.afghanjama.data.entities.StockMovement
 import com.afghanjama.data.entities.SupplierLedger
 import com.afghanjama.data.entities.Tailor
@@ -94,9 +95,10 @@ import com.afghanjama.data.entities.WorkCost
         AttendanceRecord::class,
         Party::class,
         LedgerEntry::class,
-        Document::class
+        Document::class,
+        Staff::class
     ],
-    version = 40,
+    version = 41,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -132,7 +134,7 @@ val ALL_MIGRATIONS = arrayOf(
     MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30, MIGRATION_30_31,
     MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35,
     MIGRATION_35_36, MIGRATION_36_37, MIGRATION_37_38, MIGRATION_38_39,
-    MIGRATION_39_40
+    MIGRATION_39_40, MIGRATION_40_41
 )
 
 const val DB_NAME = "afghanjama.db"

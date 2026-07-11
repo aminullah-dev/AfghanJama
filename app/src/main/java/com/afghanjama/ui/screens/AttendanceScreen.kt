@@ -98,7 +98,7 @@ fun AttendanceScreen(
             if (employees.isEmpty()) {
                 item {
                     Text(
-                        "کارمندی ثبت نشده. خیاط‌ها و ناظرها را از «اطلاعات پایه» اضافه کنید.",
+                        "کارمندی ثبت نشده. خیاط‌ها، ناظرها و کارکنان را از «اطلاعات پایه» اضافه کنید.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 12.dp)
                     )

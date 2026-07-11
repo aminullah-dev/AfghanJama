@@ -24,14 +24,15 @@ class AttendanceViewModel(private val repo: Repo) : ViewModel() {
         repo.observeAttendance()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    /** فهرست کارمندان (خیاط‌ها + ناظرها) با وضعیت حضور. */
+    /** فهرست کارمندان (خیاط‌ها + ناظرها + کارکنان) با وضعیت حضور. */
     val employees: StateFlow<List<EmployeeAttendance>> =
         combine(
             repo.observeTailors(),
             repo.observeInspectors(),
+            repo.observeStaff(),
             repo.observeAttendance()
-        ) { tailors, inspectors, recs ->
-            val names = (tailors.map { it.name } + inspectors.map { it.name })
+        ) { tailors, inspectors, staff, recs ->
+            val names = (tailors.map { it.name } + inspectors.map { it.name } + staff.map { it.name })
                 .map { it.trim() }
                 .filter { it.isNotEmpty() }
                 .distinct()

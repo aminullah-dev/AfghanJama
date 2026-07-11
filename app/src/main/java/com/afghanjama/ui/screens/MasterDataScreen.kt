@@ -64,10 +64,10 @@ fun MasterDataScreen(
     val designs by vm.designs.collectAsState()
     val customers by vm.customers.collectAsState()
     val workCosts by vm.workCosts.collectAsState()
+    val staff by vm.staff.collectAsState()
 
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    // ✅ تب جدید “خرج کار”
-    val tabs = listOf("نوع پارچه", "رنگ", "سایز", "خیاط", "ناظر", "طرح", "خریدار", "خرج کار")
+    val tabs = listOf("نوع پارچه", "رنگ", "سایز", "خیاط", "ناظر", "طرح", "خریدار", "خرج کار", "کارکنان")
 
     Scaffold(
         topBar = {
@@ -146,11 +146,15 @@ fun MasterDataScreen(
                         onAdd = { code, name -> vm.addInspector(code, name, null) }
                     )
 
-                    5 -> SimpleListEditor(
-                        title = "طرح‌های دوخت",
-                        hint = "مثلاً: یقه دیپلمات، مجلسی…",
-                        items = designs.map { it.title },
-                        onAdd = { vm.addDesign(it) }
+                    5 -> TwoFieldListEditor(
+                        title = "طرح‌های دوخت — کدِ اختصاصیِ کارگاه را خودتان وارد کنید",
+                        hint1 = "نام طرح (مثلاً یقه دیپلمات)",
+                        hint2 = "کد اختصاصی طرح (مثلاً DIP-12)",
+                        items = designs.map { d ->
+                            (if (d.code.isNotBlank()) "[${d.code}] " else "") + d.title
+                        },
+                        // ثبتِ دوبارهٔ همان نام با کدِ جدید = اصلاحِ کدِ طرح
+                        onAdd = { title, code -> vm.addDesign(title, code) }
                     )
 
                     6 -> TwoFieldListEditor(
@@ -167,6 +171,16 @@ fun MasterDataScreen(
                         onAdd = { title, price -> vm.addWorkCost(title, price) },
                         onEdit = { id, title, price -> vm.updateWorkCost(id, title, price) },
                         onDelete = { id -> vm.deleteWorkCost(id) }
+                    )
+
+                    8 -> TwoFieldListEditor(
+                        title = "کارکنان کارگاه (برای حضور و غیاب و حساب کارمند)",
+                        hint1 = "نام کارمند",
+                        hint2 = "سمت (آشپز، حسابدار، مدیر، …)",
+                        items = staff.map { s ->
+                            s.name + (if (s.role.isNotBlank()) " — ${s.role}" else "")
+                        },
+                        onAdd = { name, role -> vm.addStaff(name, role) }
                     )
                 }
             }

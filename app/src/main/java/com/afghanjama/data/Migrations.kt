@@ -579,3 +579,21 @@ val MIGRATION_39_40 = object : Migration(39, 40) {
         db.execSQL("UPDATE design_items SET code = printf('D-%03d', id) WHERE code = ''")
     }
 }
+
+/**
+ * کارکنانِ کارگاه با هر سمتی (آشپز، حسابدار، مدیر، …) برای حضور و غیاب
+ * و حسابِ کارکنان در دفتر کل.
+ */
+val MIGRATION_40_41 = object : Migration(40, 41) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `staff` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`name` TEXT NOT NULL, `role` TEXT NOT NULL, " +
+                "`createdAt` INTEGER NOT NULL)"
+        )
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_staff_name` ON `staff` (`name`)"
+        )
+    }
+}

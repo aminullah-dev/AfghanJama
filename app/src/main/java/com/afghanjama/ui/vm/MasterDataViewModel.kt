@@ -51,6 +51,15 @@ class MasterDataViewModel(private val repo: Repo) : ViewModel() {
         repo.observeWorkCosts()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    // کارکنان (آشپز، حسابدار، مدیر، …)
+    val staff: StateFlow<List<com.afghanjama.data.entities.Staff>> =
+        repo.observeStaff()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun addStaff(name: String, role: String) = viewModelScope.launch {
+        repo.addStaff(name, role)
+    }
+
     fun addFabricType(title: String) = viewModelScope.launch {
         repo.addFabricType(FabricType(id = 0L, title = title.trim()))
     }
@@ -71,8 +80,9 @@ class MasterDataViewModel(private val repo: Repo) : ViewModel() {
         repo.addInspector(Inspector(id = 0L, code = code.trim(), name = name.trim(), phone = phone?.trim()?.ifBlank { null }))
     }
 
-    fun addDesign(title: String) = viewModelScope.launch {
-        repo.addDesign(DesignItem(id = 0L, title = title.trim()))
+    /** ثبت طرح با کدِ اختصاصیِ کاربر؛ کدِ خالی = تولید خودکار. */
+    fun addDesign(title: String, code: String = "") = viewModelScope.launch {
+        repo.addDesign(DesignItem(id = 0L, title = title.trim(), code = code.trim()))
     }
 
     fun addCustomer(name: String, phone: String? = null) = viewModelScope.launch {

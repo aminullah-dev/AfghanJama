@@ -79,11 +79,11 @@ class ProductionViewModel(private val repo: Repo) : ViewModel() {
             .map { list -> list.associate { it.title to it.total } }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
-    /** افزودنِ همان‌لحظه‌ایِ طرح تایپ‌شده به کاتالوگ (دکمهٔ +). */
-    fun addDesignToCatalog(title: String) = viewModelScope.launch {
+    /** افزودنِ همان‌لحظه‌ایِ طرح تایپ‌شده به کاتالوگ (دکمهٔ +) با کدِ کارگاه. */
+    fun addDesignToCatalog(title: String, code: String = "") = viewModelScope.launch {
         val t = title.trim()
         if (t.isNotBlank()) {
-            repo.addDesign(DesignItem(title = t))
+            repo.addDesign(DesignItem(title = t, code = code.trim()))
             _ui.update { it.copy(designTitle = t, message = null, isError = false) }
         }
     }

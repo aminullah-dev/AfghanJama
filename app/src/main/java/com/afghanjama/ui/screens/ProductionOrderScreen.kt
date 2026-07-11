@@ -64,6 +64,37 @@ fun ProductionOrderScreen(
     var pickerOpen by remember { mutableStateOf(false) }
     var designMenu by remember { mutableStateOf(false) }
     var sizeMenu by remember { mutableStateOf(false) }
+    var addDesignOpen by remember { mutableStateOf(false) }
+    var newDesignCode by remember { mutableStateOf("") }
+
+    // ---------- ثبت طرح جدید در کاتالوگ با کدِ اختصاصیِ کارگاه ----------
+    if (addDesignOpen) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { addDesignOpen = false },
+            title = { Text("ثبت طرح در کاتالوگ") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("نام طرح: ${ui.designTitle}")
+                    OutlinedTextField(
+                        value = newDesignCode,
+                        onValueChange = { newDesignCode = it },
+                        label = { Text("کد اختصاصی طرح (کد کارگاه؛ خالی = خودکار)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    vm.addDesignToCatalog(ui.designTitle, newDesignCode)
+                    addDesignOpen = false; newDesignCode = ""
+                }) { Text("ثبت") }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { addDesignOpen = false }) { Text("لغو") }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -110,7 +141,7 @@ fun ProductionOrderScreen(
                                 Text(if (designs.isEmpty()) "فهرست طرح خالی است" else "انتخاب از طرح‌های ثبت‌شده")
                             }
                             IconButton(
-                                onClick = { vm.addDesignToCatalog(ui.designTitle) },
+                                onClick = { addDesignOpen = true },
                                 enabled = ui.designTitle.isNotBlank()
                             ) {
                                 Icon(Icons.Default.Add, contentDescription = "افزودن طرح به کاتالوگ")
