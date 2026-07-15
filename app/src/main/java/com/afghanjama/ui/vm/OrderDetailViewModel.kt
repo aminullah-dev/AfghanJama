@@ -190,7 +190,7 @@ class OrderDetailViewModel(private val repo: Repo) : ViewModel() {
             return@launch
         }
 
-        repo.spend("WALLET", refund, "برگشتی فروش سفارش ${o.orderCode}", category = "برگشتی فروش")
+        repo.recordSaleRefund(o.orderCode, refund)
         repo.addCustomerPayment(
             CustomerPayment(
                 orderId = o.id.toString(),

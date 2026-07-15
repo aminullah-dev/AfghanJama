@@ -605,6 +605,102 @@ val MIGRATION_40_41 = object : Migration(40, 41) {
  * ازپیش‌ثبت‌شدهٔ مشتری‌اش خنثی می‌شود — چون از این نسخه، فروش فقط از
  * انبار محصول انجام می‌شود و صفحهٔ «فروش سفارش» حذف شده است.
  */
+/**
+ * حسابداری دوطرفه: جدول‌های ژورنال + سندِ افتتاحیه از وضعیتِ فعلیِ کارگاه
+ * (نقد، بانک، انبارها، دریافتنی/پرداختنی) تا دفترها از روز اول تراز باشند؛
+ * مابه‌التفاوت به حساب «سرمایه» می‌نشیند.
+ */
+val MIGRATION_42_43 = object : Migration(42, 43) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `journal_entries` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`memo` TEXT NOT NULL, `refType` TEXT NOT NULL, " +
+                "`refId` TEXT NOT NULL, `at` INTEGER NOT NULL)"
+        )
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `journal_lines` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`entryId` INTEGER NOT NULL, `account` TEXT NOT NULL, " +
+                "`debit` INTEGER NOT NULL, `credit` INTEGER NOT NULL)"
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_journal_lines_entryId` ON `journal_lines` (`entryId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_journal_lines_account` ON `journal_lines` (`account`)")
+
+        fun scalarLong(sql: String): Long {
+            val c = db.query(sql)
+            val v = if (c.moveToFirst()) c.getLong(0) else 0L
+            c.close()
+            return v
+        }
+
+        fun boxBalance(source: String): Long = scalarLong(
+            "SELECT COALESCE(SUM(CASE WHEN type='IN' THEN amount ELSE -amount END),0) " +
+                "FROM finance_transactions WHERE source='$source'"
+        )
+
+        val wallet = boxBalance("WALLET")
+        val bank = boxBalance("BANK")
+        val profitBox = boxBalance("PROFIT")
+        val materials = scalarLong(
+            "SELECT COALESCE(CAST(SUM(amount * avgPrice) AS INTEGER),0) FROM material_stock"
+        )
+        val finished = scalarLong(
+            "SELECT COALESCE(SUM(qty * avgCost),0) FROM finished_stock"
+        )
+        // دریافتنی: مشتریانِ با ماندهٔ بدهکار در دفتر کل
+        var receivable = 0L
+        var supplierPayable = 0L
+        val lc = db.query(
+            "SELECT partyType, SUM(debit) - SUM(credit) AS net FROM ledger_entries " +
+                "GROUP BY partyType, partyName"
+        )
+        while (lc.moveToNext()) {
+            val type = lc.getString(0)
+            val net = lc.getLong(1)
+            if (type == "CUSTOMER" && net > 0) receivable += net
+            if (type == "SUPPLIER" && net < 0) supplierPayable += -net
+        }
+        lc.close()
+        val wagesPayable = scalarLong(
+            "SELECT COALESCE(SUM(amount),0) FROM tailor_wages WHERE settled = 0"
+        )
+
+        val assets = wallet + bank + profitBox + materials + finished + receivable
+        val liabilities = supplierPayable + wagesPayable
+        if (assets == 0L && liabilities == 0L) return
+        val equity = assets - liabilities   // مانده به سرمایه
+
+        val now = System.currentTimeMillis()
+        db.execSQL(
+            "INSERT INTO journal_entries (memo, refType, refId, at) " +
+                "VALUES ('سند افتتاحیه — انتقال مانده‌های موجود', 'OPENING', '', $now)"
+        )
+        val entryId = scalarLong("SELECT last_insert_rowid()")
+
+        fun line(account: String, debit: Long, credit: Long) {
+            if (debit == 0L && credit == 0L) return
+            db.execSQL(
+                "INSERT INTO journal_lines (entryId, account, debit, credit) " +
+                    "VALUES (?, ?, ?, ?)",
+                arrayOf<Any>(entryId, account, debit, credit)
+            )
+        }
+        fun asset(account: String, v: Long) =
+            if (v >= 0) line(account, v, 0) else line(account, 0, -v)
+
+        asset("1010", wallet)
+        asset("1020", bank)
+        asset("1015", profitBox)
+        asset("1040", materials)
+        asset("1050", finished)
+        asset("1030", receivable)
+        line("2010", 0, supplierPayable)
+        line("2020", 0, wagesPayable)
+        if (equity >= 0) line("3010", 0, equity) else line("3010", -equity, 0)
+    }
+}
+
 val MIGRATION_41_42 = object : Migration(41, 42) {
     override fun migrate(db: SupportSQLiteDatabase) {
         val now = System.currentTimeMillis()

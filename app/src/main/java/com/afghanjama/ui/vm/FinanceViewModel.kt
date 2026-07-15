@@ -38,17 +38,17 @@ class FinanceViewModel(private val repo: Repo) : ViewModel() {
 
     fun incomeWallet(amount: Long, note: String) =
         viewModelScope.launch {
-            repo.income("WALLET", amount, note)
+            repo.recordManualCash("WALLET", amount, isIn = true, note = note)
         }
 
     fun incomeProfit(amount: Long, note: String) =
         viewModelScope.launch {
-            repo.income("PROFIT", amount, note)
+            repo.recordManualCash("PROFIT", amount, isIn = true, note = note)
         }
 
     fun spendWallet(amount: Long, note: String) =
         viewModelScope.launch {
-            repo.spend("WALLET", amount, note)
+            repo.recordManualCash("WALLET", amount, isIn = false, note = note)
         }
 
     /** حذف تراکنش (اصلاح اشتباه). */
@@ -65,16 +65,16 @@ class FinanceViewModel(private val repo: Repo) : ViewModel() {
     fun addExpense(category: String, amount: Long, note: String) =
         viewModelScope.launch {
             if (amount <= 0L || category.isBlank()) return@launch
-            repo.spend(
+            repo.recordExpense(
                 source = "WALLET",
+                category = category,
                 amount = amount,
-                note = note.trim().ifBlank { "هزینه: $category" },
-                category = category
+                note = note.trim().ifBlank { "هزینه: $category" }
             )
         }
 
     fun spendProfit(amount: Long, note: String) =
         viewModelScope.launch {
-            repo.spend("PROFIT", amount, note)
+            repo.recordManualCash("PROFIT", amount, isIn = false, note = note)
         }
 }

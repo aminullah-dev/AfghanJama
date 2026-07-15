@@ -13,7 +13,10 @@ import com.afghanjama.data.CodeGen
 import com.afghanjama.data.entities.FabricType
 import com.afghanjama.data.entities.FinishedSale
 import com.afghanjama.data.entities.FinishedStock
+import com.afghanjama.data.entities.Accounts
 import com.afghanjama.data.entities.Inspector
+import com.afghanjama.data.entities.JournalEntry
+import com.afghanjama.data.entities.JournalLine
 import com.afghanjama.data.entities.LedgerEntry
 import com.afghanjama.data.entities.MaterialStock
 import com.afghanjama.data.entities.Party
@@ -207,6 +210,16 @@ class Repo(private val db: AppDatabase) {
                         reason = "مصرف برش", note = "سفارش ${order.orderCode}"
                     )
                 }
+            // ژورنال: ارزشِ موادِ مصرفی از انبار به «کار در جریان» می‌رود
+            if (order.fabricPrice > 0) {
+                postJournal(
+                    "مصرف مواد در برش ${order.orderCode}", "CUTTING", order.orderCode,
+                    listOf(
+                        jl(Accounts.WIP, debit = order.fabricPrice),
+                        jl(Accounts.MATERIALS, credit = order.fabricPrice)
+                    )
+                )
+            }
         }
         changeOrderStatus(order, OrderStatus.CUT_DONE.name) { it.copy(materialsConsumed = true) }
     }
@@ -352,6 +365,14 @@ class Repo(private val db: AppDatabase) {
             )
             // آینه در دفتر کل: کارمزدِ کسب‌شده → بستانکارِ حساب خیاط
             postLedger("TAILOR", a.tailorLabel, 0, done.totalWage, "WAGE", a.orderCode)
+            // ژورنال: دستمزدِ دوخت واردِ بهای «کار در جریان»؛ بدهی به خیاط
+            postJournal(
+                "کارمزد دوخت ${a.orderCode} — ${a.tailorLabel}", "WAGE", a.orderCode,
+                listOf(
+                    jl(Accounts.WIP, debit = done.totalWage),
+                    jl(Accounts.WAGES_PAYABLE, credit = done.totalWage)
+                )
+            )
         }
 
         val orderFetched = db.orderDao().getById(java.util.UUID.fromString(a.orderId)) ?: return
@@ -432,6 +453,80 @@ class Repo(private val db: AppDatabase) {
         if (from == to || amount <= 0) return
         spend(from, amount, note)
         income(to, amount, note)
+        postJournal(
+            note, "TRANSFER", "",
+            listOf(
+                jl(Accounts.box(to), debit = amount),
+                jl(Accounts.box(from), credit = amount)
+            )
+        )
+    }
+
+    /** دریافتیِ دستی از مشتری: نقد + حساب مشتری + دفتر کل + ژورنال، یک‌جا. */
+    suspend fun recordCustomerReceipt(name: String, amount: Long, note: String = "") {
+        if (name.isBlank() || amount <= 0) return
+        val n = note.ifBlank { "دریافتی از $name" }
+        income("WALLET", amount, n)
+        addCustomerPayment(
+            CustomerPayment(orderId = "", customerName = name, amount = amount, source = "MANUAL", note = n)
+        )
+        postJournal(
+            n, "CUSTOMER_RECEIPT", "",
+            listOf(
+                jl(Accounts.CASH, debit = amount),
+                jl(Accounts.RECEIVABLE, credit = amount)
+            )
+        )
+    }
+
+    /** برگشتیِ فروش: خروجِ نقدِ مسترد + ژورنالِ برگشتِ درآمد. */
+    suspend fun recordSaleRefund(orderCode: String, refund: Long) {
+        if (refund <= 0) return
+        spend("WALLET", refund, "برگشتی فروش سفارش $orderCode", category = "برگشتی فروش")
+        postJournal(
+            "برگشتی فروش $orderCode", "SALE_RETURN", orderCode,
+            listOf(
+                jl(Accounts.SALES, debit = refund),
+                jl(Accounts.CASH, credit = refund)
+            )
+        )
+    }
+
+    /** هزینهٔ عمومی (کرایه، برق، معاش...): خروجِ نقد + ثبتِ ژورنالِ هزینه. */
+    suspend fun recordExpense(source: String, category: String, amount: Long, note: String) {
+        if (amount <= 0) return
+        spend(source, amount, note, category = category)
+        postJournal(
+            note.ifBlank { "هزینه: $category" }, "EXPENSE", "",
+            listOf(
+                jl(Accounts.EXPENSES, debit = amount),
+                jl(Accounts.box(source), credit = amount)
+            )
+        )
+    }
+
+    /** ورود/خروجِ دستیِ نقد (اصلاحِ صندوق): در برابرِ سایر درآمد/هزینه. */
+    suspend fun recordManualCash(source: String, amount: Long, isIn: Boolean, note: String) {
+        if (amount <= 0) return
+        if (isIn) {
+            income(source, amount, note)
+            postJournal(
+                note.ifBlank { "دریافت دستی" }, "MANUAL_CASH", "",
+                listOf(
+                    jl(Accounts.box(source), debit = amount),
+                    jl(Accounts.OTHER_INCOME, credit = amount)
+                )
+            )
+        } else {
+            spend(source, amount, note)
+            postJournal(
+                note.ifBlank { "پرداخت دستی" }, "MANUAL_CASH", "",
+                listOf(
+                    jl(Accounts.EXPENSES, debit = amount),
+                    jl(Accounts.box(source), credit = amount)
+                )
+            )
+        }
     }
 
     /** یکپارچه‌سازی WAL قبل از پشتیبان‌گیری فایل دیتابیس. */
@@ -467,6 +562,14 @@ class Repo(private val db: AppDatabase) {
         postLedger("TAILOR", tailorLabel, total, 0, "WAGE_PAID", note = "تسویه کارمزد")
         // رسیدِ تسویهٔ کارمزد
         createDocument("WAGE_RECEIPT", tailorLabel, total, note = "تسویه کارمزد دوخت")
+        // ژورنال: کاهشِ بدهیِ کارمزد در برابر خروجِ نقد
+        postJournal(
+            "تسویه کارمزد $tailorLabel", "WAGE_PAID", "",
+            listOf(
+                jl(Accounts.WAGES_PAYABLE, debit = total),
+                jl(Accounts.CASH, credit = total)
+            )
+        )
     }
 
     // =========================
@@ -512,6 +615,41 @@ class Repo(private val db: AppDatabase) {
 
     fun observeAllLedgerEntries(): Flow<List<LedgerEntry>> =
         db.ledgerDao().observeAllEntries()
+
+    // =========================
+    // Double-entry journal (ژورنالِ حسابداری دوطرفه)
+    // =========================
+
+    fun observeAccountBalances(): Flow<List<com.afghanjama.data.dao.AccountBalance>> =
+        db.journalDao().observeAccountBalances()
+
+    fun observeJournalEntries(): Flow<List<JournalEntry>> =
+        db.journalDao().observeRecentEntries()
+
+    /** یک سطرِ سند (کمکی برای خوانایی). */
+    private fun jl(account: String, debit: Long = 0, credit: Long = 0) =
+        JournalLine(entryId = 0, account = account, debit = debit, credit = credit)
+
+    /**
+     * ثبتِ سندِ دوطرفه. فقط وقتی می‌نویسد که تراز باشد (جمع بدهکار =
+     * جمع بستانکار و بزرگ‌تر از صفر)؛ سندِ نامتراز بی‌صدا رد می‌شود تا
+     * عملیاتِ کارگاه هرگز به‌خاطر حسابداری متوقف نشود.
+     */
+    private suspend fun postJournal(
+        memo: String,
+        refType: String,
+        refId: String,
+        lines: List<JournalLine>
+    ) {
+        val rows = lines.filter { it.debit > 0 || it.credit > 0 }
+        val dr = rows.sumOf { it.debit }
+        val cr = rows.sumOf { it.credit }
+        if (dr <= 0 || dr != cr) return
+        val entryId = db.journalDao().insertEntry(
+            JournalEntry(memo = memo, refType = refType, refId = refId)
+        )
+        db.journalDao().insertLines(rows.map { it.copy(entryId = entryId) })
+    }
 
     // =========================
     // Documents (اسنادِ مالی با شمارهٔ یکتا)
@@ -603,10 +741,34 @@ class Repo(private val db: AppDatabase) {
             spend(paySource, amount, note.ifBlank { "پرداخت به $name" }, category = "پرداخت دستی")
             postLedger(type, name, amount, 0, "MANUAL", note = note)
             createDocument("PAYMENT", name, amount, note = note.ifBlank { "پرداخت نقدی" })
+            postJournal(
+                "پرداخت به $name", "MANUAL", "",
+                listOf(
+                    jl(
+                        when (type) {
+                            "TAILOR" -> Accounts.WAGES_PAYABLE
+                            "CUSTOMER" -> Accounts.RECEIVABLE
+                            else -> Accounts.EXPENSES
+                        },
+                        debit = amount
+                    ),
+                    jl(Accounts.box(paySource), credit = amount)
+                )
+            )
         } else {
             income(paySource, amount, note.ifBlank { "دریافت از $name" })
             postLedger(type, name, 0, amount, "MANUAL", note = note)
             createDocument("RECEIPT", name, amount, note = note.ifBlank { "دریافت نقدی" })
+            postJournal(
+                "دریافت از $name", "MANUAL", "",
+                listOf(
+                    jl(Accounts.box(paySource), debit = amount),
+                    jl(
+                        if (type == "CUSTOMER") Accounts.RECEIVABLE else Accounts.OTHER_INCOME,
+                        credit = amount
+                    )
+                )
+            )
         }
         return true
     }
@@ -745,6 +907,19 @@ class Repo(private val db: AppDatabase) {
             "PURCHASE", invoice.supplier.ifBlank { "نامشخص" }, invoice.total,
             invoice.code, "خرید مواد"
         )
+        // ژورنال: موادِ خریداری‌شده وارد دارایی؛ در برابرِ نقد یا بدهی
+        if (invoice.total > 0) {
+            val creditAccount =
+                if (invoice.paySource == "CREDIT") Accounts.PAYABLE
+                else Accounts.box(invoice.paySource)
+            postJournal(
+                "خرید مواد ${invoice.code}", "PURCHASE", invoice.code,
+                listOf(
+                    jl(Accounts.MATERIALS, debit = invoice.total),
+                    jl(creditAccount, credit = invoice.total)
+                )
+            )
+        }
     }
 
     // =========================
@@ -775,6 +950,14 @@ class Repo(private val db: AppDatabase) {
         postLedger("SUPPLIER", supplier, amount, 0, "SUPPLIER_PAYMENT", note = note)
         // رسیدِ پرداخت به فروشنده
         createDocument("SUPPLIER_PAYMENT", supplier, amount, note = note.ifBlank { "تسویه قرض" })
+        // ژورنال: کاهشِ بدهی در برابرِ خروجِ نقد
+        postJournal(
+            "تسویه قرض $supplier", "SUPPLIER_PAYMENT", "",
+            listOf(
+                jl(Accounts.PAYABLE, debit = amount),
+                jl(Accounts.box(paySource), credit = amount)
+            )
+        )
     }
 
     // =========================
@@ -806,10 +989,22 @@ class Repo(private val db: AppDatabase) {
      * سفارش به STORED (بایگانی تولید) تغییر می‌کند.
      */
     suspend fun depositOrderToFinished(order: Order) {
-        val perPieceCost = if (order.qty > 0)
-            (order.fabricPrice + order.workCost + order.sewingCost) / order.qty else 0L
+        val totalCost = order.fabricPrice + order.workCost + order.sewingCost
+        val perPieceCost = if (order.qty > 0) totalCost / order.qty else 0L
         addFinishedStock(order.designTitle, order.size, order.qty, perPieceCost)
         changeOrderStatus(order, OrderStatus.STORED.name)
+        // ژورنال: بهای تمام‌شده از «کار در جریان» به «موجودی محصول» می‌رود؛
+        // اگر برگشتی از فروش باشد (SENT)، از «بهای تمام‌شدهٔ فروش» برمی‌گردد.
+        if (totalCost > 0) {
+            val from = if (order.status == OrderStatus.SENT.name) Accounts.COGS else Accounts.WIP
+            postJournal(
+                "ورود به انبار محصول ${order.orderCode}", "TO_FINISHED", order.orderCode,
+                listOf(
+                    jl(Accounts.FINISHED, debit = totalCost),
+                    jl(from, credit = totalCost)
+                )
+            )
+        }
         // سفارش تبدیل به موجودیِ بی‌نامِ انبار شد؛ بدهیِ ازپیش‌ثبت‌شدهٔ مشتری
         // (SALE_BILLING هنگام ثبت سفارش) خنثی می‌شود — فروشِ واقعی هنگام
         // فروش از انبار محصول حساب و صورت‌حساب می‌شود.
@@ -877,6 +1072,25 @@ class Repo(private val db: AppDatabase) {
             "SALE", customerName, revenue, code,
             "فروش $qty عدد «${item.name}»"
         )
+        // ژورنال: درآمدِ فروش + خروجِ بهای تمام‌شده + انتقالِ سود به صندوق فایده
+        postJournal(
+            "فروش «${item.name}» ($code)", "SALE", code,
+            listOf(
+                jl(Accounts.CASH, debit = revenue),
+                jl(Accounts.SALES, credit = revenue),
+                jl(Accounts.COGS, debit = cost),
+                jl(Accounts.FINISHED, credit = cost)
+            )
+        )
+        if (profit > 0L) {
+            postJournal(
+                "انتقال سود فروش ($code) به صندوق فایده", "PROFIT_MOVE", code,
+                listOf(
+                    jl(Accounts.PROFIT_BOX, debit = profit),
+                    jl(Accounts.CASH, credit = profit)
+                )
+            )
+        }
         return true
     }
 

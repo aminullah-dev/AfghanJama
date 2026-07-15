@@ -79,6 +79,7 @@ fun ReportsScreen(
 ) {
     val r by vm.report.collectAsState()
     val period by vm.period.collectAsState()
+    val tb by vm.trialBalance.collectAsState()
 
     Scaffold(
         topBar = {
@@ -157,6 +158,32 @@ fun ReportsScreen(
                         )
                         r.expenseByCategory.forEach { (cat, amount) ->
                             StatRow(cat, amount.afn())
+                        }
+                    }
+                }
+            }
+
+            // ---------- حسابداری دوطرفه: تراز آزمایشی ----------
+            if (tb.hasData) {
+                item {
+                    SectionCard("حسابداری دوطرفه — تراز آزمایشی") {
+                        Text(
+                            if (tb.balanced)
+                                "✓ دفترها تراز است — جمع هر طرف: ${tb.totalDebit.afn()}"
+                            else
+                                "⚠ عدم تراز! بدهکار ${tb.totalDebit.afn()} ≠ بستانکار ${tb.totalCredit.afn()}",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = if (tb.balanced) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.error
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        tb.rows.forEach { row ->
+                            StatRow(
+                                "${row.label} (${row.code})",
+                                row.shown.afn(),
+                                color = if (row.shown < 0) MaterialTheme.colorScheme.error else null
+                            )
                         }
                     }
                 }

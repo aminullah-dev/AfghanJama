@@ -72,13 +72,9 @@ class CustomerDetailViewModel(private val repo: Repo) : ViewModel() {
 
     fun deleteMeasurement(id: Long) = viewModelScope.launch { repo.deleteMeasurement(id) }
 
-    /** ثبت دریافتی از مشتری (به کیف پول). */
+    /** ثبت دریافتی از مشتری (به کیف پول + حساب مشتری + ژورنال). */
     fun recordPayment(amount: Long) = viewModelScope.launch {
         val name = summary.value.customer?.name ?: return@launch
-        if (amount <= 0) return@launch
-        repo.income("WALLET", amount, "دریافتی از $name")
-        repo.addCustomerPayment(
-            CustomerPayment(orderId = "", customerName = name, amount = amount, source = "MANUAL", note = "دریافتی از $name")
-        )
+        repo.recordCustomerReceipt(name, amount)
     }
 }

@@ -3,6 +3,7 @@ package com.afghanjama.ui.vm
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.afghanjama.data.dao.PartyBalance
+import com.afghanjama.data.entities.Accounts
 import com.afghanjama.data.entities.FinishedSale
 import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.Transaction
@@ -11,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 /** سودِ برآوردیِ یک سفارش = قیمت توافقی − بهای تمام‌شده. */
@@ -53,8 +55,40 @@ private data class RawData(
     val ledger: List<PartyBalance>
 )
 
+/** یک سطرِ ترازِ آزمایشی: حساب و ماندهٔ طبیعی‌اش. */
+data class AccountRow(
+    val code: String,
+    val label: String,
+    /** ماندهٔ نمایشی: دارایی/هزینه = بدهکار−بستانکار؛ بقیه برعکس. */
+    val shown: Long
+)
+
+data class TrialBalance(
+    val rows: List<AccountRow> = emptyList(),
+    val totalDebit: Long = 0,
+    val totalCredit: Long = 0
+) {
+    val hasData: Boolean get() = totalDebit > 0 || totalCredit > 0
+    val balanced: Boolean get() = totalDebit == totalCredit
+}
+
 /** گزارش‌های مدیریتی: محاسبه از داده‌های موجود (بدون جدول جدید). */
 class ReportsViewModel(private val repo: Repo) : ViewModel() {
+
+    /** ترازِ آزمایشیِ ژورنالِ دوطرفه. */
+    val trialBalance: StateFlow<TrialBalance> =
+        repo.observeAccountBalances().map { list ->
+            TrialBalance(
+                rows = list.map { b ->
+                    val natural =
+                        if (b.account.startsWith("1") || b.account.startsWith("5")) b.net
+                        else -b.net
+                    AccountRow(b.account, Accounts.label(b.account), natural)
+                },
+                totalDebit = list.sumOf { it.debit },
+                totalCredit = list.sumOf { it.credit }
+            )
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TrialBalance())
 
     /** بازهٔ گزارش: null = همه، یا تعداد روزِ اخیر (مثلاً ۳۰). */
     private val _period = MutableStateFlow<Int?>(null)
