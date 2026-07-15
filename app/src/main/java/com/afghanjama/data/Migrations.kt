@@ -597,3 +597,68 @@ val MIGRATION_40_41 = object : Migration(40, 41) {
         )
     }
 }
+
+/**
+ * تخلیهٔ مرحلهٔ قدیمیِ «فروش سفارش»: هر سفارشی که هنوز در وضعیت SALES
+ * مانده، با همان منطقِ تحویل به انبار محصول (میانگین وزنی بهای تمام‌شده)
+ * وارد finished_stock می‌شود، بایگانی (STORED) می‌گردد و بدهیِ
+ * ازپیش‌ثبت‌شدهٔ مشتری‌اش خنثی می‌شود — چون از این نسخه، فروش فقط از
+ * انبار محصول انجام می‌شود و صفحهٔ «فروش سفارش» حذف شده است.
+ */
+val MIGRATION_41_42 = object : Migration(41, 42) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        val now = System.currentTimeMillis()
+        val cur = db.query(
+            "SELECT id, orderCode, designTitle, size, qty, fabricPrice, workCost, sewingCost, " +
+                "agreedPrice, customerName FROM orders WHERE status = 'SALES'"
+        )
+        while (cur.moveToNext()) {
+            val id = cur.getString(0)
+            val code = cur.getString(1) ?: ""
+            val title = cur.getString(2) ?: ""
+            val size = cur.getString(3) ?: ""
+            val qty = cur.getInt(4)
+            val cost = cur.getLong(5) + cur.getLong(6) + cur.getLong(7)
+            val agreed = cur.getLong(8)
+            val customer = cur.getString(9) ?: ""
+
+            if (qty > 0) {
+                val per = cost / qty
+                val f = db.query(
+                    "SELECT id, qty, avgCost FROM finished_stock WHERE name = ? AND size = ?",
+                    arrayOf<Any>(title, size)
+                )
+                if (f.moveToFirst()) {
+                    val fid = f.getLong(0)
+                    val newQty = f.getInt(1) + qty
+                    val newAvg =
+                        if (newQty > 0) (f.getInt(1) * f.getLong(2) + qty * per) / newQty else 0L
+                    db.execSQL(
+                        "UPDATE finished_stock SET qty = ?, avgCost = ?, updatedAt = ? WHERE id = ?",
+                        arrayOf<Any>(newQty, newAvg, now, fid)
+                    )
+                } else {
+                    db.execSQL(
+                        "INSERT INTO finished_stock (name, size, qty, avgCost, updatedAt) " +
+                            "VALUES (?, ?, ?, ?, ?)",
+                        arrayOf<Any>(title, size, qty, per, now)
+                    )
+                }
+                f.close()
+            }
+
+            db.execSQL(
+                "UPDATE orders SET status = 'STORED', stageChangedAt = ? WHERE id = ?",
+                arrayOf<Any>(now, id)
+            )
+            if (customer.isNotBlank() && agreed > 0) {
+                db.execSQL(
+                    "INSERT INTO ledger_entries (partyType, partyName, debit, credit, refType, refId, note, at) " +
+                        "VALUES ('CUSTOMER', ?, 0, ?, 'SALE_TO_STOCK', ?, 'انتقال به انبار محصول', ?)",
+                    arrayOf<Any>(customer, agreed, code, now)
+                )
+            }
+        }
+        cur.close()
+    }
+}

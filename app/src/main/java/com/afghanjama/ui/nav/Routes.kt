@@ -19,7 +19,6 @@ object Routes {
     const val CUTTING = "cutting"
     const val SEWING = "sewing"
     const val REVIEW = "review"
-    const val SALES = "sales"
 
     const val FINANCE = "finance"
     const val LEDGER = "ledger"

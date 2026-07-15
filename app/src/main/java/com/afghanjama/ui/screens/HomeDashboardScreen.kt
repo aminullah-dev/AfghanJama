@@ -26,7 +26,6 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.Warehouse
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -75,7 +74,6 @@ fun HomeDashboardScreen(
     onGoFinishedSales: () -> Unit,
     onGoAttendance: () -> Unit,
     onGoCustomers: () -> Unit,
-    onGoSales: () -> Unit,
     onGoFinance: () -> Unit,
     onGoLedger: () -> Unit,
     onGoDocuments: () -> Unit,
@@ -107,7 +105,6 @@ fun HomeDashboardScreen(
     // مشتریان و سفارش
     val customerFlow = buildList {
         add(HomeAction("مشتریان", Icons.Default.Group, onGoCustomers))
-        if (isManager) add(HomeAction("فروش سفارش", Icons.Default.Storefront, onGoSales))
     }
 
     // عمومی

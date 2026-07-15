@@ -200,11 +200,12 @@ class OrderDetailViewModel(private val repo: Repo) : ViewModel() {
                 note = "برگشتی فروش سفارش ${o.orderCode}"
             )
         )
-        repo.changeOrderStatus(o, OrderStatus.SALES.name)
+        // کالای برگشتی دوباره واردِ انبار محصول می‌شود (فروش فقط از انبار است)
+        repo.depositOrderToFinished(o)
 
         _ui.update {
             it.copy(
-                message = "✅ برگشت فروش ثبت شد. اگر سود این فروش قبلاً به فایده منتقل شده، آن را از تب کیف پول اصلاح کنید.",
+                message = "✅ برگشت فروش ثبت شد و کالا به انبار محصول برگشت. اگر سود این فروش قبلاً به فایده منتقل شده، آن را از تب کیف پول اصلاح کنید.",
                 isError = false
             )
         }

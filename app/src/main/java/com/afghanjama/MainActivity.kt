@@ -37,7 +37,6 @@ import com.afghanjama.ui.vm.OrderSearchViewModel
 import com.afghanjama.ui.vm.ProcurementViewModel
 import com.afghanjama.ui.vm.ProductionViewModel
 import com.afghanjama.ui.vm.ReviewViewModel
-import com.afghanjama.ui.vm.SalesViewModel
 import com.afghanjama.ui.vm.SewingViewModel
 import com.afghanjama.ui.vm.StockViewModel
 import com.afghanjama.ui.vm.WarehouseViewModel
@@ -71,7 +70,6 @@ class MainActivity : FragmentActivity() {
                 val cuttingVm = remember { CuttingViewModel(repo) }
                 val sewingVm = remember { SewingViewModel(repo) }
                 val reviewVm = remember { ReviewViewModel(repo) }
-                val salesVm = remember { SalesViewModel(repo) }
                 val masterVm = remember { MasterDataViewModel(repo) }
                 val dashboardVm = remember { DashboardViewModel(repo) }
                 val searchVm = remember { OrderSearchViewModel(repo) }
@@ -96,7 +94,6 @@ class MainActivity : FragmentActivity() {
                     cuttingVm = cuttingVm,
                     sewingVm = sewingVm,
                     reviewVm = reviewVm,
-                    salesVm = salesVm,
                     financeVm = financeVm,
                     masterVm = masterVm,
                     dashboardVm = dashboardVm,

@@ -9,7 +9,6 @@ import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.Warehouse
@@ -51,7 +50,6 @@ import com.afghanjama.ui.screens.ProcurementScreen
 import com.afghanjama.ui.screens.ProductionOrderScreen
 import com.afghanjama.ui.screens.ReportsScreen
 import com.afghanjama.ui.screens.ReviewScreen
-import com.afghanjama.ui.screens.SalesScreen
 import com.afghanjama.ui.screens.SettingsScreen
 import com.afghanjama.ui.screens.SewingScreen
 import com.afghanjama.ui.screens.StockLedgerScreen
@@ -75,7 +73,6 @@ import com.afghanjama.ui.vm.ProcurementViewModel
 import com.afghanjama.ui.vm.ProductionViewModel
 import com.afghanjama.ui.vm.ReportsViewModel
 import com.afghanjama.ui.vm.ReviewViewModel
-import com.afghanjama.ui.vm.SalesViewModel
 import com.afghanjama.ui.vm.Permissions
 import com.afghanjama.ui.vm.SewingViewModel
 import com.afghanjama.ui.vm.StockViewModel
@@ -124,7 +121,6 @@ private fun bottomItemsFor(role: UserRole): List<BottomItem> = when (role) {
     UserRole.SALES -> listOf(
         BottomItem(Routes.HOME, "خانه", Icons.Default.Home),
         BottomItem(Routes.FINISHED_SALES, "فروش", Icons.Default.Storefront),
-        BottomItem(Routes.SALES, "فروش سفارش", Icons.Default.Receipt),
         BottomItem(Routes.SETTINGS, "تنظیمات", Icons.Default.Settings)
     )
 }
@@ -136,7 +132,6 @@ fun AppNav(
     cuttingVm: CuttingViewModel,
     sewingVm: SewingViewModel,
     reviewVm: ReviewViewModel,
-    salesVm: SalesViewModel,
     financeVm: FinanceViewModel,
     masterVm: MasterDataViewModel,
     dashboardVm: DashboardViewModel,
@@ -166,7 +161,7 @@ fun AppNav(
             UserRole.PURCHASE -> Routes.HOME
             UserRole.SEWING -> Routes.SEWING
             UserRole.REVIEW -> Routes.REVIEW
-            UserRole.SALES -> Routes.SALES
+            UserRole.SALES -> Routes.HOME
         }
     }
 
@@ -221,7 +216,7 @@ fun AppNav(
                             UserRole.PURCHASE -> Routes.HOME
                             UserRole.SEWING -> Routes.SEWING
                             UserRole.REVIEW -> Routes.REVIEW
-                            UserRole.SALES -> Routes.SALES
+                            UserRole.SALES -> Routes.HOME
                         }
                         navController.navigate(next) {
                             popUpTo(Routes.LOGIN) { inclusive = true }
@@ -254,7 +249,6 @@ fun AppNav(
                     onGoAttendance = { navController.navigate(Routes.ATTENDANCE) },
                     onGoCustomers = { navController.navigate(Routes.CUSTOMERS) },
                     // -- customers wired --
-                    onGoSales = { navController.navigate(Routes.SALES) },
                     onGoFinance = { navController.navigate(Routes.FINANCE) },
                     onGoLedger = { navController.navigate(Routes.LEDGER) },
                     onGoDocuments = { navController.navigate(Routes.DOCUMENTS) },
@@ -438,12 +432,6 @@ fun AppNav(
                 )
             }
 
-            composable(Routes.SALES) {
-                SalesScreen(
-                    vm = salesVm,
-                    onBack = { navController.popBackStack() }
-                )
-            }
         }
     }
 }
