@@ -49,37 +49,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.afghanjama.data.dao.PartyBalance
+import com.afghanjama.data.entities.ledgerRefLabel
+import com.afghanjama.data.entities.partyTypeLabel
+import com.afghanjama.pdf.PartyStatementPdf
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.vm.LedgerViewModel
+import com.afghanjama.util.ShareUtil
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
-private fun typeLabel(t: String): String = when (t) {
-    "SUPPLIER" -> "تأمین‌کننده"
-    "CUSTOMER" -> "مشتری"
-    "TAILOR" -> "خیاط"
-    "INSPECTOR" -> "ناظر"
-    "EMPLOYEE" -> "کارمند"
-    else -> t
-}
+private fun typeLabel(t: String): String = partyTypeLabel(t)
 
-private fun refLabel(r: String): String = when (r) {
-    "WAGE" -> "کارمزد دوخت"
-    "WAGE_PAID" -> "پرداخت کارمزد"
-    "PURCHASE_CREDIT" -> "خرید نسیه"
-    "SUPPLIER_PAYMENT" -> "پرداخت به فروشنده"
-    "CUSTOMER_ADVANCE" -> "پیش‌پرداخت مشتری"
-    "CUSTOMER_SALE" -> "فروش"
-    "CUSTOMER_MANUAL" -> "دریافت دستی"
-    "SALE_BILLING" -> "بدهی بابت سفارش"
-    "SALE_ADJUST" -> "اصلاح سفارش"
-    "SALE_CANCEL" -> "لغو سفارش"
-    "SALE_TO_STOCK" -> "انتقال به انبار محصول"
-    "CUSTOMER_RETURN" -> "برگشتی فروش"
-    "DISCOUNT" -> "تخفیف فروش"
-    "MANUAL" -> "سند دستی"
-    else -> r
-}
+private fun refLabel(r: String): String = ledgerRefLabel(r)
 
 /** متنِ ماندهٔ حساب: مثبت = طرف بدهکار است، منفی = ما بدهکاریم. */
 private fun balanceText(net: Long): String = when {
@@ -100,6 +84,8 @@ fun LedgerScreen(
     vm: LedgerViewModel,
     onBack: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     val balances by vm.balances.collectAsState()
     val entries by vm.entries.collectAsState()
     val message by vm.message.collectAsState()
@@ -129,12 +115,23 @@ fun LedgerScreen(
         AlertDialog(
             onDismissRequest = { selected = null },
             confirmButton = {
-                TextButton(onClick = {
-                    mType = p.type; mName = p.name; mAmount = ""; mNote = ""
-                    mIsPayment = p.net < 0   // اگر ما به او بدهکاریم، پیش‌فرض «پرداخت»
-                    selected = null
-                    manualOpen = true
-                }) { Text("ثبت پرداخت/دریافت") }
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextButton(onClick = {
+                        // صورت‌حساب PDF برای اشتراک با خودِ طرف
+                        scope.launch {
+                            val file = withContext(Dispatchers.IO) {
+                                PartyStatementPdf.create(context, p.type, p.name, p.net, rows)
+                            }
+                            ShareUtil.shareFile(context, file, "application/pdf", "اشتراک صورت‌حساب")
+                        }
+                    }) { Text("PDF") }
+                    TextButton(onClick = {
+                        mType = p.type; mName = p.name; mAmount = ""; mNote = ""
+                        mIsPayment = p.net < 0   // اگر ما به او بدهکاریم، پیش‌فرض «پرداخت»
+                        selected = null
+                        manualOpen = true
+                    }) { Text("ثبت پرداخت/دریافت") }
+                }
             },
             dismissButton = { TextButton(onClick = { selected = null }) { Text("بستن") } },
             title = { Text("${p.name} • ${typeLabel(p.type)}") },

@@ -27,3 +27,32 @@ data class LedgerEntry(
     val note: String = "",
     val at: Long = System.currentTimeMillis()
 )
+
+/** برچسبِ فارسیِ نوعِ سندِ دفتر کل — منبعِ واحد برای UI و PDF. */
+fun ledgerRefLabel(r: String): String = when (r) {
+    "WAGE" -> "کارمزد دوخت"
+    "WAGE_PAID" -> "پرداخت کارمزد"
+    "PURCHASE_CREDIT" -> "خرید نسیه"
+    "SUPPLIER_PAYMENT" -> "پرداخت به فروشنده"
+    "CUSTOMER_ADVANCE" -> "پیش‌پرداخت مشتری"
+    "CUSTOMER_SALE" -> "فروش"
+    "CUSTOMER_MANUAL" -> "دریافت دستی"
+    "CUSTOMER_RETURN" -> "برگشتی فروش"
+    "SALE_BILLING" -> "بدهی بابت سفارش"
+    "SALE_ADJUST" -> "اصلاح سفارش"
+    "SALE_CANCEL" -> "لغو سفارش"
+    "SALE_TO_STOCK" -> "انتقال به انبار محصول"
+    "DISCOUNT" -> "تخفیف فروش"
+    "MANUAL" -> "سند دستی"
+    else -> r
+}
+
+/** برچسبِ فارسیِ نوعِ طرف‌حساب. */
+fun partyTypeLabel(t: String): String = when (t) {
+    "SUPPLIER" -> "تأمین‌کننده"
+    "CUSTOMER" -> "مشتری"
+    "TAILOR" -> "خیاط"
+    "INSPECTOR" -> "ناظر"
+    "EMPLOYEE" -> "کارمند"
+    else -> t
+}
