@@ -84,7 +84,9 @@ object InvoicePdf {
         val logoText = paint(22f, BRAND, bold)
         c.drawTextRtl("✂", PAGE_W - MARGIN - 24f, 56f, logoText, centered = true)
 
-        c.drawRtl("AfghanJama — مدیریت کارگاه خیاطی", MARGIN, 30f, titlePaint, CONTENT_W - 60)
+        val coName = com.afghanjama.prefs.CompanyPrefs.name(context)
+            .ifBlank { "AfghanJama — مدیریت کارگاه خیاطی" }
+        c.drawRtl(coName, MARGIN, 30f, titlePaint, CONTENT_W - 60)
         c.drawRtl("فاکتور سفارش", MARGIN, 62f, headerSubPaint, CONTENT_W - 60)
 
         // QR کد کوتاه سفارش (برای اسکن در بخش برش)

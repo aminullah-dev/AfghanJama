@@ -92,6 +92,7 @@ private data class BottomItem(
 /** آیتم‌های نوار پایین بر اساس نقش کاربر. */
 private fun bottomItemsFor(role: UserRole): List<BottomItem> = when (role) {
     UserRole.MANAGER -> listOf(
+        BottomItem(Routes.HOME, "خانه", Icons.Default.Home),
         BottomItem(Routes.INVENTORY, "تولید", Icons.Default.Inventory2),
         BottomItem(Routes.CUTTING, "برش", Icons.Default.ContentCut),
         BottomItem(Routes.SEWING, "دوخت", Icons.Default.Checkroom),
@@ -108,17 +109,20 @@ private fun bottomItemsFor(role: UserRole): List<BottomItem> = when (role) {
     )
 
     UserRole.SEWING -> listOf(
+        BottomItem(Routes.HOME, "خانه", Icons.Default.Home),
         BottomItem(Routes.CUTTING, "برش", Icons.Default.ContentCut),
         BottomItem(Routes.SEWING, "دوخت", Icons.Default.Checkroom),
         BottomItem(Routes.SETTINGS, "تنظیمات", Icons.Default.Settings)
     )
 
     UserRole.REVIEW -> listOf(
+        BottomItem(Routes.HOME, "خانه", Icons.Default.Home),
         BottomItem(Routes.REVIEW, "نظارت", Icons.Default.VerifiedUser),
         BottomItem(Routes.SETTINGS, "تنظیمات", Icons.Default.Settings)
     )
 
     UserRole.SALES -> listOf(
+        BottomItem(Routes.HOME, "خانه", Icons.Default.Home),
         BottomItem(Routes.FINISHED_SALES, "فروش", Icons.Default.Storefront),
         BottomItem(Routes.SALES, "فروش سفارش", Icons.Default.Receipt),
         BottomItem(Routes.SETTINGS, "تنظیمات", Icons.Default.Settings)
