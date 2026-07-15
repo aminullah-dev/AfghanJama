@@ -7,6 +7,7 @@ import com.afghanjama.data.repo.Repo
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -15,6 +16,13 @@ data class EmployeeAttendance(
     val name: String,
     val isIn: Boolean,
     val since: Long?          // زمان ورودِ بازهٔ باز (اگر داخل باشد)
+)
+
+/** کارکردِ یک کارمند در بازهٔ گزارش (۳۰ روز اخیر). */
+data class WorkSummary(
+    val name: String,
+    val totalMinutes: Long,   // مجموع دقیقه‌های بازه‌های بسته
+    val daysWorked: Int       // تعداد روزهای دارای حضور
 )
 
 /** حضور و غیاب کارمند با تأیید اثر انگشت. */
@@ -42,6 +50,24 @@ class AttendanceViewModel(private val repo: Repo) : ViewModel() {
                 EmployeeAttendance(name = name, isIn = open != null, since = open?.checkIn)
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** کارکردِ ۳۰ روز اخیرِ هر کارمند: جمعِ ساعتِ بازه‌های بسته + تعداد روز. */
+    val monthlyWork: StateFlow<List<WorkSummary>> =
+        repo.observeAttendanceSince(System.currentTimeMillis() - 30L * 24 * 3600 * 1000)
+            .map { recs ->
+                recs.filter { it.checkOut != null }
+                    .groupBy { it.employee }
+                    .map { (name, list) ->
+                        WorkSummary(
+                            name = name,
+                            totalMinutes = list.sumOf { ((it.checkOut ?: 0L) - it.checkIn) / 60_000L }
+                                .coerceAtLeast(0),
+                            daysWorked = list.map { it.checkIn / 86_400_000L }.distinct().size
+                        )
+                    }
+                    .sortedByDescending { it.totalMinutes }
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun checkIn(name: String) = viewModelScope.launch { repo.checkIn(name) }
     fun checkOut(name: String) = viewModelScope.launch { repo.checkOut(name) }

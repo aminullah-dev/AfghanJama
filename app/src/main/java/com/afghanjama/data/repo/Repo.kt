@@ -959,6 +959,10 @@ class Repo(private val db: AppDatabase) {
     fun observeAttendance(): Flow<List<AttendanceRecord>> =
         db.attendanceDao().observeRecent()
 
+    /** بازه‌های حضور از یک تاریخ به بعد (برای گزارش کارکرد ماهانه). */
+    fun observeAttendanceSince(since: Long): Flow<List<AttendanceRecord>> =
+        db.attendanceDao().observeSince(since)
+
     /** ثبت ورود؛ اگر کارمند از قبل «داخل» باشد کاری نمی‌کند. */
     suspend fun checkIn(employee: String) {
         val emp = employee.trim()

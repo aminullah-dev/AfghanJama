@@ -19,6 +19,10 @@ interface AttendanceDao {
     @Query("SELECT * FROM attendance ORDER BY checkIn DESC LIMIT 300")
     fun observeRecent(): Flow<List<AttendanceRecord>>
 
+    /** همهٔ بازه‌ها از یک تاریخ به بعد (برای گزارش کارکرد ماهانه). */
+    @Query("SELECT * FROM attendance WHERE checkIn >= :since ORDER BY checkIn DESC")
+    fun observeSince(since: Long): Flow<List<AttendanceRecord>>
+
     @Query("SELECT * FROM attendance WHERE employee = :employee AND checkOut IS NULL ORDER BY checkIn DESC LIMIT 1")
     suspend fun findOpen(employee: String): AttendanceRecord?
 }

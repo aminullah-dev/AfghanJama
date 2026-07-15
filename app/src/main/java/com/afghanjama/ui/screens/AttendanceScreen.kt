@@ -15,7 +15,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import android.content.Intent
 import androidx.compose.material.icons.filled.Fingerprint
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -42,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.fa
+import com.afghanjama.ui.format.toPersianDigits
 import com.afghanjama.ui.vm.AttendanceViewModel
 import com.afghanjama.ui.format.elapsedHm
 import com.afghanjama.util.BiometricAuth
@@ -64,6 +67,7 @@ fun AttendanceScreen(
 ) {
     val employees by vm.employees.collectAsState()
     val records by vm.records.collectAsState()
+    val monthlyWork by vm.monthlyWork.collectAsState()
     val context = LocalContext.current
     val activity = context as? FragmentActivity
 
@@ -188,6 +192,58 @@ fun AttendanceScreen(
                                     Text("ورود")
                                 }
                             }
+                        }
+                    }
+                }
+            }
+
+            // ---------- کارکرد ۳۰ روز اخیر (برای معاش/تسویه) ----------
+            if (monthlyWork.isNotEmpty()) {
+                item {
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("کارکرد ۳۰ روز اخیر", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        IconButton(onClick = {
+                            val report = buildString {
+                                appendLine("📋 گزارش کارکرد ۳۰ روز اخیر — AfghanJama")
+                                appendLine("تاریخ: ${PersianDate.short(System.currentTimeMillis())}")
+                                appendLine("──────────────")
+                                monthlyWork.forEach { w ->
+                                    appendLine("• ${w.name}: ${(w.totalMinutes / 60).fa()}:${(w.totalMinutes % 60).toString().padStart(2, '0').toPersianDigits()} ساعت در ${w.daysWorked.fa()} روز")
+                                }
+                            }
+                            val send = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, report)
+                            }
+                            context.startActivity(Intent.createChooser(send, "اشتراک گزارش کارکرد"))
+                        }) {
+                            Icon(Icons.Default.Share, contentDescription = "اشتراک گزارش")
+                        }
+                    }
+                }
+                items(monthlyWork, key = { "work-" + it.name }) { w ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(w.name, fontWeight = FontWeight.Medium)
+                            Text(
+                                "${(w.totalMinutes / 60).fa()}:${(w.totalMinutes % 60).toString().padStart(2, '0').toPersianDigits()} ساعت • ${w.daysWorked.fa()} روز",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
                     }
                 }
