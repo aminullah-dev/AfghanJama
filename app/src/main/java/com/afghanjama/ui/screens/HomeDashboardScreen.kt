@@ -46,6 +46,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import com.afghanjama.prefs.CompanyPrefs
+import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.elapsedHm
 import com.afghanjama.ui.format.fa
@@ -166,17 +169,31 @@ fun HomeDashboardScreen(
 
 
         item(span = { fullSpan() }) {
+            val ctx = LocalContext.current
+            val coName = remember { CompanyPrefs.name(ctx).ifBlank { "کارگاه خیاطی AfghanJama" } }
+            val hour = remember { java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY) }
+            val greeting = when {
+                hour < 12 -> "صبح بخیر"
+                hour < 17 -> "روز بخیر"
+                else -> "عصر بخیر"
+            }
             Column {
                 Text(
-                    "کارگاه خیاطی AfghanJama",
+                    "$greeting 👋",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    coName,
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold
                 )
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(2.dp))
                 Text(
-                    "جریان اصلی: خرید مواد ← خط تولید ← فروش انبار",
+                    PersianDate.long(System.currentTimeMillis()),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Medium
                 )
             }
         }
@@ -215,6 +232,37 @@ fun HomeDashboardScreen(
         item { StatCard("انبار محصول", s.finishedPieces.fa(), "عدد آماده فروش") }
         item { StatCard("کیف پول", s.wallet.afn(), "موجودی نقد") }
         item { StatCard("بانک", s.bank.afn(), "موجودی بانک") }
+
+        // ---------- ضربان خط تولید ----------
+        if (isManager && s.inProduction > 0) {
+            item(span = { fullSpan() }) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().clickable { onGoProduction() },
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            "ضربان خط تولید",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            "✂ برش ${s.cutting.fa()}   🧵 دوخت ${s.sewing.fa()}   🛡 نظارت ${s.review.fa()}",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        if (s.stuck > 0) {
+                            Text(
+                                "⚠ ${s.stuck.fa()} سفارش بیش از حد معطل مانده — بررسی کنید",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.error,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+        }
 
         // ---------- بخش‌های دسترسی سریع ----------
         sections.forEach { (title, list) ->

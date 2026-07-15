@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.afghanjama.data.entities.OrderStatus
 import com.afghanjama.data.repo.Repo
+import com.afghanjama.ui.format.STAGE_WARN_DAYS
+import com.afghanjama.ui.format.stageDays
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -21,7 +23,14 @@ data class HomeSummary(
     val finishedPieces: Int = 0,         // مجموع عددهای انبار محصول نهایی
     val wallet: Long = 0,
     val bank: Long = 0,
-    val profit: Long = 0
+    val profit: Long = 0,
+
+    // ضربان خط تولید (تعداد سفارش در هر ایستگاه)
+    val cutting: Int = 0,
+    val sewing: Int = 0,
+    val review: Int = 0,
+    // سفارش‌های معطل‌مانده (بیش از آستانهٔ هشدار در یک مرحله)
+    val stuck: Int = 0
 )
 
 class HomeViewModel(repo: Repo) : ViewModel() {
@@ -49,7 +58,14 @@ class HomeViewModel(repo: Repo) : ViewModel() {
                 readyForSale = orders.count { it.status == OrderStatus.SALES.name },
                 wallet = wallet,
                 bank = bank,
-                profit = profit
+                profit = profit,
+                cutting = orders.count { it.status == OrderStatus.CUTTING.name || it.status == OrderStatus.CUT_DONE.name },
+                sewing = orders.count { it.status == OrderStatus.SEWING.name },
+                review = orders.count { it.status == OrderStatus.REVIEW.name },
+                stuck = orders.count {
+                    it.status in productionStatuses &&
+                        stageDays(it.stageChangedAt, it.createdAt) >= STAGE_WARN_DAYS
+                }
             )
         }
 
