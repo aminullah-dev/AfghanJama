@@ -14,6 +14,7 @@ import com.afghanjama.data.entities.FabricType
 import com.afghanjama.data.entities.FinishedSale
 import com.afghanjama.data.entities.FinishedStock
 import com.afghanjama.data.entities.Accounts
+import com.afghanjama.data.entities.AuditLog
 import com.afghanjama.data.entities.Inspector
 import com.afghanjama.data.entities.JournalEntry
 import com.afghanjama.data.entities.JournalLine
@@ -37,6 +38,7 @@ import com.afghanjama.data.entities.Tailor
 import com.afghanjama.data.entities.TailorWage
 import com.afghanjama.data.entities.Transaction
 import com.afghanjama.data.entities.WorkCost
+import com.afghanjama.util.CurrentUser
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import java.util.UUID
@@ -85,6 +87,7 @@ class Repo(private val db: AppDatabase) {
                 toStatus = order.status
             )
         )
+        audit("ثبت سفارش تولید", order.orderCode)
         // بدهیِ مشتری بابتِ این سفارش → بدهکارِ حساب مشتری در دفتر کل
         // (پرداخت‌های او بستانکار می‌شوند؛ مانده = طلبِ ما از مشتری).
         if (order.customerName.isNotBlank() && order.agreedPrice > 0) {
@@ -163,6 +166,7 @@ class Repo(private val db: AppDatabase) {
                 reviewed = true
             )
         )
+        audit("تأیید نظارت", "${order.orderCode} — $inspector")
     }
 
     /** برگشت برای اصلاح: مشکل ثبت و سفارش به مرحلهٔ دوخت برمی‌گردد. */
@@ -179,6 +183,7 @@ class Repo(private val db: AppDatabase) {
         changeOrderStatus(order, OrderStatus.SEWING.name) {
             it.copy(assignedInspector = inspector.trim().ifBlank { it.assignedInspector }, reviewed = false)
         }
+        audit("رد نظارت (برگشت به دوخت)", "${order.orderCode} — $problem")
     }
 
     /**
@@ -222,6 +227,7 @@ class Repo(private val db: AppDatabase) {
             }
         }
         changeOrderStatus(order, OrderStatus.CUT_DONE.name) { it.copy(materialsConsumed = true) }
+        audit("ثبت برش", "${order.orderCode} — ${pieces} دست")
     }
 
     /**
@@ -264,6 +270,7 @@ class Repo(private val db: AppDatabase) {
         db.orderWorkItemDao().deleteForOrder(order.id.toString())
         db.sewingAssignmentDao().deleteForOrder(order.id.toString())
         db.orderDao().delete(order)
+        audit("حذف سفارش", order.orderCode)
         // بدهیِ مشتری بابتِ این سفارش (SALE_BILLING هنگام ثبت) خنثی می‌شود
         // تا با حذفِ سفارش، ماندهٔ مشتری در دفتر کل متورم نماند.
         if (order.customerName.isNotBlank() && order.agreedPrice > 0) {
@@ -302,6 +309,7 @@ class Repo(private val db: AppDatabase) {
                 status = "SEWING"
             )
         )
+        audit("تحویل به خیاط", "${order.orderCode} → $tailorLabel (${qty} عدد)")
         val handed = db.sewingAssignmentDao().listForOrder(order.id.toString()).sumOf { it.qty }
         val label = summarizeTailors(order.id.toString())
         if (handed >= order.qty && order.status == "CUT_DONE") {
@@ -445,14 +453,17 @@ class Repo(private val db: AppDatabase) {
     }
 
     /** حذف تراکنش مالی (اصلاح اشتباه) — موجودی صندوق‌ها بازمحاسبه می‌شود. */
-    suspend fun deleteTx(id: UUID) =
+    suspend fun deleteTx(id: UUID) {
         db.financeDao().deleteTx(id)
+        audit("حذف تراکنش مالی", id.toString().take(8))
+    }
 
     /** انتقال بین صندوق‌ها (کیف پول / بانک / فایده). */
     suspend fun transfer(from: String, to: String, amount: Long, note: String) {
         if (from == to || amount <= 0) return
         spend(from, amount, note)
         income(to, amount, note)
+        audit("انتقال بین صندوق‌ها", "$from → $to — $amount ؋")
         postJournal(
             note, "TRANSFER", "",
             listOf(
@@ -467,6 +478,7 @@ class Repo(private val db: AppDatabase) {
         if (name.isBlank() || amount <= 0) return
         val n = note.ifBlank { "دریافتی از $name" }
         income("WALLET", amount, n)
+        audit("دریافت از مشتری", "$name — $amount ؋")
         addCustomerPayment(
             CustomerPayment(orderId = "", customerName = name, amount = amount, source = "MANUAL", note = n)
         )
@@ -483,6 +495,7 @@ class Repo(private val db: AppDatabase) {
     suspend fun recordSaleRefund(orderCode: String, refund: Long) {
         if (refund <= 0) return
         spend("WALLET", refund, "برگشتی فروش سفارش $orderCode", category = "برگشتی فروش")
+        audit("برگشتی فروش", "$orderCode — $refund ؋")
         postJournal(
             "برگشتی فروش $orderCode", "SALE_RETURN", orderCode,
             listOf(
@@ -496,6 +509,7 @@ class Repo(private val db: AppDatabase) {
     suspend fun recordExpense(source: String, category: String, amount: Long, note: String) {
         if (amount <= 0) return
         spend(source, amount, note, category = category)
+        audit("ثبت هزینه", "$category — $amount ؋")
         postJournal(
             note.ifBlank { "هزینه: $category" }, "EXPENSE", "",
             listOf(
@@ -562,6 +576,7 @@ class Repo(private val db: AppDatabase) {
         postLedger("TAILOR", tailorLabel, total, 0, "WAGE_PAID", note = "تسویه کارمزد")
         // رسیدِ تسویهٔ کارمزد
         createDocument("WAGE_RECEIPT", tailorLabel, total, note = "تسویه کارمزد دوخت")
+        audit("تسویه کارمزد خیاط", "$tailorLabel — $total ؋")
         // ژورنال: کاهشِ بدهیِ کارمزد در برابر خروجِ نقد
         postJournal(
             "تسویه کارمزد $tailorLabel", "WAGE_PAID", "",
@@ -615,6 +630,23 @@ class Repo(private val db: AppDatabase) {
 
     fun observeAllLedgerEntries(): Flow<List<LedgerEntry>> =
         db.ledgerDao().observeAllEntries()
+
+    // =========================
+    // Audit log (لاگ حسابرسی: چه کسی، چه کاری، کِی)
+    // =========================
+
+    fun observeAudit(): Flow<List<AuditLog>> = db.auditDao().observeRecent()
+
+    private suspend fun audit(action: String, detail: String = "") {
+        db.auditDao().insert(
+            AuditLog(
+                user = CurrentUser.name,
+                role = CurrentUser.role,
+                action = action,
+                detail = detail
+            )
+        )
+    }
 
     // =========================
     // Double-entry journal (ژورنالِ حسابداری دوطرفه)
@@ -862,6 +894,7 @@ class Repo(private val db: AppDatabase) {
             cur.copy(amount = (cur.amount + delta).coerceAtLeast(0.0), updatedAt = now)
         )
         logMovement(name, unit, delta, reason, note)
+        if (reason == "اصلاح") audit("اصلاح دستی موجودی", "$name: $delta $unit")
     }
 
     suspend fun setMaterialMinLevel(name: String, unit: String, minLevel: Double) {
@@ -907,6 +940,7 @@ class Repo(private val db: AppDatabase) {
             "PURCHASE", invoice.supplier.ifBlank { "نامشخص" }, invoice.total,
             invoice.code, "خرید مواد"
         )
+        audit("خرید مواد", "${invoice.code} — ${invoice.total} ؋")
         // ژورنال: موادِ خریداری‌شده وارد دارایی؛ در برابرِ نقد یا بدهی
         if (invoice.total > 0) {
             val creditAccount =
@@ -950,6 +984,7 @@ class Repo(private val db: AppDatabase) {
         postLedger("SUPPLIER", supplier, amount, 0, "SUPPLIER_PAYMENT", note = note)
         // رسیدِ پرداخت به فروشنده
         createDocument("SUPPLIER_PAYMENT", supplier, amount, note = note.ifBlank { "تسویه قرض" })
+        audit("تسویه فروشنده", "$supplier — $amount ؋")
         // ژورنال: کاهشِ بدهی در برابرِ خروجِ نقد
         postJournal(
             "تسویه قرض $supplier", "SUPPLIER_PAYMENT", "",
@@ -1072,6 +1107,7 @@ class Repo(private val db: AppDatabase) {
             "SALE", customerName, revenue, code,
             "فروش $qty عدد «${item.name}»"
         )
+        audit("فروش از انبار", "$code — $revenue ؋")
         // ژورنال: درآمدِ فروش + خروجِ بهای تمام‌شده + انتقالِ سود به صندوق فایده
         postJournal(
             "فروش «${item.name}» ($code)", "SALE", code,

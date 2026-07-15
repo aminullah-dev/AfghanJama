@@ -126,6 +126,15 @@ fun LoginScreen(
                     }
                 }
 
+                // ✅ نام کاربر (برای لاگ حسابرسی: چه کسی چه کاری کرد)
+                OutlinedTextField(
+                    value = ui.userName,
+                    onValueChange = vm::setUserName,
+                    label = { Text("نام شما (برای ثبت رویدادها)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
                 // ✅ رمز
                 OutlinedTextField(
                     value = pin,

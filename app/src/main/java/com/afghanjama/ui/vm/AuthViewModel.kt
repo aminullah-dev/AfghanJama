@@ -4,6 +4,7 @@ package com.afghanjama.ui.vm
 import android.app.Application
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
+import com.afghanjama.util.CurrentUser
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -12,6 +13,7 @@ data class AuthUi(
     val isLoggedIn: Boolean = false,
     val isSetupDone: Boolean = false,
     val role: UserRole = UserRole.MANAGER,
+    val userName: String = "",
     val message: String? = null,
     val isError: Boolean = false
 )
@@ -23,6 +25,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
     private val KEY_PIN = "pin"
     private val KEY_LOGGED_IN = "logged_in"
     private val KEY_ROLE = "role"
+    private val KEY_USER = "user_name"
 
     private val _ui = MutableStateFlow(AuthUi())
     val ui: StateFlow<AuthUi> = _ui
@@ -33,16 +36,27 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
 
         val roleStr = prefs.getString(KEY_ROLE, UserRole.MANAGER.name) ?: UserRole.MANAGER.name
         val role = runCatching { UserRole.valueOf(roleStr) }.getOrElse { UserRole.MANAGER }
+        val userName = prefs.getString(KEY_USER, "") ?: ""
+
+        val logged = loggedIn && !pin.isNullOrBlank()
+        if (logged) CurrentUser.set(userName, role.name)
 
         _ui.update {
             it.copy(
                 isSetupDone = !pin.isNullOrBlank(),
-                isLoggedIn = loggedIn && !pin.isNullOrBlank(),
+                isLoggedIn = logged,
                 role = role,
+                userName = userName,
                 message = null,
                 isError = false
             )
         }
+    }
+
+    /** نامِ کاربرِ این دستگاه (برای لاگ حسابرسی). */
+    fun setUserName(v: String) {
+        prefs.edit().putString(KEY_USER, v.trim()).apply()
+        _ui.update { it.copy(userName = v) }
     }
 
     fun setRole(role: UserRole) {
@@ -66,6 +80,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
             .apply()
 
         val role = runCatching { UserRole.valueOf(roleStr) }.getOrElse { UserRole.MANAGER }
+        CurrentUser.set(prefs.getString(KEY_USER, "") ?: "", role.name)
 
         _ui.update {
             it.copy(
@@ -94,6 +109,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         val role = runCatching { UserRole.valueOf(roleStr) }.getOrElse { UserRole.MANAGER }
 
         prefs.edit().putBoolean(KEY_LOGGED_IN, true).apply()
+        CurrentUser.set(prefs.getString(KEY_USER, "") ?: "", role.name)
         _ui.update { it.copy(isLoggedIn = true, role = role, message = null, isError = false, isSetupDone = true) }
     }
 
@@ -115,6 +131,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
 
     fun logout() {
         prefs.edit().putBoolean(KEY_LOGGED_IN, false).apply()
+        CurrentUser.clear()
         _ui.update { it.copy(isLoggedIn = false, message = null, isError = false) }
     }
 

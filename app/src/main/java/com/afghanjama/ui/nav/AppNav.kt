@@ -31,6 +31,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.afghanjama.ui.screens.AttendanceScreen
+import com.afghanjama.ui.screens.AuditScreen
 import com.afghanjama.ui.screens.CustomerDetailScreen
 import com.afghanjama.ui.screens.CustomersScreen
 import com.afghanjama.ui.screens.CuttingScreen
@@ -54,6 +55,7 @@ import com.afghanjama.ui.screens.SettingsScreen
 import com.afghanjama.ui.screens.SewingScreen
 import com.afghanjama.ui.screens.StockLedgerScreen
 import com.afghanjama.ui.vm.AttendanceViewModel
+import com.afghanjama.ui.vm.AuditViewModel
 import com.afghanjama.ui.vm.AuthViewModel
 import com.afghanjama.ui.vm.BackupViewModel
 import com.afghanjama.ui.vm.CustomerDetailViewModel
@@ -149,7 +151,8 @@ fun AppNav(
     finishedSaleVm: FinishedSaleViewModel,
     customerDirVm: CustomersViewModel,
     customerDetailVm: CustomerDetailViewModel,
-    attendanceVm: AttendanceViewModel
+    attendanceVm: AttendanceViewModel,
+    auditVm: AuditViewModel
 ) {
     val navController = rememberNavController()
     val authUi by authVm.ui.collectAsState()
@@ -253,6 +256,7 @@ fun AppNav(
                     onGoLedger = { navController.navigate(Routes.LEDGER) },
                     onGoDocuments = { navController.navigate(Routes.DOCUMENTS) },
                     onGoReports = { navController.navigate(Routes.REPORTS) },
+                    onGoAudit = { navController.navigate(Routes.AUDIT) },
                     onGoSearch = { navController.navigate(Routes.SEARCH) },
                     onGoSettings = { navController.navigate(Routes.SETTINGS) }
                 )
@@ -353,6 +357,13 @@ fun AppNav(
             composable(Routes.REPORTS) {
                 ReportsScreen(
                     vm = reportsVm,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Routes.AUDIT) {
+                AuditScreen(
+                    vm = auditVm,
                     onBack = { navController.popBackStack() }
                 )
             }

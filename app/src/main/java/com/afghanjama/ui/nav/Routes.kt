@@ -24,6 +24,7 @@ object Routes {
     const val LEDGER = "ledger"
     const val DOCUMENTS = "documents"
     const val REPORTS = "reports"
+    const val AUDIT = "audit"
     const val MASTER = "master"
     const val SETTINGS = "settings"
     const val SEARCH = "search"

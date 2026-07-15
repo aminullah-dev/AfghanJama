@@ -610,6 +610,22 @@ val MIGRATION_40_41 = object : Migration(40, 41) {
  * (نقد، بانک، انبارها، دریافتنی/پرداختنی) تا دفترها از روز اول تراز باشند؛
  * مابه‌التفاوت به حساب «سرمایه» می‌نشیند.
  */
+/**
+ * لاگِ حسابرسی: «چه کسی، چه کاری، کِی» روی عملیاتِ حساس.
+ */
+val MIGRATION_43_44 = object : Migration(43, 44) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `audit_log` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`user` TEXT NOT NULL, `role` TEXT NOT NULL, " +
+                "`action` TEXT NOT NULL, `detail` TEXT NOT NULL, " +
+                "`at` INTEGER NOT NULL)"
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_audit_log_at` ON `audit_log` (`at`)")
+    }
+}
+
 val MIGRATION_42_43 = object : Migration(42, 43) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(
