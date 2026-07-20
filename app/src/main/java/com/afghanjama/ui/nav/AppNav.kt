@@ -30,6 +30,7 @@ import androidx.navigation.navArgument
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.afghanjama.ui.screens.ActionCenterScreen
 import com.afghanjama.ui.screens.AttendanceScreen
 import com.afghanjama.ui.screens.AuditScreen
 import com.afghanjama.ui.screens.CustomerDetailScreen
@@ -54,6 +55,7 @@ import com.afghanjama.ui.screens.ReviewScreen
 import com.afghanjama.ui.screens.SettingsScreen
 import com.afghanjama.ui.screens.SewingScreen
 import com.afghanjama.ui.screens.StockLedgerScreen
+import com.afghanjama.ui.vm.ActionCenterViewModel
 import com.afghanjama.ui.vm.AttendanceViewModel
 import com.afghanjama.ui.vm.AuditViewModel
 import com.afghanjama.ui.vm.AuthViewModel
@@ -152,7 +154,8 @@ fun AppNav(
     customerDirVm: CustomersViewModel,
     customerDetailVm: CustomerDetailViewModel,
     attendanceVm: AttendanceViewModel,
-    auditVm: AuditViewModel
+    auditVm: AuditViewModel,
+    actionVm: ActionCenterViewModel
 ) {
     val navController = rememberNavController()
     val authUi by authVm.ui.collectAsState()
@@ -243,7 +246,9 @@ fun AppNav(
             composable(Routes.HOME) {
                 HomeDashboardScreen(
                     vm = homeVm,
+                    actionVm = actionVm,
                     isManager = authUi.role == UserRole.MANAGER,
+                    onGoActionCenter = { navController.navigate(Routes.ACTION_CENTER) },
                     onGoProcurement = { navController.navigate(Routes.PROCUREMENT) },
                     onGoWarehouse = { navController.navigate(Routes.WAREHOUSE) },
                     onGoStockLedger = { navController.navigate(Routes.STOCK_LEDGER) },
@@ -364,6 +369,14 @@ fun AppNav(
             composable(Routes.AUDIT) {
                 AuditScreen(
                     vm = auditVm,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Routes.ACTION_CENTER) {
+                ActionCenterScreen(
+                    vm = actionVm,
+                    onNavigate = { route -> navController.navigate(route) },
                     onBack = { navController.popBackStack() }
                 )
             }

@@ -6,6 +6,7 @@ object Routes {
     const val POST_LOGIN = "post_login"
 
     const val HOME = "home"
+    const val ACTION_CENTER = "action_center"
     const val INVENTORY = "inventory"
     const val PROCUREMENT = "procurement"
     const val WAREHOUSE = "warehouse"

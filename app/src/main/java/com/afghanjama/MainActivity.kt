@@ -17,6 +17,7 @@ import com.afghanjama.ui.nav.AppNav
 import com.afghanjama.ui.screens.PinLockScreen
 import com.afghanjama.util.AppLock
 import com.afghanjama.ui.theme.AfghanJamaTheme
+import com.afghanjama.ui.vm.ActionCenterViewModel
 import com.afghanjama.ui.vm.AttendanceViewModel
 import com.afghanjama.ui.vm.AuditViewModel
 import com.afghanjama.ui.vm.AuthViewModel
@@ -89,6 +90,7 @@ class MainActivity : FragmentActivity() {
                 val customerDetailVm = remember { CustomerDetailViewModel(repo) }
                 val attendanceVm = remember { AttendanceViewModel(repo) }
                 val auditVm = remember { AuditViewModel(repo) }
+                val actionVm = remember { ActionCenterViewModel(repo) }
 
                 AppNav(
                     authVm = authVm,
@@ -114,7 +116,8 @@ class MainActivity : FragmentActivity() {
                     customerDirVm = customerDirVm,
                     customerDetailVm = customerDetailVm,
                     attendanceVm = attendanceVm,
-                    auditVm = auditVm
+                    auditVm = auditVm,
+                    actionVm = actionVm
                 )
             }
         }

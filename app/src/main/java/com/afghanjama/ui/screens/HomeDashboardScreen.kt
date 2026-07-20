@@ -5,6 +5,7 @@ package com.afghanjama.ui.screens
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,6 +15,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.FactCheck
@@ -22,6 +24,7 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sell
@@ -52,6 +55,7 @@ import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.elapsedHm
 import com.afghanjama.ui.format.fa
+import com.afghanjama.ui.vm.ActionCenterViewModel
 import com.afghanjama.ui.vm.HomeViewModel
 import com.afghanjama.work.ShiftReminderWorker
 import kotlinx.coroutines.delay
@@ -67,7 +71,9 @@ private fun fullSpan() = androidx.compose.foundation.lazy.grid.GridItemSpan(2)
 @Composable
 fun HomeDashboardScreen(
     vm: HomeViewModel,
+    actionVm: ActionCenterViewModel,
     isManager: Boolean,
+    onGoActionCenter: () -> Unit,
     onGoProcurement: () -> Unit,
     onGoWarehouse: () -> Unit,
     onGoStockLedger: () -> Unit,
@@ -85,6 +91,7 @@ fun HomeDashboardScreen(
 ) {
     val s by vm.summary.collectAsState()
     val insideNow by vm.insideNow.collectAsState()
+    val action by actionVm.ui.collectAsState()
 
     // ساعتِ شیفت: هر ۳۰ ثانیه تیک می‌خورد تا مدتِ حضورِ باز دیده شود
     var nowTick by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -111,6 +118,7 @@ fun HomeDashboardScreen(
 
     // عمومی
     val general = buildList {
+        if (isManager) add(HomeAction("مرکز هشدار", Icons.Default.NotificationsActive, onGoActionCenter))
         if (isManager) add(HomeAction("حضور و غیاب", Icons.Default.Fingerprint, onGoAttendance))
         if (isManager) add(HomeAction("مالی", Icons.Default.Payments, onGoFinance))
         if (isManager) add(HomeAction("دفتر کل", Icons.Default.AccountBalance, onGoLedger))
@@ -133,6 +141,49 @@ fun HomeDashboardScreen(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        // ---------- بنر مرکز هشدار (وقتی موردی نیاز به رسیدگی دارد) ----------
+        if (isManager && !action.allClear) {
+            item(span = { fullSpan() }) {
+                val urgent = action.urgent > 0
+                Card(
+                    modifier = Modifier.fillMaxWidth().clickable { onGoActionCenter() },
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (urgent) MaterialTheme.colorScheme.errorContainer
+                        else MaterialTheme.colorScheme.tertiaryContainer
+                    )
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        val onColor = if (urgent) MaterialTheme.colorScheme.onErrorContainer
+                        else MaterialTheme.colorScheme.onTertiaryContainer
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                "${if (urgent) "🚨" else "🔔"} مرکز هشدار",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = onColor
+                            )
+                            Text(
+                                if (urgent)
+                                    "${action.urgent.fa()} موردِ بحرانی و ${action.total.fa()} مورد در مجموع نیاز به رسیدگی دارد"
+                                else "${action.total.fa()} مورد نیاز به رسیدگی دارد",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = onColor
+                            )
+                        }
+                        Icon(
+                            Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                            contentDescription = "باز کردن مرکز هشدار",
+                            tint = onColor
+                        )
+                    }
+                }
+            }
+        }
+
         // ---------- ساعتِ شیفت (وقتی ورودی باز است) ----------
         if (insideNow.isNotEmpty()) {
             item(span = { fullSpan() }) {
