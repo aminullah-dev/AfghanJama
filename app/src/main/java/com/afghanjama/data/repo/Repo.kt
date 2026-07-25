@@ -490,7 +490,7 @@ class Repo(private val db: AppDatabase) {
             n, "CUSTOMER_RECEIPT", "",
             listOf(
                 jl(Accounts.CASH, debit = amount),
-                jl(Accounts.RECEIVABLE, credit = amount)
+                jl(Accounts.CUSTOMER_PREPAY, credit = amount)
             )
         )
     }
@@ -528,7 +528,9 @@ class Repo(private val db: AppDatabase) {
             note, "CUSTOMER_ADVANCE", order.orderCode,
             listOf(
                 jl(Accounts.box(source), debit = amount),
-                jl(Accounts.RECEIVABLE, credit = amount)
+                // پولِ پیش از تحویل نه درآمد است نه کاهشِ طلب — ژورنال هنوز
+                // هیچ طلبی برای این سفارش ثبت نکرده، پس این بدهیِ ماست.
+                jl(Accounts.CUSTOMER_PREPAY, credit = amount)
             )
         )
     }
@@ -825,7 +827,11 @@ class Repo(private val db: AppDatabase) {
                     jl(
                         when (type) {
                             "TAILOR" -> Accounts.WAGES_PAYABLE
-                            "CUSTOMER" -> Accounts.RECEIVABLE
+                            "CUSTOMER" -> Accounts.CUSTOMER_PREPAY
+                            // پیش‌پرداخت به کارمند هنوز هزینه نشده؛ طلبِ ماست
+                            // تا با حقوقش تهاتر شود. اگر اینجا هزینه ثبت
+                            // می‌شد، پرداختِ حقوق آن را دوباره می‌شمرد.
+                            "EMPLOYEE", "INSPECTOR" -> Accounts.STAFF_ADVANCE
                             else -> Accounts.EXPENSES
                         },
                         debit = amount
@@ -842,7 +848,12 @@ class Repo(private val db: AppDatabase) {
                 listOf(
                     jl(Accounts.box(paySource), debit = amount),
                     jl(
-                        if (type == "CUSTOMER") Accounts.RECEIVABLE else Accounts.OTHER_INCOME,
+                        when (type) {
+                            "CUSTOMER" -> Accounts.CUSTOMER_PREPAY
+                            // کارمند پیش‌پرداختش را پس می‌دهد
+                            "EMPLOYEE", "INSPECTOR" -> Accounts.STAFF_ADVANCE
+                            else -> Accounts.OTHER_INCOME
+                        },
                         credit = amount
                     )
                 )

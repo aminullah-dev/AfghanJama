@@ -39,11 +39,13 @@ object Accounts {
     const val PROFIT_BOX = "1015"      // صندوق فایده
     const val BANK = "1020"            // بانک
     const val RECEIVABLE = "1030"      // حساب‌های دریافتنی (مشتریان)
+    const val STAFF_ADVANCE = "1035"   // پیش‌پرداخت کارکنان (طلبِ ما از آن‌ها)
     const val MATERIALS = "1040"       // موجودی مواد
     const val WIP = "1045"             // کار در جریان تولید
     const val FINISHED = "1050"        // موجودی محصول نهایی
     const val PAYABLE = "2010"         // حساب‌های پرداختنی (تأمین‌کنندگان)
     const val WAGES_PAYABLE = "2020"   // کارمزد پرداختنی (خیاطان)
+    const val CUSTOMER_PREPAY = "2030" // پیش‌دریافت مشتری (هنوز تحویل نداده‌ایم)
     const val EQUITY = "3010"          // سرمایه
     const val SALES = "4010"           // فروش
     const val OTHER_INCOME = "4090"    // سایر درآمد
@@ -55,11 +57,13 @@ object Accounts {
         PROFIT_BOX -> "صندوق فایده"
         BANK -> "بانک"
         RECEIVABLE -> "حساب‌های دریافتنی"
+        STAFF_ADVANCE -> "پیش‌پرداخت کارکنان"
         MATERIALS -> "موجودی مواد"
         WIP -> "کار در جریان تولید"
         FINISHED -> "موجودی محصول نهایی"
         PAYABLE -> "حساب‌های پرداختنی"
         WAGES_PAYABLE -> "کارمزد پرداختنی"
+        CUSTOMER_PREPAY -> "پیش‌دریافت مشتری"
         EQUITY -> "سرمایه"
         SALES -> "فروش"
         OTHER_INCOME -> "سایر درآمد"
