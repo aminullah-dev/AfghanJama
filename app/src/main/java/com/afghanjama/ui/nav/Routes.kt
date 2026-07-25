@@ -18,6 +18,7 @@ object Routes {
     const val ATTENDANCE = "attendance"
     const val PAYROLL = "payroll"
     const val PERFORMANCE = "performance"
+    const val PURCHASE_PLAN = "purchase_plan"
 
     const val CUTTING = "cutting"
     const val SEWING = "sewing"

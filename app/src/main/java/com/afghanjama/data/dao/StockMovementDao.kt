@@ -17,4 +17,11 @@ interface StockMovementDao {
 
     @Query("SELECT * FROM stock_movements WHERE name = :name AND unit = :unit ORDER BY createdAt DESC")
     fun observeForItem(name: String, unit: String): Flow<List<StockMovement>>
+
+    /**
+     * همهٔ گردش‌های از [since] به بعد — بدونِ LIMIT، چون برای محاسبهٔ
+     * نرخِ مصرف باید کلِ بازه دیده شود نه فقط ۳۰۰ ردیفِ آخر.
+     */
+    @Query("SELECT * FROM stock_movements WHERE createdAt >= :since ORDER BY createdAt DESC")
+    fun observeSince(since: Long): Flow<List<StockMovement>>
 }

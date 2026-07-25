@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.AddShoppingCart
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.FactCheck
@@ -84,6 +85,7 @@ fun HomeDashboardScreen(
     onGoAttendance: () -> Unit,
     onGoPayroll: () -> Unit,
     onGoPerformance: () -> Unit,
+    onGoPurchasePlan: () -> Unit,
     onGoCustomers: () -> Unit,
     onGoFinance: () -> Unit,
     onGoLedger: () -> Unit,
@@ -110,6 +112,7 @@ fun HomeDashboardScreen(
     val stockFlow = buildList {
         add(HomeAction("خرید مواد", Icons.Default.ShoppingCart, onGoProcurement))
         add(HomeAction("انبار مواد", Icons.Default.Warehouse, onGoWarehouse))
+        if (isManager) add(HomeAction("پیشنهاد خرید", Icons.Default.AddShoppingCart, onGoPurchasePlan))
         if (isManager) add(HomeAction("گردش انبار", Icons.Default.History, onGoStockLedger))
         if (isManager) add(HomeAction("خط تولید", Icons.Default.Checkroom, onGoProduction))
         if (isManager) add(HomeAction("فروش انبار", Icons.Default.Sell, onGoFinishedSales))

@@ -257,9 +257,40 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
         }
     }
 
-    val ui: StateFlow<ActionCenterUi> = combine(coreAlerts, payrollAlerts) { core, payroll ->
-        ActionCenterUi((core + payroll).sortedBy { it.severity.ordinal })
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ActionCenterUi())
+    /**
+     * هشدارِ «به‌زودی تمام می‌شود» — بر پایهٔ نرخِ مصرف، نه سطحِ موجودی.
+     * مکملِ هشدارِ کمبود است: قلمی می‌تواند بالای حدِ هشدار باشد ولی
+     * چون تند مصرف می‌شود زودتر تمام شود. از همان محاسبهٔ صفحهٔ
+     * «پیشنهاد خرید» استفاده می‌کند تا دو عددِ متفاوت ندهند.
+     */
+    private val stockAlerts: Flow<List<Alert>> = combine(
+        repo.observeMaterialStock(),
+        repo.observeStockMovementsSince(
+            System.currentTimeMillis() - BURN_WINDOW_DAYS * 86_400_000L
+        )
+    ) { materials, movements ->
+        val runningOut = buildReorderRows(materials, movements).filter { it.runsOutSoon }
+        buildList {
+            if (runningOut.isNotEmpty()) {
+                val soonest = runningOut.minByOrNull { it.daysOfCover ?: Int.MAX_VALUE }!!
+                add(
+                    Alert(
+                        id = "runout_soon",
+                        severity = AlertSeverity.WARN,
+                        icon = "🛒",
+                        title = "${runningOut.size.fa()} قلم مواد به‌زودی تمام می‌شود",
+                        detail = "زودترین: ${soonest.name} — حدود ${(soonest.daysOfCover ?: 0).fa()} روز باقی",
+                        route = Routes.PURCHASE_PLAN
+                    )
+                )
+            }
+        }
+    }
+
+    val ui: StateFlow<ActionCenterUi> =
+        combine(coreAlerts, payrollAlerts, stockAlerts) { core, payroll, stock ->
+            ActionCenterUi((core + payroll + stock).sortedBy { it.severity.ordinal })
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ActionCenterUi())
 
     private companion object {
         const val SHIFT_MS = 8L * 60 * 60 * 1000

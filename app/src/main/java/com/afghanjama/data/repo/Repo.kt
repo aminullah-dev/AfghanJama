@@ -853,6 +853,10 @@ class Repo(private val db: AppDatabase) {
     // Material Stock (انبار عمومی مواد خام)
     // =========================
 
+    /** گردشِ انبار از یک تاریخ به بعد — برای محاسبهٔ نرخِ مصرف. */
+    fun observeStockMovementsSince(since: Long): Flow<List<StockMovement>> =
+        db.stockMovementDao().observeSince(since)
+
     fun observeMaterialStock(): Flow<List<MaterialStock>> =
         db.materialStockDao().observeAll()
 
