@@ -15,7 +15,9 @@ import kotlinx.coroutines.launch
 
 data class FinishedSaleUi(
     val message: String? = null,
-    val isError: Boolean = false
+    val isError: Boolean = false,
+    /** بیعانهٔ استفاده‌نشدهٔ مشتریِ انتخاب‌شده — ۰ یعنی ندارد. */
+    val prepayOfCustomer: Long = 0
 )
 
 /** فروش جزئی از انبار محصول نهایی. */
@@ -43,7 +45,25 @@ class FinishedSaleViewModel(private val repo: Repo) : ViewModel() {
 
     fun clearMessage() = _ui.update { it.copy(message = null, isError = false) }
 
-    fun sell(item: FinishedStock, qty: Int, unitPrice: Long, customerName: String) =
+    /** با تایپِ نامِ مشتری، بیعانهٔ استفاده‌نشده‌اش را پیدا می‌کند. */
+    fun lookupPrepay(customerName: String) = viewModelScope.launch {
+        val p = if (customerName.isBlank()) 0L else repo.customerPrepayBalance(customerName)
+        _ui.update { it.copy(prepayOfCustomer = p) }
+    }
+
+    /**
+     * [receivedNow] نقدی که همین حالا گرفته می‌شود و [applyPrepay] بخشی از
+     * بیعانهٔ قبلیِ مشتری که روی این فروش اعمال می‌شود. اگر هیچ‌کدام داده
+     * نشود، مثلِ قبل کلِ مبلغ نقد فرض می‌شود.
+     */
+    fun sell(
+        item: FinishedStock,
+        qty: Int,
+        unitPrice: Long,
+        customerName: String,
+        receivedNow: Long = -1L,
+        applyPrepay: Long = 0L
+    ) =
         viewModelScope.launch {
             if (qty <= 0 || qty > item.qty) {
                 _ui.update { it.copy(message = "تعداد فروش نامعتبر است. موجودی: ${item.qty}", isError = true) }
@@ -53,9 +73,17 @@ class FinishedSaleViewModel(private val repo: Repo) : ViewModel() {
                 _ui.update { it.copy(message = "قیمت هر عدد را وارد کنید.", isError = true) }
                 return@launch
             }
-            val ok = repo.sellFinished(item, qty, unitPrice, customerName)
+            val ok = repo.sellFinished(
+                item, qty, unitPrice, customerName,
+                receivedNow = receivedNow, applyPrepay = applyPrepay
+            )
             _ui.update {
-                if (ok) it.copy(message = "✅ فروش ثبت شد.", isError = false)
+                if (ok) it.copy(
+                    message = "✅ فروش ثبت شد." +
+                        (if (applyPrepay > 0) " بیعانه هم اعمال شد." else ""),
+                    isError = false,
+                    prepayOfCustomer = 0
+                )
                 else it.copy(message = "فروش ناموفق بود.", isError = true)
             }
         }

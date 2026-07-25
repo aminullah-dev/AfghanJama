@@ -490,7 +490,9 @@ class Repo(private val db: AppDatabase) {
             n, "CUSTOMER_RECEIPT", "",
             listOf(
                 jl(Accounts.CASH, debit = amount),
-                jl(Accounts.CUSTOMER_PREPAY, credit = amount)
+                // اگر طلبی از او داریم این دریافت آن را می‌بندد؛ وگرنه
+                // پیش‌دریافت است و بدهیِ ما می‌شود.
+                jl(customerCreditAccount(name, amount), credit = amount)
             )
         )
     }
@@ -533,6 +535,18 @@ class Repo(private val db: AppDatabase) {
                 jl(Accounts.CUSTOMER_PREPAY, credit = amount)
             )
         )
+    }
+
+    /**
+     * دریافت از مشتری کدام حساب را می‌بندد؟ اگر در دفتر کل به ما بدهکار
+     * است، این دریافت طلب را کم می‌کند؛ وگرنه پولِ پیش از تحویل است و
+     * بدهیِ ما می‌شود. بدونِ این تفکیک، دریافت‌ها یکی از دو حساب را به
+     * سمتِ اشتباه می‌بردند.
+     */
+    private suspend fun customerCreditAccount(name: String, amount: Long): String {
+        val rows = db.ledgerDao().observeEntriesForParty("CUSTOMER", name.trim()).first()
+        val owes = rows.sumOf { it.debit } - rows.sumOf { it.credit }
+        return if (owes >= amount) Accounts.RECEIVABLE else Accounts.CUSTOMER_PREPAY
     }
 
     /** هزینهٔ عمومی (کرایه، برق، معاش...): خروجِ نقد + ثبتِ ژورنالِ هزینه. */
@@ -1171,11 +1185,34 @@ class Repo(private val db: AppDatabase) {
      * فروش جزئی از انبار محصول نهایی: موجودی کم، درآمد وارد کیف پول و
      * سود به فایده منتقل و سابقهٔ فروش ثبت می‌شود.
      */
+    /**
+     * پیش‌دریافتِ استفاده‌نشدهٔ یک مشتری — بیعانه‌هایی که گرفته‌ایم منهای
+     * آنچه تا حالا روی فروش‌ها اعمال شده. برای پیشنهادِ خودکار در فروش.
+     */
+    suspend fun customerPrepayBalance(customerName: String): Long {
+        val name = customerName.trim()
+        if (name.isBlank()) return 0L
+        val rows = db.ledgerDao().observeEntriesForParty("CUSTOMER", name).first()
+        val paid = rows.filter { it.refType == "CUSTOMER_ADVANCE" }.sumOf { it.credit }
+        val used = rows.filter { it.refType == "PREPAY_APPLIED" }.sumOf { it.debit }
+        return (paid - used).coerceAtLeast(0L)
+    }
+
+    /**
+     * فروش از انبارِ محصول.
+     *
+     * [receivedNow] پولی است که همین حالا نقد گرفته می‌شود و [applyPrepay]
+     * بخشی از بیعانهٔ قبلیِ همین مشتری است که روی این فروش اعمال می‌شود.
+     * باقی‌مانده طلبِ ما از مشتری است. با این تفکیک، بیعانه دیگر دوبار
+     * شمرده نمی‌شود: یک بار موقعِ گرفتن، یک بار موقعِ فروش.
+     */
     suspend fun sellFinished(
         item: FinishedStock,
         qty: Int,
         unitPrice: Long,
-        customerName: String
+        customerName: String,
+        receivedNow: Long = -1L,
+        applyPrepay: Long = 0L
     ): Boolean {
         if (qty <= 0 || qty > item.qty || unitPrice <= 0) return false
         val now = System.currentTimeMillis()
@@ -1199,24 +1236,43 @@ class Repo(private val db: AppDatabase) {
             )
         )
 
-        income("WALLET", revenue, "فروش $qty عدد «${item.name}» ($code)")
+        // تفکیکِ پول: نقدِ همین حالا + بیعانهٔ اعمال‌شده + باقی‌ماندهٔ طلب.
+        // receivedNow = -1 یعنی صداکنندهٔ قدیمی چیزی نگفته → همه نقد.
+        val prepay = applyPrepay.coerceIn(0L, revenue)
+        val cashIn = (if (receivedNow < 0) revenue - prepay else receivedNow)
+            .coerceIn(0L, revenue - prepay)
+        val onCredit = revenue - prepay - cashIn
+
+        if (cashIn > 0) income("WALLET", cashIn, "فروش $qty عدد «${item.name}» ($code)")
+        if (prepay > 0 && customerName.isNotBlank()) {
+            // بیعانه مصرف شد — تا دوباره روی فروشِ بعدی پیشنهاد نشود
+            postLedger(
+                "CUSTOMER", customerName, prepay, 0,
+                "PREPAY_APPLIED", code, "اعمال بیعانه روی فروش"
+            )
+        }
         // بدهکارِ فروش در دفتر کل (متقابلِ دریافتی) تا حساب مشتری تراز بماند؛
         // فروشِ بی‌نام طرفِ حساب ندارد و آینه نمی‌شود (دریافتی‌اش هم نمی‌شود).
         if (customerName.isNotBlank()) {
             postLedger("CUSTOMER", customerName, revenue, 0, "SALE_BILLING", code, "فروش از انبار")
         }
-        addCustomerPayment(
-            CustomerPayment(
-                orderId = "FINISHED",
-                customerName = customerName.trim(),
-                amount = revenue,
-                source = "SALE",
-                note = "فروش $qty عدد «${item.name}» از انبار محصول"
+        if (cashIn > 0) {
+            addCustomerPayment(
+                CustomerPayment(
+                    orderId = "FINISHED",
+                    customerName = customerName.trim(),
+                    amount = cashIn,
+                    source = "SALE",
+                    note = "فروش $qty عدد «${item.name}» از انبار محصول"
+                )
             )
-        )
-        if (profit > 0L) {
-            spend("WALLET", profit, "انتقال سود فروش «${item.name}» به فایده")
-            income("PROFIT", profit, "سود فروش «${item.name}»")
+        }
+        // سود فقط تا سقفِ نقدِ واقعاً دریافت‌شده به صندوق فایده می‌رود؛
+        // وگرنه صندوق برای پولی که هنوز نرسیده خالی می‌شد.
+        val profitMove = profit.coerceAtMost(cashIn).coerceAtLeast(0L)
+        if (profitMove > 0L) {
+            spend("WALLET", profitMove, "انتقال سود فروش «${item.name}» به فایده")
+            income("PROFIT", profitMove, "سود فروش «${item.name}»")
         }
         // فاکتور فروش
         createDocument(
@@ -1228,18 +1284,22 @@ class Repo(private val db: AppDatabase) {
         postJournal(
             "فروش «${item.name}» ($code)", "SALE", code,
             listOf(
-                jl(Accounts.CASH, debit = revenue),
+                jl(Accounts.CASH, debit = cashIn),
+                // بیعانه‌ای که قبلاً بدهیِ ما بود، حالا با تحویلِ کالا آزاد می‌شود
+                jl(Accounts.CUSTOMER_PREPAY, debit = prepay),
+                // باقی‌مانده طلبِ ما از مشتری است
+                jl(Accounts.RECEIVABLE, debit = onCredit),
                 jl(Accounts.SALES, credit = revenue),
                 jl(Accounts.COGS, debit = cost),
                 jl(Accounts.FINISHED, credit = cost)
             )
         )
-        if (profit > 0L) {
+        if (profitMove > 0L) {
             postJournal(
                 "انتقال سود فروش ($code) به صندوق فایده", "PROFIT_MOVE", code,
                 listOf(
-                    jl(Accounts.PROFIT_BOX, debit = profit),
-                    jl(Accounts.CASH, credit = profit)
+                    jl(Accounts.PROFIT_BOX, debit = profitMove),
+                    jl(Accounts.CASH, credit = profitMove)
                 )
             )
         }

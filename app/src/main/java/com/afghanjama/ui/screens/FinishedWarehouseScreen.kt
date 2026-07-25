@@ -26,6 +26,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -33,6 +34,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -70,6 +72,11 @@ fun FinishedWarehouseScreen(
         var qtyText by remember(item.id) { mutableStateOf("") }
         var priceText by remember(item.id) { mutableStateOf("") }
         var customer by remember(item.id) { mutableStateOf("") }
+        var receivedText by remember(item.id) { mutableStateOf("") }
+        var usePrepay by remember(item.id) { mutableStateOf(true) }
+
+        // با تایپِ نامِ مشتری، بیعانهٔ استفاده‌نشده‌اش پیدا می‌شود
+        LaunchedEffect(customer) { vm.lookupPrepay(customer) }
         AlertDialog(
             onDismissRequest = { sellTarget = null },
             title = { Text("فروش «${item.name}»") },
@@ -106,11 +113,51 @@ fun FinishedWarehouseScreen(
                     )
                     val q = qtyText.toIntOrNull() ?: 0
                     val p = priceText.toLongOrNull() ?: 0L
+                    val total = q.toLong() * p
                     if (q > 0 && p > 0) {
                         Text(
-                            "جمع فروش: ${(q * p).afn()}",
+                            "جمع فروش: ${total.afn()}",
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    // ---------- بیعانهٔ قبلیِ همین مشتری ----------
+                    val prepay = if (usePrepay) minOf(ui.prepayOfCustomer, total) else 0L
+                    if (ui.prepayOfCustomer > 0 && total > 0) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Checkbox(checked = usePrepay, onCheckedChange = { usePrepay = it })
+                            Text(
+                                "بیعانهٔ قبلی: ${ui.prepayOfCustomer.afn()} — کم شود",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+
+                    if (total > 0) {
+                        OutlinedTextField(
+                            value = receivedText,
+                            onValueChange = { receivedText = it.digitsOnly() },
+                            label = { Text("نقدِ دریافتی همین حالا (خالی = باقی‌مانده کامل)") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        val due = total - prepay
+                        val cash = (receivedText.toLongOrNull() ?: due).coerceIn(0L, due)
+                        val credit = due - cash
+                        Text(
+                            buildString {
+                                if (prepay > 0) append("از بیعانه ${prepay.afn()} • ")
+                                append("نقد ${cash.afn()}")
+                                if (credit > 0) append(" • باقی‌ماندهٔ طلب ${credit.afn()}")
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (credit > 0) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.primary
                         )
                     }
                 }
@@ -119,7 +166,14 @@ fun FinishedWarehouseScreen(
                 TextButton(onClick = {
                     val q = qtyText.toIntOrNull() ?: 0
                     val p = priceText.toLongOrNull() ?: 0L
-                    vm.sell(item, q, p, customer)
+                    val total = q.toLong() * p
+                    val prepay = if (usePrepay) minOf(ui.prepayOfCustomer, total) else 0L
+                    val due = total - prepay
+                    vm.sell(
+                        item, q, p, customer,
+                        receivedNow = (receivedText.toLongOrNull() ?: due).coerceIn(0L, due),
+                        applyPrepay = prepay
+                    )
                     sellTarget = null
                 }) { Text("ثبت فروش") }
             },

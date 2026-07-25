@@ -38,6 +38,7 @@ fun ledgerRefLabel(r: String): String = when (r) {
     "PURCHASE_RETURN" -> "برگشت از خرید"
     "SUPPLIER_PAYMENT" -> "پرداخت به فروشنده"
     "CUSTOMER_ADVANCE" -> "پیش‌پرداخت مشتری"
+    "PREPAY_APPLIED" -> "اعمال بیعانه روی فروش"
     "CUSTOMER_SALE" -> "فروش"
     "CUSTOMER_MANUAL" -> "دریافت دستی"
     "CUSTOMER_RETURN" -> "برگشتی فروش"
