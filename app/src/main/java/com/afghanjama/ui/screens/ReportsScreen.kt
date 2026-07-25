@@ -23,21 +23,29 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -143,13 +151,81 @@ private fun BarRow(
     }
 }
 
+/** یک انتخابگرِ تاریخِ شمسی: روز / ماه / سال به‌صورت منوی کشویی. */
+@Composable
+private fun JalaliDateRow(
+    title: String,
+    year: Int, month: Int, day: Int,
+    onChange: (Int, Int, Int) -> Unit
+) {
+    var yOpen by remember { mutableStateOf(false) }
+    var mOpen by remember { mutableStateOf(false) }
+    var dOpen by remember { mutableStateOf(false) }
+    val thisYear = remember { PersianDate.todayJalali()[0] }
+    val years = remember(thisYear) { (thisYear - 4..thisYear).toList().reversed() }
+    val maxDay = PersianDate.daysInJalaliMonth(year, month)
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            title,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Box {
+                OutlinedButton(onClick = { dOpen = true }) { Text(day.fa()) }
+                DropdownMenu(expanded = dOpen, onDismissRequest = { dOpen = false }) {
+                    (1..maxDay).forEach { d ->
+                        DropdownMenuItem(
+                            text = { Text(d.fa()) },
+                            onClick = { onChange(year, month, d); dOpen = false }
+                        )
+                    }
+                }
+            }
+            Box {
+                OutlinedButton(onClick = { mOpen = true }) {
+                    Text(PersianDate.afghanMonths[month - 1])
+                }
+                DropdownMenu(expanded = mOpen, onDismissRequest = { mOpen = false }) {
+                    PersianDate.afghanMonths.forEachIndexed { i, name ->
+                        DropdownMenuItem(
+                            text = { Text(name) },
+                            onClick = {
+                                val m = i + 1
+                                // روزِ ۳۱ در ماهِ ۳۰ روزه نامعتبر می‌شود
+                                val d = day.coerceAtMost(PersianDate.daysInJalaliMonth(year, m))
+                                onChange(year, m, d); mOpen = false
+                            }
+                        )
+                    }
+                }
+            }
+            Box {
+                OutlinedButton(onClick = { yOpen = true }) { Text(year.fa()) }
+                DropdownMenu(expanded = yOpen, onDismissRequest = { yOpen = false }) {
+                    years.forEach { y ->
+                        DropdownMenuItem(
+                            text = { Text(y.fa()) },
+                            onClick = {
+                                val d = day.coerceAtMost(PersianDate.daysInJalaliMonth(y, month))
+                                onChange(y, month, d); yOpen = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun ReportsScreen(
     vm: ReportsViewModel,
     onBack: () -> Unit
 ) {
     val r by vm.report.collectAsState()
-    val period by vm.period.collectAsState()
+    val range by vm.range.collectAsState()
     val tb by vm.trialBalance.collectAsState()
     val income by vm.incomeStatement.collectAsState()
     val sheet by vm.balanceSheet.collectAsState()
@@ -157,9 +233,54 @@ fun ReportsScreen(
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val periodLabel = when (period) {
-        null -> "از ابتدا تا امروز"
-        else -> "${period!!.fa()} روز اخیر"
+    val periodLabel = range.label
+
+    // ---------- بازهٔ دلخواه ----------
+    var customOpen by remember { mutableStateOf(false) }
+    if (customOpen) {
+        val today = remember { PersianDate.todayJalali() }
+        var f by remember { mutableStateOf(Triple(today[0], today[1], 1)) }
+        var t by remember { mutableStateOf(Triple(today[0], today[1], today[2])) }
+        val fromMs = PersianDate.startOfJalaliDay(f.first, f.second, f.third)
+        val toMs = PersianDate.endOfJalaliDay(t.first, t.second, t.third)
+        val valid = fromMs <= toMs
+
+        AlertDialog(
+            onDismissRequest = { customOpen = false },
+            title = { Text("بازهٔ دلخواه") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    JalaliDateRow("از تاریخ", f.first, f.second, f.third) { y, m, d ->
+                        f = Triple(y, m, d)
+                    }
+                    JalaliDateRow("تا تاریخ", t.first, t.second, t.third) { y, m, d ->
+                        t = Triple(y, m, d)
+                    }
+                    Text(
+                        if (valid) "از ${PersianDate.long(fromMs)} تا ${PersianDate.long(toMs)}"
+                        else "⚠ تاریخِ شروع بعد از تاریخِ پایان است",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (valid) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = valid,
+                    onClick = {
+                        vm.setCustomRange(
+                            fromMs, toMs,
+                            "${PersianDate.short(fromMs)} تا ${PersianDate.short(toMs)}"
+                        )
+                        customOpen = false
+                    }
+                ) { Text("اعمال") }
+            },
+            dismissButton = {
+                TextButton(onClick = { customOpen = false }) { Text("انصراف") }
+            }
+        )
     }
 
     Scaffold(
@@ -194,10 +315,22 @@ fun ReportsScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    FilterChip(period == null, { vm.setPeriod(null) }, label = { Text("همه") })
-                    FilterChip(period == 30, { vm.setPeriod(30) }, label = { Text("۳۰ روز") })
-                    FilterChip(period == 7, { vm.setPeriod(7) }, label = { Text("۷ روز") })
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        FilterChip(
+                            !range.isCustom && range.presetDays == null,
+                            { vm.setPeriod(null) }, label = { Text("همه") }
+                        )
+                        FilterChip(range.presetDays == 7, { vm.setPeriod(7) }, label = { Text("۷ روز") })
+                        FilterChip(range.presetDays == 30, { vm.setPeriod(30) }, label = { Text("۳۰ روز") })
+                        FilterChip(range.presetDays == 90, { vm.setPeriod(90) }, label = { Text("۹۰ روز") })
+                        FilterChip(range.isCustom, { customOpen = true }, label = { Text("دلخواه…") })
+                    }
+                    Text(
+                        "بازه: ${range.label}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 

@@ -42,6 +42,76 @@ object PersianDate {
         return intArrayOf(jy, jm, jd)
     }
 
+    private val jalaliMonthDays = intArrayOf(31, 31, 31, 31, 31, 31, 30, 30, 30, 30, 30, 29)
+    private val gregorianMonthDays = intArrayOf(31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+
+    /**
+     * جلالی → میلادی. وارونهٔ دقیقِ [gregorianToJalali] است؛ رفت‌وبرگشتِ
+     * همهٔ روزهای ۱۳۹۶ تا ۱۴۰۸ آزموده شده (شاملِ حوتِ ۳۰ روزهٔ کبیسه).
+     * خروجی: [سال، ماه ۱..۱۲، روز].
+     */
+    fun jalaliToGregorian(jy: Int, jm: Int, jd: Int): IntArray {
+        val jy1 = jy - 979
+        var dayNo = 365 * jy1 + (jy1 / 33) * 8 + ((jy1 % 33 + 3) / 4)
+        for (i in 0 until (jm - 1)) dayNo += jalaliMonthDays[i]
+        dayNo += jd - 1
+
+        var g = dayNo + 79
+        var gy = 1600 + 400 * (g / 146097)
+        g %= 146097
+        var leap = true
+        if (g >= 36525) {
+            g--
+            gy += 100 * (g / 36524)
+            g %= 36524
+            if (g >= 365) g++ else leap = false
+        }
+        gy += 4 * (g / 1461)
+        g %= 1461
+        if (g >= 366) {
+            leap = false
+            g--
+            gy += g / 365
+            g %= 365
+        }
+        var i = 0
+        while (g >= gregorianMonthDays[i] + (if (i == 1 && leap) 1 else 0)) {
+            g -= gregorianMonthDays[i] + (if (i == 1 && leap) 1 else 0)
+            i++
+        }
+        return intArrayOf(gy, i + 1, g + 1)
+    }
+
+    /** ابتدای (۰۰:۰۰) یک روزِ شمسی به میلی‌ثانیه. */
+    fun startOfJalaliDay(jy: Int, jm: Int, jd: Int): Long {
+        val g = jalaliToGregorian(jy, jm, jd)
+        return Calendar.getInstance().apply {
+            clear()
+            set(g[0], g[1] - 1, g[2], 0, 0, 0)
+        }.timeInMillis
+    }
+
+    /** پایان (۲۳:۵۹:۵۹٫۹۹۹) یک روزِ شمسی — تا کلِ آن روز در بازه بیفتد. */
+    fun endOfJalaliDay(jy: Int, jm: Int, jd: Int): Long =
+        startOfJalaliDay(jy, jm, jd) + 86_400_000L - 1
+
+    /** تعدادِ روزهای یک ماهِ شمسی (حوت در سالِ کبیسه ۳۰ روز است). */
+    fun daysInJalaliMonth(jy: Int, jm: Int): Int = when {
+        jm in 1..6 -> 31
+        jm in 7..11 -> 30
+        // حوت: اگر ۳۰ حوت به همان سال برگردد، سال کبیسه است
+        else -> if (gregorianToJalali(
+                jalaliToGregorian(jy, 12, 30)[0],
+                jalaliToGregorian(jy, 12, 30)[1],
+                jalaliToGregorian(jy, 12, 30)[2]
+            ).let { it[0] == jy && it[1] == 12 && it[2] == 30 }
+        ) 30 else 29
+    }
+
+    /** امروز به شکلِ [سال، ماه، روز] شمسی. */
+    fun todayJalali(millis: Long = System.currentTimeMillis()): IntArray =
+        jalaliOf(millis).first
+
     private fun jalaliOf(millis: Long): Triple<IntArray, Int, Int> {
         val cal = Calendar.getInstance().apply { time = Date(millis) }
         val j = gregorianToJalali(

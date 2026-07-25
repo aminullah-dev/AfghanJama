@@ -75,6 +75,34 @@ data class TrialBalance(
     val balanced: Boolean get() = totalDebit == totalCredit
 }
 
+/**
+ * بازهٔ گزارش. [from] شاملِ خودش و [to] شاملِ کلِ آن روز است.
+ * پیش‌فرض «از ابتدا تا امروز» — یعنی هیچ کرانی.
+ */
+data class ReportRange(
+    val from: Long = 0L,
+    val to: Long = Long.MAX_VALUE,
+    val label: String = "از ابتدا تا امروز",
+    /** اگر از چیپِ آماده آمده باشد، تعدادِ روزش — برای هایلایتِ چیپ. */
+    val presetDays: Int? = null,
+    val isCustom: Boolean = false
+) {
+    operator fun contains(at: Long): Boolean = at in from..to
+
+    companion object {
+        fun all() = ReportRange()
+
+        fun lastDays(days: Int) = ReportRange(
+            from = System.currentTimeMillis() - days * 24L * 3600L * 1000L,
+            label = "${days} روز اخیر",
+            presetDays = days
+        )
+
+        fun custom(from: Long, to: Long, label: String) =
+            ReportRange(from = from, to = to, label = label, isCustom = true)
+    }
+}
+
 /** سودآوریِ یک محصول در بازهٔ گزارش (از فروش‌های انبارِ محصول). */
 data class ProductProfit(
     val name: String,
@@ -189,10 +217,18 @@ class ReportsViewModel(private val repo: Repo) : ViewModel() {
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TrialBalance())
 
-    /** بازهٔ گزارش: null = همه، یا تعداد روزِ اخیر (مثلاً ۳۰). */
-    private val _period = MutableStateFlow<Int?>(null)
-    val period: StateFlow<Int?> = _period
-    fun setPeriod(days: Int?) { _period.value = days }
+    /** بازهٔ گزارش: پیش‌فرض «از ابتدا تا امروز». */
+    private val _range = MutableStateFlow(ReportRange.all())
+    val range: StateFlow<ReportRange> = _range
+
+    fun setPeriod(days: Int?) {
+        _range.value = if (days == null) ReportRange.all() else ReportRange.lastDays(days)
+    }
+
+    /** بازهٔ دلخواه با تاریخِ شمسی. */
+    fun setCustomRange(from: Long, to: Long, label: String) {
+        _range.value = ReportRange.custom(from, to, label)
+    }
 
     /**
      * صورتِ سود و زیانِ دوره — با چیپِ بازه (۷/۳۰ روز/همه) هماهنگ است،
@@ -200,13 +236,8 @@ class ReportsViewModel(private val repo: Repo) : ViewModel() {
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     val incomeStatement: StateFlow<IncomeStatement> =
-        _period
-            .flatMapLatest { days ->
-                val since = days?.let {
-                    System.currentTimeMillis() - it * 24L * 3600L * 1000L
-                } ?: 0L
-                repo.observeAccountBalancesSince(since)
-            }
+        _range
+            .flatMapLatest { r -> repo.observeAccountBalancesBetween(r.from, r.to) }
             .map { buildIncome(it) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), IncomeStatement())
 
@@ -215,7 +246,7 @@ class ReportsViewModel(private val repo: Repo) : ViewModel() {
      * نیست (روند یعنی مقایسهٔ ماه‌ها)، اما فهرستِ محصولات بازه را رعایت می‌کند.
      */
     val trend: StateFlow<TrendData> =
-        combine(repo.observeFinishedSales(), _period) { sales, period ->
+        combine(repo.observeFinishedSales(), _range) { sales, range ->
             val monthsWanted = PersianDate.recentMonths(6)
             val byMonth = sales.groupBy { PersianDate.monthKey(it.createdAt) }
             val months = monthsWanted.map { (key, label) ->
@@ -229,11 +260,8 @@ class ReportsViewModel(private val repo: Repo) : ViewModel() {
                 )
             }
 
-            val cutoff = period?.let {
-                System.currentTimeMillis() - it * 24L * 3600L * 1000L
-            } ?: 0L
             val products = sales
-                .filter { it.createdAt >= cutoff }
+                .filter { it.createdAt in range }
                 .groupBy { it.productName.ifBlank { "بدون نام" } }
                 .map { (name, list) ->
                     ProductProfit(
@@ -340,18 +368,16 @@ class ReportsViewModel(private val repo: Repo) : ViewModel() {
         ) { w, b, p -> Triple(w, b, p) }
 
     val report: StateFlow<ReportData> =
-        combine(raw, balances, _period) { r, bal, period ->
-            build(r, bal, period)
+        combine(raw, balances, _range) { r, bal, range ->
+            build(r, bal, range)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ReportData())
 
-    private fun build(r: RawData, bal: Triple<Long, Long, Long>, period: Int?): ReportData {
-        val cutoff = period?.let { System.currentTimeMillis() - it * 24L * 3600L * 1000L } ?: 0L
-
-        val sales = r.sales.filter { it.createdAt >= cutoff }
+    private fun build(r: RawData, bal: Triple<Long, Long, Long>, range: ReportRange): ReportData {
+        val sales = r.sales.filter { it.createdAt in range }
         val revenue = sales.sumOf { it.total }
         val cogs = sales.sumOf { it.cost }
 
-        val tx = r.tx.filter { it.createdAt >= cutoff }
+        val tx = r.tx.filter { it.createdAt in range }
         val income = tx.filter { it.type == "IN" }.sumOf { it.amount }
         val outTx = tx.filter { it.type == "OUT" }
         val expenseTotal = outTx.sumOf { it.amount }
@@ -363,7 +389,7 @@ class ReportsViewModel(private val repo: Repo) : ViewModel() {
         val payable = r.ledger.filter { it.net < 0 }.sumOf { -it.net }
 
         val orderProfits = r.orders
-            .filter { it.agreedPrice > 0 && it.createdAt >= cutoff }
+            .filter { it.agreedPrice > 0 && it.createdAt in range }
             .map {
                 OrderProfit(
                     code = it.orderCode,
