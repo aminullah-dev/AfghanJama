@@ -46,6 +46,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import com.afghanjama.ui.format.PersianDate
+import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.format.toPersianDigits
 import com.afghanjama.ui.vm.ProductionViewModel
