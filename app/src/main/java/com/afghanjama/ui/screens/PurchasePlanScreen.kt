@@ -2,6 +2,7 @@
 
 package com.afghanjama.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -31,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.afghanjama.ui.components.EmptyState
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.format.toPersianDigits
@@ -127,9 +129,11 @@ fun PurchasePlanScreen(
 
             if (!ui.hasData) {
                 item {
-                    Text(
-                        "انبار مواد خالی است. اول از بخش «خرید مواد» اقلام را وارد کنید.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    EmptyState(
+                        icon = "📦",
+                        title = "انبار مواد خالی است",
+                        hint = "اول از بخش «خرید مواد» اقلام را وارد کنید تا " +
+                            "مصرف‌شان ثبت شود و پیشنهاد خرید ساخته شود."
                     )
                 }
             }
@@ -153,7 +157,8 @@ private fun ReorderCard(r: ReorderRow) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Row(

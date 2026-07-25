@@ -2,6 +2,7 @@
 
 package com.afghanjama.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -127,7 +128,8 @@ fun CustomersScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth().clickable { onOpenCustomer(row.customer.id) },
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
                     Row(
                         Modifier.fillMaxWidth().padding(14.dp),

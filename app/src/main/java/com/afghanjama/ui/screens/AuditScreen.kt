@@ -2,6 +2,7 @@
 
 package com.afghanjama.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -33,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.afghanjama.ui.components.EmptyState
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.vm.AuditViewModel
 
@@ -75,9 +77,11 @@ fun AuditScreen(
             )
 
             if (shown.isEmpty()) {
-                Text(
-                    "رویدادی ثبت نشده است. با هر عملیات حساس (خرید، فروش، حذف، تسویه…) یک رویداد ثبت می‌شود.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                EmptyState(
+                    icon = "🗂",
+                    title = "هنوز رویدادی ثبت نشده",
+                    hint = "با هر عملیاتِ حساس — خرید، فروش، حذف، تسویه — " +
+                        "خودکار یک رویداد با نام و زمان ثبت می‌شود."
                 )
             } else {
                 LazyColumn(
@@ -88,7 +92,8 @@ fun AuditScreen(
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                         ) {
                             Column(
                                 Modifier.padding(horizontal = 14.dp, vertical = 10.dp),

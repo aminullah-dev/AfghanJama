@@ -32,9 +32,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.afghanjama.ui.components.EmptyState
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.vm.Alert
 import com.afghanjama.ui.vm.ActionCenterViewModel
@@ -72,7 +72,12 @@ fun ActionCenterScreen(
             SummaryHeader(urgent = ui.urgent, total = ui.total)
 
             if (ui.allClear) {
-                AllClear()
+                EmptyState(
+                    icon = "✅",
+                    title = "همه‌چیز مرتب است",
+                    hint = "هیچ کارِ معطل، کمبود، بدهی یا مهلتِ گذشته‌ای " +
+                        "نیاز به رسیدگی ندارد."
+                )
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -100,32 +105,6 @@ private fun SummaryHeader(urgent: Int, total: Int) {
         fontWeight = FontWeight.Bold,
         color = if (urgent > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
     )
-}
-
-@Composable
-private fun AllClear() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text("✅", fontSize = 48.sp)
-            Text(
-                "همه‌چیز مرتب است",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                "هیچ کارِ معطل، کمبود یا بدهیِ نیازمندِ توجهی وجود ندارد.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
-        }
-    }
 }
 
 @Composable
