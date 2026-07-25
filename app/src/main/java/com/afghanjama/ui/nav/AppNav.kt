@@ -48,6 +48,7 @@ import com.afghanjama.ui.screens.DocumentsScreen
 import com.afghanjama.ui.screens.LedgerScreen
 import com.afghanjama.ui.screens.OrderSearchScreen
 import com.afghanjama.ui.screens.PayrollScreen
+import com.afghanjama.ui.screens.PerformanceScreen
 import com.afghanjama.ui.screens.PostLoginQuoteScreen
 import com.afghanjama.ui.screens.ProcurementScreen
 import com.afghanjama.ui.screens.ProductionOrderScreen
@@ -75,6 +76,7 @@ import com.afghanjama.ui.vm.MasterDataViewModel
 import com.afghanjama.ui.vm.OrderDetailViewModel
 import com.afghanjama.ui.vm.OrderSearchViewModel
 import com.afghanjama.ui.vm.PayrollViewModel
+import com.afghanjama.ui.vm.PerformanceViewModel
 import com.afghanjama.ui.vm.ProcurementViewModel
 import com.afghanjama.ui.vm.ProductionViewModel
 import com.afghanjama.ui.vm.ReportsViewModel
@@ -158,7 +160,8 @@ fun AppNav(
     attendanceVm: AttendanceViewModel,
     auditVm: AuditViewModel,
     actionVm: ActionCenterViewModel,
-    payrollVm: PayrollViewModel
+    payrollVm: PayrollViewModel,
+    performanceVm: PerformanceViewModel
 ) {
     val navController = rememberNavController()
     val authUi by authVm.ui.collectAsState()
@@ -259,6 +262,7 @@ fun AppNav(
                     onGoFinishedSales = { navController.navigate(Routes.FINISHED_SALES) },
                     onGoAttendance = { navController.navigate(Routes.ATTENDANCE) },
                     onGoPayroll = { navController.navigate(Routes.PAYROLL) },
+                    onGoPerformance = { navController.navigate(Routes.PERFORMANCE) },
                     onGoCustomers = { navController.navigate(Routes.CUSTOMERS) },
                     // -- customers wired --
                     onGoFinance = { navController.navigate(Routes.FINANCE) },
@@ -295,6 +299,13 @@ fun AppNav(
             composable(Routes.PAYROLL) {
                 PayrollScreen(
                     vm = payrollVm,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Routes.PERFORMANCE) {
+                PerformanceScreen(
+                    vm = performanceVm,
                     onBack = { navController.popBackStack() }
                 )
             }

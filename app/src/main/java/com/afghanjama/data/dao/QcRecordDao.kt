@@ -14,4 +14,7 @@ interface QcRecordDao {
 
     @Query("SELECT * FROM qc_records WHERE orderId = :orderId ORDER BY createdAt DESC")
     fun observeForOrder(orderId: String): Flow<List<QcRecord>>
+
+    @Query("SELECT * FROM qc_records ORDER BY createdAt DESC")
+    fun observeAll(): Flow<List<QcRecord>>
 }

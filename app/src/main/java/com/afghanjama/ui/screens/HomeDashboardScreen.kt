@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Warehouse
+import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -82,6 +83,7 @@ fun HomeDashboardScreen(
     onGoFinishedSales: () -> Unit,
     onGoAttendance: () -> Unit,
     onGoPayroll: () -> Unit,
+    onGoPerformance: () -> Unit,
     onGoCustomers: () -> Unit,
     onGoFinance: () -> Unit,
     onGoLedger: () -> Unit,
@@ -123,6 +125,7 @@ fun HomeDashboardScreen(
         if (isManager) add(HomeAction("مرکز هشدار", Icons.Default.NotificationsActive, onGoActionCenter))
         if (isManager) add(HomeAction("حضور و غیاب", Icons.Default.Fingerprint, onGoAttendance))
         if (isManager) add(HomeAction("حقوق کارکنان", Icons.Default.Badge, onGoPayroll))
+        if (isManager) add(HomeAction("کارنامهٔ کارکنان", Icons.Default.WorkspacePremium, onGoPerformance))
         if (isManager) add(HomeAction("مالی", Icons.Default.Payments, onGoFinance))
         if (isManager) add(HomeAction("دفتر کل", Icons.Default.AccountBalance, onGoLedger))
         if (isManager) add(HomeAction("اسناد", Icons.Default.Description, onGoDocuments))

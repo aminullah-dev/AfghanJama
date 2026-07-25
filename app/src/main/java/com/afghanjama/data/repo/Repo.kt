@@ -145,6 +145,10 @@ class Repo(private val db: AppDatabase) {
     fun observeQcForOrder(orderId: String): Flow<List<QcRecord>> =
         db.qcRecordDao().observeForOrder(orderId)
 
+    /** همهٔ رکوردهای نظارت — برای کارنامهٔ کارکنانِ تولید. */
+    fun observeAllQc(): Flow<List<QcRecord>> =
+        db.qcRecordDao().observeAll()
+
     /**
      * تأیید کیفیت: رکورد QC ثبت و سفارش مستقیم واردِ انبار محصول می‌شود.
      * تصمیمِ فروش (مشتری/قیمت/تخفیف) در انبار محصول توسط بخش فروش گرفته
