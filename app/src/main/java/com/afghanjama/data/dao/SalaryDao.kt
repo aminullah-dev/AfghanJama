@@ -18,13 +18,6 @@ interface SalaryDao {
     @Query("SELECT * FROM salary_payments WHERE employee = :employee ORDER BY at DESC")
     fun observeForEmployee(employee: String): Flow<List<SalaryPayment>>
 
-    /** آیا حقوقِ این ماه برای این کارمند قبلاً پرداخت شده؟ */
-    @Query(
-        "SELECT COUNT(*) FROM salary_payments " +
-            "WHERE employee = :employee AND periodKey = :periodKey"
-    )
-    suspend fun countFor(employee: String, periodKey: String): Int
-
     @Query("DELETE FROM salary_payments WHERE id = :id")
     suspend fun deleteById(id: Long)
 

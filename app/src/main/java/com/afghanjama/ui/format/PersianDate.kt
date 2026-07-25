@@ -85,6 +85,12 @@ object PersianDate {
         return String.format(java.util.Locale.US, "%d-%02d", j[0], j[1])
     }
 
+    /** روزِ ماهِ شمسی (۱..۳۱) — برای مقایسهٔ «تا امروز» با همین بازه در ماهِ قبل. */
+    fun dayOfMonth(millis: Long): Int {
+        val (j, _, _) = jalaliOf(millis)
+        return j[2]
+    }
+
     /**
      * [count] ماهِ اخیرِ شمسی (شاملِ ماهِ جاری)، از قدیمی به جدید،
      * به شکلِ «کلید به برچسب» — مثلاً `"1405-05" to "اسد ۱۴۰۵"`.

@@ -103,7 +103,15 @@ data class MonthPoint(
  */
 data class TrendData(
     val months: List<MonthPoint> = emptyList(),
-    val products: List<ProductProfit> = emptyList()
+    val products: List<ProductProfit> = emptyList(),
+    /**
+     * تغییرِ سود نسبت به **همین بازه** در ماهِ قبل (نه کلِ ماهِ قبل).
+     * مقایسهٔ «۵ روزِ گذشتهٔ این ماه» با «کلِ ماهِ قبل» گمراه‌کننده بود،
+     * پس ماهِ قبل هم تا همین روزِ ماه بریده می‌شود. null = قابلِ مقایسه نیست.
+     */
+    val profitChangePercent: Int? = null,
+    /** روزِ جاریِ ماهِ شمسی — برای توضیحِ صادقانهٔ بازهٔ مقایسه. */
+    val dayOfMonth: Int = 0
 ) {
     val hasMonths: Boolean get() = months.any { it.revenue > 0 }
     val hasProducts: Boolean get() = products.isNotEmpty()
@@ -114,15 +122,6 @@ data class TrendData(
 
     val bestProduct: ProductProfit? get() = products.maxByOrNull { it.profit }
 
-    /** تغییرِ سودِ ماهِ جاری نسبت به ماهِ قبل، به درصد (null = قابلِ مقایسه نیست). */
-    val profitChangePercent: Int?
-        get() {
-            if (months.size < 2) return null
-            val prev = months[months.size - 2].profit
-            val curr = months.last().profit
-            if (prev <= 0) return null
-            return (((curr - prev) * 100) / prev).toInt()
-        }
 }
 
 /** یک سطرِ صورتِ مالی: حساب و مبلغِ طبیعی‌اش (همیشه مثبت‌خوان). */
@@ -246,7 +245,24 @@ class ReportsViewModel(private val repo: Repo) : ViewModel() {
                 }
                 .sortedByDescending { it.profit }
 
-            TrendData(months = months, products = products)
+            // مقایسهٔ منصفانه: ماهِ جاری تا امروز، در برابرِ ماهِ قبل تا همین روز
+            val today = PersianDate.dayOfMonth(System.currentTimeMillis())
+            val change: Int? = if (monthsWanted.size < 2) null else {
+                val prevKey = monthsWanted[monthsWanted.size - 2].first
+                val prevSoFar = byMonth[prevKey].orEmpty()
+                    .filter { PersianDate.dayOfMonth(it.createdAt) <= today }
+                val prevProfit = prevSoFar.sumOf { it.total } - prevSoFar.sumOf { it.cost }
+                val currProfit = months.last().profit
+                if (prevProfit <= 0L) null
+                else (((currProfit - prevProfit) * 100) / prevProfit).toInt()
+            }
+
+            TrendData(
+                months = months,
+                products = products,
+                profitChangePercent = change,
+                dayOfMonth = today
+            )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TrendData())
 
     /** ترازنامه — همیشه تجمعی (عکسِ لحظه‌ای از وضعِ مالی). */

@@ -261,16 +261,24 @@ fun ReportsScreen(
                 item {
                     SectionCard("روندِ ۶ ماهِ اخیر") {
                         trend.profitChangePercent?.let { pct ->
-                            Text(
-                                if (pct >= 0)
-                                    "📈 سودِ این ماه ${pct.fa()}٪ بیشتر از ماهِ قبل است".toPersianDigits()
-                                else
-                                    "📉 سودِ این ماه ${(-pct).fa()}٪ کمتر از ماهِ قبل است".toPersianDigits(),
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = if (pct >= 0) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.error
-                            )
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(
+                                    if (pct >= 0)
+                                        "📈 سود ${pct.fa()}٪ بیشتر شده".toPersianDigits()
+                                    else
+                                        "📉 سود ${(-pct).fa()}٪ کمتر شده".toPersianDigits(),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (pct >= 0) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.error
+                                )
+                                Text(
+                                    "مقایسهٔ ${trend.dayOfMonth.fa()} روزِ اولِ این ماه با ${trend.dayOfMonth.fa()} روزِ اولِ ماهِ قبل"
+                                        .toPersianDigits(),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                         Text(
                             "طولِ میله = درآمدِ آن ماه",

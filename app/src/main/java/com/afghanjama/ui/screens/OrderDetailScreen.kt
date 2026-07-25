@@ -124,12 +124,13 @@ fun OrderDetailScreen(
         var agreedText by remember(o.id) {
             mutableStateOf(o.agreedPrice.takeIf { it > 0 }?.toString() ?: "")
         }
-        // مهلت به شکلِ «چند روزِ دیگر» ویرایش می‌شود (خالی = بدون مهلت)
-        var dueDaysText by remember(o.id) {
-            mutableStateOf(
-                if (o.dueDate > 0) dueDaysLeft(o.dueDate).coerceAtLeast(1).toString() else ""
-            )
+        // مهلت به شکلِ «چند روزِ دیگر» ویرایش می‌شود. مقدارِ اولیه نگه داشته
+        // می‌شود تا اگر کاربر دست نزند، تاریخِ مهلت دقیقاً همان بماند — وگرنه
+        // هر بار ذخیره، مهلت را از «امروز» دوباره می‌ساخت و جلو می‌انداخت.
+        val initialDueDays = remember(o.id) {
+            if (o.dueDate > 0 && !isOverdue(o.dueDate)) dueDaysLeft(o.dueDate).toString() else ""
         }
+        var dueDaysText by remember(o.id) { mutableStateOf(initialDueDays) }
 
         AlertDialog(
             onDismissRequest = { showEdit = false },
@@ -179,13 +180,24 @@ fun OrderDetailScreen(
                     OutlinedTextField(
                         value = dueDaysText,
                         onValueChange = { dueDaysText = it.digitsOnly() },
-                        label = { Text("مهلت تحویل: چند روز دیگر (خالی = بدون مهلت)") },
+                        label = { Text("مهلت تحویل: چند روز از امروز (۰ = حذف مهلت)") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    dueDaysText.toLongOrNull()?.takeIf { it > 0 }?.let { d ->
+                    if (o.dueDate > 0) {
                         Text(
-                            "📅 تحویل تا ${PersianDate.long(System.currentTimeMillis() + d * 86_400_000L)}",
+                            "مهلت فعلی: ${PersianDate.long(o.dueDate)}" +
+                                (if (isOverdue(o.dueDate)) " (گذشته)" else "") +
+                                " — اگر این فیلد را تغییر ندهید، همین می‌ماند.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (dueDaysText != initialDueDays) {
+                        val d = dueDaysText.toLongOrNull()?.takeIf { it > 0 }
+                        Text(
+                            if (d == null) "⚠ مهلت حذف می‌شود"
+                            else "📅 مهلت جدید: ${PersianDate.long(System.currentTimeMillis() + d * 86_400_000L)}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -200,7 +212,9 @@ fun OrderDetailScreen(
                         customerName = customerName,
                         customerPhone = customerPhone,
                         agreedPrice = agreedText.toLongOrNull() ?: 0L,
-                        dueDate = dueDaysText.toLongOrNull()
+                        // دست‌نخورده → همان مهلتِ قبلی، بدون جابه‌جایی
+                        dueDate = if (dueDaysText == initialDueDays) o.dueDate
+                        else dueDaysText.toLongOrNull()
                             ?.takeIf { it > 0 }
                             ?.let { System.currentTimeMillis() + it * 86_400_000L }
                             ?: 0L

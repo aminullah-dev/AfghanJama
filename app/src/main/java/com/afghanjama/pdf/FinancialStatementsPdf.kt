@@ -130,6 +130,13 @@ object FinancialStatementsPdf {
             y += if (strong) 20f else 16f
         }
 
+        /** عنوانِ فرعی — مثلِ سطرها باید جا رزرو کند وگرنه پایینِ صفحه می‌افتد. */
+        fun subHeader(title: String) {
+            ensureSpace(24f)
+            c.drawRtl(title, MARGIN, y, strongPaint, CONTENT_W)
+            y += 18f
+        }
+
         fun lines(list: List<StatementLine>, emptyText: String) {
             if (list.isEmpty()) {
                 ensureSpace(18f)
@@ -151,8 +158,7 @@ object FinancialStatementsPdf {
         row("سودِ ناخالص", income.grossProfit, strong = true, negativeIsLoss = true)
         y += 8f
 
-        c.drawRtl("هزینه‌های عملیاتی", MARGIN, y, strongPaint, CONTENT_W)
-        y += 18f
+        subHeader("هزینه‌های عملیاتی")
         lines(income.expenses, "هزینه‌ای در این دوره ثبت نشده است.")
         row("جمعِ هزینه‌ها", income.totalExpense, strong = true)
         rule()
@@ -174,20 +180,17 @@ object FinancialStatementsPdf {
         // ================= ترازنامه =================
         section("ترازنامه — تا ${PersianDate.short(System.currentTimeMillis())}")
 
-        c.drawRtl("دارایی‌ها", MARGIN, y, strongPaint, CONTENT_W)
-        y += 18f
+        subHeader("دارایی‌ها")
         lines(sheet.assets, "دارایی ثبت نشده است.")
         row("جمعِ دارایی‌ها", sheet.totalAssets, strong = true)
         y += 10f
 
-        c.drawRtl("بدهی‌ها", MARGIN, y, strongPaint, CONTENT_W)
-        y += 18f
+        subHeader("بدهی‌ها")
         lines(sheet.liabilities, "بدهی ثبت نشده است.")
         row("جمعِ بدهی‌ها", sheet.totalLiabilities, strong = true)
         y += 10f
 
-        c.drawRtl("سرمایه", MARGIN, y, strongPaint, CONTENT_W)
-        y += 18f
+        subHeader("سرمایه")
         row("سرمایهٔ اولیه", sheet.capital)
         row("سودِ انباشته", sheet.retained, negativeIsLoss = true)
         row("جمعِ سرمایه", sheet.totalEquity, strong = true)

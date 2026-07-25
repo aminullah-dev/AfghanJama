@@ -1223,10 +1223,6 @@ class Repo(private val db: AppDatabase) {
     fun observeSalaryPayments(): Flow<List<com.afghanjama.data.entities.SalaryPayment>> =
         db.salaryDao().observeAll()
 
-    /** آیا حقوقِ این ماه برای این کارمند قبلاً پرداخت شده است؟ */
-    suspend fun isSalaryPaid(employee: String, periodKey: String): Boolean =
-        db.salaryDao().countFor(employee.trim(), periodKey) > 0
-
     /**
      * پرداختِ حقوقِ ماهانه. مثلِ هر رویدادِ مالیِ دیگر از همین قیف عبور
      * می‌کند: نقد → دفتر کل → ژورنالِ دوطرفه → رسید → لاگِ حسابرسی.
