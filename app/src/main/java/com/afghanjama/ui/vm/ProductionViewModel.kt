@@ -36,6 +36,8 @@ data class ProductionUi(
     val customerName: String = "",
     val customerPhone: String = "",
     val agreedPrice: String = "",
+    /** مهلتِ تحویل بر حسبِ «چند روزِ دیگر» (خالی = بدون مهلت). */
+    val dueDays: String = "",
 
     // ویرایشگر ماده فعلی (انتخاب از انبار)
     val pickedName: String = "",
@@ -106,6 +108,7 @@ class ProductionViewModel(private val repo: Repo) : ViewModel() {
     fun setCustomerName(v: String) = _ui.update { it.copy(customerName = v, message = null, isError = false) }
     fun setCustomerPhone(v: String) = _ui.update { it.copy(customerPhone = v, message = null, isError = false) }
     fun setAgreedPrice(v: String) = _ui.update { it.copy(agreedPrice = v.digitsOnly(), message = null, isError = false) }
+    fun setDueDays(v: String) = _ui.update { it.copy(dueDays = v.digitsOnly(), message = null, isError = false) }
 
     /** انتخاب یک ماده از انبار برای ویرایشگر فعلی. */
     fun pickMaterial(m: MaterialStock) = _ui.update {
@@ -218,7 +221,11 @@ class ProductionViewModel(private val repo: Repo) : ViewModel() {
             customerName = s.customerName.trim(),
             customerPhone = s.customerPhone.trim(),
             status = OrderStatus.IN_STOCK.name,
-            stageChangedAt = System.currentTimeMillis()
+            stageChangedAt = System.currentTimeMillis(),
+            dueDate = s.dueDays.toLongOrNull()
+                ?.takeIf { it > 0 }
+                ?.let { System.currentTimeMillis() + it * 86_400_000L }
+                ?: 0L
         )
 
         // مواد اینجا کسر نمی‌شوند؛ کسرِ واقعی از انبار هنگام «برش» انجام

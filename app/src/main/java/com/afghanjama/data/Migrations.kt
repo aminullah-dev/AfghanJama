@@ -614,6 +614,16 @@ val MIGRATION_40_41 = object : Migration(40, 41) {
  * لاگِ حسابرسی: «چه کسی، چه کاری، کِی» روی عملیاتِ حساس.
  */
 /**
+ * مهلتِ تحویلِ سفارش. فقط یک ستونِ افزودنی با مقدارِ پیش‌فرضِ ۰
+ * (یعنی «مهلتی تعیین نشده») — سفارش‌های موجود دست نمی‌خورند.
+ */
+val MIGRATION_45_46 = object : Migration(45, 46) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `orders` ADD COLUMN `dueDate` INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+/**
  * حقوقِ ماهانهٔ کارکنان: مبلغِ توافقی روی هر کارمند + جدولِ پرداخت‌ها.
  * فقط افزودنی است — هیچ ستون یا جدولِ موجودی دست نمی‌خورد.
  */

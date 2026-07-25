@@ -62,5 +62,9 @@ data class Order(
     @ColumnInfo(defaultValue = "0")
     val stageChangedAt: Long = 0,
 
+    // مهلتِ تحویل به مشتری (۰ = مهلتی تعیین نشده)
+    @ColumnInfo(defaultValue = "0")
+    val dueDate: Long = 0,
+
     val createdAt: Long = System.currentTimeMillis()
 )

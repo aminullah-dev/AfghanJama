@@ -44,6 +44,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
+import com.afghanjama.ui.format.PersianDate
+import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.format.toPersianDigits
 import com.afghanjama.ui.vm.ProductionViewModel
 
@@ -234,6 +236,40 @@ fun ProductionOrderScreen(
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth()
                         )
+
+                        // ---------- مهلت تحویل ----------
+                        Text(
+                            "مهلت تحویل (اختیاری)",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            listOf(7L, 15L, 30L).forEach { d ->
+                                FilterChip(
+                                    selected = ui.dueDays == d.toString(),
+                                    onClick = {
+                                        vm.setDueDays(if (ui.dueDays == d.toString()) "" else d.toString())
+                                    },
+                                    label = { Text("${d.fa()} روز") }
+                                )
+                            }
+                        }
+                        OutlinedTextField(
+                            value = ui.dueDays,
+                            onValueChange = vm::setDueDays,
+                            label = { Text("یا تعداد روز دلخواه") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        ui.dueDays.toLongOrNull()?.takeIf { it > 0 }?.let { d ->
+                            Text(
+                                "📅 تحویل تا ${PersianDate.long(System.currentTimeMillis() + d * 86_400_000L)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                     }
                 }
             }

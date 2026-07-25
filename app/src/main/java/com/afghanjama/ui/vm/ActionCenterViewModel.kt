@@ -7,7 +7,11 @@ import com.afghanjama.data.repo.Repo
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.STAGE_WARN_DAYS
 import com.afghanjama.ui.format.afn
+import com.afghanjama.ui.format.dueDaysLate
+import com.afghanjama.ui.format.dueDaysLeft
 import com.afghanjama.ui.format.fa
+import com.afghanjama.ui.format.isDueSoon
+import com.afghanjama.ui.format.isOverdue
 import com.afghanjama.ui.format.stageDays
 import com.afghanjama.ui.nav.Routes
 import kotlinx.coroutines.flow.Flow
@@ -91,6 +95,38 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
                         icon = "⏳",
                         title = "${stuck.size.fa()} سفارش در تولید معطل مانده",
                         detail = "قدیمی‌ترین: ${worst.orderCode} — ${worstDays.fa()} روز در ${stageLabel(worst.status)}",
+                        route = Routes.PRODUCTION_ORDER
+                    )
+                )
+            }
+
+            // ۱.۵) مهلتِ تحویل: گذشته و نزدیک
+            val active = orders.filter { it.status in activeProduction }
+            val overdue = active.filter { isOverdue(it.dueDate, now) }
+            if (overdue.isNotEmpty()) {
+                val worst = overdue.maxByOrNull { dueDaysLate(it.dueDate, now) }!!
+                add(
+                    Alert(
+                        id = "overdue_orders",
+                        severity = AlertSeverity.URGENT,
+                        icon = "📅",
+                        title = "${overdue.size.fa()} سفارش از مهلتِ تحویل گذشته",
+                        detail = "بدترین: ${worst.orderCode} — ${dueDaysLate(worst.dueDate, now).fa()} روز تأخیر" +
+                            (if (worst.customerName.isNotBlank()) " (${worst.customerName})" else ""),
+                        route = Routes.PRODUCTION_ORDER
+                    )
+                )
+            }
+            val dueSoon = active.filter { isDueSoon(it.dueDate, now) }
+            if (dueSoon.isNotEmpty()) {
+                val next = dueSoon.minByOrNull { it.dueDate }!!
+                add(
+                    Alert(
+                        id = "due_soon_orders",
+                        severity = AlertSeverity.WARN,
+                        icon = "⏱",
+                        title = "${dueSoon.size.fa()} سفارش نزدیکِ مهلتِ تحویل",
+                        detail = "نزدیک‌ترین: ${next.orderCode} — ${dueDaysLeft(next.dueDate, now).fa()} روز مانده",
                         route = Routes.PRODUCTION_ORDER
                     )
                 )

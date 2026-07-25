@@ -90,7 +90,8 @@ class OrderDetailViewModel(private val repo: Repo) : ViewModel() {
         size: String,
         customerName: String,
         customerPhone: String,
-        agreedPrice: Long
+        agreedPrice: Long,
+        dueDate: Long
     ) = viewModelScope.launch {
         val id = orderId.value ?: return@launch
         val o = repo.getOrder(id) ?: return@launch
@@ -105,7 +106,8 @@ class OrderDetailViewModel(private val repo: Repo) : ViewModel() {
                 size = size.trim(),
                 customerName = customerName.trim(),
                 customerPhone = customerPhone.trim(),
-                agreedPrice = agreedPrice
+                agreedPrice = agreedPrice,
+                dueDate = dueDate
             )
         )
 

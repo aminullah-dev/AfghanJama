@@ -54,6 +54,10 @@ import com.afghanjama.data.entities.OrderStatus
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.digitsOnly
+import com.afghanjama.ui.format.fa
+import com.afghanjama.ui.format.dueDaysLate
+import com.afghanjama.ui.format.dueDaysLeft
+import com.afghanjama.ui.format.isOverdue
 import com.afghanjama.pdf.InvoicePdf
 import com.afghanjama.ui.vm.OrderDetailViewModel
 import com.afghanjama.util.ShareUtil
@@ -120,6 +124,12 @@ fun OrderDetailScreen(
         var agreedText by remember(o.id) {
             mutableStateOf(o.agreedPrice.takeIf { it > 0 }?.toString() ?: "")
         }
+        // مهلت به شکلِ «چند روزِ دیگر» ویرایش می‌شود (خالی = بدون مهلت)
+        var dueDaysText by remember(o.id) {
+            mutableStateOf(
+                if (o.dueDate > 0) dueDaysLeft(o.dueDate).coerceAtLeast(1).toString() else ""
+            )
+        }
 
         AlertDialog(
             onDismissRequest = { showEdit = false },
@@ -166,6 +176,20 @@ fun OrderDetailScreen(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
+                    OutlinedTextField(
+                        value = dueDaysText,
+                        onValueChange = { dueDaysText = it.digitsOnly() },
+                        label = { Text("مهلت تحویل: چند روز دیگر (خالی = بدون مهلت)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    dueDaysText.toLongOrNull()?.takeIf { it > 0 }?.let { d ->
+                        Text(
+                            "📅 تحویل تا ${PersianDate.long(System.currentTimeMillis() + d * 86_400_000L)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             },
             confirmButton = {
@@ -175,7 +199,11 @@ fun OrderDetailScreen(
                         size = size,
                         customerName = customerName,
                         customerPhone = customerPhone,
-                        agreedPrice = agreedText.toLongOrNull() ?: 0L
+                        agreedPrice = agreedText.toLongOrNull() ?: 0L,
+                        dueDate = dueDaysText.toLongOrNull()
+                            ?.takeIf { it > 0 }
+                            ?.let { System.currentTimeMillis() + it * 86_400_000L }
+                            ?: 0L
                     )
                     showEdit = false
                 }) { Text("ذخیره") }
@@ -346,6 +374,29 @@ fun OrderDetailScreen(
                         o.assignedTailor?.takeIf { it.isNotBlank() }?.let { DetailRow("خیاط", it) }
                         o.assignedInspector?.takeIf { it.isNotBlank() }?.let { DetailRow("ناظر", it) }
                         DetailRow("تاریخ ثبت", fmtDate(o.createdAt))
+                        if (o.dueDate > 0) {
+                            val late = isOverdue(o.dueDate)
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    "مهلت تحویل",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    fmtDate(o.dueDate) + " • " + (
+                                        if (late) "⚠ ${dueDaysLate(o.dueDate).fa()} روز تأخیر"
+                                        else "${dueDaysLeft(o.dueDate).fa()} روز مانده"
+                                        ),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (late) MaterialTheme.colorScheme.error
+                                    else MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
                     }
                 }
             }
