@@ -61,7 +61,8 @@ class MyWorkViewModel(private val repo: Repo) : ViewModel() {
                     }.sortedByDescending { it.doneAt ?: 0L },
                     unpaidWage = wages.filter { it.tailorLabel == label }.sumOf { it.amount },
                     // همان محاسبهٔ «کارنامهٔ کارکنان» تا کارگر و مدیر یک عدد ببینند
-                    score = buildTailorScores(assignments, qc).firstOrNull { it.name == label }
+                    score = buildTailorScores(assignments, qc)
+                        .firstOrNull { it.name == label.trim() }
                 )
             }
         }

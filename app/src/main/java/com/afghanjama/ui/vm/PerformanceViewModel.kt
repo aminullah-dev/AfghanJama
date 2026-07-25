@@ -79,34 +79,73 @@ data class PerformanceUi(
  * کارنامهٔ کارکنانِ تولید: چه کسی چقدر کار تحویل داده، با چه کیفیتی و
  * چقدر برگشت خورده — همه از دادهٔ موجودِ تحویل‌ها و نظارت.
  */
+/** نتیجهٔ نظارتِ یک سفارش پس از انتساب به خیاطان. */
+private data class OrderVerdict(
+    /** خیاطانی که کارشان در این سفارش سنجیده شده است. */
+    val judgedFor: Set<String>,
+    /** خیاطانی که برگشت به نامِ آن‌ها ثبت شده است. */
+    val rejectedFor: Set<String>
+)
+
+private fun tailorsPerOrder(assignments: List<SewingAssignment>): Map<String, List<String>> =
+    assignments.groupBy { it.orderId }
+        .mapValues { (_, list) ->
+            list.map { it.tailorLabel.trim() }.filter { it.isNotBlank() }.distinct()
+        }
+
+/**
+ * انتسابِ نتیجهٔ نظارتِ یک سفارش به خیاطان. `null` یعنی قابلِ انتساب نیست.
+ *
+ * قاعده‌ها:
+ *  - سفارشی که تأیید شده: کارِ همهٔ خیاطانش سنجیده و قبول شده — برای همه
+ *    یک سفارشِ سالم حساب می‌شود (چه یک خیاط داشته باشد چه ده تا؛ در تأیید
+ *    هیچ ابهامی نیست).
+ *  - سفارشِ تک‌خیاطه که برگشت خورده: خودِ همان خیاط.
+ *  - سفارشِ چندخیاطه که برگشت خورده و ناظر نامِ خیاط را ثبت کرده: برگشت
+ *    به نامِ همان‌ها، و بقیهٔ خیاطانِ سفارش یک سفارشِ سالم می‌گیرند —
+ *    چون کارِ آن‌ها هم دیده شده و ایراد نگرفته است.
+ *  - سفارشِ چندخیاطه که برگشت خورده و ناظر نگفته کارِ کدام بوده: کنار
+ *    گذاشته می‌شود؛ انداختنش به گردنِ همه یا به گردنِ یکی، هر دو دروغ است.
+ */
+private fun verdictOf(tailors: List<String>, records: List<QcRecord>): OrderVerdict? {
+    if (tailors.isEmpty() || records.isEmpty()) return null
+    val rejects = records.filter { it.result == "REJECTED" }
+    if (rejects.isEmpty()) return OrderVerdict(tailors.toSet(), emptySet())
+    if (tailors.size == 1) return OrderVerdict(tailors.toSet(), tailors.toSet())
+    if (rejects.any { it.tailor.isBlank() }) return null
+    val blamed = rejects.map { it.tailor.trim() }.toSet()
+    return OrderVerdict(tailors.toSet() + blamed, blamed)
+}
+
+private fun orderVerdicts(
+    assignments: List<SewingAssignment>,
+    qc: List<QcRecord>
+): Map<String, OrderVerdict> {
+    val perOrder = tailorsPerOrder(assignments)
+    return qc.groupBy { it.orderId }
+        .mapNotNull { (orderId, records) ->
+            verdictOf(perOrder[orderId].orEmpty(), records)?.let { orderId to it }
+        }
+        .toMap()
+}
+
 /**
  * محاسبهٔ مشترکِ کارنامهٔ خیاطان — هم «کارنامهٔ کارکنان» (مدیر) و هم
  * «کارِ من» (خودِ خیاط) از همین تابع می‌خوانند تا هرگز دو عددِ متفاوت
  * به کارگر و مدیر نشان داده نشود.
- *
- * برگشت فقط به سفارشی نسبت داده می‌شود که یک خیاط داشته؛ سفارشِ
- * تقسیم‌شده بینِ چند نفر قابلِ انتساب نیست و کنار گذاشته می‌شود.
  */
 fun buildTailorScores(
     assignments: List<SewingAssignment>,
     qc: List<QcRecord>
 ): List<TailorScore> {
-    val rejectedOrderIds = qc.filter { it.result == "REJECTED" }.map { it.orderId }.toSet()
-    val judgedOrderIds = qc.map { it.orderId }.toSet()
-
-    val tailorsPerOrder = assignments.groupBy { it.orderId }
-        .mapValues { (_, list) -> list.map { it.tailorLabel }.distinct() }
-    val soleTailorOf = tailorsPerOrder
-        .filterValues { it.size == 1 }
-        .mapValues { it.value.first() }
+    val verdicts = orderVerdicts(assignments, qc)
 
     return assignments
-        .groupBy { it.tailorLabel }
+        .groupBy { it.tailorLabel.trim() }
         .filterKeys { it.isNotBlank() }
         .map { (name, list) ->
             val done = list.filter { it.status == "DONE" }
             val timed = done.filter { it.doneAt != null && it.doneAt!! > it.createdAt }
-            val myOrders = soleTailorOf.filterValues { it == name }.keys
             TailorScore(
                 name = name,
                 deliveries = done.size,
@@ -118,8 +157,8 @@ fun buildTailorScores(
                 good = list.count { it.quality == "خوب" },
                 fair = list.count { it.quality == "متوسط" },
                 poor = list.count { it.quality == "ضعیف" },
-                judgedOrders = myOrders.count { it in judgedOrderIds },
-                rejectedOrders = myOrders.count { it in rejectedOrderIds }
+                judgedOrders = verdicts.count { name in it.value.judgedFor },
+                rejectedOrders = verdicts.count { name in it.value.rejectedFor }
             )
         }
         .sortedWith(
@@ -128,16 +167,19 @@ fun buildTailorScores(
         )
 }
 
-/** تعدادِ سفارش‌های چندخیاطه‌ای که نظارت شده‌اند و قابلِ انتساب نیستند. */
+/**
+ * تعدادِ سفارش‌های چندخیاطه‌ای که برگشت خورده‌اند و ناظر نگفته کارِ کدام
+ * خیاط بوده — تنها موردی که هنوز قابلِ انتساب نیست.
+ */
 fun countSharedJudgedOrders(
     assignments: List<SewingAssignment>,
     qc: List<QcRecord>
 ): Int {
-    val judged = qc.map { it.orderId }.toSet()
-    return assignments.groupBy { it.orderId }
-        .mapValues { (_, l) -> l.map { it.tailorLabel }.distinct() }
-        .filterValues { it.size > 1 }
-        .keys.count { it in judged }
+    val perOrder = tailorsPerOrder(assignments)
+    return qc.groupBy { it.orderId }.count { (orderId, records) ->
+        val tailors = perOrder[orderId].orEmpty()
+        tailors.size > 1 && verdictOf(tailors, records) == null
+    }
 }
 
 class PerformanceViewModel(private val repo: Repo) : ViewModel() {

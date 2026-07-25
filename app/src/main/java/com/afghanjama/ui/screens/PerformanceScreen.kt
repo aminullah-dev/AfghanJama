@@ -156,13 +156,38 @@ fun PerformanceScreen(
 
             if (ui.sharedOrdersExcluded > 0) {
                 item {
-                    Text(
-                        "توجه: ${ui.sharedOrdersExcluded.fa()} سفارش بینِ چند خیاط تقسیم شده بود؛ " +
-                            "چون معلوم نیست برگشت کارِ کدام‌شان بوده، از محاسبهٔ نرخِ برگشت کنار گذاشته شد.",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    ) {
+                        Column(
+                            Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                "${ui.sharedOrdersExcluded.fa()} برگشت بدونِ نامِ خیاط مانده",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                            Text(
+                                "این سفارش‌ها بینِ چند خیاط تقسیم شده بودند و ناظر ثبت نکرده " +
+                                    "کارِ کدام‌شان برگشت خورده، پس در نرخِ برگشتِ هیچ‌کس حساب نشدند.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                            Text(
+                                "از این به بعد در صفحهٔ «نظارت / بازرسی»، هنگامِ برگشتِ یک سفارشِ " +
+                                    "چندخیاطه، نامِ خیاط پرسیده می‌شود؛ با انتخابِ آن، برگشت در " +
+                                    "کارنامهٔ همان خیاط ثبت می‌شود و دیگر چیزی کنار گذاشته نمی‌شود.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                        }
+                    }
                 }
             }
         }

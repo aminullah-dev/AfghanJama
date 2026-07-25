@@ -681,6 +681,10 @@ fun OrderDetailScreen(
                                         Text("مشکل: ${rec.problem}", style = MaterialTheme.typography.labelMedium,
                                             color = MaterialTheme.colorScheme.error)
                                     }
+                                    if (rec.tailor.isNotBlank()) {
+                                        Text("کارِ خیاط: ${rec.tailor}", style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.error)
+                                    }
                                     if (rec.note.isNotBlank()) {
                                         Text(rec.note, style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant)

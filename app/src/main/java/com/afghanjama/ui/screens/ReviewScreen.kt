@@ -4,6 +4,7 @@
 package com.afghanjama.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,11 +30,13 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -75,8 +78,13 @@ fun ReviewScreen(
 
     // هدفِ برگشت برای اصلاح: (شناسه سفارش، ناظر)
     var rejectTarget by remember { mutableStateOf<Pair<UUID, String>?>(null) }
+    val orderTailors by vm.tailorsOfOrder.collectAsState(initial = emptyList())
+
     rejectTarget?.let { (oid, insp) ->
         var problem by remember(oid) { mutableStateOf("") }
+        // خالی = «معلوم نیست»؛ همان رفتارِ قبلی، فقط حالا یک انتخابِ صریح است.
+        var blamedTailor by remember(oid) { mutableStateOf("") }
+
         AlertDialog(
             onDismissRequest = { rejectTarget = null },
             title = { Text("برگشت برای اصلاح") },
@@ -89,13 +97,57 @@ fun ReviewScreen(
                         label = { Text("شرح مشکل") },
                         modifier = Modifier.fillMaxWidth()
                     )
+
+                    // فقط وقتی سفارش بینِ چند خیاط تقسیم شده معنا دارد؛
+                    // سفارشِ تک‌خیاطه خودش معلوم است و پرسیدن اضافی است.
+                    if (orderTailors.size > 1) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        Text(
+                            "این سفارش بینِ ${orderTailors.size.fa()} خیاط تقسیم شده. کارِ کدام‌شان برگشت خورد؟",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            "اگر مشخص کنید، این برگشت در کارنامهٔ همان خیاط ثبت می‌شود؛ " +
+                                "وگرنه سفارش از محاسبهٔ نرخِ برگشت کنار گذاشته می‌شود تا " +
+                                "به گردنِ بی‌گناه نیفتد.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        orderTailors.forEach { name ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { blamedTailor = if (blamedTailor == name) "" else name },
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = blamedTailor == name,
+                                    onClick = { blamedTailor = if (blamedTailor == name) "" else name }
+                                )
+                                Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { blamedTailor = "" },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = blamedTailor.isBlank(),
+                                onClick = { blamedTailor = "" }
+                            )
+                            Text("معلوم نیست")
+                        }
+                    }
                 }
             },
             confirmButton = {
                 TextButton(
                     enabled = problem.isNotBlank(),
                     onClick = {
-                        vm.backToSewing(oid, insp, problem)
+                        vm.backToSewing(oid, insp, problem, blamedTailor)
                         rejectTarget = null
                         onGoSewing()
                     }
@@ -251,7 +303,10 @@ fun ReviewScreen(
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 Button(
-                                    onClick = { rejectTarget = o.id to picked },
+                                    onClick = {
+                                        vm.loadTailorsOfOrder(o.id)
+                                        rejectTarget = o.id to picked
+                                    },
                                     enabled = picked.isNotBlank(),
                                     modifier = Modifier.weight(1f)
                                 ) {

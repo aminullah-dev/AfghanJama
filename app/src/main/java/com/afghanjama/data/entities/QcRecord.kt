@@ -1,5 +1,6 @@
 package com.afghanjama.data.entities
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -21,5 +22,16 @@ data class QcRecord(
     val result: String,               // APPROVED (تأیید) / REJECTED (برگشت برای اصلاح)
     val problem: String = "",         // شرح مشکل (برای برگشت)
     val note: String = "",
+
+    /**
+     * کارِ کدام خیاط برگشت خورد. وقتی سفارش بینِ چند خیاط تقسیم شده،
+     * تنها کسی که می‌داند مشکل مالِ کدام است ناظری است که همان لحظه
+     * جلوی چشمش کار را دیده — پس همان‌جا از او پرسیده می‌شود.
+     * خالی یعنی معلوم نیست (یا رکوردِ قدیمیِ پیش از این ستون است)؛
+     * در آن حالت مثل قبل فقط سفارشِ تک‌خیاطه قابلِ انتساب می‌ماند.
+     */
+    @ColumnInfo(defaultValue = "")
+    val tailor: String = "",
+
     val createdAt: Long = System.currentTimeMillis()
 )

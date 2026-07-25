@@ -173,21 +173,39 @@ class Repo(private val db: AppDatabase) {
         audit("تأیید نظارت", "${order.orderCode} — $inspector")
     }
 
-    /** برگشت برای اصلاح: مشکل ثبت و سفارش به مرحلهٔ دوخت برمی‌گردد. */
-    suspend fun rejectQc(order: Order, inspector: String, problem: String) {
+    /**
+     * خیاطانی که روی یک سفارش کار کرده‌اند — برای اینکه ناظر هنگامِ برگشت
+     * بتواند بگوید کارِ کدام‌شان برگشت خورده.
+     */
+    suspend fun tailorsOfOrder(orderId: String): List<String> =
+        db.sewingAssignmentDao().listForOrder(orderId)
+            .map { it.tailorLabel.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+
+    /**
+     * برگشت برای اصلاح: مشکل ثبت و سفارش به مرحلهٔ دوخت برمی‌گردد.
+     * [tailor] اختیاری است؛ اگر ناظر بگوید کارِ کدام خیاط برگشت خورده،
+     * همان‌جا ثبت می‌شود تا کارنامه لازم نباشد حدس بزند.
+     */
+    suspend fun rejectQc(order: Order, inspector: String, problem: String, tailor: String = "") {
         db.qcRecordDao().insert(
             QcRecord(
                 orderId = order.id.toString(),
                 orderCode = order.orderCode,
                 inspector = inspector.trim(),
                 result = "REJECTED",
-                problem = problem.trim()
+                problem = problem.trim(),
+                tailor = tailor.trim()
             )
         )
         changeOrderStatus(order, OrderStatus.SEWING.name) {
             it.copy(assignedInspector = inspector.trim().ifBlank { it.assignedInspector }, reviewed = false)
         }
-        audit("رد نظارت (برگشت به دوخت)", "${order.orderCode} — $problem")
+        audit(
+            "رد نظارت (برگشت به دوخت)",
+            "${order.orderCode} — $problem" + tailor.trim().let { if (it.isBlank()) "" else " — خیاط: $it" }
+        )
     }
 
     /**

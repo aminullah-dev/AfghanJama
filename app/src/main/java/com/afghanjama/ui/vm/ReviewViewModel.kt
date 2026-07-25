@@ -6,8 +6,10 @@ import com.afghanjama.data.entities.Inspector
 import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.OrderStatus
 import com.afghanjama.data.repo.Repo
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -33,10 +35,28 @@ class ReviewViewModel(
     }
 
     /**
-     * برگشت برای اصلاح: مشکل + ناظر ثبت و وضعیت به SEWING.
+     * خیاطانِ سفارشی که همین حالا در دیالوگِ برگشت باز است. وقتی بیش از
+     * یکی باشد، ناظر باید بگوید کارِ کدام برگشت خورده — وگرنه کارنامه
+     * ناچار است آن سفارش را کنار بگذارد.
      */
-    fun backToSewing(orderId: UUID, inspectorLabel: String, problem: String = "") = viewModelScope.launch {
+    private val _tailorsOfOrder = MutableStateFlow<List<String>>(emptyList())
+    val tailorsOfOrder: StateFlow<List<String>> = _tailorsOfOrder.asStateFlow()
+
+    fun loadTailorsOfOrder(orderId: UUID) = viewModelScope.launch {
+        _tailorsOfOrder.value = repo.tailorsOfOrder(orderId.toString())
+    }
+
+    /**
+     * برگشت برای اصلاح: مشکل + ناظر ثبت و وضعیت به SEWING.
+     * [tailor] خالی یعنی ناظر نتوانست بگوید کارِ کدام خیاط بوده.
+     */
+    fun backToSewing(
+        orderId: UUID,
+        inspectorLabel: String,
+        problem: String = "",
+        tailor: String = ""
+    ) = viewModelScope.launch {
         val o = repo.getOrder(orderId) ?: return@launch
-        repo.rejectQc(o, inspectorLabel, problem)
+        repo.rejectQc(o, inspectorLabel, problem, tailor)
     }
 }

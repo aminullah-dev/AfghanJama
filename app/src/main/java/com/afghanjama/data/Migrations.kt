@@ -635,6 +635,16 @@ val MIGRATION_46_47 = object : Migration(46, 47) {
 }
 
 /**
+ * انتسابِ برگشتِ نظارت به خیاط. رکوردهای قدیمی خالی می‌مانند و رفتارشان
+ * دقیقاً مثل قبل است، پس هیچ کارنامه‌ای با این به‌روزرسانی تغییر نمی‌کند.
+ */
+val MIGRATION_47_48 = object : Migration(47, 48) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `qc_records` ADD COLUMN `tailor` TEXT NOT NULL DEFAULT ''")
+    }
+}
+
+/**
  * حقوقِ ماهانهٔ کارکنان: مبلغِ توافقی روی هر کارمند + جدولِ پرداخت‌ها.
  * فقط افزودنی است — هیچ ستون یا جدولِ موجودی دست نمی‌خورد.
  */
