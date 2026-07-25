@@ -35,6 +35,7 @@ fun ledgerRefLabel(r: String): String = when (r) {
     "SALARY" -> "حقوق ماهانه"
     "SALARY_PAID" -> "پرداخت حقوق"
     "PURCHASE_CREDIT" -> "خرید نسیه"
+    "PURCHASE_RETURN" -> "برگشت از خرید"
     "SUPPLIER_PAYMENT" -> "پرداخت به فروشنده"
     "CUSTOMER_ADVANCE" -> "پیش‌پرداخت مشتری"
     "CUSTOMER_SALE" -> "فروش"

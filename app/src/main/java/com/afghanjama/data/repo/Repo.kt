@@ -1045,6 +1045,60 @@ class Repo(private val db: AppDatabase) {
         )
     }
 
+    /**
+     * برگشتِ مواد به فروشنده — آینهٔ دقیقِ [recordPurchaseInvoice].
+     *
+     * مواد از انبار خارج و ارزشش از دارایی کم می‌شود. طرفِ مقابلِ سند
+     * بستگی دارد به اینکه خرید نسیه بوده یا نقد:
+     *  - [refundCash] = false → بدهیِ ما به فروشنده کم می‌شود (حالتِ نسیه)
+     *  - [refundCash] = true  → فروشنده پول را پس می‌دهد و به صندوق می‌آید
+     *
+     * @return false اگر موجودیِ انبار کمتر از مقدارِ برگشتی باشد.
+     */
+    suspend fun recordPurchaseReturn(
+        supplier: String,
+        name: String,
+        unit: String,
+        qty: Double,
+        amount: Long,
+        refundCash: Boolean,
+        cashBox: String = "WALLET",
+        note: String = ""
+    ): Boolean {
+        val sup = supplier.trim().ifBlank { "نامشخص" }
+        val item = name.trim()
+        if (item.isEmpty() || qty <= 0.0 || amount <= 0) return false
+
+        // نمی‌شود چیزی را برگرداند که در انبار نیست
+        val stock = db.materialStockDao().find(item, unit.trim())?.amount ?: 0.0
+        if (stock < qty) return false
+
+        val memo = note.ifBlank { "برگشت $item به $sup" }
+
+        changeMaterialStock(item, unit, -qty, reason = "برگشت به فروشنده", note = memo)
+
+        if (refundCash) {
+            income(cashBox, amount, memo)
+        } else {
+            // کاهشِ بدهیِ ما — همان اثرِ پرداخت، ولی بدونِ خروجِ نقد
+            db.supplierDao().insert(
+                SupplierLedger(supplier = sup, amount = amount, type = "PAYMENT", note = memo)
+            )
+        }
+        postLedger("SUPPLIER", sup, amount, 0, "PURCHASE_RETURN", note = memo)
+        createDocument("RETURN", sup, amount, note = memo)
+        audit("برگشت از خرید", "$sup — $item — $amount ؋")
+
+        postJournal(
+            memo, "PURCHASE_RETURN", "",
+            listOf(
+                jl(if (refundCash) Accounts.box(cashBox) else Accounts.PAYABLE, debit = amount),
+                jl(Accounts.MATERIALS, credit = amount)
+            )
+        )
+        return true
+    }
+
     // =========================
     // Finished Goods (انبار محصول نهایی + فروش جزئی)
     // =========================

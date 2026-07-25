@@ -22,6 +22,8 @@ object Routes {
     const val MY_WORK = "my_work"
     const val PAY = "pay"
     const val RECEIVE = "receive"
+    const val DAILY_TRADE = "daily_trade"
+    const val PURCHASE_RETURN = "purchase_return"
 
     const val CUTTING = "cutting"
     const val SEWING = "sewing"

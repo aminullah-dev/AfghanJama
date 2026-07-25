@@ -36,6 +36,7 @@ import com.afghanjama.ui.screens.AuditScreen
 import com.afghanjama.ui.screens.CustomerDetailScreen
 import com.afghanjama.ui.screens.CustomersScreen
 import com.afghanjama.ui.screens.CuttingScreen
+import com.afghanjama.ui.screens.DailyTradeScreen
 import com.afghanjama.ui.screens.FinishedWarehouseScreen
 import com.afghanjama.ui.screens.HomeDashboardScreen
 import com.afghanjama.ui.screens.OrderDetailScreen
@@ -52,6 +53,7 @@ import com.afghanjama.ui.screens.OrderSearchScreen
 import com.afghanjama.ui.screens.PayrollScreen
 import com.afghanjama.ui.screens.PerformanceScreen
 import com.afghanjama.ui.screens.PurchasePlanScreen
+import com.afghanjama.ui.screens.PurchaseReturnScreen
 import com.afghanjama.ui.screens.PostLoginQuoteScreen
 import com.afghanjama.ui.screens.ProcurementScreen
 import com.afghanjama.ui.screens.ProductionOrderScreen
@@ -83,6 +85,7 @@ import com.afghanjama.ui.vm.OrderSearchViewModel
 import com.afghanjama.ui.vm.PayrollViewModel
 import com.afghanjama.ui.vm.PerformanceViewModel
 import com.afghanjama.ui.vm.PurchasePlanViewModel
+import com.afghanjama.ui.vm.PurchaseReturnViewModel
 import com.afghanjama.ui.vm.ProcurementViewModel
 import com.afghanjama.ui.vm.ProductionViewModel
 import com.afghanjama.ui.vm.ReportsViewModel
@@ -170,7 +173,8 @@ fun AppNav(
     performanceVm: PerformanceViewModel,
     purchasePlanVm: PurchasePlanViewModel,
     myWorkVm: MyWorkViewModel,
-    moneyVm: MoneyMoveViewModel
+    moneyVm: MoneyMoveViewModel,
+    purchaseReturnVm: PurchaseReturnViewModel
 ) {
     val navController = rememberNavController()
     val authUi by authVm.ui.collectAsState()
@@ -276,6 +280,7 @@ fun AppNav(
                     onGoMyWork = { navController.navigate(Routes.MY_WORK) },
                     onGoPay = { navController.navigate(Routes.PAY) },
                     onGoReceive = { navController.navigate(Routes.RECEIVE) },
+                    onGoDailyTrade = { navController.navigate(Routes.DAILY_TRADE) },
                     canSeeCustomers = Permissions.canSeeCustomers(authUi.role),
                     canBuyMaterial = Permissions.canBuyMaterial(authUi.role),
                     onGoCustomers = { navController.navigate(Routes.CUSTOMERS) },
@@ -321,6 +326,24 @@ fun AppNav(
             composable(Routes.PERFORMANCE) {
                 PerformanceScreen(
                     vm = performanceVm,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Routes.DAILY_TRADE) {
+                DailyTradeScreen(
+                    onGoPurchase = { navController.navigate(Routes.PROCUREMENT) },
+                    onGoSale = { navController.navigate(Routes.FINISHED_SALES) },
+                    onGoPurchaseReturn = { navController.navigate(Routes.PURCHASE_RETURN) },
+                    // برگشتِ فروش از دلِ خودِ سفارش انجام می‌شود
+                    onGoSaleReturn = { navController.navigate(Routes.SEARCH) },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Routes.PURCHASE_RETURN) {
+                PurchaseReturnScreen(
+                    vm = purchaseReturnVm,
                     onBack = { navController.popBackStack() }
                 )
             }

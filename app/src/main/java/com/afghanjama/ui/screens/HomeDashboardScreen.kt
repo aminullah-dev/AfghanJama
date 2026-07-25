@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Warehouse
 import androidx.compose.material.icons.filled.WorkspacePremium
@@ -94,6 +95,7 @@ fun HomeDashboardScreen(
     onGoMyWork: () -> Unit,
     onGoPay: () -> Unit,
     onGoReceive: () -> Unit,
+    onGoDailyTrade: () -> Unit,
     canSeeCustomers: Boolean,
     canBuyMaterial: Boolean,
     onGoCustomers: () -> Unit,
@@ -129,14 +131,18 @@ fun HomeDashboardScreen(
         }
     }
 
-    // جریان اصلی «تولید انبار» (make-to-stock)
-    val stockFlow = buildList {
-        if (canBuyMaterial) add(HomeAction("خرید مواد", Icons.Default.ShoppingCart, onGoProcurement))
+    // انبار: موجودی، گردش و پیشنهادِ خرید — همه‌چیزِ «چه داریم»
+    val warehouse = buildList {
         add(HomeAction("انبار مواد", Icons.Default.Warehouse, onGoWarehouse))
-        if (isManager) add(HomeAction("پیشنهاد خرید", Icons.Default.AddShoppingCart, onGoPurchasePlan))
+        if (isManager) add(HomeAction("انبار محصول", Icons.Default.Sell, onGoFinishedSales))
         if (isManager) add(HomeAction("گردش انبار", Icons.Default.History, onGoStockLedger))
+        if (isManager) add(HomeAction("پیشنهاد خرید", Icons.Default.AddShoppingCart, onGoPurchasePlan))
+    }
+
+    // تولید: از سفارش تا تحویل
+    val production = buildList {
         if (isManager) add(HomeAction("خط تولید", Icons.Default.Checkroom, onGoProduction))
-        if (isManager) add(HomeAction("فروش انبار", Icons.Default.Sell, onGoFinishedSales))
+        if (canBuyMaterial) add(HomeAction("خرید مواد", Icons.Default.ShoppingCart, onGoProcurement))
     }
 
     // مشتریان و سفارش
@@ -161,7 +167,8 @@ fun HomeDashboardScreen(
     }
 
     val sections = listOf(
-        "موجودی و تولید" to stockFlow,
+        "انبار" to warehouse,
+        "تولید" to production,
         "مشتریان و سفارش" to customerFlow,
         "عمومی" to general
     )
@@ -195,6 +202,16 @@ fun HomeDashboardScreen(
                         modifier = Modifier.weight(1f)
                     )
                 }
+            }
+            item(span = { fullSpan() }) {
+                MoneyButton(
+                    label = "معاملات روزمره",
+                    sub = "خرید • فروش • برگشتی‌ها",
+                    icon = Icons.Default.SwapHoriz,
+                    container = MaterialTheme.colorScheme.secondaryContainer,
+                    onContainer = MaterialTheme.colorScheme.onSecondaryContainer,
+                    onClick = onGoDailyTrade
+                )
             }
         }
 
