@@ -36,6 +36,7 @@ import com.afghanjama.ui.vm.MasterDataViewModel
 import com.afghanjama.ui.vm.ReportsViewModel
 import com.afghanjama.ui.vm.OrderDetailViewModel
 import com.afghanjama.ui.vm.OrderSearchViewModel
+import com.afghanjama.ui.vm.PayrollViewModel
 import com.afghanjama.ui.vm.ProcurementViewModel
 import com.afghanjama.ui.vm.ProductionViewModel
 import com.afghanjama.ui.vm.ReviewViewModel
@@ -91,6 +92,7 @@ class MainActivity : FragmentActivity() {
                 val attendanceVm = remember { AttendanceViewModel(repo) }
                 val auditVm = remember { AuditViewModel(repo) }
                 val actionVm = remember { ActionCenterViewModel(repo) }
+                val payrollVm = remember { PayrollViewModel(repo) }
 
                 AppNav(
                     authVm = authVm,
@@ -117,7 +119,8 @@ class MainActivity : FragmentActivity() {
                     customerDetailVm = customerDetailVm,
                     attendanceVm = attendanceVm,
                     auditVm = auditVm,
-                    actionVm = actionVm
+                    actionVm = actionVm,
+                    payrollVm = payrollVm
                 )
             }
         }

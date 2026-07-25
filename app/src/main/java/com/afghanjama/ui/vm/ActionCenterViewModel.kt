@@ -4,11 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.afghanjama.data.entities.OrderStatus
 import com.afghanjama.data.repo.Repo
+import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.STAGE_WARN_DAYS
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.format.stageDays
 import com.afghanjama.ui.nav.Routes
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -62,7 +64,8 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
         else -> s
     }
 
-    val ui: StateFlow<ActionCenterUi> = combine(
+    /** هشدارهای تولید، انبار، کارمزد، بدهی، حضور و طلب. */
+    private val coreAlerts: Flow<List<Alert>> = combine(
         repo.observeAllOrders(),
         repo.observePendingWages(),
         repo.observeLedgerBalances(),
@@ -175,9 +178,51 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
                     )
                 )
             }
-        }.sortedBy { it.severity.ordinal }
+        }
+        list
+    }
 
-        ActionCenterUi(list)
+    /**
+     * هشدارِ حقوقِ پرداخت‌نشدهٔ ماهِ جاری. جدا از [coreAlerts] است چون
+     * combine بیش از پنج جریانِ نوع‌دار نمی‌پذیرد.
+     */
+    private val payrollAlerts: Flow<List<Alert>> = combine(
+        repo.observeStaff(),
+        repo.observeSalaryPayments()
+    ) { staff, payments ->
+        val key = PersianDate.monthKey(System.currentTimeMillis())
+        val label = PersianDate.monthLabel(System.currentTimeMillis())
+        val salaried = staff.filter { it.monthlySalary > 0 }
+        val unpaid = salaried.filter { s ->
+            val paid = payments
+                .filter { it.employee == s.name && it.periodKey == key }
+                .sumOf { it.amount }
+            paid < s.monthlySalary
+        }
+        buildList {
+            if (unpaid.isNotEmpty()) {
+                val total = unpaid.sumOf { s ->
+                    val paid = payments
+                        .filter { it.employee == s.name && it.periodKey == key }
+                        .sumOf { it.amount }
+                    (s.monthlySalary - paid).coerceAtLeast(0)
+                }
+                add(
+                    Alert(
+                        id = "salary_unpaid",
+                        severity = AlertSeverity.WARN,
+                        icon = "👛",
+                        title = "حقوقِ $label برای ${unpaid.size.fa()} کارمند پرداخت نشده",
+                        detail = "باقی‌مانده ${total.afn()} — ${unpaid.take(3).joinToString("، ") { it.name }}",
+                        route = Routes.PAYROLL
+                    )
+                )
+            }
+        }
+    }
+
+    val ui: StateFlow<ActionCenterUi> = combine(coreAlerts, payrollAlerts) { core, payroll ->
+        ActionCenterUi((core + payroll).sortedBy { it.severity.ordinal })
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ActionCenterUi())
 
     private companion object {

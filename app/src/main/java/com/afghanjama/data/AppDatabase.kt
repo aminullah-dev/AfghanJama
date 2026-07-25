@@ -28,6 +28,7 @@ import com.afghanjama.data.dao.OrderStageLogDao
 import com.afghanjama.data.dao.OrderWorkItemDao
 import com.afghanjama.data.dao.ProcurementDao
 import com.afghanjama.data.dao.QcRecordDao
+import com.afghanjama.data.dao.SalaryDao
 import com.afghanjama.data.dao.SewingAssignmentDao
 import com.afghanjama.data.dao.TailorWageDao
 import com.afghanjama.data.entities.AttendanceRecord
@@ -57,6 +58,7 @@ import com.afghanjama.data.entities.OrderWorkItem
 import com.afghanjama.data.entities.PurchaseInvoice
 import com.afghanjama.data.entities.QcRecord
 import com.afghanjama.data.entities.PurchaseItem
+import com.afghanjama.data.entities.SalaryPayment
 import com.afghanjama.data.entities.SewingAssignment
 import com.afghanjama.data.entities.SizeItem
 import com.afghanjama.data.entities.Staff
@@ -104,9 +106,10 @@ import com.afghanjama.data.entities.WorkCost
         Staff::class,
         JournalEntry::class,
         JournalLine::class,
-        AuditLog::class
+        AuditLog::class,
+        SalaryPayment::class
     ],
-    version = 44,
+    version = 45,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -135,6 +138,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun documentDao(): DocumentDao
     abstract fun journalDao(): JournalDao
     abstract fun auditDao(): AuditDao
+    abstract fun salaryDao(): SalaryDao
 }
 
 /** همهٔ Migrationها یک‌جا تا Workerها و اپ هرگز از هم جدا نیفتند. */
@@ -145,7 +149,7 @@ val ALL_MIGRATIONS = arrayOf(
     MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35,
     MIGRATION_35_36, MIGRATION_36_37, MIGRATION_37_38, MIGRATION_38_39,
     MIGRATION_39_40, MIGRATION_40_41, MIGRATION_41_42, MIGRATION_42_43,
-    MIGRATION_43_44
+    MIGRATION_43_44, MIGRATION_44_45
 )
 
 const val DB_NAME = "afghanjama.db"

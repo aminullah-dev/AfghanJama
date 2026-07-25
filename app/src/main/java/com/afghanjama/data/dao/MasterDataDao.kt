@@ -102,6 +102,23 @@ interface MasterDataDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertStaff(item: com.afghanjama.data.entities.Staff)
 
+    /**
+     * به‌روزرسانی سمتِ کارمندِ موجود. سمتِ خالی مقدارِ قبلی را پاک نمی‌کند
+     * تا افزودنِ دوبارهٔ یک نام هرگز اطلاعاتِ موجود را از بین نبرد.
+     */
+    @Query(
+        "UPDATE staff SET role = CASE WHEN :role = '' THEN role ELSE :role END " +
+            "WHERE name = :name"
+    )
+    suspend fun updateStaffRole(name: String, role: String)
+
+    /** به‌روزرسانی سمت و حقوقِ ماهانه — فقط وقتی حقوق صریحاً داده شده باشد. */
+    @Query(
+        "UPDATE staff SET role = CASE WHEN :role = '' THEN role ELSE :role END, " +
+            "monthlySalary = :monthlySalary WHERE name = :name"
+    )
+    suspend fun updateStaffTerms(name: String, role: String, monthlySalary: Long)
+
 
     // ----------------------------
     // Customers

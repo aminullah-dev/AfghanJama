@@ -1192,11 +1192,88 @@ class Repo(private val db: AppDatabase) {
     fun observeStaff(): Flow<List<com.afghanjama.data.entities.Staff>> =
         db.masterDataDao().observeStaff()
 
-    suspend fun addStaff(name: String, role: String) {
-        if (name.isBlank()) return
+    /**
+     * افزودن/به‌روزرسانی کارمند. چون نام یکتاست، افزودنِ دوبارهٔ همان نام
+     * به‌جای اینکه بی‌صدا رد شود، اطلاعاتش را به‌روز می‌کند.
+     *
+     * [monthlySalary] عمداً nullable است: صفحهٔ «کارکنان» حقوق نمی‌فرستد،
+     * و نباید حقوقِ ثبت‌شده در صفحهٔ «حقوق کارکنان» را پاک کند. سمتِ خالی
+     * هم مقدارِ قبلی را از بین نمی‌برد.
+     */
+    suspend fun addStaff(name: String, role: String, monthlySalary: Long? = null) {
+        val n = name.trim()
+        if (n.isEmpty()) return
         db.masterDataDao().insertStaff(
-            com.afghanjama.data.entities.Staff(name = name.trim(), role = role.trim())
+            com.afghanjama.data.entities.Staff(
+                name = n, role = role.trim(),
+                monthlySalary = (monthlySalary ?: 0).coerceAtLeast(0)
+            )
         )
+        if (monthlySalary != null) {
+            db.masterDataDao().updateStaffTerms(n, role.trim(), monthlySalary.coerceAtLeast(0))
+        } else {
+            db.masterDataDao().updateStaffRole(n, role.trim())
+        }
+    }
+
+    // =========================
+    // Payroll (حقوقِ ماهانهٔ کارکنان)
+    // =========================
+
+    fun observeSalaryPayments(): Flow<List<com.afghanjama.data.entities.SalaryPayment>> =
+        db.salaryDao().observeAll()
+
+    /** آیا حقوقِ این ماه برای این کارمند قبلاً پرداخت شده است؟ */
+    suspend fun isSalaryPaid(employee: String, periodKey: String): Boolean =
+        db.salaryDao().countFor(employee.trim(), periodKey) > 0
+
+    /**
+     * پرداختِ حقوقِ ماهانه. مثلِ هر رویدادِ مالیِ دیگر از همین قیف عبور
+     * می‌کند: نقد → دفتر کل → ژورنالِ دوطرفه → رسید → لاگِ حسابرسی.
+     *
+     * در دفتر کل دو سطر ثبت می‌شود (تعهدِ حقوق و پرداختِ آن) تا صورت‌حسابِ
+     * کارمند خوانا بماند و ماندهٔ حسابش پس از پرداخت صفر شود.
+     *
+     * @return false اگر مبلغ نامعتبر باشد یا موجودیِ صندوق کفایت نکند.
+     */
+    suspend fun paySalary(
+        employee: String,
+        amount: Long,
+        periodKey: String,
+        periodLabel: String,
+        source: String = "WALLET",
+        note: String = ""
+    ): Boolean {
+        val emp = employee.trim()
+        if (emp.isEmpty() || amount <= 0) return false
+        if (balanceOf(source) < amount) return false
+
+        val memo = "حقوق $periodLabel — $emp"
+        db.salaryDao().insert(
+            com.afghanjama.data.entities.SalaryPayment(
+                employee = emp, amount = amount,
+                periodKey = periodKey, periodLabel = periodLabel,
+                source = source, note = note.trim()
+            )
+        )
+        spend(source, amount, note.ifBlank { memo }, category = "حقوق کارکنان")
+
+        // دفتر کل: تعهدِ حقوق (بستانکار) و پرداختِ آن (بدهکار) → ماندهٔ صفر
+        postLedger("EMPLOYEE", emp, 0, amount, "SALARY", periodKey, memo)
+        postLedger("EMPLOYEE", emp, amount, 0, "SALARY_PAID", periodKey, note.ifBlank { memo })
+
+        createDocument("SALARY_RECEIPT", emp, amount, refId = periodKey, note = memo)
+        audit("پرداخت حقوق", "$emp — $periodLabel — $amount ؋")
+
+        // ژورنال: هزینهٔ حقوق در برابرِ خروجِ نقد
+        postJournal(
+            memo, "SALARY", periodKey,
+            listOf(
+                jl(Accounts.EXPENSES, debit = amount),
+                jl(Accounts.box(source), credit = amount)
+            )
+        )
+        return true
     }
 
     /** شمارندهٔ محصولِ هر طرح تا این لحظه (مجموع تعداد سفارش‌های آن طرح). */

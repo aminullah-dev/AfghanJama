@@ -1,5 +1,6 @@
 package com.afghanjama.data.entities
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -16,5 +17,10 @@ data class Staff(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
     val role: String = "",     // سمت: آشپز، حسابدار، مدیر…
+
+    /** حقوقِ ماهانهٔ توافقی (۰ = حقوق‌بگیر نیست، مثلاً کارِ کارمزدی). */
+    @ColumnInfo(defaultValue = "0")
+    val monthlySalary: Long = 0,
+
     val createdAt: Long = System.currentTimeMillis()
 )

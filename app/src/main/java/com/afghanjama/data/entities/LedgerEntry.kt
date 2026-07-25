@@ -32,6 +32,8 @@ data class LedgerEntry(
 fun ledgerRefLabel(r: String): String = when (r) {
     "WAGE" -> "کارمزد دوخت"
     "WAGE_PAID" -> "پرداخت کارمزد"
+    "SALARY" -> "حقوق ماهانه"
+    "SALARY_PAID" -> "پرداخت حقوق"
     "PURCHASE_CREDIT" -> "خرید نسیه"
     "SUPPLIER_PAYMENT" -> "پرداخت به فروشنده"
     "CUSTOMER_ADVANCE" -> "پیش‌پرداخت مشتری"

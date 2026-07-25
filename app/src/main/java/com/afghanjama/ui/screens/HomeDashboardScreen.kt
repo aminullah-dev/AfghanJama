@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.FactCheck
 import androidx.compose.material.icons.filled.Checkroom
 import androidx.compose.material.icons.filled.Description
@@ -80,6 +81,7 @@ fun HomeDashboardScreen(
     onGoProduction: () -> Unit,
     onGoFinishedSales: () -> Unit,
     onGoAttendance: () -> Unit,
+    onGoPayroll: () -> Unit,
     onGoCustomers: () -> Unit,
     onGoFinance: () -> Unit,
     onGoLedger: () -> Unit,
@@ -120,6 +122,7 @@ fun HomeDashboardScreen(
     val general = buildList {
         if (isManager) add(HomeAction("مرکز هشدار", Icons.Default.NotificationsActive, onGoActionCenter))
         if (isManager) add(HomeAction("حضور و غیاب", Icons.Default.Fingerprint, onGoAttendance))
+        if (isManager) add(HomeAction("حقوق کارکنان", Icons.Default.Badge, onGoPayroll))
         if (isManager) add(HomeAction("مالی", Icons.Default.Payments, onGoFinance))
         if (isManager) add(HomeAction("دفتر کل", Icons.Default.AccountBalance, onGoLedger))
         if (isManager) add(HomeAction("اسناد", Icons.Default.Description, onGoDocuments))

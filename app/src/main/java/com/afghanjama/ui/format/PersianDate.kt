@@ -70,6 +70,21 @@ object PersianDate {
         return "${j[2].toString().toPersianDigits()} ${afghanMonths[j[1] - 1]} ${j[0].toString().toPersianDigits()}"
     }
 
+    /** «سنبله ۱۴۰۴» — نامِ ماهِ شمسی؛ برای دورهٔ حقوق. */
+    fun monthLabel(millis: Long): String {
+        val (j, _, _) = jalaliOf(millis)
+        return "${afghanMonths[j[1] - 1]} ${j[0].toString().toPersianDigits()}"
+    }
+
+    /**
+     * «1404-06» — کلیدِ ماه با ارقامِ لاتین؛ برای گروه‌بندی و مقایسه.
+     * Locale.US صریح است تا روی گوشیِ فارسی‌زبان هم کلید همیشه یکسان بماند.
+     */
+    fun monthKey(millis: Long): String {
+        val (j, _, _) = jalaliOf(millis)
+        return String.format(java.util.Locale.US, "%d-%02d", j[0], j[1])
+    }
+
     /** «1404/04/15 10:30» — با ارقام لاتین؛ برای CSV (قابل مرتب‌سازی در اکسل). */
     fun csv(millis: Long): String {
         val (j, h, m) = jalaliOf(millis)

@@ -30,6 +30,7 @@ fun docTypeLabel(type: String): String = when (type) {
     "SALE" -> "فاکتور فروش"
     "SUPPLIER_PAYMENT" -> "رسید پرداخت به فروشنده"
     "WAGE_RECEIPT" -> "رسید کارمزد دوخت"
+    "SALARY_RECEIPT" -> "رسید حقوق ماهانه"
     "CUSTOMER_RECEIPT" -> "رسید دریافت از مشتری"
     "RETURN" -> "سند برگشت"
     "PROFORMA" -> "پیش‌فاکتور"

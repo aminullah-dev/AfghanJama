@@ -47,6 +47,7 @@ import com.afghanjama.ui.screens.MaterialWarehouseScreen
 import com.afghanjama.ui.screens.DocumentsScreen
 import com.afghanjama.ui.screens.LedgerScreen
 import com.afghanjama.ui.screens.OrderSearchScreen
+import com.afghanjama.ui.screens.PayrollScreen
 import com.afghanjama.ui.screens.PostLoginQuoteScreen
 import com.afghanjama.ui.screens.ProcurementScreen
 import com.afghanjama.ui.screens.ProductionOrderScreen
@@ -73,6 +74,7 @@ import com.afghanjama.ui.vm.LedgerViewModel
 import com.afghanjama.ui.vm.MasterDataViewModel
 import com.afghanjama.ui.vm.OrderDetailViewModel
 import com.afghanjama.ui.vm.OrderSearchViewModel
+import com.afghanjama.ui.vm.PayrollViewModel
 import com.afghanjama.ui.vm.ProcurementViewModel
 import com.afghanjama.ui.vm.ProductionViewModel
 import com.afghanjama.ui.vm.ReportsViewModel
@@ -155,7 +157,8 @@ fun AppNav(
     customerDetailVm: CustomerDetailViewModel,
     attendanceVm: AttendanceViewModel,
     auditVm: AuditViewModel,
-    actionVm: ActionCenterViewModel
+    actionVm: ActionCenterViewModel,
+    payrollVm: PayrollViewModel
 ) {
     val navController = rememberNavController()
     val authUi by authVm.ui.collectAsState()
@@ -255,6 +258,7 @@ fun AppNav(
                     onGoProduction = { navController.navigate(Routes.INVENTORY) },
                     onGoFinishedSales = { navController.navigate(Routes.FINISHED_SALES) },
                     onGoAttendance = { navController.navigate(Routes.ATTENDANCE) },
+                    onGoPayroll = { navController.navigate(Routes.PAYROLL) },
                     onGoCustomers = { navController.navigate(Routes.CUSTOMERS) },
                     // -- customers wired --
                     onGoFinance = { navController.navigate(Routes.FINANCE) },
@@ -284,6 +288,13 @@ fun AppNav(
             composable(Routes.ATTENDANCE) {
                 AttendanceScreen(
                     vm = attendanceVm,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Routes.PAYROLL) {
+                PayrollScreen(
+                    vm = payrollVm,
                     onBack = { navController.popBackStack() }
                 )
             }

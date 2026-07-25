@@ -613,6 +613,32 @@ val MIGRATION_40_41 = object : Migration(40, 41) {
 /**
  * لاگِ حسابرسی: «چه کسی، چه کاری، کِی» روی عملیاتِ حساس.
  */
+/**
+ * حقوقِ ماهانهٔ کارکنان: مبلغِ توافقی روی هر کارمند + جدولِ پرداخت‌ها.
+ * فقط افزودنی است — هیچ ستون یا جدولِ موجودی دست نمی‌خورد.
+ */
+val MIGRATION_44_45 = object : Migration(44, 45) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `staff` ADD COLUMN `monthlySalary` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `salary_payments` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`employee` TEXT NOT NULL, `amount` INTEGER NOT NULL, " +
+                "`periodKey` TEXT NOT NULL, `periodLabel` TEXT NOT NULL, " +
+                "`source` TEXT NOT NULL, `note` TEXT NOT NULL, " +
+                "`at` INTEGER NOT NULL)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_salary_payments_employee` " +
+                "ON `salary_payments` (`employee`)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_salary_payments_at` " +
+                "ON `salary_payments` (`at`)"
+        )
+    }
+}
+
 val MIGRATION_43_44 = object : Migration(43, 44) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(
