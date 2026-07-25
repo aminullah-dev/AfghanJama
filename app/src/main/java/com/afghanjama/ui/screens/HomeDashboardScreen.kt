@@ -62,6 +62,7 @@ import com.afghanjama.ui.format.elapsedHm
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.vm.ActionCenterViewModel
 import com.afghanjama.ui.vm.HomeViewModel
+import com.afghanjama.work.AutoBackupWorker
 import com.afghanjama.work.ShiftReminderWorker
 import kotlinx.coroutines.delay
 
@@ -103,6 +104,17 @@ fun HomeDashboardScreen(
     val s by vm.summary.collectAsState()
     val insideNow by vm.insideNow.collectAsState()
     val action by actionVm.ui.collectAsState()
+
+    // سنِ آخرین بکاپ برای بنرِ هشدار
+    val backupCtx = LocalContext.current
+    LaunchedEffect(Unit) {
+        actionVm.setLastBackup(
+            backupCtx.getSharedPreferences(
+                AutoBackupWorker.PREFS,
+                android.content.Context.MODE_PRIVATE
+            ).getLong(AutoBackupWorker.KEY_LAST, 0L)
+        )
+    }
 
     // ساعتِ شیفت: هر ۳۰ ثانیه تیک می‌خورد تا مدتِ حضورِ باز دیده شود
     var nowTick by remember { mutableLongStateOf(System.currentTimeMillis()) }

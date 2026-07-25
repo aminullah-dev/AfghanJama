@@ -15,6 +15,8 @@ import com.afghanjama.ui.format.isOverdue
 import com.afghanjama.ui.format.stageDays
 import com.afghanjama.ui.nav.Routes
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -287,9 +289,53 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
         }
     }
 
+    /**
+     * زمانِ آخرین بکاپِ خودکار — از تنظیماتِ دستگاه خوانده و از صفحه
+     * تزریق می‌شود (ViewModel به Context دسترسی ندارد). ۰ = هرگز.
+     */
+    private val _lastBackup = MutableStateFlow(0L)
+    fun setLastBackup(millis: Long) { _lastBackup.value = millis }
+
+    /**
+     * بکاپِ خودکار روزانه زمان‌بندی شده، اما می‌تواند بی‌صدا متوقف شود —
+     * بهینه‌سازیِ باتری، نبودِ فضا، یا خاموش‌ماندنِ طولانیِ گوشی. تا حالا
+     * هیچ‌چیز این را نشان نمی‌داد؛ یعنی خرابی دقیقاً وقتی کشف می‌شد که
+     * دیگر دیر بود.
+     */
+    private val backupAlerts: Flow<List<Alert>> = _lastBackup.map { last ->
+        val now = System.currentTimeMillis()
+        val days = if (last <= 0L) -1L else (now - last) / 86_400_000L
+        buildList {
+            when {
+                last <= 0L -> add(
+                    Alert(
+                        id = "backup_never",
+                        severity = AlertSeverity.WARN,
+                        icon = "💾",
+                        title = "هنوز هیچ بکاپی گرفته نشده",
+                        detail = "بکاپِ خودکار روزانه است؛ اگر تا فردا چیزی ثبت نشد، " +
+                            "از تنظیمات یک بکاپِ دستی بگیرید.",
+                        route = Routes.SETTINGS
+                    )
+                )
+                days >= 3 -> add(
+                    Alert(
+                        id = "backup_stale",
+                        severity = if (days >= 7) AlertSeverity.URGENT else AlertSeverity.WARN,
+                        icon = "💾",
+                        title = "بکاپ ${days.fa()} روز است گرفته نشده",
+                        detail = "همهٔ اطلاعاتِ کارگاه روی همین گوشی است. " +
+                            "از تنظیمات یک بکاپِ دستی بگیرید.",
+                        route = Routes.SETTINGS
+                    )
+                )
+            }
+        }
+    }
+
     val ui: StateFlow<ActionCenterUi> =
-        combine(coreAlerts, payrollAlerts, stockAlerts) { core, payroll, stock ->
-            ActionCenterUi((core + payroll + stock).sortedBy { it.severity.ordinal })
+        combine(coreAlerts, payrollAlerts, stockAlerts, backupAlerts) { core, payroll, stock, backup ->
+            ActionCenterUi((core + payroll + stock + backup).sortedBy { it.severity.ordinal })
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ActionCenterUi())
 
     private companion object {

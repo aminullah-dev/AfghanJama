@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -36,11 +37,16 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -233,6 +239,16 @@ fun ReportsScreen(
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val snackbar = remember { SnackbarHostState() }
+    val message by vm.message.collectAsState()
+
+    LaunchedEffect(message) {
+        message?.let { snackbar.showSnackbar(it); vm.clearMessage() }
+    }
+
+    val csvLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri -> uri?.let { vm.exportCsv(context, it) } }
     val periodLabel = range.label
 
     // ---------- بازهٔ دلخواه ----------
@@ -284,6 +300,7 @@ fun ReportsScreen(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
                 title = { Text("گزارش‌ها") },
@@ -304,6 +321,11 @@ fun ReportsScreen(
                         }
                     }) {
                         Icon(Icons.Default.PictureAsPdf, contentDescription = "صورت‌های مالی PDF")
+                    }
+                    IconButton(onClick = {
+                        csvLauncher.launch("گزارش-افغان‌جامه.csv")
+                    }) {
+                        Icon(Icons.Default.TableChart, contentDescription = "خروجی اکسل")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)

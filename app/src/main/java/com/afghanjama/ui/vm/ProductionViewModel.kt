@@ -38,6 +38,8 @@ data class ProductionUi(
     val agreedPrice: String = "",
     /** مهلتِ تحویل بر حسبِ «چند روزِ دیگر» (خالی = بدون مهلت). */
     val dueDays: String = "",
+    /** بیعانهٔ دریافتی هنگامِ ثبت (خالی = بدون بیعانه). */
+    val deposit: String = "",
 
     // ویرایشگر ماده فعلی (انتخاب از انبار)
     val pickedName: String = "",
@@ -109,6 +111,7 @@ class ProductionViewModel(private val repo: Repo) : ViewModel() {
     fun setCustomerPhone(v: String) = _ui.update { it.copy(customerPhone = v, message = null, isError = false) }
     fun setAgreedPrice(v: String) = _ui.update { it.copy(agreedPrice = v.digitsOnly(), message = null, isError = false) }
     fun setDueDays(v: String) = _ui.update { it.copy(dueDays = v.digitsOnly(), message = null, isError = false) }
+    fun setDeposit(v: String) = _ui.update { it.copy(deposit = v.digitsOnly(), message = null, isError = false) }
 
     /** انتخاب یک ماده از انبار برای ویرایشگر فعلی. */
     fun pickMaterial(m: MaterialStock) = _ui.update {
@@ -233,9 +236,15 @@ class ProductionViewModel(private val repo: Repo) : ViewModel() {
         // می‌گردد و وارد انبار سفارش‌ها می‌شود.
         repo.createOrder(order, resolved, emptyList())
 
+        // بیعانه بعد از ثبتِ سفارش گرفته می‌شود تا بدهیِ مشتری اول ثبت
+        // شده باشد و این دریافت آن را کم کند، نه اینکه طلبِ منفی بسازد.
+        val deposit = s.deposit.toLongOrNull()?.coerceAtLeast(0) ?: 0L
+        if (deposit > 0) repo.recordOrderDeposit(order, deposit)
+
         _ui.update {
             ProductionUi(
-                message = "✅ سفارش تولید ثبت و وارد انبار شد. مواد هنگام «برش» از انبار کسر می‌شود.",
+                message = "✅ سفارش تولید ثبت و وارد انبار شد. مواد هنگام «برش» از انبار کسر می‌شود." +
+                    (if (deposit > 0) " بیعانه هم دریافت و رسیدش صادر شد." else ""),
                 isError = false
             )
         }

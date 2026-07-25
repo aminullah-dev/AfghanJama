@@ -34,7 +34,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
 import com.afghanjama.ui.components.EmptyState
+import com.afghanjama.work.AutoBackupWorker
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.vm.Alert
 import com.afghanjama.ui.vm.ActionCenterViewModel
@@ -51,6 +54,15 @@ fun ActionCenterScreen(
     onBack: () -> Unit
 ) {
     val ui by vm.ui.collectAsState()
+
+    // سنِ بکاپ از تنظیماتِ دستگاه می‌آید؛ ViewModel به Context دسترسی ندارد
+    val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        vm.setLastBackup(
+            context.getSharedPreferences(AutoBackupWorker.PREFS, android.content.Context.MODE_PRIVATE)
+                .getLong(AutoBackupWorker.KEY_LAST, 0L)
+        )
+    }
 
     Scaffold(
         topBar = {

@@ -495,6 +495,44 @@ class Repo(private val db: AppDatabase) {
         )
     }
 
+    /**
+     * بیعانه/پیش‌پرداختِ مشتری هنگامِ ثبتِ سفارش.
+     *
+     * ثبتِ سفارش، کلِ قیمتِ توافقی را بدهکارِ حسابِ مشتری می‌کند
+     * (SALE_BILLING)؛ این دریافت آن را بستانکار می‌کند، پس ماندهٔ حساب
+     * دقیقاً «باقی‌ماندهٔ بدهیِ مشتری» می‌ماند.
+     */
+    suspend fun recordOrderDeposit(order: Order, amount: Long, source: String = "WALLET") {
+        if (amount <= 0) return
+        val customer = order.customerName.trim()
+        val note = "بیعانهٔ سفارش ${order.orderCode}"
+
+        income(source, amount, note)
+        addCustomerPayment(
+            CustomerPayment(
+                orderId = order.id.toString(),
+                customerName = customer,
+                amount = amount,
+                source = "ADVANCE",
+                note = note
+            )
+        )
+        if (customer.isNotBlank()) {
+            createDocument(
+                "CUSTOMER_RECEIPT", customer, amount,
+                refId = order.orderCode, note = note
+            )
+        }
+        audit("دریافت بیعانه", "${order.orderCode} — $amount ؋")
+        postJournal(
+            note, "CUSTOMER_ADVANCE", order.orderCode,
+            listOf(
+                jl(Accounts.box(source), debit = amount),
+                jl(Accounts.RECEIVABLE, credit = amount)
+            )
+        )
+    }
+
     /** برگشتیِ فروش: خروجِ نقدِ مسترد + ژورنالِ برگشتِ درآمد. */
     suspend fun recordSaleRefund(orderCode: String, refund: Long) {
         if (refund <= 0) return

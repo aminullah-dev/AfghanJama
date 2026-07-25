@@ -7,8 +7,11 @@ import com.afghanjama.data.entities.Accounts
 import com.afghanjama.data.entities.FinishedSale
 import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.Transaction
+import android.content.Context
+import android.net.Uri
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.ui.format.PersianDate
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -17,6 +20,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /** سودِ برآوردیِ یک سفارش = قیمت توافقی − بهای تمام‌شده. */
 data class OrderProfit(
@@ -228,6 +232,97 @@ class ReportsViewModel(private val repo: Repo) : ViewModel() {
     /** بازهٔ دلخواه با تاریخِ شمسی. */
     fun setCustomRange(from: Long, to: Long, label: String) {
         _range.value = ReportRange.custom(from, to, label)
+    }
+
+    private val _message = MutableStateFlow<String?>(null)
+    val message: StateFlow<String?> = _message
+    fun clearMessage() { _message.value = null }
+
+    /**
+     * خروجیِ اکسل (CSV) از گزارش‌های همین بازه — صورتِ سود و زیان،
+     * ترازنامه، سودآوریِ محصولات و روندِ ماهانه در یک فایل.
+     *
+     * جداکننده «،» نیست بلکه «,» است و فایل با BOM نوشته می‌شود، وگرنه
+     * اکسل متنِ فارسی را به‌هم‌ریخته نشان می‌دهد.
+     */
+    fun exportCsv(context: Context, uri: Uri) = viewModelScope.launch(Dispatchers.IO) {
+        runCatching {
+            val r = range.value
+            val inc = incomeStatement.value
+            val bs = balanceSheet.value
+            val tr = trend.value
+
+            context.contentResolver.openOutputStream(uri)?.use { out ->
+                out.write(byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()))
+                val w = out.writer(Charsets.UTF_8)
+
+                fun row(vararg cells: String) =
+                    w.appendLine(cells.joinToString(",") { "\"" + it.replace("\"", "\"\"") + "\"" })
+
+                row("گزارش‌های افغان‌جامه")
+                row("بازه", r.label)
+                row("تاریخ خروجی", PersianDate.csv(System.currentTimeMillis()))
+                row("")
+
+                row("صورت سود و زیان")
+                row("حساب", "کد", "مبلغ")
+                inc.revenues.forEach { row(it.label, it.code, it.amount.toString()) }
+                row("جمع درآمد", "", inc.totalRevenue.toString())
+                row("بهای تمام‌شده فروش", "", inc.cogs.toString())
+                row("سود ناخالص", "", inc.grossProfit.toString())
+                inc.expenses.forEach { row(it.label, it.code, it.amount.toString()) }
+                row("جمع هزینه‌ها", "", inc.totalExpense.toString())
+                row("سود خالص", "", inc.netProfit.toString())
+                row("حاشیه سود (٪)", "", inc.marginPercent.toString())
+                row("")
+
+                row("ترازنامه")
+                row("گروه", "حساب", "کد", "مبلغ")
+                bs.assets.forEach { row("دارایی", it.label, it.code, it.amount.toString()) }
+                row("", "جمع دارایی‌ها", "", bs.totalAssets.toString())
+                bs.liabilities.forEach { row("بدهی", it.label, it.code, it.amount.toString()) }
+                row("", "جمع بدهی‌ها", "", bs.totalLiabilities.toString())
+                row("سرمایه", "سرمایه اولیه", "", bs.capital.toString())
+                row("سرمایه", "سود انباشته", "", bs.retained.toString())
+                row("", "جمع سرمایه", "", bs.totalEquity.toString())
+                row("", "متوازن است؟", "", if (bs.balanced) "بله" else "خیر")
+                row("")
+
+                row("سودآوری محصولات")
+                row("محصول", "تعداد", "درآمد", "بهای تمام‌شده", "سود", "حاشیه (٪)")
+                tr.products.forEach {
+                    row(
+                        it.name, it.qty.toString(), it.revenue.toString(),
+                        it.cost.toString(), it.profit.toString(), it.marginPercent.toString()
+                    )
+                }
+                row("")
+
+                row("روند ماهانه")
+                row("ماه", "تعداد فروش", "درآمد", "بهای تمام‌شده", "سود")
+                tr.months.forEach {
+                    row(
+                        it.label, it.salesCount.toString(), it.revenue.toString(),
+                        it.cost.toString(), it.profit.toString()
+                    )
+                }
+                row("")
+
+                row("سود هر سفارش")
+                row("کد سفارش", "طرح", "قیمت توافقی", "بهای تمام‌شده", "سود")
+                report.value.orderProfits.forEach {
+                    row(
+                        it.code, it.title, it.agreed.toString(),
+                        it.cost.toString(), it.profit.toString()
+                    )
+                }
+                w.flush()
+            } ?: error("openOutputStream returned null")
+        }.onSuccess {
+            _message.value = "✅ خروجی اکسل ذخیره شد."
+        }.onFailure { e ->
+            _message.value = "خطا در خروجی: ${e.message}"
+        }
     }
 
     /**

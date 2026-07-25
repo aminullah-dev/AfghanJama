@@ -272,6 +272,26 @@ fun ProductionOrderScreen(
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
+
+                        // ---------- بیعانه ----------
+                        OutlinedTextField(
+                            value = ui.deposit,
+                            onValueChange = vm::setDeposit,
+                            label = { Text("بیعانهٔ دریافتی (اختیاری، ؋)") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        ui.deposit.toLongOrNull()?.takeIf { it > 0 }?.let { dep ->
+                            val agreed = ui.agreedPrice.toLongOrNull() ?: 0L
+                            Text(
+                                "💰 بیعانه به صندوق می‌رود و رسیدش صادر می‌شود" +
+                                    (if (agreed > 0) " • باقی‌ماندهٔ مشتری: ${(agreed - dep).afn()}" else ""),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (agreed in 1 until dep) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                 }
             }
