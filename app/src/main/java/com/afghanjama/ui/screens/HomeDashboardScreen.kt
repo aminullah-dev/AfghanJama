@@ -20,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.AddShoppingCart
 import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.AssignmentInd
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.FactCheck
 import androidx.compose.material.icons.filled.Checkroom
@@ -87,6 +88,9 @@ fun HomeDashboardScreen(
     onGoPayroll: () -> Unit,
     onGoPerformance: () -> Unit,
     onGoPurchasePlan: () -> Unit,
+    onGoMyWork: () -> Unit,
+    canSeeCustomers: Boolean,
+    canBuyMaterial: Boolean,
     onGoCustomers: () -> Unit,
     onGoFinance: () -> Unit,
     onGoLedger: () -> Unit,
@@ -111,7 +115,7 @@ fun HomeDashboardScreen(
 
     // جریان اصلی «تولید انبار» (make-to-stock)
     val stockFlow = buildList {
-        add(HomeAction("خرید مواد", Icons.Default.ShoppingCart, onGoProcurement))
+        if (canBuyMaterial) add(HomeAction("خرید مواد", Icons.Default.ShoppingCart, onGoProcurement))
         add(HomeAction("انبار مواد", Icons.Default.Warehouse, onGoWarehouse))
         if (isManager) add(HomeAction("پیشنهاد خرید", Icons.Default.AddShoppingCart, onGoPurchasePlan))
         if (isManager) add(HomeAction("گردش انبار", Icons.Default.History, onGoStockLedger))
@@ -121,11 +125,12 @@ fun HomeDashboardScreen(
 
     // مشتریان و سفارش
     val customerFlow = buildList {
-        add(HomeAction("مشتریان", Icons.Default.Group, onGoCustomers))
+        if (canSeeCustomers) add(HomeAction("مشتریان", Icons.Default.Group, onGoCustomers))
     }
 
     // عمومی
     val general = buildList {
+        if (!isManager) add(HomeAction("کارِ من", Icons.Default.AssignmentInd, onGoMyWork))
         if (isManager) add(HomeAction("مرکز هشدار", Icons.Default.NotificationsActive, onGoActionCenter))
         if (isManager) add(HomeAction("حضور و غیاب", Icons.Default.Fingerprint, onGoAttendance))
         if (isManager) add(HomeAction("حقوق کارکنان", Icons.Default.Badge, onGoPayroll))

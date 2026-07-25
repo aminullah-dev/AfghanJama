@@ -35,6 +35,13 @@ object Permissions {
     /** اصلاح دستی انبار مواد. */
     fun canAdjustMaterial(role: UserRole) = role == UserRole.MANAGER
 
+    /**
+     * دیدنِ فهرستِ مشتریان. قبلاً هر نقشی — از جمله خیاط — فهرستِ کاملِ
+     * مشتریان و شماره‌هایشان را می‌دید؛ این دسترسی هیچ‌وقت عمدی نبود.
+     */
+    fun canSeeCustomers(role: UserRole) =
+        role == UserRole.MANAGER || role == UserRole.SALES
+
     /** مدیریت اطلاعات پایه. */
     fun canManageMaster(role: UserRole) = role == UserRole.MANAGER
 }

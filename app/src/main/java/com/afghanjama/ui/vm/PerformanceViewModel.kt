@@ -2,6 +2,8 @@ package com.afghanjama.ui.vm
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.afghanjama.data.entities.QcRecord
+import com.afghanjama.data.entities.SewingAssignment
 import com.afghanjama.data.repo.Repo
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -77,54 +79,73 @@ data class PerformanceUi(
  * کارنامهٔ کارکنانِ تولید: چه کسی چقدر کار تحویل داده، با چه کیفیتی و
  * چقدر برگشت خورده — همه از دادهٔ موجودِ تحویل‌ها و نظارت.
  */
+/**
+ * محاسبهٔ مشترکِ کارنامهٔ خیاطان — هم «کارنامهٔ کارکنان» (مدیر) و هم
+ * «کارِ من» (خودِ خیاط) از همین تابع می‌خوانند تا هرگز دو عددِ متفاوت
+ * به کارگر و مدیر نشان داده نشود.
+ *
+ * برگشت فقط به سفارشی نسبت داده می‌شود که یک خیاط داشته؛ سفارشِ
+ * تقسیم‌شده بینِ چند نفر قابلِ انتساب نیست و کنار گذاشته می‌شود.
+ */
+fun buildTailorScores(
+    assignments: List<SewingAssignment>,
+    qc: List<QcRecord>
+): List<TailorScore> {
+    val rejectedOrderIds = qc.filter { it.result == "REJECTED" }.map { it.orderId }.toSet()
+    val judgedOrderIds = qc.map { it.orderId }.toSet()
+
+    val tailorsPerOrder = assignments.groupBy { it.orderId }
+        .mapValues { (_, list) -> list.map { it.tailorLabel }.distinct() }
+    val soleTailorOf = tailorsPerOrder
+        .filterValues { it.size == 1 }
+        .mapValues { it.value.first() }
+
+    return assignments
+        .groupBy { it.tailorLabel }
+        .filterKeys { it.isNotBlank() }
+        .map { (name, list) ->
+            val done = list.filter { it.status == "DONE" }
+            val timed = done.filter { it.doneAt != null && it.doneAt!! > it.createdAt }
+            val myOrders = soleTailorOf.filterValues { it == name }.keys
+            TailorScore(
+                name = name,
+                deliveries = done.size,
+                pieces = done.sumOf { it.qty },
+                wages = done.sumOf { it.totalWage },
+                inProgress = list.count { it.status != "DONE" },
+                avgHours = if (timed.isEmpty()) 0
+                else timed.sumOf { ((it.doneAt ?: 0L) - it.createdAt) / 3_600_000L } / timed.size,
+                good = list.count { it.quality == "خوب" },
+                fair = list.count { it.quality == "متوسط" },
+                poor = list.count { it.quality == "ضعیف" },
+                judgedOrders = myOrders.count { it in judgedOrderIds },
+                rejectedOrders = myOrders.count { it in rejectedOrderIds }
+            )
+        }
+        .sortedWith(
+            compareByDescending<TailorScore> { it.score ?: -1 }
+                .thenByDescending { it.pieces }
+        )
+}
+
+/** تعدادِ سفارش‌های چندخیاطه‌ای که نظارت شده‌اند و قابلِ انتساب نیستند. */
+fun countSharedJudgedOrders(
+    assignments: List<SewingAssignment>,
+    qc: List<QcRecord>
+): Int {
+    val judged = qc.map { it.orderId }.toSet()
+    return assignments.groupBy { it.orderId }
+        .mapValues { (_, l) -> l.map { it.tailorLabel }.distinct() }
+        .filterValues { it.size > 1 }
+        .keys.count { it in judged }
+}
+
 class PerformanceViewModel(private val repo: Repo) : ViewModel() {
 
     val ui: StateFlow<PerformanceUi> = combine(
         repo.observeAllAssignments(),
         repo.observeAllQc()
     ) { assignments, qc ->
-
-        // سفارش‌هایی که برگشت خورده‌اند (حداقل یک ردِ نظارت)
-        val rejectedOrderIds = qc.filter { it.result == "REJECTED" }.map { it.orderId }.toSet()
-        val judgedOrderIds = qc.map { it.orderId }.toSet()
-
-        // انتسابِ برگشت فقط وقتی صادقانه است که سفارش یک خیاط داشته باشد
-        val tailorsPerOrder = assignments.groupBy { it.orderId }
-            .mapValues { (_, list) -> list.map { it.tailorLabel }.distinct() }
-        val soleTailorOf = tailorsPerOrder
-            .filterValues { it.size == 1 }
-            .mapValues { it.value.first() }
-        val sharedExcluded = tailorsPerOrder
-            .filterValues { it.size > 1 }
-            .keys.count { it in judgedOrderIds }
-
-        val tailors = assignments
-            .groupBy { it.tailorLabel }
-            .filterKeys { it.isNotBlank() }
-            .map { (name, list) ->
-                val done = list.filter { it.status == "DONE" }
-                val timed = done.filter { it.doneAt != null && it.doneAt > it.createdAt }
-                val myOrders = soleTailorOf.filterValues { it == name }.keys
-                TailorScore(
-                    name = name,
-                    deliveries = done.size,
-                    pieces = done.sumOf { it.qty },
-                    wages = done.sumOf { it.totalWage },
-                    inProgress = list.count { it.status != "DONE" },
-                    avgHours = if (timed.isEmpty()) 0
-                    else timed.sumOf { ((it.doneAt ?: 0L) - it.createdAt) / 3_600_000L } / timed.size,
-                    good = list.count { it.quality == "خوب" },
-                    fair = list.count { it.quality == "متوسط" },
-                    poor = list.count { it.quality == "ضعیف" },
-                    judgedOrders = myOrders.count { it in judgedOrderIds },
-                    rejectedOrders = myOrders.count { it in rejectedOrderIds }
-                )
-            }
-            .sortedWith(
-                compareByDescending<TailorScore> { it.score ?: -1 }
-                    .thenByDescending { it.pieces }
-            )
-
         val inspectors = qc
             .groupBy { it.inspector }
             .filterKeys { it.isNotBlank() }
@@ -139,9 +160,9 @@ class PerformanceViewModel(private val repo: Repo) : ViewModel() {
             .sortedByDescending { it.total }
 
         PerformanceUi(
-            tailors = tailors,
+            tailors = buildTailorScores(assignments, qc),
             inspectors = inspectors,
-            sharedOrdersExcluded = sharedExcluded
+            sharedOrdersExcluded = countSharedJudgedOrders(assignments, qc)
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PerformanceUi())
 }

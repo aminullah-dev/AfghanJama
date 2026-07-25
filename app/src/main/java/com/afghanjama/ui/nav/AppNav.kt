@@ -46,6 +46,7 @@ import com.afghanjama.ui.screens.MasterDataScreen
 import com.afghanjama.ui.screens.MaterialWarehouseScreen
 import com.afghanjama.ui.screens.DocumentsScreen
 import com.afghanjama.ui.screens.LedgerScreen
+import com.afghanjama.ui.screens.MyWorkScreen
 import com.afghanjama.ui.screens.OrderSearchScreen
 import com.afghanjama.ui.screens.PayrollScreen
 import com.afghanjama.ui.screens.PerformanceScreen
@@ -74,6 +75,7 @@ import com.afghanjama.ui.vm.HomeViewModel
 import com.afghanjama.ui.vm.InventoryViewModel
 import com.afghanjama.ui.vm.LedgerViewModel
 import com.afghanjama.ui.vm.MasterDataViewModel
+import com.afghanjama.ui.vm.MyWorkViewModel
 import com.afghanjama.ui.vm.OrderDetailViewModel
 import com.afghanjama.ui.vm.OrderSearchViewModel
 import com.afghanjama.ui.vm.PayrollViewModel
@@ -164,7 +166,8 @@ fun AppNav(
     actionVm: ActionCenterViewModel,
     payrollVm: PayrollViewModel,
     performanceVm: PerformanceViewModel,
-    purchasePlanVm: PurchasePlanViewModel
+    purchasePlanVm: PurchasePlanViewModel,
+    myWorkVm: MyWorkViewModel
 ) {
     val navController = rememberNavController()
     val authUi by authVm.ui.collectAsState()
@@ -267,6 +270,9 @@ fun AppNav(
                     onGoPayroll = { navController.navigate(Routes.PAYROLL) },
                     onGoPerformance = { navController.navigate(Routes.PERFORMANCE) },
                     onGoPurchasePlan = { navController.navigate(Routes.PURCHASE_PLAN) },
+                    onGoMyWork = { navController.navigate(Routes.MY_WORK) },
+                    canSeeCustomers = Permissions.canSeeCustomers(authUi.role),
+                    canBuyMaterial = Permissions.canBuyMaterial(authUi.role),
                     onGoCustomers = { navController.navigate(Routes.CUSTOMERS) },
                     // -- customers wired --
                     onGoFinance = { navController.navigate(Routes.FINANCE) },
@@ -310,6 +316,17 @@ fun AppNav(
             composable(Routes.PERFORMANCE) {
                 PerformanceScreen(
                     vm = performanceVm,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Routes.MY_WORK) {
+                val tailors by masterVm.tailors.collectAsState()
+                val inspectors by masterVm.inspectors.collectAsState()
+                MyWorkScreen(
+                    vm = myWorkVm,
+                    tailorLabels = (tailors.map { "[${it.code}] ${it.name}" } +
+                        inspectors.map { "[${it.code}] ${it.name}" }).distinct(),
                     onBack = { navController.popBackStack() }
                 )
             }
