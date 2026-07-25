@@ -32,6 +32,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -70,7 +71,8 @@ fun InventoryScreen(
     onGoSearch: () -> Unit,
     onGoStock: () -> Unit,
     onGoCutting: () -> Unit,
-    onOpenDetail: (Order) -> Unit
+    onOpenDetail: (Order) -> Unit,
+    onBack: () -> Unit,
 ) {
     val orders by vm.ordersInStock.collectAsState(initial = emptyList())
     val wallet by financeVm.walletBalance.collectAsState(initial = 0L)
@@ -159,6 +161,11 @@ fun InventoryScreen(
         topBar = {
             TopAppBar(
                 title = { Text("خط تولید") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "برگشت")
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
                 actions = {
                     IconButton(onClick = onGoSearch) {

@@ -16,6 +16,8 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.CallMade
+import androidx.compose.material.icons.automirrored.filled.CallReceived
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.AddShoppingCart
@@ -90,6 +92,8 @@ fun HomeDashboardScreen(
     onGoPerformance: () -> Unit,
     onGoPurchasePlan: () -> Unit,
     onGoMyWork: () -> Unit,
+    onGoPay: () -> Unit,
+    onGoReceive: () -> Unit,
     canSeeCustomers: Boolean,
     canBuyMaterial: Boolean,
     onGoCustomers: () -> Unit,
@@ -168,6 +172,32 @@ fun HomeDashboardScreen(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        // ---------- پرداخت و دریافتِ سریع ----------
+        if (isManager) {
+            item(span = { fullSpan() }) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    MoneyButton(
+                        label = "پرداخت",
+                        sub = "به کارمند، خیاط، فروشنده…",
+                        icon = Icons.AutoMirrored.Filled.CallMade,
+                        container = MaterialTheme.colorScheme.errorContainer,
+                        onContainer = MaterialTheme.colorScheme.onErrorContainer,
+                        onClick = onGoPay,
+                        modifier = Modifier.weight(1f)
+                    )
+                    MoneyButton(
+                        label = "دریافت",
+                        sub = "از مشتری یا هر کسِ دیگر",
+                        icon = Icons.AutoMirrored.Filled.CallReceived,
+                        container = MaterialTheme.colorScheme.primaryContainer,
+                        onContainer = MaterialTheme.colorScheme.onPrimaryContainer,
+                        onClick = onGoReceive,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+
         // ---------- بنر مرکز هشدار (وقتی موردی نیاز به رسیدگی دارد) ----------
         if (isManager && !action.allClear) {
             item(span = { fullSpan() }) {
@@ -359,6 +389,46 @@ fun HomeDashboardScreen(
 
         item(span = { fullSpan() }) {
             Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
+/** دکمهٔ بزرگِ پرداخت/دریافت — عمداً ساده: یک عنوان، یک زیرنویس، یک آیکن. */
+@Composable
+private fun MoneyButton(
+    label: String,
+    sub: String,
+    icon: ImageVector,
+    container: androidx.compose.ui.graphics.Color,
+    onContainer: androidx.compose.ui.graphics.Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = container)
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(icon, contentDescription = null, tint = onContainer)
+                Text(
+                    label,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = onContainer
+                )
+            }
+            Text(
+                sub,
+                style = MaterialTheme.typography.labelSmall,
+                color = onContainer
+            )
         }
     }
 }

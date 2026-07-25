@@ -46,6 +46,7 @@ import com.afghanjama.ui.screens.MasterDataScreen
 import com.afghanjama.ui.screens.MaterialWarehouseScreen
 import com.afghanjama.ui.screens.DocumentsScreen
 import com.afghanjama.ui.screens.LedgerScreen
+import com.afghanjama.ui.screens.MoneyMoveScreen
 import com.afghanjama.ui.screens.MyWorkScreen
 import com.afghanjama.ui.screens.OrderSearchScreen
 import com.afghanjama.ui.screens.PayrollScreen
@@ -75,6 +76,7 @@ import com.afghanjama.ui.vm.HomeViewModel
 import com.afghanjama.ui.vm.InventoryViewModel
 import com.afghanjama.ui.vm.LedgerViewModel
 import com.afghanjama.ui.vm.MasterDataViewModel
+import com.afghanjama.ui.vm.MoneyMoveViewModel
 import com.afghanjama.ui.vm.MyWorkViewModel
 import com.afghanjama.ui.vm.OrderDetailViewModel
 import com.afghanjama.ui.vm.OrderSearchViewModel
@@ -167,7 +169,8 @@ fun AppNav(
     payrollVm: PayrollViewModel,
     performanceVm: PerformanceViewModel,
     purchasePlanVm: PurchasePlanViewModel,
-    myWorkVm: MyWorkViewModel
+    myWorkVm: MyWorkViewModel,
+    moneyVm: MoneyMoveViewModel
 ) {
     val navController = rememberNavController()
     val authUi by authVm.ui.collectAsState()
@@ -271,6 +274,8 @@ fun AppNav(
                     onGoPerformance = { navController.navigate(Routes.PERFORMANCE) },
                     onGoPurchasePlan = { navController.navigate(Routes.PURCHASE_PLAN) },
                     onGoMyWork = { navController.navigate(Routes.MY_WORK) },
+                    onGoPay = { navController.navigate(Routes.PAY) },
+                    onGoReceive = { navController.navigate(Routes.RECEIVE) },
                     canSeeCustomers = Permissions.canSeeCustomers(authUi.role),
                     canBuyMaterial = Permissions.canBuyMaterial(authUi.role),
                     onGoCustomers = { navController.navigate(Routes.CUSTOMERS) },
@@ -316,6 +321,22 @@ fun AppNav(
             composable(Routes.PERFORMANCE) {
                 PerformanceScreen(
                     vm = performanceVm,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Routes.PAY) {
+                MoneyMoveScreen(
+                    vm = moneyVm,
+                    startAsPayment = true,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Routes.RECEIVE) {
+                MoneyMoveScreen(
+                    vm = moneyVm,
+                    startAsPayment = false,
                     onBack = { navController.popBackStack() }
                 )
             }
@@ -383,6 +404,7 @@ fun AppNav(
 
             composable(Routes.INVENTORY) {
                 InventoryScreen(
+                    onBack = { navController.popBackStack() },
                     vm = inventoryVm,
                     financeVm = financeVm,
                     role = authUi.role,
@@ -434,6 +456,7 @@ fun AppNav(
 
             composable(Routes.FINANCE) {
                 FinanceHubScreen(
+                    onBack = { navController.popBackStack() },
                     financeVm = financeVm,
                     dashboardVm = dashboardVm
                 )
@@ -448,6 +471,7 @@ fun AppNav(
 
             composable(Routes.SETTINGS) {
                 SettingsScreen(
+                    onBack = { navController.popBackStack() },
                     authVm = authVm,
                     backupVm = backupVm,
                     canManageMaster = Permissions.canManageMaster(authUi.role),
@@ -485,6 +509,7 @@ fun AppNav(
 
             composable(Routes.CUTTING) {
                 CuttingScreen(
+                    onBack = { navController.popBackStack() },
                     vm = cuttingVm,
                     onBack = { navController.popBackStack() },
                     onGoSewing = { navController.navigate(Routes.SEWING) }
