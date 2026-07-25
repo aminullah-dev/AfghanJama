@@ -36,7 +36,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -103,43 +102,37 @@ fun CuttingScreen(
         // بی‌صدا نادیده گرفته می‌شد و اسکنر «کار نمی‌کرد» بدون هیچ پیغامی.
         val code = result.contents
         if (code.isNullOrBlank()) {
-            scanMsg = "اسکن انجام نشد. می‌توانید کد را دستی وارد کنید."
+            val camOk = ContextCompat.checkSelfPermission(
+                context, Manifest.permission.CAMERA
+            ) == PackageManager.PERMISSION_GRANTED
+            scanMsg = if (!camOk)
+                "اجازهٔ دوربین داده نشده است. از تنظیماتِ گوشی اجازهٔ دوربین را بدهید، یا کد را دستی وارد کنید."
+            else
+                "اسکن انجام نشد. می‌توانید کد را دستی وارد کنید."
         } else {
             handleCode(code)
         }
     }
 
-    // دوربین مجوزِ زمانِ اجرا می‌خواهد؛ بدونِ آن CaptureActivity باز می‌شود
-    // ولی تصویری نمی‌گیرد و بی‌صدا برمی‌گردد.
-    val cameraPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            runCatching { scanLauncher.launch(scanOptions()) }
-                .onFailure {
-                    scanMsg = "اسکنر باز نشد؛ کد را دستی وارد کنید."
-                    manualCodeOpen = true
-                }
-        } else {
-            scanMsg = "برای اسکن، اجازهٔ دوربین لازم است. فعلاً کد را دستی وارد کنید."
-            manualCodeOpen = true
-        }
-    }
-
+    /**
+     * اجازهٔ دوربین عمداً از اینجا درخواست نمی‌شود.
+     *
+     * MainActivity یک FragmentActivity است و نسخهٔ fragment ای که
+     * androidx.biometric می‌آورد، requestCodeهای بزرگ‌تر از ۱۶ بیت را رد
+     * می‌کند — در حالی که ActivityResultRegistry عمداً کدِ بزرگ می‌سازد.
+     * پس هر launch(RequestPermission()) از این اکتیویتی با
+     * «Can only use lower 16 bits for requestCode» می‌ترکد.
+     *
+     * خودِ CaptureActivity کتابخانهٔ اسکنر (که FragmentActivity نیست)
+     * اجازهٔ دوربین را با کدِ کوچکِ خودش می‌گیرد، پس فقط اسکنر را باز
+     * می‌کنیم و نتیجه را — چه موفق چه ناموفق — به کاربر می‌گوییم.
+     */
     fun startScan() {
-        val granted = ContextCompat.checkSelfPermission(
-            context, Manifest.permission.CAMERA
-        ) == PackageManager.PERMISSION_GRANTED
-
-        if (granted) {
-            runCatching { scanLauncher.launch(scanOptions()) }
-                .onFailure {
-                    scanMsg = "اسکنر باز نشد؛ کد را دستی وارد کنید."
-                    manualCodeOpen = true
-                }
-        } else {
-            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-        }
+        runCatching { scanLauncher.launch(scanOptions()) }
+            .onFailure {
+                scanMsg = "اسکنر باز نشد؛ کد را دستی وارد کنید."
+                manualCodeOpen = true
+            }
     }
 
     // ---------- ورود دستی کد (وقتی دوربین/اسکنر در دسترس نیست) ----------

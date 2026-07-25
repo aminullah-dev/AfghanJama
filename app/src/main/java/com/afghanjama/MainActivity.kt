@@ -3,8 +3,10 @@ package com.afghanjama
 
 import android.Manifest
 import android.os.Build
+import android.content.pm.PackageManager
 import android.os.Bundle
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.getValue
@@ -47,15 +49,28 @@ import com.afghanjama.ui.vm.SewingViewModel
 import com.afghanjama.ui.vm.StockViewModel
 import com.afghanjama.ui.vm.WarehouseViewModel
 
+private const val REQ_NOTIFICATIONS = 1001
+
 class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // مجوز نوتیفیکیشن برای یادآوری تسویه هفتگی (اندروید ۱۳+)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
-                .launch(Manifest.permission.POST_NOTIFICATIONS)
+        // مجوز نوتیفیکیشن برای یادآوری تسویه هفتگی (اندروید ۱۳+).
+        //
+        // عمداً از ActivityResultContracts استفاده نمی‌شود: این اکتیویتی
+        // یک FragmentActivity است و نسخهٔ fragment ای که biometric می‌آورد
+        // فقط requestCodeهای ۱۶ بیتی را می‌پذیرد، در حالی که
+        // ActivityResultRegistry کدِ بزرگ‌تر می‌سازد. مسیرِ قدیمی با کدِ
+        // کوچک امن است. (تا امروز پنهان مانده بود چون اگر مجوز از قبل
+        // داده شده باشد اصلاً درخواستی ارسال نمی‌شود.)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(
+                this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQ_NOTIFICATIONS
+            )
         }
 
         val db = buildAppDatabase(applicationContext)
