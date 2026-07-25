@@ -535,20 +535,6 @@ class Repo(private val db: AppDatabase) {
         )
     }
 
-    /** برگشتیِ فروش: خروجِ نقدِ مسترد + ژورنالِ برگشتِ درآمد. */
-    suspend fun recordSaleRefund(orderCode: String, refund: Long) {
-        if (refund <= 0) return
-        spend("WALLET", refund, "برگشتی فروش سفارش $orderCode", category = "برگشتی فروش")
-        audit("برگشتی فروش", "$orderCode — $refund ؋")
-        postJournal(
-            "برگشتی فروش $orderCode", "SALE_RETURN", orderCode,
-            listOf(
-                jl(Accounts.SALES, debit = refund),
-                jl(Accounts.CASH, credit = refund)
-            )
-        )
-    }
-
     /** هزینهٔ عمومی (کرایه، برق، معاش...): خروجِ نقد + ثبتِ ژورنالِ هزینه. */
     suspend fun recordExpense(source: String, category: String, amount: Long, note: String) {
         if (amount <= 0) return
@@ -594,6 +580,17 @@ class Repo(private val db: AppDatabase) {
             .use { it.moveToFirst() }
     }
 
+    /**
+     * بستنِ اتصالِ دیتابیس — فقط پیش از بازنویسیِ خودِ فایل (بازیابیِ بکاپ).
+     *
+     * اگر فایل زیرِ پای یک اتصالِ باز عوض شود، صفحه‌های کش‌شدهٔ همان اتصال
+     * با محتوای جدید نمی‌خوانَد و دیتابیس خراب می‌شود. Room پس از بستن،
+     * در اولین دسترسیِ بعدی خودش دوباره باز می‌کند.
+     */
+    fun closeDatabase() {
+        if (db.isOpen) db.close()
+    }
+
     // =========================
     // Tailor Wages (کارمزد خیاط)
     // =========================
@@ -611,11 +608,14 @@ class Repo(private val db: AppDatabase) {
 
     /**
      * تسویه هفتگی: همه کارمزدهای باز خیاط بسته می‌شود و مبلغ به عنوان
-     * پرداخت از کیف پول در بخش مالی عمومی ثبت می‌شود.
+     * پرداخت از صندوقِ انتخابی در بخش مالی عمومی ثبت می‌شود.
+     *
+     * [paySource] باید همان صندوقی باشد که موجودی‌اش کنترل شده است؛
+     * وگرنه پول از صندوقی کم می‌شود که کاربر انتخابش نکرده بود.
      */
-    suspend fun settleTailorWages(tailorLabel: String, total: Long) {
+    suspend fun settleTailorWages(tailorLabel: String, total: Long, paySource: String = "WALLET") {
         db.tailorWageDao().settleForTailor(tailorLabel, System.currentTimeMillis())
-        spend("WALLET", total, "تسویه کارمزد خیاط $tailorLabel")
+        spend(paySource, total, "تسویه کارمزد خیاط $tailorLabel")
         // آینه در دفتر کل: پرداختِ کارمزد → بدهکارِ حساب خیاط (کاهش طلب او)
         postLedger("TAILOR", tailorLabel, total, 0, "WAGE_PAID", note = "تسویه کارمزد")
         // رسیدِ تسویهٔ کارمزد
@@ -626,7 +626,7 @@ class Repo(private val db: AppDatabase) {
             "تسویه کارمزد $tailorLabel", "WAGE_PAID", "",
             listOf(
                 jl(Accounts.WAGES_PAYABLE, debit = total),
-                jl(Accounts.CASH, credit = total)
+                jl(Accounts.box(paySource), credit = total)
             )
         )
     }
@@ -743,6 +743,7 @@ class Repo(private val db: AppDatabase) {
         "SALE" -> "FR"               // فروش
         "SUPPLIER_PAYMENT" -> "PF"   // پرداخت به فروشنده
         "WAGE_RECEIPT" -> "KM"       // کارمزد
+        "SALARY_RECEIPT" -> "MA"     // معاش (حقوق ماهانه)
         "CUSTOMER_RECEIPT" -> "DR"   // دریافت از مشتری
         "RETURN" -> "BR"             // برگشت
         "PROFORMA" -> "PP"           // پیش‌فاکتور
@@ -814,7 +815,7 @@ class Repo(private val db: AppDatabase) {
                     .filter { it.tailorLabel == name.trim() }
                     .sumOf { it.amount }
                 if (pending in 1..amount) {
-                    settleTailorWages(name.trim(), amount)
+                    settleTailorWages(name.trim(), amount, paySource)
                     return true
                 }
             }
@@ -1241,6 +1242,94 @@ class Repo(private val db: AppDatabase) {
                     jl(Accounts.CASH, credit = profit)
                 )
             )
+        }
+        return true
+    }
+
+    /**
+     * برگشت از فروش — آینهٔ دقیقِ [sellFinished].
+     *
+     * کالا با همان بهای تمام‌شدهٔ فروش به انبار محصول برمی‌گردد و پولِ
+     * مشتری یا نقد پس داده می‌شود ([refundCash] = true) یا به‌صورت
+     * بستانکاری روی حسابش می‌ماند. سودی که هنگام فروش به «صندوق فایده»
+     * منتقل شده بود، به همان نسبت برمی‌گردد.
+     *
+     * برگشتِ جزئی مجاز است؛ مجموع برگشت‌ها هرگز از تعدادِ فروخته‌شده
+     * بیشتر نمی‌شود (کنترلِ سقف داخلِ خودِ UPDATE است).
+     *
+     * @return false اگر تعداد نامعتبر باشد، سقفِ برگشت پر شده باشد، یا
+     *         موجودیِ صندوق برای پس‌دادنِ نقد کافی نباشد.
+     */
+    suspend fun recordSaleReturn(
+        sale: FinishedSale,
+        qty: Int,
+        refundCash: Boolean,
+        cashBox: String = "WALLET"
+    ): Boolean {
+        if (qty <= 0 || qty > sale.returnableQty) return false
+
+        val refund = qty * sale.unitPrice
+        val costBack = qty * sale.unitCost
+
+        // پولی که نداریم نمی‌توانیم پس بدهیم — قبل از هر تغییری کنترل شود
+        if (refundCash && balanceOf(cashBox) < refund) return false
+
+        // سقفِ برگشت را خودِ دیتابیس تضمین می‌کند؛ اگر جای خالی نبود، هیچ
+        // اثرِ دیگری هم ثبت نمی‌شود.
+        if (db.finishedStockDao().addReturnedQty(sale.id, qty) == 0) return false
+
+        val customer = sale.customerName.trim()
+        val code = "BR-" + sale.code
+        val memo = "برگشت $qty عدد «${sale.productName}» از فروش ${sale.code}"
+
+        // کالا با همان بهای تمام‌شده به انبار محصول برمی‌گردد
+        addFinishedStock(sale.productName, sale.size, qty, sale.unitCost)
+
+        if (refundCash) spend(cashBox, refund, memo, category = "برگشتی فروش")
+
+        if (customer.isNotBlank()) {
+            // فروش خنثی می‌شود: مبلغ بستانکارِ مشتری می‌شود (طلبِ او از ما)
+            postLedger("CUSTOMER", customer, 0, refund, "SALE_RETURN", code, memo)
+            // اگر نقد پس دادیم، همان‌جا تسویه می‌شود و مانده صفر می‌ماند
+            if (refundCash) {
+                postLedger("CUSTOMER", customer, refund, 0, "RETURN_REFUND", code, memo)
+            }
+        }
+        createDocument("RETURN", customer, refund, code, memo)
+        audit("برگشت از فروش", "${sale.code} — $refund ؋")
+
+        // ژورنال: برگشتِ درآمد + برگشتِ کالا از بهای تمام‌شده به انبار
+        postJournal(
+            memo, "SALE_RETURN", code,
+            listOf(
+                jl(Accounts.SALES, debit = refund),
+                jl(
+                    if (refundCash) Accounts.box(cashBox) else Accounts.CUSTOMER_PREPAY,
+                    credit = refund
+                ),
+                jl(Accounts.FINISHED, debit = costBack),
+                jl(Accounts.COGS, credit = costBack)
+            )
+        )
+
+        // سودِ منتقل‌شده به «فایده» به همان نسبت برمی‌گردد — اما هرگز
+        // بیش از موجودیِ خودِ صندوقِ فایده، تا منفی نشود.
+        if (sale.total > sale.cost) {
+            val movable = minOf(
+                (refund - costBack).coerceAtLeast(0),
+                balanceOf("PROFIT").coerceAtLeast(0)
+            )
+            if (movable > 0) {
+                spend("PROFIT", movable, "برگشت سود فروش «${sale.productName}» ($code)")
+                income("WALLET", movable, "برگشت سود فروش ($code)")
+                postJournal(
+                    "برگشت سود فروش ($code) از صندوق فایده", "PROFIT_MOVE", code,
+                    listOf(
+                        jl(Accounts.CASH, debit = movable),
+                        jl(Accounts.PROFIT_BOX, credit = movable)
+                    )
+                )
+            }
         }
         return true
     }

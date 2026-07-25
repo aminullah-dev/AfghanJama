@@ -19,11 +19,8 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PictureAsPdf
-import androidx.compose.material.icons.filled.Replay
-import androidx.compose.material.icons.filled.Warehouse
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -104,7 +101,6 @@ fun OrderDetailScreen(
     val qcRecords by vm.qcRecords.collectAsState()
     val ui by vm.ui.collectAsState()
 
-    var showReturn by remember { mutableStateOf(false) }
     var showEdit by remember { mutableStateOf(false) }
     var showDelete by remember { mutableStateOf(false) }
 
@@ -250,36 +246,6 @@ fun OrderDetailScreen(
                 }) { Text("حذف", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = { TextButton(onClick = { showDelete = false }) { Text("لغو") } }
-        )
-    }
-
-    // ---------- دیالوگ برگشت فروش ----------
-    if (showReturn) {
-        val salePaid = payments.filter { it.source == "SALE" }.sumOf { it.amount }
-        var refundText by remember { mutableStateOf(salePaid.takeIf { it > 0 }?.toString() ?: "") }
-
-        AlertDialog(
-            onDismissRequest = { showReturn = false },
-            title = { Text("برگشت فروش") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("مبلغ برگشتی از کیف پول خارج و سفارش به مرحله فروش برمی‌گردد.")
-                    OutlinedTextField(
-                        value = refundText,
-                        onValueChange = { refundText = it.digitsOnly() },
-                        label = { Text("مبلغ برگشتی (؋)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    vm.returnSale(refundText.toLongOrNull() ?: 0L)
-                    showReturn = false
-                }) { Text("ثبت برگشتی") }
-            },
-            dismissButton = { TextButton(onClick = { showReturn = false }) { Text("لغو") } }
         )
     }
 
@@ -465,38 +431,36 @@ fun OrderDetailScreen(
                 }
             }
 
-            // ---------- تحویل به انبار محصول نهایی (سفارش آماده فروش) ----------
-            if (o.status == OrderStatus.SALES.name) {
+            // ---------- راهنمای فروش و برگشتِ فروش ----------
+            //
+            // فروش دیگر از دلِ سفارش انجام نمی‌شود: سفارشِ تأییدشده در
+            // «نظارت» خودکار وارد انبار محصول می‌شود و فروش و برگشتِ فروش
+            // هر دو از همان‌جا انجام می‌گیرند. این کارت کاربر را به همان
+            // مسیر راهنمایی می‌کند تا دنبالِ دکمهٔ نبوده نگردد.
+            if (canReturnSale && o.status == OrderStatus.STORED.name) {
                 item {
-                    Button(
-                        onClick = { vm.depositToFinished() },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                        ),
-                        modifier = Modifier.fillMaxWidth()
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer
+                        )
                     ) {
-                        Icon(Icons.Default.Warehouse, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("تحویل ${o.qty} عدد به انبار محصول")
-                    }
-                }
-            }
-
-            // ---------- برگشت فروش (فقط مدیر + سفارش تحویل‌شده) ----------
-            if (canReturnSale && o.status == OrderStatus.SENT.name) {
-                item {
-                    Button(
-                        onClick = { showReturn = true },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                            contentColor = MaterialTheme.colorScheme.onErrorContainer
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.Replay, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("برگشت فروش (مرجوعی)")
+                        Column(
+                            Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                "این سفارش در انبار محصول است",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                            Text(
+                                "فروش و برگشتِ فروش از صفحهٔ «فروش از انبار محصول» انجام می‌شود.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
                     }
                 }
             }

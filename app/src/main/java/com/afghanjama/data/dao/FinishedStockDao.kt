@@ -28,4 +28,16 @@ interface FinishedStockDao {
 
     @Query("SELECT * FROM finished_sales ORDER BY createdAt DESC")
     fun observeSales(): Flow<List<FinishedSale>>
+
+    /**
+     * افزایشِ تعدادِ مرجوعِ یک فروش. شرطِ سقف داخلِ خودِ UPDATE است تا دو
+     * برگشتِ هم‌زمان هرگز بیشتر از تعدادِ فروخته‌شده را مرجوع نکنند.
+     *
+     * @return تعداد سطرهای به‌روزشده؛ ۰ یعنی سقف اجازه نداد.
+     */
+    @Query(
+        "UPDATE finished_sales SET returnedQty = returnedQty + :qty " +
+            "WHERE id = :id AND returnedQty + :qty <= qty"
+    )
+    suspend fun addReturnedQty(id: java.util.UUID, qty: Int): Int
 }

@@ -170,11 +170,11 @@ private fun DashboardTab(vm: DashboardViewModel) {
                         StageStat("برش", s.cutting)
                         StageStat("دوخت", s.sewing)
                         StageStat("نظارت", s.review)
-                        StageStat("فروش", s.readyForSale)
+                        StageStat("آمادهٔ فروش", s.readyPieces)
                     }
                     HorizontalDivider(thickness = 0.5.dp)
                     Text(
-                        "تحویل‌شده تا امروز: ${s.sentTotal} سفارش",
+                        "فروش‌های ثبت‌شده تا امروز: ${s.salesCount.fa()} مورد",
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

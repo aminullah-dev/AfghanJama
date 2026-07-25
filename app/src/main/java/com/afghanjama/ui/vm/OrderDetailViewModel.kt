@@ -132,27 +132,6 @@ class OrderDetailViewModel(private val repo: Repo) : ViewModel() {
     }
 
     /**
-     * تحویل سفارشِ آمادهٔ فروش به انبار محصول نهایی: تعداد لباس با بهای
-     * تمام‌شده وارد انبار محصول می‌شود و سفارش بایگانی (STORED) می‌گردد.
-     * سپس می‌توان از انبار محصول به‌صورت جزئی فروخت.
-     */
-    fun depositToFinished() = viewModelScope.launch {
-        val id = orderId.value ?: return@launch
-        val o = repo.getOrder(id) ?: return@launch
-        if (o.status != OrderStatus.SALES.name) {
-            _ui.update { it.copy(message = "فقط سفارشِ آمادهٔ فروش قابل تحویل به انبار محصول است.", isError = true) }
-            return@launch
-        }
-        repo.depositOrderToFinished(o)
-        _ui.update {
-            it.copy(
-                message = "✅ ${o.qty} عدد «${o.designTitle}» به انبار محصول اضافه شد. اکنون می‌توانید از انبار محصول جزئی بفروشید.",
-                isError = false
-            )
-        }
-    }
-
-    /**
      * حذف امن سفارش (فقط مدیر و فقط در مرحله انبار).
      * پارچه‌های «از موجودی» به انبار برمی‌گردند؛ تراکنش‌های مالی ثبت‌شده
      * (خرید پارچه، پیش‌پرداخت) عمداً حذف نمی‌شوند و در صورت نیاز باید
@@ -175,41 +154,4 @@ class OrderDetailViewModel(private val repo: Repo) : ViewModel() {
         _ui.update { it.copy(deleted = true) }
     }
 
-    /**
-     * برگشت فروش: مبلغ برگشتی از کیف پول خارج، در حساب مشتری با مقدار
-     * منفی ثبت و سفارش دوباره به مرحله فروش برمی‌گردد.
-     */
-    fun returnSale(refund: Long) = viewModelScope.launch {
-        val id = orderId.value ?: return@launch
-        val o = repo.getOrder(id) ?: return@launch
-
-        if (o.status != OrderStatus.SENT.name) {
-            _ui.update { it.copy(message = "فقط سفارش تحویل‌شده قابل برگشت است.", isError = true) }
-            return@launch
-        }
-        if (refund <= 0L) {
-            _ui.update { it.copy(message = "مبلغ برگشتی معتبر نیست.", isError = true) }
-            return@launch
-        }
-
-        repo.recordSaleRefund(o.orderCode, refund)
-        repo.addCustomerPayment(
-            CustomerPayment(
-                orderId = o.id.toString(),
-                customerName = o.customerName,
-                amount = -refund,
-                source = "RETURN",
-                note = "برگشتی فروش سفارش ${o.orderCode}"
-            )
-        )
-        // کالای برگشتی دوباره واردِ انبار محصول می‌شود (فروش فقط از انبار است)
-        repo.depositOrderToFinished(o)
-
-        _ui.update {
-            it.copy(
-                message = "✅ برگشت فروش ثبت شد و کالا به انبار محصول برگشت. اگر سود این فروش قبلاً به فایده منتقل شده، آن را از تب کیف پول اصلاح کنید.",
-                isError = false
-            )
-        }
-    }
 }

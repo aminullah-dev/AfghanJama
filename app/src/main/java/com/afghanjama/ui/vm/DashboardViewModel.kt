@@ -15,8 +15,10 @@ data class DashboardStats(
     val cutting: Int = 0,        // در حال برش + برش تمام
     val sewing: Int = 0,
     val review: Int = 0,
-    val readyForSale: Int = 0,
-    val sentTotal: Int = 0,
+    /** عددِ آمادهٔ فروش در انبار محصول (نه تعدادِ سفارش). */
+    val readyPieces: Int = 0,
+    /** تعدادِ فروش‌های ثبت‌شده تا امروز. */
+    val salesCount: Int = 0,
     val sales7: Long = 0,        // فروش ۷ روز اخیر
     val sales30: Long = 0,       // فروش ۳۰ روز اخیر
     val profitNet7: Long = 0,    // تغییر خالص فایده ۷ روز اخیر
@@ -51,23 +53,28 @@ data class RecentSale(
     val profit: Long get() = revenue - cost
 }
 
+/** یک روزِ ۲۴ ساعته به میلی‌ثانیه. */
+private const val DAY_MS = 24L * 3600 * 1000
+
 class DashboardViewModel(repo: Repo) : ViewModel() {
 
-    val stats: StateFlow<DashboardStats> =
+    private val base: kotlinx.coroutines.flow.Flow<DashboardStats> =
         combine(
             repo.observeAllOrders(),
-            repo.observeCustomerPayments(),
+            repo.observeFinishedSales(),
             repo.observeTx(),
             repo.observeAllWages()
-        ) { orders, payments, tx, allWages ->
+        ) { orders, sales, tx, allWages ->
             val wages = allWages.filter { !it.settled }
             val now = System.currentTimeMillis()
-            val d7 = now - 7L * 24 * 3600 * 1000
-            val d30 = now - 30L * 24 * 3600 * 1000
+            val d7 = now - 7L * DAY_MS
+            val d30 = now - 30L * DAY_MS
 
-            fun salesSince(t: Long) = payments
-                .filter { it.source == "SALE" && it.createdAt >= t }
-                .sumOf { it.amount }
+            // فروش از دفترِ خودِ فروش‌ها خوانده می‌شود (منبعِ واحد) و
+            // مرجوعی‌ها از آن کم می‌شوند تا رقم، فروشِ واقعی باشد.
+            fun salesSince(t: Long) = sales
+                .filter { it.createdAt >= t }
+                .sumOf { it.netTotal }
 
             fun profitNetSince(t: Long) = tx
                 .filter { it.source == "PROFIT" && it.createdAt >= t }
@@ -76,10 +83,6 @@ class DashboardViewModel(repo: Repo) : ViewModel() {
             val expenses30 = tx
                 .filter { it.type == "OUT" && it.category.isNotBlank() && it.createdAt >= d30 }
                 .sumOf { it.amount }
-
-            val saleByOrder = payments
-                .filter { it.source == "SALE" }
-                .groupBy { it.orderId }
 
             // بهره‌وری خیاط‌ها در ۳۰ روز اخیر (بر اساس دوخت‌های تمام‌شده)
             val qtyByOrder = orders.associate { it.id.toString() to it.qty }
@@ -99,17 +102,19 @@ class DashboardViewModel(repo: Repo) : ViewModel() {
             val oldestPendingDays = wages.minOfOrNull { it.createdAt }
                 ?.let { (now - it) / 86_400_000L } ?: 0L
 
-            val recentSales = orders
-                .filter { it.status == OrderStatus.SENT.name }
-                .sortedByDescending { if (it.stageChangedAt > 0) it.stageChangedAt else it.createdAt }
+            // فروشِ اخیر از دفترِ فروشِ انبار محصول می‌آید — فروش از همان‌جا
+            // انجام می‌شود و مرحلهٔ «فروشِ سفارش» دیگر وجود ندارد.
+            val recentSales = sales
+                .sortedByDescending { it.createdAt }
                 .take(5)
-                .map { o ->
+                .map { s ->
                     RecentSale(
-                        orderCode = o.orderCode,
-                        designTitle = o.designTitle,
-                        revenue = saleByOrder[o.id.toString()]?.sumOf { it.amount } ?: 0L,
-                        cost = o.fabricPrice + o.workCost + o.sewingCost,
-                        soldAt = if (o.stageChangedAt > 0) o.stageChangedAt else o.createdAt
+                        orderCode = s.code,
+                        designTitle = s.productName +
+                            (if (s.size.isNotBlank()) " • ${s.size}" else ""),
+                        revenue = s.netTotal,
+                        cost = s.netCost,
+                        soldAt = s.createdAt
                     )
                 }
 
@@ -120,8 +125,8 @@ class DashboardViewModel(repo: Repo) : ViewModel() {
                 },
                 sewing = orders.count { it.status == OrderStatus.SEWING.name },
                 review = orders.count { it.status == OrderStatus.REVIEW.name },
-                readyForSale = orders.count { it.status == OrderStatus.SALES.name },
-                sentTotal = orders.count { it.status == OrderStatus.SENT.name },
+                // readyPieces از موجودیِ انبار محصول در combine بعدی پر می‌شود
+                salesCount = sales.count(),
                 sales7 = salesSince(d7),
                 sales30 = salesSince(d30),
                 profitNet7 = profitNetSince(d7),
@@ -133,5 +138,10 @@ class DashboardViewModel(repo: Repo) : ViewModel() {
                 tailorStats = tailorStats,
                 oldestPendingWageDays = oldestPendingDays
             )
+        }
+
+    val stats: StateFlow<DashboardStats> =
+        combine(base, repo.observeFinishedStock()) { s, finished ->
+            s.copy(readyPieces = finished.sumOf { it.qty })
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DashboardStats())
 }

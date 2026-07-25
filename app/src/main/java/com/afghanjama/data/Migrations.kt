@@ -624,6 +624,17 @@ val MIGRATION_45_46 = object : Migration(45, 46) {
 }
 
 /**
+ * برگشت از فروش: چند عدد از هر فروشِ ثبت‌شده مرجوع شده است.
+ * فقط یک ستونِ افزودنی با پیش‌فرضِ ۰ (یعنی «هیچ برگشتی نداشته») —
+ * فروش‌های موجود دست نمی‌خورند.
+ */
+val MIGRATION_46_47 = object : Migration(46, 47) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `finished_sales` ADD COLUMN `returnedQty` INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+/**
  * حقوقِ ماهانهٔ کارکنان: مبلغِ توافقی روی هر کارمند + جدولِ پرداخت‌ها.
  * فقط افزودنی است — هیچ ستون یا جدولِ موجودی دست نمی‌خورد.
  */

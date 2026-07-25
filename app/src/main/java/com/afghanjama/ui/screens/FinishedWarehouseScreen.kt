@@ -22,6 +22,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
+import com.afghanjama.data.entities.FinishedSale
 import com.afghanjama.data.entities.FinishedStock
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.digitsOnly
@@ -57,8 +59,11 @@ fun FinishedWarehouseScreen(
     val items by vm.items.collectAsState()
     val sales by vm.recentSales.collectAsState()
     val ui by vm.ui.collectAsState()
+    val wallet by vm.wallet.collectAsState()
+    val bank by vm.bank.collectAsState()
 
     var sellTarget by remember { mutableStateOf<FinishedStock?>(null) }
+    var returnTarget by remember { mutableStateOf<FinishedSale?>(null) }
 
     // ---------- دیالوگ فروش جزئی ----------
     sellTarget?.let { item ->
@@ -122,6 +127,85 @@ fun FinishedWarehouseScreen(
         )
     }
 
+    // ---------- دیالوگ برگشت از فروش ----------
+    returnTarget?.let { sale ->
+        var qtyText by remember(sale.id) { mutableStateOf(sale.returnableQty.toString()) }
+        var refundCash by remember(sale.id) { mutableStateOf(true) }
+        var cashBox by remember(sale.id) { mutableStateOf("WALLET") }
+        val q = qtyText.toIntOrNull() ?: 0
+        AlertDialog(
+            onDismissRequest = { returnTarget = null },
+            title = { Text("برگشت از فروش «${sale.productName}»") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "فروش ${sale.code} • ${sale.qty.fa()} عدد • هر عدد ${sale.unitPrice.afn()}" +
+                            (if (sale.returnedQty > 0) " • قبلاً ${sale.returnedQty.fa()} عدد برگشته" else ""),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = qtyText,
+                        onValueChange = { qtyText = it.digitsOnly() },
+                        label = { Text("تعداد برگشتی (حداکثر ${sale.returnableQty.fa()})") },
+                        singleLine = true,
+                        isError = q !in 1..sale.returnableQty,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        "مبلغ برگشتی: ${(q.coerceAtLeast(0) * sale.unitPrice).afn()}",
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    HorizontalDivider(thickness = 0.5.dp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        FilterChip(
+                            selected = refundCash,
+                            onClick = { refundCash = true },
+                            label = { Text("پول نقد پس داده شد") }
+                        )
+                        FilterChip(
+                            selected = !refundCash,
+                            onClick = { refundCash = false },
+                            label = { Text("به حساب مشتری") }
+                        )
+                    }
+                    if (refundCash) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            FilterChip(
+                                selected = cashBox == "WALLET",
+                                onClick = { cashBox = "WALLET" },
+                                label = { Text("صندوق (${wallet.afn()})") }
+                            )
+                            FilterChip(
+                                selected = cashBox == "BANK",
+                                onClick = { cashBox = "BANK" },
+                                label = { Text("بانک (${bank.afn()})") }
+                            )
+                        }
+                    } else {
+                        Text(
+                            "مبلغ به‌صورت بستانکاری روی حساب مشتری می‌ماند و بعداً قابل تسویه است.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = q in 1..sale.returnableQty,
+                    onClick = {
+                        vm.returnSale(sale, q, refundCash, cashBox)
+                        returnTarget = null
+                    }
+                ) { Text("ثبت برگشت") }
+            },
+            dismissButton = { TextButton(onClick = { returnTarget = null }) { Text("لغو") } }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -154,7 +238,8 @@ fun FinishedWarehouseScreen(
             if (items.isEmpty()) {
                 item {
                     Text(
-                        "انبار محصول خالی است. سفارش آمادهٔ فروش را از صفحهٔ جزئیات سفارش به انبار محصول تحویل دهید.",
+                        "انبار محصول خالی است. هر سفارشی که در مرحلهٔ «نظارت» تأیید شود، " +
+                            "خودکار وارد این انبار می‌شود و از همین‌جا فروخته می‌رود.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 24.dp)
                     )
@@ -209,19 +294,27 @@ fun FinishedWarehouseScreen(
                 items(sales, key = { it.id }) { sale ->
                     Row(
                         Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(Modifier.weight(1f)) {
                             Text("${sale.qty.fa()} عدد «${sale.productName}»", style = MaterialTheme.typography.bodyMedium)
-                            if (sale.customerName.isNotBlank()) {
+                            val sub = listOfNotNull(
+                                sale.customerName.takeIf { it.isNotBlank() },
+                                if (sale.returnedQty > 0) "${sale.returnedQty.fa()} عدد برگشت خورده" else null
+                            ).joinToString(" • ")
+                            if (sub.isNotBlank()) {
                                 Text(
-                                    sale.customerName,
+                                    sub,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
                         Text(sale.total.afn(), fontWeight = FontWeight.SemiBold)
+                        if (sale.returnableQty > 0) {
+                            TextButton(onClick = { returnTarget = sale }) { Text("برگشت") }
+                        }
                     }
                 }
             }

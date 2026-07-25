@@ -84,13 +84,16 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
     fun restoreFrom(context: Context, uri: Uri) = viewModelScope.launch(Dispatchers.IO) {
         runCatching {
             repo.checkpoint()
+            // اتصالِ باز باید قبل از بازنویسیِ فایل بسته شود؛ وگرنه صفحه‌های
+            // کش‌شدهٔ آن اتصال روی دیتابیسِ تازه می‌نشیند و خرابش می‌کند.
+            repo.closeDatabase()
             val dbFile = context.getDatabasePath(DB_NAME)
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                dbFile.outputStream().use { input.copyTo(it) }
-            } ?: error("openInputStream returned null")
             // فایل‌های WAL/SHM قدیمی نباید با دیتابیس بازیابی‌شده قاطی شوند
             java.io.File(dbFile.path + "-wal").delete()
             java.io.File(dbFile.path + "-shm").delete()
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                dbFile.outputStream().use { input.copyTo(it) }
+            } ?: error("openInputStream returned null")
         }.onSuccess {
             _ui.update {
                 it.copy(

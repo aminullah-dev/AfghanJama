@@ -19,7 +19,6 @@ data class HomeSummary(
     val lowStockCount: Int = 0,          // اقلام زیر حد هشدار
     val inProduction: Int = 0,           // سفارش‌های در جریان تولید
     val inStock: Int = 0,                // در انبار سفارش‌ها
-    val readyForSale: Int = 0,           // آماده فروش
     val finishedPieces: Int = 0,         // مجموع عددهای انبار محصول نهایی
     val wallet: Long = 0,
     val bank: Long = 0,
@@ -55,7 +54,6 @@ class HomeViewModel(repo: Repo) : ViewModel() {
                 lowStockCount = materials.count { it.minLevel > 0.0 && it.amount <= it.minLevel },
                 inProduction = orders.count { it.status in productionStatuses },
                 inStock = orders.count { it.status == OrderStatus.IN_STOCK.name },
-                readyForSale = orders.count { it.status == OrderStatus.SALES.name },
                 wallet = wallet,
                 bank = bank,
                 profit = profit,

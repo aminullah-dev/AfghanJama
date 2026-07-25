@@ -335,8 +335,8 @@ fun AppNav(
                     onGoPurchase = { navController.navigate(Routes.PROCUREMENT) },
                     onGoSale = { navController.navigate(Routes.FINISHED_SALES) },
                     onGoPurchaseReturn = { navController.navigate(Routes.PURCHASE_RETURN) },
-                    // برگشتِ فروش از دلِ خودِ سفارش انجام می‌شود
-                    onGoSaleReturn = { navController.navigate(Routes.SEARCH) },
+                    // برگشتِ فروش از روی خودِ فروشِ ثبت‌شده در انبار محصول
+                    onGoSaleReturn = { navController.navigate(Routes.FINISHED_SALES) },
                     onBack = { navController.popBackStack() }
                 )
             }

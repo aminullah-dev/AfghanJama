@@ -49,12 +49,12 @@ class InventoryViewModel(private val repo: Repo) : ViewModel() {
     fun clearMessage() = _state.update { it.copy(message = null, isError = false) }
     fun clearNavigation() = _state.update { it.copy(navigateToCutting = false) }
 
+    /**
+     * حذف سفارش. همیشه از مسیرِ برگشتِ مواد می‌رود — حذفِ بدونِ برگشت،
+     * موادی را که هنگام برش کسر شده بود برای همیشه از انبار گم می‌کند.
+     */
     fun deleteOrder(orderId: UUID) = viewModelScope.launch {
         val o = repo.getOrder(orderId) ?: return@launch
         repo.deleteOrderWithStockReturn(o)
-    }
-
-    fun deleteOrder(order: Order) = viewModelScope.launch {
-        repo.deleteOrder(order)
     }
 }
