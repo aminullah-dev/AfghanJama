@@ -103,6 +103,25 @@ dependencies {
     // Biometric (تأیید اثر انگشت برای حضور و غیاب) — FragmentActivity هم می‌آورد
     implementation("androidx.biometric:biometric:1.1.0")
 
+    /*
+     * fragment را صریحاً بالا می‌بریم و به نسخهٔ قدیمیِ biometric واگذارش
+     * نمی‌کنیم.
+     *
+     * androidx.biometric:1.1.0 نسخهٔ fragment 1.2.5 را می‌آورد. در آن
+     * نسخه، FragmentActivity هر requestCode بزرگ‌تر از ۱۶ بیت را رد
+     * می‌کند — هم در startActivityForResult و هم در requestPermissions.
+     * اما ActivityResultRegistry عمداً کدهای بزرگ‌تر می‌سازد تا با
+     * کدهای قدیمی تداخل نکند.
+     *
+     * نتیجه: هر launch از MainActivity (که FragmentActivity است) با
+     * «Can only use lower 16 bits for requestCode» شکست می‌خورد —
+     * اسکنر QR، انتخابگرِ فایل برای بکاپ و بازیابی، و خروجیِ CSV.
+     * علتِ اصلیِ «اسکنر کار نمی‌کند» همین بود، نه نبودِ مجوز.
+     *
+     * fragment 1.3.0 به بعد این اعتبارسنجی را برداشته است.
+     */
+    implementation("androidx.fragment:fragment:1.8.4")
+
     // Desugaring
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.2")
 
