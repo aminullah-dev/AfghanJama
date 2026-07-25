@@ -8,6 +8,7 @@ import com.afghanjama.data.entities.FinishedSale
 import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.Transaction
 import com.afghanjama.data.repo.Repo
+import com.afghanjama.ui.format.PersianDate
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -72,6 +73,56 @@ data class TrialBalance(
 ) {
     val hasData: Boolean get() = totalDebit > 0 || totalCredit > 0
     val balanced: Boolean get() = totalDebit == totalCredit
+}
+
+/** سودآوریِ یک محصول در بازهٔ گزارش (از فروش‌های انبارِ محصول). */
+data class ProductProfit(
+    val name: String,
+    val qty: Int,
+    val revenue: Long,
+    val cost: Long
+) {
+    val profit: Long get() = revenue - cost
+    val marginPercent: Int get() = if (revenue > 0) ((profit * 100) / revenue).toInt() else 0
+}
+
+/** یک ماهِ شمسی در روندِ کسب‌وکار. */
+data class MonthPoint(
+    val key: String,
+    val label: String,
+    val revenue: Long,
+    val cost: Long,
+    val salesCount: Int
+) {
+    val profit: Long get() = revenue - cost
+}
+
+/**
+ * روندِ ماهانه و سودآوریِ محصولات — پاسخِ دو سؤالی که مدیرِ کارگاه
+ * هر روز دارد: «کدام محصول پول می‌سازد؟» و «کارم بهتر شده یا بدتر؟»
+ */
+data class TrendData(
+    val months: List<MonthPoint> = emptyList(),
+    val products: List<ProductProfit> = emptyList()
+) {
+    val hasMonths: Boolean get() = months.any { it.revenue > 0 }
+    val hasProducts: Boolean get() = products.isNotEmpty()
+
+    /** بیشترین درآمدِ ماهانه — مقیاسِ مشترکِ میله‌ها. */
+    val maxMonthRevenue: Long get() = months.maxOfOrNull { it.revenue } ?: 0
+    val maxProductRevenue: Long get() = products.maxOfOrNull { it.revenue } ?: 0
+
+    val bestProduct: ProductProfit? get() = products.maxByOrNull { it.profit }
+
+    /** تغییرِ سودِ ماهِ جاری نسبت به ماهِ قبل، به درصد (null = قابلِ مقایسه نیست). */
+    val profitChangePercent: Int?
+        get() {
+            if (months.size < 2) return null
+            val prev = months[months.size - 2].profit
+            val curr = months.last().profit
+            if (prev <= 0) return null
+            return (((curr - prev) * 100) / prev).toInt()
+        }
 }
 
 /** یک سطرِ صورتِ مالی: حساب و مبلغِ طبیعی‌اش (همیشه مثبت‌خوان). */
@@ -159,6 +210,44 @@ class ReportsViewModel(private val repo: Repo) : ViewModel() {
             }
             .map { buildIncome(it) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), IncomeStatement())
+
+    /**
+     * روندِ ۶ ماهِ اخیر + سودآوریِ محصولات. روند عمداً به چیپِ بازه وابسته
+     * نیست (روند یعنی مقایسهٔ ماه‌ها)، اما فهرستِ محصولات بازه را رعایت می‌کند.
+     */
+    val trend: StateFlow<TrendData> =
+        combine(repo.observeFinishedSales(), _period) { sales, period ->
+            val monthsWanted = PersianDate.recentMonths(6)
+            val byMonth = sales.groupBy { PersianDate.monthKey(it.createdAt) }
+            val months = monthsWanted.map { (key, label) ->
+                val list = byMonth[key].orEmpty()
+                MonthPoint(
+                    key = key,
+                    label = label,
+                    revenue = list.sumOf { it.total },
+                    cost = list.sumOf { it.cost },
+                    salesCount = list.size
+                )
+            }
+
+            val cutoff = period?.let {
+                System.currentTimeMillis() - it * 24L * 3600L * 1000L
+            } ?: 0L
+            val products = sales
+                .filter { it.createdAt >= cutoff }
+                .groupBy { it.productName.ifBlank { "بدون نام" } }
+                .map { (name, list) ->
+                    ProductProfit(
+                        name = name,
+                        qty = list.sumOf { it.qty },
+                        revenue = list.sumOf { it.total },
+                        cost = list.sumOf { it.cost }
+                    )
+                }
+                .sortedByDescending { it.profit }
+
+            TrendData(months = months, products = products)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TrendData())
 
     /** ترازنامه — همیشه تجمعی (عکسِ لحظه‌ای از وضعِ مالی). */
     val balanceSheet: StateFlow<BalanceSheet> =

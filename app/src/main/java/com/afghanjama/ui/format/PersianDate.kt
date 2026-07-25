@@ -85,6 +85,24 @@ object PersianDate {
         return String.format(java.util.Locale.US, "%d-%02d", j[0], j[1])
     }
 
+    /**
+     * [count] ماهِ اخیرِ شمسی (شاملِ ماهِ جاری)، از قدیمی به جدید،
+     * به شکلِ «کلید به برچسب» — مثلاً `"1405-05" to "اسد ۱۴۰۵"`.
+     * محاسبه روی شمارندهٔ ماه انجام می‌شود تا عبور از سالِ نو درست باشد.
+     */
+    fun recentMonths(count: Int, now: Long = System.currentTimeMillis()): List<Pair<String, String>> {
+        if (count <= 0) return emptyList()
+        val (j, _, _) = jalaliOf(now)
+        val base = j[0] * 12 + (j[1] - 1)
+        return ((count - 1) downTo 0).map { back ->
+            val idx = base - back
+            val y = idx / 12
+            val m = idx % 12 + 1
+            String.format(java.util.Locale.US, "%d-%02d", y, m) to
+                "${afghanMonths[m - 1]} ${y.toString().toPersianDigits()}"
+        }
+    }
+
     /** «1404/04/15 10:30» — با ارقام لاتین؛ برای CSV (قابل مرتب‌سازی در اکسل). */
     fun csv(millis: Long): String {
         val (j, h, m) = jalaliOf(millis)

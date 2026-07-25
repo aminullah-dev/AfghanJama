@@ -5,15 +5,19 @@
 
 package com.afghanjama.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -35,6 +39,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -81,6 +86,61 @@ private fun StatRow(label: String, value: String, strong: Boolean = false, color
     }
 }
 
+/**
+ * یک سطرِ میله‌ای: طولِ میله فقط «درآمد» را نشان می‌دهد (یک مقیاس، یک رنگ
+ * برای همهٔ سطرها). مقدارها بیرونِ میله نوشته می‌شوند و سود همیشه با
+ * واژهٔ «سود/زیان» می‌آید، نه فقط با رنگ — تا بدونِ تشخیصِ رنگ هم خوانا باشد.
+ */
+@Composable
+private fun BarRow(
+    label: String,
+    valueText: String,
+    fraction: Float,
+    subText: String,
+    subColor: Color
+) {
+    Column(
+        Modifier.fillMaxWidth().padding(vertical = 5.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(
+                label,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                valueText,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(8.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            if (fraction > 0f) {
+                Box(
+                    Modifier
+                        .fillMaxWidth(fraction.coerceIn(0.02f, 1f))
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(MaterialTheme.colorScheme.primary)
+                )
+            }
+        }
+        Text(
+            subText,
+            style = MaterialTheme.typography.labelSmall,
+            color = subColor
+        )
+    }
+}
+
 @Composable
 fun ReportsScreen(
     vm: ReportsViewModel,
@@ -91,6 +151,7 @@ fun ReportsScreen(
     val tb by vm.trialBalance.collectAsState()
     val income by vm.incomeStatement.collectAsState()
     val sheet by vm.balanceSheet.collectAsState()
+    val trend by vm.trend.collectAsState()
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -190,6 +251,87 @@ fun ReportsScreen(
                         )
                         r.expenseByCategory.forEach { (cat, amount) ->
                             StatRow(cat, amount.afn())
+                        }
+                    }
+                }
+            }
+
+            // ---------- روندِ ۶ ماهِ اخیر ----------
+            if (trend.hasMonths) {
+                item {
+                    SectionCard("روندِ ۶ ماهِ اخیر") {
+                        trend.profitChangePercent?.let { pct ->
+                            Text(
+                                if (pct >= 0)
+                                    "📈 سودِ این ماه ${pct.fa()}٪ بیشتر از ماهِ قبل است".toPersianDigits()
+                                else
+                                    "📉 سودِ این ماه ${(-pct).fa()}٪ کمتر از ماهِ قبل است".toPersianDigits(),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = if (pct >= 0) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.error
+                            )
+                        }
+                        Text(
+                            "طولِ میله = درآمدِ آن ماه",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        val max = trend.maxMonthRevenue
+                        trend.months.forEach { m ->
+                            BarRow(
+                                label = m.label,
+                                valueText = m.revenue.afn(),
+                                fraction = if (max > 0) m.revenue.toFloat() / max else 0f,
+                                subText = if (m.salesCount == 0) "فروشی ثبت نشده"
+                                else (if (m.profit >= 0) "سود ${m.profit.afn()}" else "زیان ${(-m.profit).afn()}") +
+                                    " • ${m.salesCount.fa()} فروش",
+                                subColor = if (m.salesCount == 0) MaterialTheme.colorScheme.onSurfaceVariant
+                                else if (m.profit >= 0) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                }
+            }
+
+            // ---------- سودآوریِ محصولات ----------
+            if (trend.hasProducts) {
+                item {
+                    SectionCard("سودآوریِ محصولات — $periodLabel") {
+                        trend.bestProduct?.takeIf { it.profit > 0 }?.let { best ->
+                            Text(
+                                "🏆 پرسودترین: ${best.name} — ${best.profit.afn()}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        Text(
+                            "طولِ میله = درآمدِ آن محصول",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        val max = trend.maxProductRevenue
+                        trend.products.take(8).forEach { p ->
+                            BarRow(
+                                label = p.name,
+                                valueText = "${p.qty.fa()} عدد • ${p.revenue.afn()}",
+                                fraction = if (max > 0) p.revenue.toFloat() / max else 0f,
+                                subText = (
+                                    if (p.profit >= 0) "سود ${p.profit.afn()}"
+                                    else "زیان ${(-p.profit).afn()}"
+                                    ) + " • حاشیه ${p.marginPercent.fa()}٪".toPersianDigits(),
+                                subColor = if (p.profit >= 0) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.error
+                            )
+                        }
+                        if (trend.products.size > 8) {
+                            Text(
+                                "و ${(trend.products.size - 8).fa()} محصولِ دیگر",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }
