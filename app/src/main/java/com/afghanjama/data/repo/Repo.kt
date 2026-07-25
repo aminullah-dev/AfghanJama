@@ -655,6 +655,10 @@ class Repo(private val db: AppDatabase) {
     fun observeAccountBalances(): Flow<List<com.afghanjama.data.dao.AccountBalance>> =
         db.journalDao().observeAccountBalances()
 
+    /** ماندهٔ حساب‌ها فقط از [since] به بعد — برای صورتِ سود و زیانِ دوره. */
+    fun observeAccountBalancesSince(since: Long): Flow<List<com.afghanjama.data.dao.AccountBalance>> =
+        db.journalDao().observeAccountBalancesSince(since)
+
     fun observeJournalEntries(): Flow<List<JournalEntry>> =
         db.journalDao().observeRecentEntries()
 

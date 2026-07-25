@@ -32,6 +32,19 @@ interface JournalDao {
     )
     fun observeAccountBalances(): Flow<List<AccountBalance>>
 
+    /**
+     * ماندهٔ حساب‌ها فقط برای اسنادِ ثبت‌شده از [since] به بعد — برای
+     * صورتِ سود و زیانِ یک دوره. (ترازنامه همیشه تجمعی است و از
+     * [observeAccountBalances] می‌آید.)
+     */
+    @Query(
+        "SELECT l.account AS account, COALESCE(SUM(l.debit),0) AS debit, " +
+            "COALESCE(SUM(l.credit),0) AS credit " +
+            "FROM journal_lines l JOIN journal_entries e ON e.id = l.entryId " +
+            "WHERE e.at >= :since GROUP BY l.account ORDER BY l.account"
+    )
+    fun observeAccountBalancesSince(since: Long): Flow<List<AccountBalance>>
+
     @Query("SELECT * FROM journal_entries ORDER BY at DESC LIMIT 200")
     fun observeRecentEntries(): Flow<List<JournalEntry>>
 

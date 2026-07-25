@@ -8,10 +8,12 @@ import com.afghanjama.data.entities.FinishedSale
 import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.Transaction
 import com.afghanjama.data.repo.Repo
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
@@ -72,6 +74,53 @@ data class TrialBalance(
     val balanced: Boolean get() = totalDebit == totalCredit
 }
 
+/** یک سطرِ صورتِ مالی: حساب و مبلغِ طبیعی‌اش (همیشه مثبت‌خوان). */
+data class StatementLine(
+    val code: String,
+    val label: String,
+    val amount: Long
+)
+
+/**
+ * صورتِ سود و زیانِ دوره: درآمد − بهای تمام‌شده = سود ناخالص،
+ * و سود ناخالص − هزینه‌های عمومی = سود خالص.
+ */
+data class IncomeStatement(
+    val revenues: List<StatementLine> = emptyList(),
+    val totalRevenue: Long = 0,
+    val cogs: Long = 0,
+    val grossProfit: Long = 0,
+    val expenses: List<StatementLine> = emptyList(),
+    val totalExpense: Long = 0,
+    val netProfit: Long = 0
+) {
+    val hasData: Boolean get() = totalRevenue != 0L || cogs != 0L || totalExpense != 0L
+
+    /** حاشیهٔ سودِ خالص به درصد (۰ وقتی درآمدی نیست). */
+    val marginPercent: Int
+        get() = if (totalRevenue > 0) ((netProfit * 100) / totalRevenue).toInt() else 0
+}
+
+/**
+ * ترازنامه در همین لحظه (همیشه تجمعی — از ابتدای کار تا امروز):
+ * دارایی = بدهی + سرمایه + سودِ انباشته.
+ */
+data class BalanceSheet(
+    val assets: List<StatementLine> = emptyList(),
+    val totalAssets: Long = 0,
+    val liabilities: List<StatementLine> = emptyList(),
+    val totalLiabilities: Long = 0,
+    val capital: Long = 0,
+    val retained: Long = 0
+) {
+    val totalEquity: Long get() = capital + retained
+    val hasData: Boolean
+        get() = totalAssets != 0L || totalLiabilities != 0L || totalEquity != 0L
+
+    /** معادلهٔ حسابداری برقرار است؟ (اگر ژورنال تراز باشد همیشه بله) */
+    val balanced: Boolean get() = totalAssets == totalLiabilities + totalEquity
+}
+
 /** گزارش‌های مدیریتی: محاسبه از داده‌های موجود (بدون جدول جدید). */
 class ReportsViewModel(private val repo: Repo) : ViewModel() {
 
@@ -94,6 +143,81 @@ class ReportsViewModel(private val repo: Repo) : ViewModel() {
     private val _period = MutableStateFlow<Int?>(null)
     val period: StateFlow<Int?> = _period
     fun setPeriod(days: Int?) { _period.value = days }
+
+    /**
+     * صورتِ سود و زیانِ دوره — با چیپِ بازه (۷/۳۰ روز/همه) هماهنگ است،
+     * چون فقط اسنادِ همان بازه را جمع می‌زند.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val incomeStatement: StateFlow<IncomeStatement> =
+        _period
+            .flatMapLatest { days ->
+                val since = days?.let {
+                    System.currentTimeMillis() - it * 24L * 3600L * 1000L
+                } ?: 0L
+                repo.observeAccountBalancesSince(since)
+            }
+            .map { buildIncome(it) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), IncomeStatement())
+
+    /** ترازنامه — همیشه تجمعی (عکسِ لحظه‌ای از وضعِ مالی). */
+    val balanceSheet: StateFlow<BalanceSheet> =
+        repo.observeAccountBalances()
+            .map { buildSheet(it) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BalanceSheet())
+
+    /** درآمد (۴xxx) بستانکارِ طبیعی است؛ هزینه (۵xxx) بدهکارِ طبیعی. */
+    private fun buildIncome(list: List<com.afghanjama.data.dao.AccountBalance>): IncomeStatement {
+        val revenues = list
+            .filter { it.account.startsWith("4") }
+            .map { StatementLine(it.account, Accounts.label(it.account), -it.net) }
+            .filter { it.amount != 0L }
+        val totalRevenue = revenues.sumOf { it.amount }
+
+        val cogs = list.filter { it.account == Accounts.COGS }.sumOf { it.net }
+
+        val expenses = list
+            .filter { it.account.startsWith("5") && it.account != Accounts.COGS }
+            .map { StatementLine(it.account, Accounts.label(it.account), it.net) }
+            .filter { it.amount != 0L }
+        val totalExpense = expenses.sumOf { it.amount }
+
+        val gross = totalRevenue - cogs
+        return IncomeStatement(
+            revenues = revenues,
+            totalRevenue = totalRevenue,
+            cogs = cogs,
+            grossProfit = gross,
+            expenses = expenses,
+            totalExpense = totalExpense,
+            netProfit = gross - totalExpense
+        )
+    }
+
+    /** دارایی (۱xxx) بدهکارِ طبیعی؛ بدهی (۲xxx) و سرمایه (۳xxx) بستانکارِ طبیعی. */
+    private fun buildSheet(list: List<com.afghanjama.data.dao.AccountBalance>): BalanceSheet {
+        val assets = list
+            .filter { it.account.startsWith("1") }
+            .map { StatementLine(it.account, Accounts.label(it.account), it.net) }
+            .filter { it.amount != 0L }
+        val liabilities = list
+            .filter { it.account.startsWith("2") }
+            .map { StatementLine(it.account, Accounts.label(it.account), -it.net) }
+            .filter { it.amount != 0L }
+        val capital = list.filter { it.account.startsWith("3") }.sumOf { -it.net }
+        // سودِ انباشته از ابتدای کار = کلِ درآمد − کلِ هزینه (شاملِ بهای تمام‌شده)
+        val retained = list.filter { it.account.startsWith("4") }.sumOf { -it.net } -
+            list.filter { it.account.startsWith("5") }.sumOf { it.net }
+
+        return BalanceSheet(
+            assets = assets,
+            totalAssets = assets.sumOf { it.amount },
+            liabilities = liabilities,
+            totalLiabilities = liabilities.sumOf { it.amount },
+            capital = capital,
+            retained = retained
+        )
+    }
 
     private val raw =
         combine(
