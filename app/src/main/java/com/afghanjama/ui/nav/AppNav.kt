@@ -532,7 +532,6 @@ fun AppNav(
 
             composable(Routes.CUTTING) {
                 CuttingScreen(
-                    onBack = { navController.popBackStack() },
                     vm = cuttingVm,
                     onBack = { navController.popBackStack() },
                     onGoSewing = { navController.navigate(Routes.SEWING) }
