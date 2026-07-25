@@ -1,21 +1,13 @@
 package com.afghanjama.pdf
 
 import android.content.Context
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
 import android.graphics.RectF
-import android.graphics.Typeface
-import android.text.Layout
-import android.text.StaticLayout
-import android.text.TextDirectionHeuristics
-import android.text.TextPaint
 import android.graphics.pdf.PdfDocument
-import androidx.core.content.res.ResourcesCompat
-import com.afghanjama.R
 import com.afghanjama.data.entities.Document
 import com.afghanjama.data.entities.docTypeLabel
-import com.afghanjama.prefs.CompanyPrefs
+import com.afghanjama.pdf.PdfKit.MARGIN
+import com.afghanjama.pdf.PdfKit.PAGE_H
+import com.afghanjama.pdf.PdfKit.PAGE_W
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
 import com.afghanjama.util.QrGen
@@ -23,116 +15,57 @@ import com.afghanjama.util.ShareUtil
 import java.io.File
 
 /**
- * سندِ مالیِ رسمی PDF (فاکتور/رسید) — A4 راست‌به‌چپ با فونت وزیرمتن و QR.
- * از همان الگوی اثبات‌شدهٔ InvoicePdf استفاده می‌کند.
+ * رسیدِ رسمیِ یک سندِ مالی (پرداخت، دریافت، کارمزد، حقوق…) — یک برگه،
+ * با سربرگ و پاصفحهٔ مشترکِ افغان‌جامه، جای امضا و QR برای بررسی.
  */
 object DocumentPdf {
 
-    private const val PAGE_W = 595
-    private const val PAGE_H = 842
-    private const val MARGIN = 40f
-    private val CONTENT_W = (PAGE_W - 2 * MARGIN).toInt()
-
-    private const val BRAND = 0xFF1F6E5C.toInt()
-    private const val INK = 0xFF1B1C1A.toInt()
-    private const val MUTED = 0xFF61605A.toInt()
-    private const val LINE = 0xFFE1DFD8.toInt()
-
-    private fun typeLabel(t: String): String = docTypeLabel(t)
-
     fun create(context: Context, d: Document): File {
-        val regular = ResourcesCompat.getFont(context, R.font.vazirmatn_regular) ?: Typeface.DEFAULT
-        val bold = ResourcesCompat.getFont(context, R.font.vazirmatn_bold) ?: Typeface.DEFAULT_BOLD
-
-        fun paint(size: Float, color: Int, tf: Typeface) = TextPaint().apply {
-            isAntiAlias = true; textSize = size; this.color = color; typeface = tf
-        }
-
-        val titlePaint = paint(20f, Color.WHITE, bold)
-        val headerSubPaint = paint(11f, Color.WHITE, regular)
-        val labelPaint = paint(11f, MUTED, regular)
-        val valuePaint = paint(12f, INK, regular)
-        val strongPaint = paint(15f, INK, bold)
-        val footerPaint = paint(9f, MUTED, regular)
+        val f = PdfKit.fonts(context)
+        val title = docTypeLabel(d.type)
 
         val doc = PdfDocument()
         val page = doc.startPage(PdfDocument.PageInfo.Builder(PAGE_W, PAGE_H, 1).create())
         val c = page.canvas
 
-        // ---------- سربرگ ----------
-        c.drawRect(0f, 0f, PAGE_W.toFloat(), 96f, Paint().apply { color = BRAND })
-        val logoPaint = Paint().apply { color = Color.WHITE; isAntiAlias = true }
-        c.drawCircle(PAGE_W - MARGIN - 24f, 48f, 24f, logoPaint)
-        val logoText = paint(22f, BRAND, bold).apply { textAlign = Paint.Align.CENTER }
-        c.drawText("✂", PAGE_W - MARGIN - 24f, 56f, logoText)
-        val coName = CompanyPrefs.name(context).ifBlank { "AfghanJama — مدیریت کارگاه خیاطی" }
-        c.drawRtl(coName, MARGIN, 28f, titlePaint, CONTENT_W - 60)
-        c.drawRtl(typeLabel(d.type), MARGIN, 62f, headerSubPaint, CONTENT_W - 60)
+        var y = PdfKit.drawHeader(c, context, f, title, d.number, d.at)
 
-        var y = 122f
-        y = c.kv("شمارهٔ سند", d.number, y, labelPaint, valuePaint)
-        y = c.kv("تاریخ", PersianDate.long(d.at), y, labelPaint, valuePaint)
-        if (d.partyName.isNotBlank()) y = c.kv("طرف حساب", d.partyName, y, labelPaint, valuePaint)
-        if (d.refId.isNotBlank()) y = c.kv("مرجع", d.refId, y, labelPaint, valuePaint)
-        if (d.note.isNotBlank()) y = c.kv("توضیح", d.note, y, labelPaint, valuePaint)
-        y += 6f
-        y = c.rule(y)
-        y = c.kv("مبلغ", d.amount.afn(), y, labelPaint, strongPaint)
+        // ---------- مبلغ: پررنگ‌ترین چیزِ یک رسید ----------
+        y = PdfKit.totalBox(c, "مبلغ", d.amount.afn(), y, f)
 
-        // ---------- QR ----------
-        val qr = QrGen.bitmap("AJ|${d.number}|${typeLabel(d.type)}|${d.amount}|${d.partyName}")
-        if (qr != null) {
-            y += 18f
-            val s = 140f
+        // ---------- جزئیات ----------
+        y = PdfKit.section(c, "جزئیات سند", y, f)
+        y = PdfKit.kv(c, "شمارهٔ سند", d.number, y, f)
+        y = PdfKit.kv(c, "نوع سند", title, y, f)
+        y = PdfKit.kv(c, "تاریخ", PersianDate.long(d.at), y, f)
+        if (d.partyName.isNotBlank()) y = PdfKit.kv(c, "طرف حساب", d.partyName, y, f)
+        if (d.refId.isNotBlank()) y = PdfKit.kv(c, "مرجع", d.refId, y, f)
+        if (d.note.isNotBlank()) y = PdfKit.kv(c, "توضیح", d.note, y, f)
+
+        y = PdfKit.rule(c, y + 6f)
+
+        // ---------- امضا ----------
+        y = PdfKit.signatures(c, y + 4f, f, "مهر و امضای کارگاه", "امضای دریافت‌کننده")
+
+        // ---------- QR برای بررسیِ اصالت ----------
+        QrGen.bitmap("AJ|${d.number}|$title|${d.amount}|${d.partyName}")?.let { qr ->
+            y += 14f
+            val s = 120f
             val left = (PAGE_W - s) / 2f
             c.drawBitmap(qr, null, RectF(left, y, left + s, y + s), null)
-            y += s + 8f
-            c.drawRtl("برای بررسی، QR را اسکن کنید", MARGIN, y, footerPaint, CONTENT_W)
+            y += s + 6f
+            PdfKit.rtlCenter(
+                c, "برای بررسیِ اصالت، این کد را اسکن کنید",
+                MARGIN, y, PdfKit.paint(8.5f, PdfKit.MUTED, f.regular), PdfKit.CONTENT_W
+            )
         }
 
-        // ---------- پاصفحه ----------
-        val footY = PAGE_H - 36f
-        c.drawLine(MARGIN, footY - 10f, PAGE_W - MARGIN, footY - 10f, Paint().apply { color = LINE; strokeWidth = 0.8f })
-        val coPhone = CompanyPrefs.phone(context)
-        val coAddr = CompanyPrefs.address(context)
-        val footer = buildString {
-            append("صادرشده با اپلیکیشن AfghanJama")
-            if (coPhone.isNotBlank()) append(" — تلفن: $coPhone")
-            if (coAddr.isNotBlank()) append(" — $coAddr")
-        }
-        c.drawRtl(footer, MARGIN, footY, footerPaint, CONTENT_W)
-
+        PdfKit.drawFooter(c, context, f, 1)
         doc.finishPage(page)
+
         val file = File(ShareUtil.sharedDir(context), "${d.number}.pdf")
         file.outputStream().use { doc.writeTo(it) }
         doc.close()
         return file
-    }
-
-    // ---------- کمکی‌های رسم راست‌به‌چپ ----------
-
-    private fun Canvas.drawRtl(text: String, x: Float, top: Float, tp: TextPaint, width: Int) {
-        val layout = StaticLayout.Builder
-            .obtain(text, 0, text.length, tp, width)
-            .setTextDirection(TextDirectionHeuristics.RTL)
-            .setAlignment(Layout.Alignment.ALIGN_NORMAL)
-            .build()
-        save(); translate(x, top); layout.draw(this); restore()
-    }
-
-    private fun Canvas.kv(label: String, value: String, y: Float, labelPaint: TextPaint, valuePaint: TextPaint): Float {
-        drawRtl(label, MARGIN, y, labelPaint, CONTENT_W)
-        val layout = StaticLayout.Builder
-            .obtain(value, 0, value.length, TextPaint(valuePaint), CONTENT_W)
-            .setTextDirection(TextDirectionHeuristics.RTL)
-            .setAlignment(Layout.Alignment.ALIGN_OPPOSITE)
-            .build()
-        save(); translate(MARGIN, y); layout.draw(this); restore()
-        return y + maxOf(layout.height.toFloat(), 18f) + 4f
-    }
-
-    private fun Canvas.rule(y: Float): Float {
-        drawLine(MARGIN, y, PAGE_W - MARGIN, y, Paint().apply { color = LINE; strokeWidth = 0.8f })
-        return y + 12f
     }
 }

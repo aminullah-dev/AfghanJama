@@ -1,18 +1,10 @@
 package com.afghanjama.pdf
 
 import android.content.Context
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
-import android.text.Layout
-import android.text.StaticLayout
-import android.text.TextDirectionHeuristics
-import android.text.TextPaint
-import androidx.core.content.res.ResourcesCompat
-import com.afghanjama.R
-import com.afghanjama.prefs.CompanyPrefs
+import com.afghanjama.pdf.PdfKit.BODY_BOTTOM
+import com.afghanjama.pdf.PdfKit.PAGE_H
+import com.afghanjama.pdf.PdfKit.PAGE_W
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.toPersianDigits
@@ -23,22 +15,11 @@ import com.afghanjama.util.ShareUtil
 import java.io.File
 
 /**
- * صورت‌های مالیِ رسمیِ کارگاه در یک PDF (A4 راست‌به‌چپ، چندصفحه‌ای):
- * صورتِ سود و زیانِ دوره + ترازنامهٔ لحظه‌ای، هر دو از ژورنالِ دوطرفه.
- * قابلِ ارائه به شریک، بانک یا حسابدار.
+ * صورت‌های مالیِ رسمیِ کارگاه در یک PDF: صورتِ سود و زیانِ دوره +
+ * ترازنامهٔ لحظه‌ای، هر دو از ژورنالِ دوطرفه — با سربرگ و پاصفحهٔ
+ * مشترکِ افغان‌جامه. قابلِ ارائه به شریک، بانک یا حسابدار.
  */
 object FinancialStatementsPdf {
-
-    private const val PAGE_W = 595
-    private const val PAGE_H = 842
-    private const val MARGIN = 40f
-    private val CONTENT_W = (PAGE_W - 2 * MARGIN).toInt()
-
-    private const val BRAND = 0xFF1F6E5C.toInt()
-    private const val INK = 0xFF1B1C1A.toInt()
-    private const val MUTED = 0xFF61605A.toInt()
-    private const val LINE = 0xFFE1DFD8.toInt()
-    private const val LOSS = 0xFFB3261E.toInt()
 
     fun create(
         context: Context,
@@ -46,192 +27,113 @@ object FinancialStatementsPdf {
         sheet: BalanceSheet,
         periodLabel: String
     ): File {
-        val regular = ResourcesCompat.getFont(context, R.font.vazirmatn_regular) ?: Typeface.DEFAULT
-        val bold = ResourcesCompat.getFont(context, R.font.vazirmatn_bold) ?: Typeface.DEFAULT_BOLD
-
-        fun paint(size: Float, color: Int, tf: Typeface) = TextPaint().apply {
-            isAntiAlias = true; textSize = size; this.color = color; typeface = tf
-        }
-
-        val titlePaint = paint(18f, Color.WHITE, bold)
-        val headerSubPaint = paint(11f, Color.WHITE, regular)
-        val sectionPaint = paint(13f, BRAND, bold)
-        val rowPaint = paint(10f, INK, regular)
-        val mutedPaint = paint(9f, MUTED, regular)
-        val strongPaint = paint(11f, INK, bold)
-        val lossPaint = paint(11f, LOSS, bold)
-        val footerPaint = paint(9f, MUTED, regular)
-
+        val f = PdfKit.fonts(context)
         val doc = PdfDocument()
         var pageNo = 1
         var page = doc.startPage(PdfDocument.PageInfo.Builder(PAGE_W, PAGE_H, pageNo).create())
         var c = page.canvas
-        var y: Float
+        var y = PdfKit.drawHeader(c, context, f, "صورت‌های مالی", periodLabel)
 
-        fun drawHeader(canvas: Canvas): Float {
-            canvas.drawRect(0f, 0f, PAGE_W.toFloat(), 86f, Paint().apply { color = BRAND })
-            val coName = CompanyPrefs.name(context).ifBlank { "AfghanJama — مدیریت کارگاه خیاطی" }
-            canvas.drawRtl(coName, MARGIN, 22f, titlePaint, CONTENT_W)
-            canvas.drawRtl("صورت‌های مالی — $periodLabel", MARGIN, 54f, headerSubPaint, CONTENT_W)
-            return 104f
-        }
-
-        fun drawFooter(canvas: Canvas) {
-            val footY = PAGE_H - 32f
-            canvas.drawLine(
-                MARGIN, footY - 10f, PAGE_W - MARGIN, footY - 10f,
-                Paint().apply { color = LINE; strokeWidth = 0.8f }
-            )
-            val phone = CompanyPrefs.phone(context)
-            canvas.drawRtl(
-                "صفحهٔ $pageNo • ${PersianDate.long(System.currentTimeMillis())}" +
-                    (if (phone.isNotBlank()) " • تلفن: $phone" else ""),
-                MARGIN, footY, footerPaint, CONTENT_W
-            )
-        }
-
-        y = drawHeader(c)
-
-        fun ensureSpace(needed: Float) {
-            if (y + needed > PAGE_H - 70f) {
-                drawFooter(c)
-                doc.finishPage(page)
-                pageNo++
-                page = doc.startPage(PdfDocument.PageInfo.Builder(PAGE_W, PAGE_H, pageNo).create())
-                c = page.canvas
-                y = drawHeader(c)
-            }
-        }
-
-        fun rule() {
-            c.drawLine(
-                MARGIN, y, PAGE_W - MARGIN, y,
-                Paint().apply { color = LINE; strokeWidth = 0.8f }
-            )
-            y += 10f
-        }
-
-        fun section(title: String) {
-            ensureSpace(40f)
-            c.drawRtl(title, MARGIN, y, sectionPaint, CONTENT_W)
-            y += 22f
-            rule()
-        }
-
-        fun row(label: String, amount: Long, strong: Boolean = false, negativeIsLoss: Boolean = false) {
-            ensureSpace(20f)
-            val tp = when {
-                negativeIsLoss && amount < 0 -> lossPaint
-                strong -> strongPaint
-                else -> rowPaint
-            }
-            c.drawRtl(label, MARGIN, y, tp, (CONTENT_W * 0.62f).toInt())
-            c.drawRtlEnd(amount.afn(), MARGIN, y, tp, CONTENT_W)
-            y += if (strong) 20f else 16f
-        }
-
-        /** عنوانِ فرعی — مثلِ سطرها باید جا رزرو کند وگرنه پایینِ صفحه می‌افتد. */
-        fun subHeader(title: String) {
-            ensureSpace(24f)
-            c.drawRtl(title, MARGIN, y, strongPaint, CONTENT_W)
-            y += 18f
+        fun newPageIfNeeded(needed: Float) {
+            if (y + needed <= BODY_BOTTOM) return
+            PdfKit.drawFooter(c, context, f, pageNo)
+            doc.finishPage(page)
+            pageNo++
+            page = doc.startPage(PdfDocument.PageInfo.Builder(PAGE_W, PAGE_H, pageNo).create())
+            c = page.canvas
+            y = PdfKit.drawHeader(c, context, f, "صورت‌های مالی (ادامه)", periodLabel)
         }
 
         fun lines(list: List<StatementLine>, emptyText: String) {
             if (list.isEmpty()) {
-                ensureSpace(18f)
-                c.drawRtl(emptyText, MARGIN, y, mutedPaint, CONTENT_W)
-                y += 16f
-            } else {
-                list.forEach { row("${it.label} (${it.code})", it.amount) }
+                newPageIfNeeded(20f)
+                y = PdfKit.note(c, emptyText, y, f)
+            } else list.forEach {
+                newPageIfNeeded(22f)
+                y = PdfKit.kv(c, "${it.label} (${it.code})", it.amount.afn(), y, f)
             }
         }
 
-        // ================= صورتِ سود و زیان =================
-        section("صورتِ سود و زیان — $periodLabel")
-
-        lines(income.revenues, "درآمدی در این دوره ثبت نشده است.")
-        row("جمعِ درآمد", income.totalRevenue, strong = true)
-        y += 4f
-        row("کسر: بهای تمام‌شدهٔ فروش", income.cogs)
-        rule()
-        row("سودِ ناخالص", income.grossProfit, strong = true, negativeIsLoss = true)
-        y += 8f
-
-        subHeader("هزینه‌های عملیاتی")
-        lines(income.expenses, "هزینه‌ای در این دوره ثبت نشده است.")
-        row("جمعِ هزینه‌ها", income.totalExpense, strong = true)
-        rule()
-        row(
-            if (income.netProfit >= 0) "سودِ خالصِ دوره" else "زیانِ خالصِ دوره",
-            income.netProfit, strong = true, negativeIsLoss = true
-        )
-        if (income.totalRevenue > 0) {
-            ensureSpace(18f)
-            c.drawRtl(
-                "حاشیهٔ سودِ خالص: ${income.marginPercent}٪".toPersianDigits(),
-                MARGIN, y, mutedPaint, CONTENT_W
-            )
-            y += 18f
+        fun sub(title: String) {
+            newPageIfNeeded(26f)
+            y = PdfKit.kv(c, title, "", y, f, strong = true)
         }
 
-        y += 14f
+        // ================= صورتِ سود و زیان =================
+        y = PdfKit.section(c, "صورتِ سود و زیان — $periodLabel", y, f)
+        lines(income.revenues, "درآمدی در این دوره ثبت نشده است.")
+        newPageIfNeeded(24f)
+        y = PdfKit.kv(c, "جمعِ درآمد", income.totalRevenue.afn(), y, f, strong = true)
+        y = PdfKit.kv(c, "کسر: بهای تمام‌شدهٔ فروش", income.cogs.afn(), y, f)
+        y = PdfKit.rule(c, y + 2f)
+        y = PdfKit.kv(
+            c, "سودِ ناخالص", income.grossProfit.afn(), y, f,
+            strong = true, danger = income.grossProfit < 0
+        )
+
+        sub("هزینه‌های عملیاتی")
+        lines(income.expenses, "هزینه‌ای در این دوره ثبت نشده است.")
+        newPageIfNeeded(24f)
+        y = PdfKit.kv(c, "جمعِ هزینه‌ها", income.totalExpense.afn(), y, f, strong = true)
+
+        newPageIfNeeded(60f)
+        y += 4f
+        y = PdfKit.totalBox(
+            c,
+            if (income.netProfit >= 0) "سودِ خالصِ دوره" else "زیانِ خالصِ دوره",
+            income.netProfit.afn(), y, f
+        )
+        if (income.totalRevenue > 0) {
+            y = PdfKit.note(
+                c, "حاشیهٔ سودِ خالص: ${income.marginPercent}٪".toPersianDigits(), y, f
+            )
+        }
 
         // ================= ترازنامه =================
-        section("ترازنامه — تا ${PersianDate.short(System.currentTimeMillis())}")
-
-        subHeader("دارایی‌ها")
-        lines(sheet.assets, "دارایی ثبت نشده است.")
-        row("جمعِ دارایی‌ها", sheet.totalAssets, strong = true)
+        newPageIfNeeded(120f)
         y += 10f
-
-        subHeader("بدهی‌ها")
-        lines(sheet.liabilities, "بدهی ثبت نشده است.")
-        row("جمعِ بدهی‌ها", sheet.totalLiabilities, strong = true)
-        y += 10f
-
-        subHeader("سرمایه")
-        row("سرمایهٔ اولیه", sheet.capital)
-        row("سودِ انباشته", sheet.retained, negativeIsLoss = true)
-        row("جمعِ سرمایه", sheet.totalEquity, strong = true)
-        rule()
-        row("جمعِ بدهی‌ها و سرمایه", sheet.totalLiabilities + sheet.totalEquity, strong = true)
-
-        ensureSpace(24f)
-        c.drawRtl(
-            if (sheet.balanced) "✓ ترازنامه متوازن است (دارایی = بدهی + سرمایه)"
-            else "⚠ ترازنامه متوازن نیست — دفترها را بررسی کنید",
-            MARGIN, y, if (sheet.balanced) strongPaint else lossPaint, CONTENT_W
+        y = PdfKit.section(
+            c, "ترازنامه — تا ${PersianDate.short(System.currentTimeMillis())}", y, f
         )
-        y += 22f
 
-        drawFooter(c)
+        sub("دارایی‌ها")
+        lines(sheet.assets, "دارایی ثبت نشده است.")
+        newPageIfNeeded(24f)
+        y = PdfKit.kv(c, "جمعِ دارایی‌ها", sheet.totalAssets.afn(), y, f, strong = true)
+
+        sub("بدهی‌ها")
+        lines(sheet.liabilities, "بدهی ثبت نشده است.")
+        newPageIfNeeded(24f)
+        y = PdfKit.kv(c, "جمعِ بدهی‌ها", sheet.totalLiabilities.afn(), y, f, strong = true)
+
+        sub("سرمایه")
+        newPageIfNeeded(70f)
+        y = PdfKit.kv(c, "سرمایهٔ اولیه", sheet.capital.afn(), y, f)
+        y = PdfKit.kv(c, "سودِ انباشته", sheet.retained.afn(), y, f, danger = sheet.retained < 0)
+        y = PdfKit.kv(c, "جمعِ سرمایه", sheet.totalEquity.afn(), y, f, strong = true)
+        y = PdfKit.rule(c, y + 2f)
+        y = PdfKit.kv(
+            c, "جمعِ بدهی‌ها و سرمایه",
+            (sheet.totalLiabilities + sheet.totalEquity).afn(), y, f, strong = true
+        )
+
+        newPageIfNeeded(40f)
+        y = PdfKit.note(
+            c,
+            if (sheet.balanced) "✓ ترازنامه متوازن است — دارایی = بدهی + سرمایه"
+            else "⚠ ترازنامه متوازن نیست — دفترها را بررسی کنید",
+            y + 4f, f
+        )
+
+        newPageIfNeeded(70f)
+        PdfKit.signatures(c, y + 10f, f, "مهر و امضای کارگاه", "تأیید حسابدار")
+
+        PdfKit.drawFooter(c, context, f, pageNo)
         doc.finishPage(page)
 
         val file = File(ShareUtil.sharedDir(context), "صورت‌های-مالی.pdf")
         file.outputStream().use { doc.writeTo(it) }
         doc.close()
         return file
-    }
-
-    // ---------- کمکی‌های رسم راست‌به‌چپ ----------
-
-    private fun Canvas.drawRtl(text: String, x: Float, top: Float, tp: TextPaint, width: Int) {
-        val layout = StaticLayout.Builder
-            .obtain(text, 0, text.length, tp, width)
-            .setTextDirection(TextDirectionHeuristics.RTL)
-            .setAlignment(Layout.Alignment.ALIGN_NORMAL)
-            .build()
-        save(); translate(x, top); layout.draw(this); restore()
-    }
-
-    /** متن در سمتِ مقابل سطر (چپ در چیدمان RTL). */
-    private fun Canvas.drawRtlEnd(text: String, x: Float, top: Float, tp: TextPaint, width: Int) {
-        val layout = StaticLayout.Builder
-            .obtain(text, 0, text.length, TextPaint(tp), width)
-            .setTextDirection(TextDirectionHeuristics.RTL)
-            .setAlignment(Layout.Alignment.ALIGN_OPPOSITE)
-            .build()
-        save(); translate(x, top); layout.draw(this); restore()
     }
 }

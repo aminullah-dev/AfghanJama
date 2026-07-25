@@ -1,22 +1,18 @@
 package com.afghanjama.pdf
 
 import android.content.Context
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.Typeface
+import android.graphics.RectF
 import android.graphics.pdf.PdfDocument
-import android.text.Layout
-import android.text.StaticLayout
-import android.text.TextDirectionHeuristics
-import android.text.TextPaint
-import androidx.core.content.res.ResourcesCompat
-import com.afghanjama.R
 import com.afghanjama.data.entities.CustomerPayment
 import com.afghanjama.data.entities.FabricUnit
 import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.OrderFabric
 import com.afghanjama.data.entities.OrderWorkItem
+import com.afghanjama.pdf.PdfKit.BODY_BOTTOM
+import com.afghanjama.pdf.PdfKit.CONTENT_W
+import com.afghanjama.pdf.PdfKit.MARGIN
+import com.afghanjama.pdf.PdfKit.PAGE_H
+import com.afghanjama.pdf.PdfKit.PAGE_W
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.fa
@@ -24,21 +20,10 @@ import com.afghanjama.util.ShareUtil
 import java.io.File
 
 /**
- * فاکتور رسمی PDF برای یک سفارش — A4، راست‌به‌چپ، با فونت وزیرمتن.
- * از PdfDocument خود اندروید استفاده می‌کند (بدون وابستگی خارجی).
+ * فاکتورِ رسمیِ یک سفارش — A4 راست‌به‌چپ با سربرگ، بدنه و پاصفحهٔ
+ * مشترکِ افغان‌جامه. QR کدِ کوتاهِ سفارش برای اسکن در خطِ تولید.
  */
 object InvoicePdf {
-
-    // A4 در ۷۲dpi (استاندارد PDF)
-    private const val PAGE_W = 595
-    private const val PAGE_H = 842
-    private const val MARGIN = 40f
-    private val CONTENT_W = (PAGE_W - 2 * MARGIN).toInt()
-
-    private const val BRAND = 0xFF1F6E5C.toInt()      // سبز برند اپ
-    private const val INK = 0xFF1B1C1A.toInt()
-    private const val MUTED = 0xFF61605A.toInt()
-    private const val LINE = 0xFFE1DFD8.toInt()
 
     fun create(
         context: Context,
@@ -47,210 +32,130 @@ object InvoicePdf {
         workItems: List<OrderWorkItem>,
         payments: List<CustomerPayment>
     ): File {
-        val regular = ResourcesCompat.getFont(context, R.font.vazirmatn_regular)
-            ?: Typeface.DEFAULT
-        val bold = ResourcesCompat.getFont(context, R.font.vazirmatn_bold)
-            ?: Typeface.DEFAULT_BOLD
-
-        fun paint(size: Float, color: Int, tf: Typeface) = TextPaint().apply {
-            isAntiAlias = true
-            textSize = size
-            this.color = color
-            typeface = tf
-        }
-
-        val titlePaint = paint(20f, Color.WHITE, bold)
-        val headerSubPaint = paint(10f, Color.WHITE, regular)
-        val sectionPaint = paint(13f, BRAND, bold)
-        val labelPaint = paint(11f, MUTED, regular)
-        val valuePaint = paint(11f, INK, regular)
-        val strongPaint = paint(13f, INK, bold)
-        val footerPaint = paint(9f, MUTED, regular)
-
+        val f = PdfKit.fonts(context)
         val doc = PdfDocument()
-        val page = doc.startPage(
-            PdfDocument.PageInfo.Builder(PAGE_W, PAGE_H, 1).create()
-        )
-        val c = page.canvas
-        var y = 0f
+        var pageNo = 1
+        var page = doc.startPage(PdfDocument.PageInfo.Builder(PAGE_W, PAGE_H, pageNo).create())
+        var c = page.canvas
 
-        // ---------- سربرگ رنگی با لوگو ----------
-        val headerPaint = Paint().apply { color = BRAND }
-        c.drawRect(0f, 0f, PAGE_W.toFloat(), 96f, headerPaint)
+        var y = PdfKit.drawHeader(c, context, f, "فاکتور سفارش", order.orderCode)
 
-        // لوگوی دایره‌ای «قیچی»
-        val logoPaint = Paint().apply { color = Color.WHITE; isAntiAlias = true }
-        c.drawCircle(PAGE_W - MARGIN - 24f, 48f, 24f, logoPaint)
-        val logoText = paint(22f, BRAND, bold)
-        c.drawTextRtl("✂", PAGE_W - MARGIN - 24f, 56f, logoText, centered = true)
-
-        val coName = com.afghanjama.prefs.CompanyPrefs.name(context)
-            .ifBlank { "AfghanJama — مدیریت کارگاه خیاطی" }
-        c.drawRtl(coName, MARGIN, 30f, titlePaint, CONTENT_W - 60)
-        c.drawRtl("فاکتور سفارش", MARGIN, 62f, headerSubPaint, CONTENT_W - 60)
-
-        // QR کد کوتاه سفارش (برای اسکن در بخش برش)
-        com.afghanjama.util.QrGen.bitmap(order.shortCode)?.let { qr ->
-            c.drawBitmap(qr, null, android.graphics.RectF(MARGIN, 16f, MARGIN + 64f, 80f), null)
+        fun newPageIfNeeded(needed: Float) {
+            if (y + needed <= BODY_BOTTOM) return
+            PdfKit.drawFooter(c, context, f, pageNo)
+            doc.finishPage(page)
+            pageNo++
+            page = doc.startPage(PdfDocument.PageInfo.Builder(PAGE_W, PAGE_H, pageNo).create())
+            c = page.canvas
+            y = PdfKit.drawHeader(c, context, f, "فاکتور سفارش (ادامه)", order.orderCode)
         }
-        y = 120f
 
-        // ---------- مشخصات فاکتور ----------
-        y = c.kv("شماره فاکتور", order.orderCode, MARGIN, y, labelPaint, valuePaint)
-        y = c.kv("کد کوتاه", order.shortCode, MARGIN, y, labelPaint, valuePaint)
-        y = c.kv("تاریخ", PersianDate.long(System.currentTimeMillis()), MARGIN, y, labelPaint, valuePaint)
-        if (order.customerName.isNotBlank()) {
-            y = c.kv(
-                "مشتری",
-                order.customerName +
-                    (order.customerPhone.takeIf { it.isNotBlank() }?.let { " — $it" } ?: ""),
-                MARGIN, y, labelPaint, valuePaint
+        // ---------- مشتری و QR ----------
+        PdfKit.section(c, "مشخصات", y, f).also { y = it }
+
+        com.afghanjama.util.QrGen.bitmap(order.shortCode)?.let { qr ->
+            c.drawBitmap(qr, null, RectF(MARGIN, y - 4f, MARGIN + 62f, y + 58f), null)
+            PdfKit.rtl(
+                c, order.shortCode, MARGIN, y + 60f,
+                PdfKit.paint(8f, PdfKit.MUTED, f.regular), 62
             )
         }
-        y += 8f
-        y = c.rule(y)
 
-        // ---------- سفارش ----------
-        y = c.section("مشخصات سفارش", y, sectionPaint)
-        y = c.kv("طرح", order.designTitle.ifBlank { "-" }, MARGIN, y, labelPaint, valuePaint)
-        y = c.kv("تعداد", "${order.qty.fa()} عدد", MARGIN, y, labelPaint, valuePaint)
-        if (order.size.isNotBlank()) {
-            y = c.kv("سایز", order.size, MARGIN, y, labelPaint, valuePaint)
+        y = PdfKit.kv(c, "کد سفارش", order.orderCode, y, f)
+        y = PdfKit.kv(c, "تاریخ صدور", PersianDate.long(System.currentTimeMillis()), y, f)
+        if (order.customerName.isNotBlank()) {
+            y = PdfKit.kv(
+                c, "مشتری",
+                order.customerName +
+                    (order.customerPhone.takeIf { it.isNotBlank() }?.let { " — $it" } ?: ""),
+                y, f
+            )
         }
-        y += 6f
+        y = PdfKit.kv(c, "طرح / محصول", order.designTitle.ifBlank { "-" }, y, f)
+        y = PdfKit.kv(c, "تعداد", "${order.qty.fa()} عدد", y, f)
+        if (order.size.isNotBlank()) y = PdfKit.kv(c, "سایز", order.size, y, f)
+        if (order.dueDate > 0) {
+            y = PdfKit.kv(c, "مهلت تحویل", PersianDate.long(order.dueDate), y, f)
+        }
+        y = maxOf(y, 190f) + 6f
 
-        // ---------- پارچه‌ها ----------
+        // ---------- اقلام ----------
         if (fabrics.isNotEmpty()) {
-            y = c.section("پارچه‌ها", y, sectionPaint)
-            fabrics.forEach { f ->
-                val unitFa = when (f.fabricUnit.uppercase()) {
+            newPageIfNeeded(70f)
+            y = PdfKit.section(c, "پارچه و مواد", y, f)
+            val w = listOf(3.2f, 1.6f, 1.4f, 1.8f)
+            y = PdfKit.tableHeader(c, listOf("قلم", "رنگ", "مقدار", "مبلغ"), w, y, f)
+            fabrics.forEachIndexed { i, fab ->
+                newPageIfNeeded(24f)
+                val unitFa = when (fab.fabricUnit.uppercase()) {
                     FabricUnit.METER.name -> "متر"
                     FabricUnit.YARD.name -> "یارد"
-                    else -> f.fabricUnit
+                    else -> fab.fabricUnit
                 }
-                y = c.kv(
-                    "${f.fabricType} • ${f.fabricColor}",
-                    "${f.amount.toString().trimEnd('0').trimEnd('.')} $unitFa — ${f.price.afn()}",
-                    MARGIN, y, labelPaint, valuePaint
+                val amount = fab.amount.toString().trimEnd('0').trimEnd('.')
+                y = PdfKit.tableRow(
+                    c,
+                    listOf(fab.fabricType, fab.fabricColor, "$amount $unitFa", fab.price.afn()),
+                    w, y, f, zebra = i % 2 == 1
                 )
             }
-            y += 6f
+            y += 8f
         }
 
-        // ---------- خرج‌کارها ----------
         if (workItems.isNotEmpty()) {
-            y = c.section("خرج‌کارها (فی‌عدد)", y, sectionPaint)
-            workItems.forEach { w ->
-                y = c.kv(w.title, w.price.afn(), MARGIN, y, labelPaint, valuePaint)
+            newPageIfNeeded(70f)
+            y = PdfKit.section(c, "خرج‌کارها (فی‌عدد)", y, f)
+            val w = listOf(5f, 2f)
+            y = PdfKit.tableHeader(c, listOf("شرح", "مبلغ"), w, y, f)
+            workItems.forEachIndexed { i, item ->
+                newPageIfNeeded(24f)
+                y = PdfKit.tableRow(c, listOf(item.title, item.price.afn()), w, y, f, i % 2 == 1)
             }
-            y += 6f
+            y += 8f
         }
 
-        // ---------- جمع مالی ----------
-        y = c.rule(y)
-        y = c.section("خلاصه مالی", y, sectionPaint)
-        y = c.kv("جمع قیمت پارچه", order.fabricPrice.afn(), MARGIN, y, labelPaint, valuePaint)
-        y = c.kv("جمع خرج کار", order.workCost.afn(), MARGIN, y, labelPaint, valuePaint)
-        if (order.sewingCost > 0) {
-            y = c.kv("دستمزد دوخت", order.sewingCost.afn(), MARGIN, y, labelPaint, valuePaint)
-        }
-        if (order.agreedPrice > 0) {
-            y = c.kv("قیمت توافقی", order.agreedPrice.afn(), MARGIN, y, labelPaint, strongPaint)
-        }
+        // ---------- خلاصهٔ مالی ----------
+        newPageIfNeeded(150f)
+        y = PdfKit.section(c, "خلاصهٔ مالی", y, f)
+        y = PdfKit.kv(c, "جمع پارچه و مواد", order.fabricPrice.afn(), y, f)
+        if (order.workCost > 0) y = PdfKit.kv(c, "جمع خرج کار", order.workCost.afn(), y, f)
+        if (order.sewingCost > 0) y = PdfKit.kv(c, "دستمزد دوخت", order.sewingCost.afn(), y, f)
 
+        val gross = if (order.agreedPrice > 0) order.agreedPrice
+        else order.fabricPrice + order.workCost + order.sewingCost
         val paid = payments.sumOf { it.amount }
-        if (paid != 0L) {
-            y = c.kv("مجموع دریافتی", paid.afn(), MARGIN, y, labelPaint, valuePaint)
-            val due = (if (order.agreedPrice > 0) order.agreedPrice
-            else order.fabricPrice + order.workCost) - paid
-            if (due > 0) {
-                y = c.kv("باقی‌مانده", due.afn(), MARGIN, y, labelPaint, strongPaint)
-            }
+        if (paid != 0L) y = PdfKit.kv(c, "دریافتی تا امروز", paid.afn(), y, f)
+
+        y += 4f
+        val due = gross - paid
+        y = PdfKit.totalBox(
+            c,
+            if (due > 0) "قابل پرداخت" else "تسویه‌شده",
+            (if (due > 0) due else gross).afn(),
+            y, f
+        )
+        if (paid != 0L && due > 0) {
+            y = PdfKit.kv(c, "جمع کل فاکتور", gross.afn(), y, f)
         }
 
-        // ---------- امضاها ----------
-        y += 26f
-        val sigPaint = paint(10f, MUTED, regular)
-        c.drawRtl("امضای فروشنده: ....................", MARGIN, y, sigPaint, CONTENT_W / 2)
-        c.drawRtl("امضای مشتری: ....................", MARGIN + CONTENT_W / 2f, y, sigPaint, CONTENT_W / 2)
-
-        // ---------- پاصفحه ----------
-        val footY = PAGE_H - 36f
-        c.drawLine(MARGIN, footY - 10f, PAGE_W - MARGIN, footY - 10f, Paint().apply { color = LINE; strokeWidth = 0.8f })
-        c.drawRtl(
-            "این فاکتور با اپلیکیشن AfghanJama صادر شده — پشتیبانی: aminhashemi979@gmail.com",
-            MARGIN, footY, footerPaint, CONTENT_W
+        // ---------- امضا و یادداشت ----------
+        newPageIfNeeded(90f)
+        y += 10f
+        y = PdfKit.signatures(c, y, f, "مهر و امضای فروشنده", "امضای مشتری")
+        y += 6f
+        PdfKit.note(
+            c,
+            "کالای فروخته‌شده مطابق مشخصات این فاکتور تحویل می‌گردد. " +
+                "برای پیگیری، کد سفارش را همراه داشته باشید.",
+            y, f
         )
 
+        PdfKit.drawFooter(c, context, f, pageNo)
         doc.finishPage(page)
 
         val file = File(ShareUtil.sharedDir(context), "فاکتور-${order.orderCode}.pdf")
         file.outputStream().use { doc.writeTo(it) }
         doc.close()
         return file
-    }
-
-    // ------------------------------------------------
-    // کمکی‌های رسم راست‌به‌چپ
-    // ------------------------------------------------
-
-    /** رسم یک خط متن RTL (راست‌چین) درون عرض داده‌شده. */
-    private fun Canvas.drawRtl(text: String, x: Float, top: Float, tp: TextPaint, width: Int) {
-        val layout = StaticLayout.Builder
-            .obtain(text, 0, text.length, tp, width)
-            .setTextDirection(TextDirectionHeuristics.RTL)
-            .setAlignment(Layout.Alignment.ALIGN_NORMAL)
-            .build()
-        save()
-        translate(x, top)
-        layout.draw(this)
-        restore()
-    }
-
-    /** متن تک‌کاراکتری وسط‌چین (برای لوگو). */
-    private fun Canvas.drawTextRtl(text: String, cx: Float, baselineY: Float, tp: TextPaint, centered: Boolean) {
-        val old = tp.textAlign
-        if (centered) tp.textAlign = Paint.Align.CENTER
-        drawText(text, cx, baselineY, tp)
-        tp.textAlign = old
-    }
-
-    /** یک ردیف «برچسب / مقدار»: برچسب سمت راست، مقدار سمت چپ. */
-    private fun Canvas.kv(
-        label: String,
-        value: String,
-        x: Float,
-        y: Float,
-        labelPaint: TextPaint,
-        valuePaint: TextPaint
-    ): Float {
-        drawRtl(label, x, y, labelPaint, CONTENT_W)
-        // مقدار در سمت چپ سطر
-        val vp = TextPaint(valuePaint)
-        val layout = StaticLayout.Builder
-            .obtain(value, 0, value.length, vp, CONTENT_W)
-            .setTextDirection(TextDirectionHeuristics.RTL)
-            .setAlignment(Layout.Alignment.ALIGN_OPPOSITE)
-            .build()
-        save()
-        translate(x, y)
-        layout.draw(this)
-        restore()
-        return y + maxOf(layout.height.toFloat(), 16f) + 4f
-    }
-
-    /** عنوان بخش. */
-    private fun Canvas.section(title: String, y: Float, tp: TextPaint): Float {
-        drawRtl(title, MARGIN, y, tp, CONTENT_W)
-        return y + 22f
-    }
-
-    /** خط جداکننده. */
-    private fun Canvas.rule(y: Float): Float {
-        drawLine(
-            MARGIN, y, PAGE_W - MARGIN, y,
-            Paint().apply { color = LINE; strokeWidth = 0.8f }
-        )
-        return y + 12f
     }
 }

@@ -5,7 +5,6 @@
 
 package com.afghanjama.ui.screens
 
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -36,6 +35,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -43,10 +44,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import com.afghanjama.data.entities.Order
 import com.afghanjama.ui.format.STAGE_WARN_DAYS
 import com.afghanjama.ui.format.digitsOnly
@@ -82,8 +87,59 @@ fun CuttingScreen(
     }
 
     // اسکنِ QR سفارش با دوربین
+    val context = LocalContext.current
+
+    val scanOptions = {
+        ScanOptions().apply {
+            setPrompt("QR سفارش را اسکن کنید")
+            setBeepEnabled(true)
+            setOrientationLocked(true)
+            setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+        }
+    }
+
     val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
-        result.contents?.let { handleCode(it) }
+        // نتیجهٔ خالی یعنی کاربر لغو کرده یا دوربین بالا نیامده — قبلاً
+        // بی‌صدا نادیده گرفته می‌شد و اسکنر «کار نمی‌کرد» بدون هیچ پیغامی.
+        val code = result.contents
+        if (code.isNullOrBlank()) {
+            scanMsg = "اسکن انجام نشد. می‌توانید کد را دستی وارد کنید."
+        } else {
+            handleCode(code)
+        }
+    }
+
+    // دوربین مجوزِ زمانِ اجرا می‌خواهد؛ بدونِ آن CaptureActivity باز می‌شود
+    // ولی تصویری نمی‌گیرد و بی‌صدا برمی‌گردد.
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            runCatching { scanLauncher.launch(scanOptions()) }
+                .onFailure {
+                    scanMsg = "اسکنر باز نشد؛ کد را دستی وارد کنید."
+                    manualCodeOpen = true
+                }
+        } else {
+            scanMsg = "برای اسکن، اجازهٔ دوربین لازم است. فعلاً کد را دستی وارد کنید."
+            manualCodeOpen = true
+        }
+    }
+
+    fun startScan() {
+        val granted = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (granted) {
+            runCatching { scanLauncher.launch(scanOptions()) }
+                .onFailure {
+                    scanMsg = "اسکنر باز نشد؛ کد را دستی وارد کنید."
+                    manualCodeOpen = true
+                }
+        } else {
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
     }
 
     // ---------- ورود دستی کد (وقتی دوربین/اسکنر در دسترس نیست) ----------
@@ -199,22 +255,7 @@ fun CuttingScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             androidx.compose.material3.Button(
-                onClick = {
-                    // اگر اسکنر به هر دلیل بالا نیامد، به ورودِ دستیِ کد برمی‌گردیم
-                    try {
-                        scanLauncher.launch(
-                            ScanOptions().apply {
-                                setPrompt("QR سفارش را اسکن کنید")
-                                setBeepEnabled(true)
-                                setOrientationLocked(true)
-                                setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                            }
-                        )
-                    } catch (e: Exception) {
-                        scanMsg = "اسکنر باز نشد؛ کد را دستی وارد کنید."
-                        manualCodeOpen = true
-                    }
-                },
+                onClick = { startScan() },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(Icons.Default.QrCodeScanner, contentDescription = null)

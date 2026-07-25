@@ -1,41 +1,23 @@
 package com.afghanjama.pdf
 
 import android.content.Context
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
-import android.text.Layout
-import android.text.StaticLayout
-import android.text.TextDirectionHeuristics
-import android.text.TextPaint
-import androidx.core.content.res.ResourcesCompat
-import com.afghanjama.R
 import com.afghanjama.data.entities.LedgerEntry
 import com.afghanjama.data.entities.ledgerRefLabel
 import com.afghanjama.data.entities.partyTypeLabel
-import com.afghanjama.prefs.CompanyPrefs
+import com.afghanjama.pdf.PdfKit.BODY_BOTTOM
+import com.afghanjama.pdf.PdfKit.PAGE_H
+import com.afghanjama.pdf.PdfKit.PAGE_W
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
 import com.afghanjama.util.ShareUtil
 import java.io.File
 
 /**
- * صورت‌حسابِ رسمیِ یک طرف از دفتر کل (برای دادن به مشتری/خیاط/فروشنده):
- * A4 راست‌به‌چپ، چندصفحه‌ای، با مانده و همهٔ اسناد.
+ * صورت‌حسابِ رسمیِ یک طرفِ دفتر کل (برای دادن به مشتری/خیاط/فروشنده):
+ * A4 راست‌به‌چپ، چندصفحه‌ای، با سربرگ و پاصفحهٔ مشترکِ افغان‌جامه.
  */
 object PartyStatementPdf {
-
-    private const val PAGE_W = 595
-    private const val PAGE_H = 842
-    private const val MARGIN = 40f
-    private val CONTENT_W = (PAGE_W - 2 * MARGIN).toInt()
-
-    private const val BRAND = 0xFF1F6E5C.toInt()
-    private const val INK = 0xFF1B1C1A.toInt()
-    private const val MUTED = 0xFF61605A.toInt()
-    private const val LINE = 0xFFE1DFD8.toInt()
 
     fun create(
         context: Context,
@@ -44,92 +26,72 @@ object PartyStatementPdf {
         net: Long,
         entries: List<LedgerEntry>
     ): File {
-        val regular = ResourcesCompat.getFont(context, R.font.vazirmatn_regular) ?: Typeface.DEFAULT
-        val bold = ResourcesCompat.getFont(context, R.font.vazirmatn_bold) ?: Typeface.DEFAULT_BOLD
-
-        fun paint(size: Float, color: Int, tf: Typeface) = TextPaint().apply {
-            isAntiAlias = true; textSize = size; this.color = color; typeface = tf
-        }
-
-        val titlePaint = paint(18f, Color.WHITE, bold)
-        val headerSubPaint = paint(11f, Color.WHITE, regular)
-        val labelPaint = paint(10f, MUTED, regular)
-        val rowPaint = paint(10f, INK, regular)
-        val strongPaint = paint(13f, INK, bold)
-        val footerPaint = paint(9f, MUTED, regular)
+        val f = PdfKit.fonts(context)
+        val title = "صورت‌حساب ${partyTypeLabel(partyType)}"
 
         val doc = PdfDocument()
         var pageNo = 1
         var page = doc.startPage(PdfDocument.PageInfo.Builder(PAGE_W, PAGE_H, pageNo).create())
         var c = page.canvas
-        var y: Float
+        var y = PdfKit.drawHeader(c, context, f, title, partyName)
 
-        fun drawHeader(canvas: Canvas): Float {
-            canvas.drawRect(0f, 0f, PAGE_W.toFloat(), 86f, Paint().apply { color = BRAND })
-            val coName = CompanyPrefs.name(context).ifBlank { "AfghanJama — مدیریت کارگاه خیاطی" }
-            canvas.drawRtl(coName, MARGIN, 22f, titlePaint, CONTENT_W)
-            canvas.drawRtl(
-                "صورت‌حساب ${partyTypeLabel(partyType)} — $partyName",
-                MARGIN, 54f, headerSubPaint, CONTENT_W
-            )
-            return 104f
+        fun newPageIfNeeded(needed: Float) {
+            if (y + needed <= BODY_BOTTOM) return
+            PdfKit.drawFooter(c, context, f, pageNo)
+            doc.finishPage(page)
+            pageNo++
+            page = doc.startPage(PdfDocument.PageInfo.Builder(PAGE_W, PAGE_H, pageNo).create())
+            c = page.canvas
+            y = PdfKit.drawHeader(c, context, f, "$title (ادامه)", partyName)
         }
-
-        fun drawFooter(canvas: Canvas) {
-            val footY = PAGE_H - 32f
-            canvas.drawLine(MARGIN, footY - 10f, PAGE_W - MARGIN, footY - 10f,
-                Paint().apply { color = LINE; strokeWidth = 0.8f })
-            val phone = CompanyPrefs.phone(context)
-            canvas.drawRtl(
-                "صفحهٔ $pageNo • ${PersianDate.long(System.currentTimeMillis())}" +
-                    (if (phone.isNotBlank()) " • تلفن: $phone" else ""),
-                MARGIN, footY, footerPaint, CONTENT_W
-            )
-        }
-
-        y = drawHeader(c)
 
         // ---------- مانده ----------
-        val balanceText = when {
-            net > 0 -> "بدهکار ${net.afn()} (به ما بدهکار است)"
-            net < 0 -> "بستانکار ${(-net).afn()} (ما بدهکاریم)"
-            else -> "تسویه — مانده صفر"
+        val balanceLabel = when {
+            net > 0 -> "بدهکار — به ما بدهکار است"
+            net < 0 -> "بستانکار — ما به او بدهکاریم"
+            else -> "تسویه‌شده"
         }
-        c.drawRtl("ماندهٔ حساب: $balanceText", MARGIN, y, strongPaint, CONTENT_W)
-        y += 30f
-        c.drawLine(MARGIN, y, PAGE_W - MARGIN, y, Paint().apply { color = LINE; strokeWidth = 0.8f })
-        y += 10f
+        y = PdfKit.totalBox(c, balanceLabel, (if (net < 0) -net else net).afn(), y, f)
 
-        // ---------- ردیف‌های گردش ----------
-        entries.forEach { e ->
-            if (y > PAGE_H - 80f) {
-                drawFooter(c)
-                doc.finishPage(page)
-                pageNo++
-                page = doc.startPage(PdfDocument.PageInfo.Builder(PAGE_W, PAGE_H, pageNo).create())
-                c = page.canvas
-                y = drawHeader(c)
-            }
-            val amount = if (e.debit > 0) "بدهکار ${e.debit.afn()}" else "بستانکار ${e.credit.afn()}"
-            c.drawRtl(
-                "${PersianDate.short(e.at)} — ${ledgerRefLabel(e.refType)}" +
-                    (if (e.refId.isNotBlank()) " (${e.refId})" else ""),
-                MARGIN, y, rowPaint, (CONTENT_W * 0.62f).toInt()
-            )
-            c.drawRtlEnd(amount, MARGIN, y, rowPaint, CONTENT_W)
-            y += 16f
-            if (e.note.isNotBlank()) {
-                c.drawRtl("   ${e.note}", MARGIN, y, labelPaint, CONTENT_W)
-                y += 14f
-            }
-            y += 2f
-        }
+        y = PdfKit.section(c, "گردش حساب", y, f)
+        val w = listOf(1.6f, 2.4f, 1.6f, 1.6f)
+        y = PdfKit.tableHeader(c, listOf("تاریخ", "شرح", "بدهکار", "بستانکار"), w, y, f)
 
         if (entries.isEmpty()) {
-            c.drawRtl("سندی ثبت نشده است.", MARGIN, y, rowPaint, CONTENT_W)
+            y = PdfKit.tableRow(c, listOf("—", "سندی ثبت نشده است", "—", "—"), w, y, f)
         }
 
-        drawFooter(c)
+        entries.forEachIndexed { i, e ->
+            newPageIfNeeded(26f)
+            val desc = ledgerRefLabel(e.refType) +
+                (if (e.refId.isNotBlank()) " (${e.refId})" else "")
+            y = PdfKit.tableRow(
+                c,
+                listOf(
+                    PersianDate.short(e.at),
+                    desc,
+                    if (e.debit > 0) e.debit.afn() else "—",
+                    if (e.credit > 0) e.credit.afn() else "—"
+                ),
+                w, y, f, zebra = i % 2 == 1
+            )
+            if (e.note.isNotBlank()) {
+                newPageIfNeeded(18f)
+                y = PdfKit.note(c, "   ${e.note}", y, f)
+            }
+        }
+
+        // ---------- جمع ----------
+        newPageIfNeeded(60f)
+        y = PdfKit.rule(c, y + 6f)
+        y = PdfKit.kv(c, "جمع بدهکار", entries.sumOf { it.debit }.afn(), y, f)
+        y = PdfKit.kv(c, "جمع بستانکار", entries.sumOf { it.credit }.afn(), y, f)
+        y = PdfKit.kv(c, "ماندهٔ نهایی", (if (net < 0) -net else net).afn(), y, f, strong = true)
+
+        newPageIfNeeded(70f)
+        y = PdfKit.signatures(c, y + 12f, f, "مهر و امضای کارگاه", "تأیید طرف حساب")
+
+        PdfKit.drawFooter(c, context, f, pageNo)
         doc.finishPage(page)
 
         val safe = partyName.replace(Regex("[/\\\\:*?\"<>|]"), "_")
@@ -137,26 +99,5 @@ object PartyStatementPdf {
         file.outputStream().use { doc.writeTo(it) }
         doc.close()
         return file
-    }
-
-    // ---------- کمکی‌های رسم راست‌به‌چپ ----------
-
-    private fun Canvas.drawRtl(text: String, x: Float, top: Float, tp: TextPaint, width: Int) {
-        val layout = StaticLayout.Builder
-            .obtain(text, 0, text.length, tp, width)
-            .setTextDirection(TextDirectionHeuristics.RTL)
-            .setAlignment(Layout.Alignment.ALIGN_NORMAL)
-            .build()
-        save(); translate(x, top); layout.draw(this); restore()
-    }
-
-    /** متن در سمتِ مقابل سطر (چپ در چیدمان RTL). */
-    private fun Canvas.drawRtlEnd(text: String, x: Float, top: Float, tp: TextPaint, width: Int) {
-        val layout = StaticLayout.Builder
-            .obtain(text, 0, text.length, TextPaint(tp), width)
-            .setTextDirection(TextDirectionHeuristics.RTL)
-            .setAlignment(Layout.Alignment.ALIGN_OPPOSITE)
-            .build()
-        save(); translate(x, top); layout.draw(this); restore()
     }
 }
