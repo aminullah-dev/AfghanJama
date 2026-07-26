@@ -13,6 +13,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -300,5 +304,38 @@ fun MeasurementsBlock(
                 if (pairRow.size == 1) Box(Modifier.weight(1f))
             }
         }
+    }
+}
+
+/**
+ * دکمهٔ کارهای پولی: تا کار تمام نشده غیرفعال است و چرخ می‌زند.
+ *
+ * دو ضربهٔ سریع نباید دو سند بسازد. غیرفعال‌شدن نیمی از کار است؛ نیمهٔ
+ * دیگر نگهبانِ [com.afghanjama.ui.vm.Busy] در ViewModel است، چون
+ * زمان‌بندیِ بازترسیمِ Compose تضمین‌شده نیست.
+ */
+@Composable
+fun BusyButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    busy: Boolean = false,
+    busyText: String = "در حال ثبت…"
+) {
+    Button(
+        onClick = onClick,
+        enabled = enabled && !busy,
+        modifier = modifier
+    ) {
+        if (busy) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(18.dp),
+                strokeWidth = 2.dp,
+                color = MaterialTheme.colorScheme.onPrimary
+            )
+            Spacer(Modifier.width(10.dp))
+        }
+        Text(if (busy) busyText else text)
     }
 }

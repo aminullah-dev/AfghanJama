@@ -25,6 +25,9 @@ data class PurchaseReturnUi(
  */
 class PurchaseReturnViewModel(private val repo: Repo) : ViewModel() {
 
+    /** جلوی ثبتِ دوباره با دو ضربهٔ سریع را می‌گیرد. */
+    val busy = Busy()
+
     private val _state = MutableStateFlow(PurchaseReturnUi())
 
     val ui: StateFlow<PurchaseReturnUi> = combine(
@@ -50,12 +53,35 @@ class PurchaseReturnViewModel(private val repo: Repo) : ViewModel() {
         amount: Long,
         refundCash: Boolean,
         cashBox: String
-    ) = viewModelScope.launch {
+    ) =
+        viewModelScope.launch {
+            busy.once {
+                doSubmit(
+                    supplier = supplier,
+                    name = name,
+                    unit = unit,
+                    qty = qty,
+                    amount = amount,
+                    refundCash = refundCash,
+                    cashBox = cashBox
+                )
+            }
+        }
+
+    private suspend fun doSubmit(
+        supplier: String,
+        name: String,
+        unit: String,
+        qty: Double,
+        amount: Long,
+        refundCash: Boolean,
+        cashBox: String
+    ) {
         if (name.isBlank() || qty <= 0.0 || amount <= 0) {
             _state.value = _state.value.copy(
                 message = "قلم، مقدار و مبلغ را درست وارد کنید.", isError = true
             )
-            return@launch
+            return
         }
         val ok = repo.recordPurchaseReturn(
             supplier = supplier, name = name, unit = unit,

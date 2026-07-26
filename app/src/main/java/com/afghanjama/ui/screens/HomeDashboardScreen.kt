@@ -453,7 +453,7 @@ fun HomeDashboardScreen(
                         modifier = Modifier.padding(top = 4.dp)
                     )
                 }
-                items(list) { action -> ActionCard(action) }
+                items(list, key = { it.label }) { action -> ActionCard(action) }
             }
         }
 

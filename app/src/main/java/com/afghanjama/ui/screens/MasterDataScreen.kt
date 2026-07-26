@@ -370,7 +370,7 @@ private fun SimpleListEditor(
         Spacer(Modifier.height(16.dp))
 
         LazyColumn(Modifier.fillMaxSize()) {
-            items(items.reversed()) { row ->
+            items(items.reversed(), key = { it }) { row ->
                 ListItem(
                     headlineContent = { Text(row) },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
@@ -444,7 +444,7 @@ private fun TwoFieldListEditor(
         Spacer(Modifier.height(16.dp))
 
         LazyColumn(Modifier.fillMaxSize()) {
-            items(items.reversed()) { row ->
+            items(items.reversed(), key = { it }) { row ->
                 ListItem(
                     headlineContent = { Text(row) },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)

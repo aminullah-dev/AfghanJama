@@ -49,6 +49,9 @@ val payeeTypes: List<Pair<String, String>> = listOf(
  */
 class MoneyMoveViewModel(private val repo: Repo) : ViewModel() {
 
+    /** جلوی ثبتِ دوباره با دو ضربهٔ سریع را می‌گیرد. */
+    val busy = Busy()
+
     private val _state = MutableStateFlow(MoneyMoveUi())
 
     private val people = combine(
@@ -110,14 +113,35 @@ class MoneyMoveViewModel(private val repo: Repo) : ViewModel() {
         isPayment: Boolean,
         source: String,
         note: String
-    ) = viewModelScope.launch {
+    ) =
+        viewModelScope.launch {
+            busy.once {
+                doSubmit(
+                    type = type,
+                    name = name,
+                    amount = amount,
+                    isPayment = isPayment,
+                    source = source,
+                    note = note
+                )
+            }
+        }
+
+    private suspend fun doSubmit(
+        type: String,
+        name: String,
+        amount: Long,
+        isPayment: Boolean,
+        source: String,
+        note: String
+    ) {
         if (name.isBlank()) {
             _state.update { it.copy(message = "نام طرف حساب را انتخاب یا وارد کنید.", isError = true) }
-            return@launch
+            return
         }
         if (amount <= 0) {
             _state.update { it.copy(message = "مبلغ را درست وارد کنید.", isError = true) }
-            return@launch
+            return
         }
         val ok = repo.recordManualLedger(
             type = type, name = name, amount = amount,

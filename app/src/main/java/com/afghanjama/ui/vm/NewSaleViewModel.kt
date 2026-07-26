@@ -68,6 +68,9 @@ class NewSaleViewModel(private val repo: Repo) : ViewModel() {
 
     private var nextKey = 2L
 
+    /** جلوی ثبتِ دوباره با دو ضربهٔ سریع را می‌گیرد. */
+    val busy = Busy()
+
     fun addLine() = _ui.update { it.copy(lines = it.lines + DraftLine(key = nextKey++)) }
 
     fun removeLine(key: Long) = _ui.update { u ->
@@ -108,12 +111,14 @@ class NewSaleViewModel(private val repo: Repo) : ViewModel() {
     fun clearMessage() = _ui.update { it.copy(message = null, isError = false) }
 
     /** ثبتِ فاکتور. هر ردیفِ ناقص بی‌سروصدا نادیده گرفته نمی‌شود — شمرده می‌شود. */
-    fun save() = viewModelScope.launch {
+    fun save() = viewModelScope.launch { busy.once { doSave() } }
+
+    private suspend fun doSave() {
         val u = _ui.value
         val ready = u.lines.filter { it.ready }
         if (ready.isEmpty()) {
             _ui.update { it.copy(message = "دستِ‌کم یک ردیفِ کامل لازم است.", isError = true) }
-            return@launch
+            return
         }
         val incomplete = u.lines.size - ready.size
 
@@ -127,7 +132,7 @@ class NewSaleViewModel(private val repo: Repo) : ViewModel() {
             _ui.update {
                 it.copy(message = "موجودی کافی نیست — ${over.joinToString("، ")}", isError = true)
             }
-            return@launch
+            return
         }
 
         val ok = repo.sellInvoice(

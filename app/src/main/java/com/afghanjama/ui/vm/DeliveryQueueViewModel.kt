@@ -41,6 +41,9 @@ data class DeliveryQueueUi(
  */
 class DeliveryQueueViewModel(private val repo: Repo) : ViewModel() {
 
+    /** جلوی ثبتِ دوباره با دو ضربهٔ سریع را می‌گیرد. */
+    val busy = Busy()
+
     private val _ui = MutableStateFlow(DeliveryQueueUi())
 
     /** بیعانه‌های استفاده‌نشده به تفکیکِ نامِ مشتری. */
@@ -89,8 +92,25 @@ class DeliveryQueueViewModel(private val repo: Repo) : ViewModel() {
         unitPrice: Long,
         receivedNow: Long,
         applyPrepay: Long
-    ) = viewModelScope.launch {
-        val o = repo.getOrder(orderId) ?: return@launch
+    ) =
+        viewModelScope.launch {
+            busy.once {
+                doDeliver(
+                    orderId = orderId,
+                    unitPrice = unitPrice,
+                    receivedNow = receivedNow,
+                    applyPrepay = applyPrepay
+                )
+            }
+        }
+
+    private suspend fun doDeliver(
+        orderId: UUID,
+        unitPrice: Long,
+        receivedNow: Long,
+        applyPrepay: Long
+    ) {
+        val o = repo.getOrder(orderId) ?: return
         val err = repo.deliverOrderToCustomer(o, unitPrice, receivedNow, applyPrepay)
         _ui.update {
             if (err == null) it.copy(message = "✅ ${o.customerName} تحویل گرفت.", isError = false)

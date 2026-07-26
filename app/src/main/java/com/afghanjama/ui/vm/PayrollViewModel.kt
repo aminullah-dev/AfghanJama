@@ -45,6 +45,9 @@ data class PayrollUi(
  */
 class PayrollViewModel(private val repo: Repo) : ViewModel() {
 
+    /** جلوی ثبتِ دوباره با دو ضربهٔ سریع را می‌گیرد. */
+    val busy = Busy()
+
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message
     fun clearMessage() { _message.value = null }
@@ -94,10 +97,13 @@ class PayrollViewModel(private val repo: Repo) : ViewModel() {
     }
 
     /** پرداختِ حقوقِ ماهِ جاری. */
-    fun pay(employee: String, amount: Long, source: String) = viewModelScope.launch {
+    fun pay(employee: String, amount: Long, source: String) =
+        viewModelScope.launch { busy.once { doPay(employee = employee, amount = amount, source = source) } }
+
+    private suspend fun doPay(employee: String, amount: Long, source: String) {
         if (amount <= 0) {
             _message.value = "مبلغ را درست وارد کنید."
-            return@launch
+            return
         }
         val ok = repo.paySalary(
             employee = employee,

@@ -26,7 +26,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -53,6 +52,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.afghanjama.data.entities.FinishedStock
 import com.afghanjama.ui.components.AppScreen
+import com.afghanjama.ui.components.BusyButton
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.digitsOnly
@@ -74,6 +74,7 @@ fun NewSaleScreen(
 ) {
     val ui by vm.ui.collectAsState()
     val stock by vm.stock.collectAsState()
+    val busy by vm.busy.state.collectAsState()
 
     // کدام ردیف منتظرِ انتخابِ کالاست
     var pickerFor by remember { mutableStateOf<Long?>(null) }
@@ -223,16 +224,15 @@ fun NewSaleScreen(
             }
 
             item {
-                Button(
+                BusyButton(
+                    text = if (ui.canSave)
+                        "ثبت فاکتور (${ui.readyLines.fa()} ردیف • ${ui.subtotal.afn()})"
+                    else "دستِ‌کم یک ردیفِ کامل لازم است",
                     onClick = vm::save,
                     enabled = ui.canSave,
+                    busy = busy,
                     modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        if (ui.canSave) "ثبت فاکتور (${ui.readyLines.fa()} ردیف • ${ui.subtotal.afn()})"
-                        else "دستِ‌کم یک ردیفِ کامل لازم است"
-                    )
-                }
+                )
             }
 
             item { Spacer(Modifier.height(40.dp)) }

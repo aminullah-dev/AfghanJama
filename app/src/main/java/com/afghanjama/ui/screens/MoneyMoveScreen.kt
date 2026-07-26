@@ -43,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.afghanjama.ui.components.BusyButton
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.vm.MoneyMoveViewModel
@@ -62,6 +63,7 @@ fun MoneyMoveScreen(
     onBack: () -> Unit
 ) {
     val ui by vm.ui.collectAsState()
+    val busy by vm.busy.state.collectAsState()
     val snackbar = remember { SnackbarHostState() }
 
     var isPayment by remember { mutableStateOf(startAsPayment) }
@@ -258,7 +260,8 @@ fun MoneyMoveScreen(
             }
 
             item {
-                Button(
+                BusyButton(
+                    text = if (isPayment) "ثبت پرداخت" else "ثبت دریافت",
                     onClick = {
                         vm.submit(
                             type = type, name = name.trim(),
@@ -267,10 +270,9 @@ fun MoneyMoveScreen(
                         )
                     },
                     enabled = name.isNotBlank() && (amount.toLongOrNull() ?: 0L) > 0,
+                    busy = busy,
                     modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(if (isPayment) "ثبت پرداخت" else "ثبت دریافت")
-                }
+                )
             }
 
             item {

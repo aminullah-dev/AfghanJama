@@ -23,6 +23,9 @@ data class FinishedSaleUi(
 /** فروش جزئی از انبار محصول نهایی. */
 class FinishedSaleViewModel(private val repo: Repo) : ViewModel() {
 
+    /** جلوی ثبتِ دوباره با دو ضربهٔ سریع را می‌گیرد. */
+    val busy = Busy()
+
     val items: StateFlow<List<FinishedStock>> =
         repo.observeFinishedStock()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -65,13 +68,33 @@ class FinishedSaleViewModel(private val repo: Repo) : ViewModel() {
         applyPrepay: Long = 0L
     ) =
         viewModelScope.launch {
+            busy.once {
+                doSell(
+                    item = item,
+                    qty = qty,
+                    unitPrice = unitPrice,
+                    customerName = customerName,
+                    receivedNow = receivedNow,
+                    applyPrepay = applyPrepay
+                )
+            }
+        }
+
+    private suspend fun doSell(
+        item: FinishedStock,
+        qty: Int,
+        unitPrice: Long,
+        customerName: String,
+        receivedNow: Long = -1L,
+        applyPrepay: Long = 0L
+    ) {
             if (qty <= 0 || qty > item.qty) {
                 _ui.update { it.copy(message = "تعداد فروش نامعتبر است. موجودی: ${item.qty}", isError = true) }
-                return@launch
+                return
             }
             if (unitPrice <= 0) {
                 _ui.update { it.copy(message = "قیمت هر عدد را وارد کنید.", isError = true) }
-                return@launch
+                return
             }
             val ok = repo.sellFinished(
                 item, qty, unitPrice, customerName,
@@ -97,7 +120,24 @@ class FinishedSaleViewModel(private val repo: Repo) : ViewModel() {
         qty: Int,
         refundCash: Boolean,
         cashBox: String
-    ) = viewModelScope.launch {
+    ) =
+        viewModelScope.launch {
+            busy.once {
+                doReturnSale(
+                    sale = sale,
+                    qty = qty,
+                    refundCash = refundCash,
+                    cashBox = cashBox
+                )
+            }
+        }
+
+    private suspend fun doReturnSale(
+        sale: FinishedSale,
+        qty: Int,
+        refundCash: Boolean,
+        cashBox: String
+    ) {
         if (qty <= 0 || qty > sale.returnableQty) {
             _ui.update {
                 it.copy(
@@ -105,7 +145,7 @@ class FinishedSaleViewModel(private val repo: Repo) : ViewModel() {
                     isError = true
                 )
             }
-            return@launch
+            return
         }
         val ok = repo.recordSaleReturn(sale, qty, refundCash, cashBox)
         _ui.update {

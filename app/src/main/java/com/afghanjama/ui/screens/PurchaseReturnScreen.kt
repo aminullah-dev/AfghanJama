@@ -13,7 +13,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -38,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.afghanjama.ui.components.BusyButton
 import com.afghanjama.ui.components.EmptyState
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.decimalOnly
@@ -51,6 +51,7 @@ fun PurchaseReturnScreen(
     onBack: () -> Unit
 ) {
     val ui by vm.ui.collectAsState()
+    val busy by vm.busy.state.collectAsState()
     val snackbar = remember { SnackbarHostState() }
 
     var supplier by remember { mutableStateOf("") }
@@ -228,7 +229,8 @@ fun PurchaseReturnScreen(
                 }
 
                 item {
-                    Button(
+                    BusyButton(
+                        text = "ثبت برگشت از خرید",
                         onClick = {
                             vm.submit(
                                 supplier = supplier,
@@ -242,8 +244,9 @@ fun PurchaseReturnScreen(
                         },
                         enabled = (qty.toDoubleOrNull() ?: 0.0) > 0.0 &&
                             (amount.toLongOrNull() ?: 0L) > 0L,
+                        busy = busy,
                         modifier = Modifier.fillMaxWidth()
-                    ) { Text("ثبت برگشت از خرید") }
+                    )
                 }
             }
         }
