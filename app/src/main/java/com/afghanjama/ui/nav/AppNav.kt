@@ -38,6 +38,7 @@ import com.afghanjama.ui.screens.CustomersScreen
 import com.afghanjama.ui.screens.CuttingScreen
 import com.afghanjama.ui.screens.DailyTradeScreen
 import com.afghanjama.ui.screens.DeliveryQueueScreen
+import com.afghanjama.ui.screens.GuideScreen
 import com.afghanjama.ui.screens.FinishedWarehouseScreen
 import com.afghanjama.ui.screens.HomeDashboardScreen
 import com.afghanjama.ui.screens.OrderDetailScreen
@@ -295,7 +296,8 @@ fun AppNav(
                     onGoReports = { navController.navigate(Routes.REPORTS) },
                     onGoAudit = { navController.navigate(Routes.AUDIT) },
                     onGoSearch = { navController.navigate(Routes.SEARCH) },
-                    onGoSettings = { navController.navigate(Routes.SETTINGS) }
+                    onGoSettings = { navController.navigate(Routes.SETTINGS) },
+                    onGoGuide = { navController.navigate(Routes.GUIDE) }
                 )
             }
 
@@ -332,6 +334,10 @@ fun AppNav(
                     vm = performanceVm,
                     onBack = { navController.popBackStack() }
                 )
+            }
+
+            composable(Routes.GUIDE) {
+                GuideScreen(onBack = { navController.popBackStack() })
             }
 
             composable(Routes.DELIVERY_QUEUE) {

@@ -37,6 +37,7 @@ object Routes {
     const val AUDIT = "audit"
     const val MASTER = "master"
     const val SETTINGS = "settings"
+    const val GUIDE = "guide"
     const val SEARCH = "search"
     const val ORDER_DETAIL = "order_detail"
 }

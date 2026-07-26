@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.FactCheck
 import androidx.compose.material.icons.filled.Checkroom
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Fingerprint
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.History
@@ -107,7 +108,8 @@ fun HomeDashboardScreen(
     onGoReports: () -> Unit,
     onGoAudit: () -> Unit,
     onGoSearch: () -> Unit,
-    onGoSettings: () -> Unit
+    onGoSettings: () -> Unit,
+    onGoGuide: () -> Unit
 ) {
     val s by vm.summary.collectAsState()
     val insideNow by vm.insideNow.collectAsState()
@@ -167,6 +169,7 @@ fun HomeDashboardScreen(
         if (isManager) add(HomeAction("رویدادها", Icons.Default.FactCheck, onGoAudit))
         add(HomeAction("جستجو", Icons.Default.Search, onGoSearch))
         add(HomeAction("تنظیمات", Icons.Default.Settings, onGoSettings))
+        add(HomeAction("راهنما", Icons.AutoMirrored.Filled.HelpOutline, onGoGuide))
     }
 
     val sections = listOf(
