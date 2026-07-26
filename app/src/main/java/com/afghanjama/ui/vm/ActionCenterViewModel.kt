@@ -54,6 +54,9 @@ data class ActionCenterUi(
  * طلب از مشتری، بدهی به تأمین‌کننده و کارمندانِ بی‌خروج. کاملاً از روی
  * جریان‌های موجودِ Repo محاسبه می‌شود؛ هیچ مهاجرتِ دیتابیسی لازم نیست.
  */
+/** بیشتر از این چند روز ماندنِ کارِ آماده در انبار، یعنی باید زنگ زد. */
+private const val DELIVERY_WAIT_DAYS = 3
+
 class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
 
     private val activeProduction = setOf(
@@ -197,6 +200,29 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
                         title = "${overtime.size.fa()} کارمند هنوز خروج نزده",
                         detail = "$names (بیش از ۸ ساعت)",
                         route = Routes.ATTENDANCE
+                    )
+                )
+            }
+
+            // ۶) کارِ تمام‌شده‌ای که مشتری هنوز نبرده
+            //
+            // این حالت پول و جا هر دو را قفل می‌کند: لباس دوخته شده،
+            // باقی‌ماندهٔ پولش وصول نشده و انبار هم اشغال است.
+            val waiting = orders.filter {
+                it.status == OrderStatus.STORED.name && it.customerName.isNotBlank() &&
+                    stageDays(it.stageChangedAt, it.createdAt) >= DELIVERY_WAIT_DAYS
+            }
+            if (waiting.isNotEmpty()) {
+                val worst = waiting.maxByOrNull { stageDays(it.stageChangedAt, it.createdAt) }!!
+                add(
+                    Alert(
+                        id = "awaiting_delivery",
+                        severity = AlertSeverity.WARN,
+                        icon = "📦",
+                        title = "${waiting.size.fa()} کارِ آماده را مشتری نبرده",
+                        detail = "قدیمی‌ترین: ${worst.customerName} — " +
+                            "${stageDays(worst.stageChangedAt, worst.createdAt).fa()} روز در انبار",
+                        route = Routes.DELIVERY_QUEUE
                     )
                 )
             }

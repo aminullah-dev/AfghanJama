@@ -41,6 +41,7 @@ import com.afghanjama.ui.vm.ReportsViewModel
 import com.afghanjama.ui.vm.OrderDetailViewModel
 import com.afghanjama.ui.vm.OrderSearchViewModel
 import com.afghanjama.ui.vm.PayrollViewModel
+import com.afghanjama.ui.vm.DeliveryQueueViewModel
 import com.afghanjama.ui.vm.PerformanceViewModel
 import com.afghanjama.ui.vm.PurchasePlanViewModel
 import com.afghanjama.ui.vm.PurchaseReturnViewModel
@@ -114,6 +115,7 @@ class MainActivity : FragmentActivity() {
                 val actionVm = remember { ActionCenterViewModel(repo) }
                 val payrollVm = remember { PayrollViewModel(repo) }
                 val performanceVm = remember { PerformanceViewModel(repo) }
+                val deliveryQueueVm = remember { DeliveryQueueViewModel(repo) }
                 val purchasePlanVm = remember { PurchasePlanViewModel(repo) }
                 val myWorkVm = remember { MyWorkViewModel(repo) }
                 val moneyVm = remember { MoneyMoveViewModel(repo) }
@@ -147,6 +149,7 @@ class MainActivity : FragmentActivity() {
                     actionVm = actionVm,
                     payrollVm = payrollVm,
                     performanceVm = performanceVm,
+                    deliveryQueueVm = deliveryQueueVm,
                     purchasePlanVm = purchasePlanVm,
                     myWorkVm = myWorkVm,
                     moneyVm = moneyVm,

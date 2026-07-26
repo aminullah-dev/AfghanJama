@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Checkroom
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Payments
@@ -88,6 +89,7 @@ fun HomeDashboardScreen(
     onGoStockLedger: () -> Unit,
     onGoProduction: () -> Unit,
     onGoFinishedSales: () -> Unit,
+    onGoDeliveryQueue: () -> Unit,
     onGoAttendance: () -> Unit,
     onGoPayroll: () -> Unit,
     onGoPerformance: () -> Unit,
@@ -148,6 +150,7 @@ fun HomeDashboardScreen(
     // مشتریان و سفارش
     val customerFlow = buildList {
         if (canSeeCustomers) add(HomeAction("مشتریان", Icons.Default.Group, onGoCustomers))
+        if (isManager) add(HomeAction("آمادهٔ تحویل", Icons.Default.LocalShipping, onGoDeliveryQueue))
     }
 
     // عمومی

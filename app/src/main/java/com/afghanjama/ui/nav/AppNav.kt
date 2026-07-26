@@ -37,6 +37,7 @@ import com.afghanjama.ui.screens.CustomerDetailScreen
 import com.afghanjama.ui.screens.CustomersScreen
 import com.afghanjama.ui.screens.CuttingScreen
 import com.afghanjama.ui.screens.DailyTradeScreen
+import com.afghanjama.ui.screens.DeliveryQueueScreen
 import com.afghanjama.ui.screens.FinishedWarehouseScreen
 import com.afghanjama.ui.screens.HomeDashboardScreen
 import com.afghanjama.ui.screens.OrderDetailScreen
@@ -83,6 +84,7 @@ import com.afghanjama.ui.vm.MyWorkViewModel
 import com.afghanjama.ui.vm.OrderDetailViewModel
 import com.afghanjama.ui.vm.OrderSearchViewModel
 import com.afghanjama.ui.vm.PayrollViewModel
+import com.afghanjama.ui.vm.DeliveryQueueViewModel
 import com.afghanjama.ui.vm.PerformanceViewModel
 import com.afghanjama.ui.vm.PurchasePlanViewModel
 import com.afghanjama.ui.vm.PurchaseReturnViewModel
@@ -171,6 +173,7 @@ fun AppNav(
     actionVm: ActionCenterViewModel,
     payrollVm: PayrollViewModel,
     performanceVm: PerformanceViewModel,
+    deliveryQueueVm: DeliveryQueueViewModel,
     purchasePlanVm: PurchasePlanViewModel,
     myWorkVm: MyWorkViewModel,
     moneyVm: MoneyMoveViewModel,
@@ -273,6 +276,7 @@ fun AppNav(
                     onGoStockLedger = { navController.navigate(Routes.STOCK_LEDGER) },
                     onGoProduction = { navController.navigate(Routes.INVENTORY) },
                     onGoFinishedSales = { navController.navigate(Routes.FINISHED_SALES) },
+                    onGoDeliveryQueue = { navController.navigate(Routes.DELIVERY_QUEUE) },
                     onGoAttendance = { navController.navigate(Routes.ATTENDANCE) },
                     onGoPayroll = { navController.navigate(Routes.PAYROLL) },
                     onGoPerformance = { navController.navigate(Routes.PERFORMANCE) },
@@ -326,6 +330,13 @@ fun AppNav(
             composable(Routes.PERFORMANCE) {
                 PerformanceScreen(
                     vm = performanceVm,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Routes.DELIVERY_QUEUE) {
+                DeliveryQueueScreen(
+                    vm = deliveryQueueVm,
                     onBack = { navController.popBackStack() }
                 )
             }

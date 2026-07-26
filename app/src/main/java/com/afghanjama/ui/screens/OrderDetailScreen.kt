@@ -23,7 +23,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -50,6 +49,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.afghanjama.data.entities.FabricUnit
 import com.afghanjama.data.entities.OrderStatus
+import com.afghanjama.ui.components.DeliverDialog
 import com.afghanjama.ui.components.MeasurementsBlock
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
@@ -119,81 +119,14 @@ fun OrderDetailScreen(
 
     // ---------- دیالوگ تحویل به مشتری ----------
     if (showDeliver) order?.let { o ->
-        val defaultUnit = if (o.qty > 0 && o.agreedPrice > 0) o.agreedPrice / o.qty else 0L
-        var unitText by remember(o.id) { mutableStateOf(defaultUnit.takeIf { it > 0 }?.toString() ?: "") }
-        var usePrepay by remember(o.id) { mutableStateOf(prepay > 0) }
-        val unit = unitText.toLongOrNull() ?: 0L
-        val total = unit * o.qty
-        val applied = if (usePrepay) prepay.coerceAtMost(total) else 0L
-        var receivedText by remember(o.id) { mutableStateOf("") }
-        // خالی یعنی «باقی‌مانده را کامل نقد گرفتم» — حالتِ عادیِ پیشخوان
-        val received = (receivedText.toLongOrNull() ?: (total - applied))
-            .coerceIn(0L, total - applied)
-        val remaining = total - applied - received
-
-        AlertDialog(
-            onDismissRequest = { showDeliver = false },
-            title = { Text("تحویل به ${o.customerName}") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        "${o.qty.fa()} عدد «${o.designTitle}» از انبار محصول کم می‌شود و " +
-                            "سفارش «تحویل شد» می‌گیرد.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    OutlinedTextField(
-                        value = unitText,
-                        onValueChange = { unitText = it.digitsOnly() },
-                        label = { Text("قیمت هر عدد (؋)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Text(
-                        "جمع: ${total.afn()}" +
-                            if (o.agreedPrice > 0 && total != o.agreedPrice)
-                                " • قیمت توافقیِ سفارش: ${o.agreedPrice.afn()}"
-                            else "",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (o.agreedPrice > 0 && total != o.agreedPrice)
-                            MaterialTheme.colorScheme.error
-                        else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    if (prepay > 0) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = usePrepay, onCheckedChange = { usePrepay = it })
-                            Text("استفاده از بیعانهٔ ${prepay.afn()}")
-                        }
-                    }
-
-                    OutlinedTextField(
-                        value = receivedText,
-                        onValueChange = { receivedText = it.digitsOnly() },
-                        label = { Text("نقدِ دریافتی همین حالا (خالی = همه)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Text(
-                        "از بیعانه ${applied.afn()} • نقد ${received.afn()} • " +
-                            "باقی‌ماندهٔ طلب ${remaining.afn()}",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (remaining > 0) MaterialTheme.colorScheme.error
-                        else MaterialTheme.colorScheme.primary
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    enabled = unit > 0,
-                    onClick = {
-                        vm.deliverToCustomer(unit, received, applied)
-                        showDeliver = false
-                    }
-                ) { Text("تحویل شد") }
-            },
-            dismissButton = { TextButton(onClick = { showDeliver = false }) { Text("لغو") } }
+        DeliverDialog(
+            order = o,
+            prepay = prepay,
+            onDismiss = { showDeliver = false },
+            onConfirm = { unit, received, applied ->
+                vm.deliverToCustomer(unit, received, applied)
+                showDeliver = false
+            }
         )
     }
 
