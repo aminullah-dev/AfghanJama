@@ -654,6 +654,23 @@ val MIGRATION_47_48 = object : Migration(47, 48) {
  * ارزشِ دقیقِ موجودیِ محصول. مقدارِ اولیه از همان چیزی ساخته می‌شود که
  * تا امروز داشته‌ایم (تعداد × میانگین)؛ از این به بعد دیگر گرد نمی‌شود.
  */
+/**
+ * وقت‌های نان و چای. فقط یک جدولِ تازه است — هیچ جدولِ موجودی دست نمی‌خورد.
+ */
+val MIGRATION_50_51 = object : Migration(50, 51) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `break_times` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`title` TEXT NOT NULL, " +
+                "`hour` INTEGER NOT NULL, " +
+                "`minute` INTEGER NOT NULL, " +
+                "`enabled` INTEGER NOT NULL DEFAULT 1, " +
+                "`createdAt` INTEGER NOT NULL)"
+        )
+    }
+}
+
 val MIGRATION_49_50 = object : Migration(49, 50) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE `finished_stock` ADD COLUMN `totalValue` INTEGER NOT NULL DEFAULT 0")

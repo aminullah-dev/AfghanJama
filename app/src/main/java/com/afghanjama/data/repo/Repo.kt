@@ -1781,6 +1781,24 @@ class Repo(private val db: AppDatabase) {
     }
 
     // =========================
+    // وقت‌های نان و چای
+    // =========================
+
+    fun observeBreakTimes(): Flow<List<com.afghanjama.data.entities.BreakTime>> =
+        db.breakTimeDao().observeAll()
+
+    suspend fun upsertBreakTime(row: com.afghanjama.data.entities.BreakTime): Long =
+        db.breakTimeDao().upsert(row)
+
+    suspend fun deleteBreakTime(row: com.afghanjama.data.entities.BreakTime) =
+        db.breakTimeDao().delete(row)
+
+    suspend fun breakTimeCount(): Int = db.breakTimeDao().count()
+
+    /** چند نفر همین حالا داخلِ کارگاه‌اند — برای یادآور و برای خودِ صفحه. */
+    suspend fun insideCount(): Int = db.breakTimeDao().insideCount()
+
+    // =========================
     // Customer measurements (اندازه‌های مشتری)
     // =========================
 

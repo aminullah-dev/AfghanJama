@@ -88,6 +88,7 @@ import com.afghanjama.ui.vm.OrderDetailViewModel
 import com.afghanjama.ui.vm.OrderSearchViewModel
 import com.afghanjama.ui.vm.PayrollViewModel
 import com.afghanjama.ui.vm.DeliveryQueueViewModel
+import com.afghanjama.ui.vm.BreakTimeViewModel
 import com.afghanjama.ui.vm.NewSaleViewModel
 import com.afghanjama.ui.vm.SelfTestViewModel
 import com.afghanjama.ui.vm.PerformanceViewModel
@@ -180,6 +181,7 @@ fun AppNav(
     performanceVm: PerformanceViewModel,
     deliveryQueueVm: DeliveryQueueViewModel,
     newSaleVm: NewSaleViewModel,
+    breakVm: BreakTimeViewModel,
     /** موقتی — همراهِ صفحهٔ خودآزمایی حذف می‌شود. */
     selfTestVm: SelfTestViewModel,
     purchasePlanVm: PurchasePlanViewModel,
@@ -326,6 +328,7 @@ fun AppNav(
             composable(Routes.ATTENDANCE) {
                 AttendanceScreen(
                     vm = attendanceVm,
+                    breakVm = breakVm,
                     onBack = { navController.popBackStack() }
                 )
             }

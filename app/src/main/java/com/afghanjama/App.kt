@@ -5,8 +5,12 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.afghanjama.work.AutoBackupWorker
+import com.afghanjama.work.BreakReminderWorker
 import com.afghanjama.work.LowStockWorker
 import com.afghanjama.work.WageReminderWorker
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
 class App : Application() {
@@ -46,5 +50,11 @@ class App : Application() {
             ExistingPeriodicWorkPolicy.KEEP,
             lowStockRequest
         )
+
+        // یادآورهای نان و چای: هر بار که اپ باز می‌شود از نو چیده می‌شوند،
+        // تا خاموش‌بودنِ گوشی یا ری‌استارت چیزی را از بین نبرد.
+        CoroutineScope(Dispatchers.IO).launch {
+            runCatching { BreakReminderWorker.rescheduleAll(this@App) }
+        }
     }
 }

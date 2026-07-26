@@ -379,3 +379,57 @@ fun checkStockValuation(): List<CheckResult> {
     }
     return s.results
 }
+
+// =====================================================================
+// ۷) زمان‌بندیِ یادآورِ نان و چای
+// =====================================================================
+
+/**
+ * سنجشِ `BreakReminderWorker.delayUntilNext`. تابع خودش Calendar لازم
+ * دارد پس از بیرون تزریق می‌شود، و اینجا فقط ادعاها بررسی می‌شوند.
+ */
+fun checkBreakSchedule(delayUntilNext: (Int, Int, Long) -> Long): List<CheckResult> {
+    val s = CheckSink("یادآور نان و چای")
+    val minute = 60_000L
+    val hour = 60 * minute
+    val day = 24 * hour
+
+    // یک زمانِ مبنا با ثانیهٔ غیرِ صفر، چون همان‌جاست که خطا پنهان می‌شود
+    val now = System.currentTimeMillis() / minute * minute + 42_000L
+
+    var allPositive = true
+    var maxDelay = 0L
+    for (h in 0..23) {
+        for (m in listOf(0, 15, 30, 45, 59)) {
+            val d = delayUntilNext(h, m, now)
+            if (d <= 0L) allPositive = false
+            if (d > maxDelay) maxDelay = d
+        }
+    }
+    s.isTrue(
+        "هیچ یادآوری فوراً یا در گذشته شلیک نمی‌کند",
+        allPositive,
+        "دستِ‌کم یکی از ۱۲۰ حالت فاصلهٔ صفر یا منفی داد"
+    )
+    s.isTrue(
+        "هیچ فاصله‌ای بیشتر از یک شبانه‌روز نیست",
+        maxDelay <= day,
+        "بیشترین فاصله ${maxDelay / hour} ساعت شد"
+    )
+
+    // چیدنِ پشت‌سرهم نباید هر روز چند دقیقه جلو/عقب برود
+    var t = now
+    var sameEveryDay = true
+    repeat(5) {
+        val d = delayUntilNext(12, 0, t)
+        t += d
+        // هر شلیک باید دقیقاً روی دقیقهٔ ۰ از ساعت ۱۲ بنشیند
+        if ((t % hour) != 0L) sameEveryDay = false
+    }
+    s.isTrue(
+        "پنج روز پشت‌سرهم دقیقاً سرِ ساعت می‌ماند",
+        sameEveryDay,
+        "زمانِ شلیک از سرِ ساعت جدا افتاد"
+    )
+    return s.results
+}

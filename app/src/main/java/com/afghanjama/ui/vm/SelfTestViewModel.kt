@@ -11,9 +11,11 @@ import com.afghanjama.selftest.checkCustomerLedger
 import com.afghanjama.selftest.checkJalali
 import com.afghanjama.selftest.checkMoneySplit
 import com.afghanjama.selftest.checkMultiLineInvoice
+import com.afghanjama.selftest.checkBreakSchedule
 import com.afghanjama.selftest.checkStockValuation
 import com.afghanjama.selftest.checkTailorAttribution
 import com.afghanjama.ui.format.PersianDate
+import com.afghanjama.work.BreakReminderWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -55,6 +57,11 @@ class SelfTestViewModel(private val repo: Repo) : ViewModel() {
                 addAll(checkTailorAttribution())
                 addAll(checkMultiLineInvoice())
                 addAll(checkStockValuation())
+                addAll(
+                    checkBreakSchedule { h, m, now ->
+                        BreakReminderWorker.delayUntilNext(h, m, now)
+                    }
+                )
                 addAll(
                     checkJalali(
                         toJalali = { millis ->
