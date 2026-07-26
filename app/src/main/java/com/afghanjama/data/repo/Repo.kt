@@ -3,6 +3,7 @@ package com.afghanjama.data.repo
 import com.afghanjama.data.AppDatabase
 import com.afghanjama.data.entities.AttendanceRecord
 import com.afghanjama.data.entities.Customer
+import com.afghanjama.data.dao.NamedMeasurement
 import com.afghanjama.data.entities.CustomerMeasurement
 import com.afghanjama.data.entities.CustomerPayment
 import com.afghanjama.data.entities.CuttingRecord
@@ -42,6 +43,7 @@ import com.afghanjama.util.CurrentUser
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import java.util.UUID
 
 class Repo(private val db: AppDatabase) {
@@ -1616,6 +1618,18 @@ class Repo(private val db: AppDatabase) {
 
     suspend fun deleteMeasurement(id: Long) =
         db.customerMeasurementDao().deleteById(id)
+
+    /**
+     * اندازه‌ها به تفکیکِ نامِ مشتری. کلید نامِ trim‌شده است تا با
+     * `Order.customerName` که کاربر تایپ کرده جور در بیاید.
+     *
+     * این همان چیزی است که برش و دوخت لازم دارند: تا حالا اندازه ثبت
+     * می‌شد ولی فقط در صفحهٔ خودِ مشتری دیده می‌شد، یعنی به دستِ کسی که
+     * قیچی و سوزن دستش است هرگز نمی‌رسید.
+     */
+    fun observeMeasurementsByCustomer(): Flow<Map<String, List<NamedMeasurement>>> =
+        db.customerMeasurementDao().observeAllNamed()
+            .map { rows -> rows.groupBy { it.customerName.trim() } }
 
     // =========================
     // Work Costs (CatalogDao)

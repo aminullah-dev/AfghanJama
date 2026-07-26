@@ -65,6 +65,22 @@ class SewingViewModel(
         repo.observeTailors()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /**
+     * اندازه‌های مشتریِ هر سفارش، کلید: کدِ سفارش. خیاط با کدِ سفارش کار
+     * می‌کند نه با نامِ مشتری، پس همین‌جا ترجمه می‌شود تا صفحه و رسید
+     * هر دو بدونِ جست‌وجوی دوباره به آن برسند.
+     */
+    val measurementsByOrder: StateFlow<Map<String, List<Pair<String, String>>>> =
+        combine(
+            repo.observeAllOrders(),
+            repo.observeMeasurementsByCustomer()
+        ) { orders, byCustomer ->
+            orders.associate { o ->
+                o.orderCode to byCustomer[o.customerName.trim()].orEmpty()
+                    .map { it.label to it.value }
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
     /** تحویل بخشی از سفارش به یک خیاط با تعداد و کارمزد فی‌عدد. */
     fun handout(orderId: UUID, tailorLabel: String, qty: Int, unitWage: Long) = viewModelScope.launch {
         val o = repo.getOrder(orderId) ?: return@launch

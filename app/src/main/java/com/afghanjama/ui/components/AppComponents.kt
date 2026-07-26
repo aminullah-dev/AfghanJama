@@ -235,3 +235,64 @@ fun AppScreen(
         content = content
     )
 }
+
+/**
+ * اندازه‌های مشتری، همان شکل در هرجایی که لازم می‌شود — جزئیاتِ سفارش،
+ * برش و دوخت. عمداً دوستونه است نه ردیفی، تا برشکار بتواند با یک نگاه
+ * بخواند و لازم نباشد اسکرول کند.
+ *
+ * [emptyHint] وقتی نشان داده می‌شود که اندازه‌ای ثبت نشده باشد؛ سکوت
+ * در این حالت خطرناک است، چون کاربر خیال می‌کند اندازه هست و فقط
+ * نمایش داده نشده.
+ */
+@Composable
+fun MeasurementsBlock(
+    items: List<Pair<String, String>>,
+    modifier: Modifier = Modifier,
+    title: String = "اندازه‌های مشتری",
+    emptyHint: String? = null
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            title,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold
+        )
+        if (items.isEmpty()) {
+            if (emptyHint != null) {
+                Text(
+                    emptyHint,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+            return@Column
+        }
+        items.chunked(2).forEach { pairRow ->
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                pairRow.forEach { (label, value) ->
+                    Row(
+                        Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            label,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            value,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+                // ردیفِ فردِ آخر نباید کش بیاید و کلِ عرض را بگیرد
+                if (pairRow.size == 1) Box(Modifier.weight(1f))
+            }
+        }
+    }
+}

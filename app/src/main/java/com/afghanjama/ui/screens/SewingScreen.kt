@@ -60,6 +60,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.SewingAssignment
+import com.afghanjama.ui.components.MeasurementsBlock
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.digitsOnly
@@ -74,6 +75,7 @@ fun SewingScreen(
     onGoReview: () -> Unit
 ) {
     val handouts by vm.handouts.collectAsState()
+    val measurementsByOrder by vm.measurementsByOrder.collectAsState(initial = emptyMap())
     val inProgress by vm.inProgress.collectAsState()
     val tailors by vm.tailors.collectAsState()
     val allAssignments by vm.allAssignments.collectAsState()
@@ -124,6 +126,7 @@ fun SewingScreen(
                             HandoutCard(
                                 handout = h,
                                 tailorLabels = tailors.map { "[${it.code}] ${it.name}" },
+                                measurements = measurementsByOrder[h.order.orderCode].orEmpty(),
                                 onHandout = { label, qty, wage -> vm.handout(h.order.id, label, qty, wage) },
                                 onCancelAssignment = { vm.cancelAssignment(it) },
                                 onBackToCutting = { vm.backToCutting(h.order.id) },
@@ -147,10 +150,12 @@ fun SewingScreen(
                         items(inProgress, key = { it.id }) { a ->
                             InProgressCard(
                                 assignment = a,
+                                measurements = measurementsByOrder[a.orderCode].orEmpty(),
                                 receiptText = handoverReceipt(
                                     a, allAssignments,
                                     pendingWages.filter { it.tailorLabel == a.tailorLabel }
-                                        .sumOf { it.amount }
+                                        .sumOf { it.amount },
+                                    measurementsByOrder[a.orderCode].orEmpty()
                                 ),
                                 onDone = { quality, delivered ->
                                     vm.completeAssignment(a.id, quality, delivered)
@@ -185,6 +190,7 @@ private fun EmptyCard(title: String, subtitle: String) {
 private fun HandoutCard(
     handout: OrderHandout,
     tailorLabels: List<String>,
+    measurements: List<Pair<String, String>>,
     onHandout: (String, Int, Long) -> Unit,
     onCancelAssignment: (Long) -> Unit,
     onBackToCutting: () -> Unit,
@@ -222,6 +228,13 @@ private fun HandoutCard(
                 "پارچه: ${order.fabricType} • رنگ: ${order.fabricColor} • سایز: ${order.size}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            // اندازه‌ها همین‌جا، چون خیاط دقیقاً موقعِ گرفتنِ کار به آن‌ها نیاز دارد
+            MeasurementsBlock(
+                items = measurements,
+                title = "اندازه‌های ${order.customerName.ifBlank { "مشتری" }}",
+                emptyHint = "برای این مشتری اندازه‌ای ثبت نشده."
             )
 
             // ---- تحویل‌های ثبت‌شده ----
@@ -334,6 +347,7 @@ private fun HandoutCard(
 @Composable
 private fun InProgressCard(
     assignment: SewingAssignment,
+    measurements: List<Pair<String, String>>,
     receiptText: String,
     onDone: (String, Int) -> Unit,
     onCancel: () -> Unit
@@ -401,6 +415,10 @@ private fun InProgressCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
+            if (measurements.isNotEmpty()) {
+                MeasurementsBlock(items = measurements)
+            }
+
             HorizontalDivider(thickness = 0.5.dp)
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -448,7 +466,8 @@ private fun tailorStars(history: List<SewingAssignment>): Pair<String, Int> {
 private fun handoverReceipt(
     a: SewingAssignment,
     all: List<SewingAssignment>,
-    pendingWageTotal: Long
+    pendingWageTotal: Long,
+    measurements: List<Pair<String, String>>
 ): String = buildString {
     val mine = all.filter { it.tailorLabel == a.tailorLabel }
     val (stars, ratedCount) = tailorStars(mine)
@@ -462,6 +481,10 @@ private fun handoverReceipt(
     appendLine("──────────────")
     appendLine("✅ این کار به شما تحویل شد:")
     appendLine("• ${a.orderCode} — ${a.qty.fa()} عدد • کارمزد فی‌عدد ${a.unitWage.afn()} • جمع ${a.totalWage.afn()}")
+    if (measurements.isNotEmpty()) {
+        appendLine("📏 اندازه‌ها:")
+        measurements.forEach { (label, value) -> appendLine("   • $label: $value") }
+    }
     if (inHand.isNotEmpty()) {
         appendLine("──────────────")
         appendLine("🧷 کارهای دیگرِ زیرِ دست شما:")

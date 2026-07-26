@@ -6,6 +6,8 @@
 package com.afghanjama.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -25,6 +27,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -52,6 +55,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import com.afghanjama.data.entities.Order
+import com.afghanjama.ui.components.MeasurementsBlock
 import com.afghanjama.ui.format.STAGE_WARN_DAYS
 import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.format.fa
@@ -68,6 +72,7 @@ fun CuttingScreen(
 ) {
     val orders by vm.ordersCutting.collectAsState(initial = emptyList())
     val cutters by vm.cutters.collectAsState(initial = emptyList())
+    val measurements by vm.measurements.collectAsState(initial = emptyMap())
 
     var cutTarget by remember { mutableStateOf<Order?>(null) }
     var scanMsg by remember { mutableStateOf<String?>(null) }
@@ -170,7 +175,20 @@ fun CuttingScreen(
             onDismissRequest = { cutTarget = null },
             title = { Text("ثبت برش — ${o.designTitle.ifBlank { o.orderCode }}") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.verticalScroll(rememberScrollState())
+                ) {
+                    // اندازه‌ها قبل از هر کادرِ دیگری، چون برش با همین‌ها زده می‌شود
+                    MeasurementsBlock(
+                        items = measurements[o.customerName.trim()].orEmpty()
+                            .map { it.label to it.value },
+                        title = "اندازه‌های ${o.customerName.ifBlank { "مشتری" }}",
+                        emptyHint = "برای این مشتری اندازه‌ای ثبت نشده — " +
+                            "در صفحهٔ مشتری اضافه کنید تا اینجا و در دوخت دیده شود."
+                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
                     OutlinedTextField(
                         value = cutter,
                         onValueChange = { cutter = it },

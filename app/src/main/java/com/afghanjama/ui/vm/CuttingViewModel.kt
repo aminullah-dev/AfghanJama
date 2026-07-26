@@ -26,6 +26,14 @@ class CuttingViewModel(private val repo: Repo) : ViewModel() {
         repo.observeCutterNames()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /**
+     * اندازه‌های مشتری به تفکیکِ نام. برشکار دقیقاً همین را لازم دارد و
+     * تا حالا مجبور بود صفحهٔ مشتری را جدا باز کند.
+     */
+    val measurements: StateFlow<Map<String, List<com.afghanjama.data.dao.NamedMeasurement>>> =
+        repo.observeMeasurementsByCustomer()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
     /** ثبت رکورد برش (مسئول/تعداد/ضایعات) و انتقال به «برش تمام». */
     fun markCutDone(
         orderId: UUID,

@@ -49,6 +49,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.afghanjama.data.entities.FabricUnit
 import com.afghanjama.data.entities.OrderStatus
+import com.afghanjama.ui.components.MeasurementsBlock
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.digitsOnly
@@ -98,6 +99,7 @@ fun OrderDetailScreen(
     val workItems by vm.workItems.collectAsState()
     val assignments by vm.assignments.collectAsState()
     val cuttingRecords by vm.cuttingRecords.collectAsState()
+    val measurements by vm.measurements.collectAsState()
     val qcRecords by vm.qcRecords.collectAsState()
     val ui by vm.ui.collectAsState()
 
@@ -617,6 +619,24 @@ fun OrderDetailScreen(
                                 }
                             }
                         }
+                    }
+                }
+            }
+
+            // ---------- اندازه‌های مشتری ----------
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                ) {
+                    Column(Modifier.padding(14.dp)) {
+                        MeasurementsBlock(
+                            items = measurements,
+                            emptyHint = "برای این مشتری اندازه‌ای ثبت نشده — از صفحهٔ " +
+                                "مشتری اضافه کنید تا در برش و دوخت هم دیده شود."
+                        )
                     }
                 }
             }

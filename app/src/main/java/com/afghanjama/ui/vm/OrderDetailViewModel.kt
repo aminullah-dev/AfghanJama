@@ -51,6 +51,13 @@ class OrderDetailViewModel(private val repo: Repo) : ViewModel() {
             .flatMapLatest { repo.observeCuttingForOrder(it.toString()) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** اندازه‌های مشتریِ همین سفارش — تا برای دیدن‌شان لازم نباشد صفحه عوض شود. */
+    val measurements: StateFlow<List<Pair<String, String>>> =
+        combine(order, repo.observeMeasurementsByCustomer()) { o, byCustomer ->
+            byCustomer[o?.customerName?.trim().orEmpty()].orEmpty()
+                .map { it.label to it.value }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     val qcRecords: StateFlow<List<com.afghanjama.data.entities.QcRecord>> =
         orderId.filterNotNull()
             .flatMapLatest { repo.observeQcForOrder(it.toString()) }
