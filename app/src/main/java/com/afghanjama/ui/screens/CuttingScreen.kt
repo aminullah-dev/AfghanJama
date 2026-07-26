@@ -67,7 +67,7 @@ fun CuttingScreen(
     onGoSewing: () -> Unit
 ) {
     val orders by vm.ordersCutting.collectAsState(initial = emptyList())
-    val tailors by vm.tailors.collectAsState(initial = emptyList())
+    val cutters by vm.cutters.collectAsState(initial = emptyList())
 
     var cutTarget by remember { mutableStateOf<Order?>(null) }
     var scanMsg by remember { mutableStateOf<String?>(null) }
@@ -178,16 +178,23 @@ fun CuttingScreen(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    if (tailors.isNotEmpty()) {
+                    if (cutters.isNotEmpty()) {
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            tailors.take(8).forEach { t ->
+                            cutters.take(8).forEach { name ->
                                 FilterChip(
-                                    selected = cutter == t.name,
-                                    onClick = { cutter = t.name },
-                                    label = { Text(t.name) }
+                                    selected = cutter == name,
+                                    onClick = { cutter = if (cutter == name) "" else name },
+                                    label = { Text(name) }
                                 )
                             }
                         }
+                    } else {
+                        Text(
+                            "نامِ برشکار را تایپ کنید؛ از دفعهٔ بعد همین‌جا " +
+                                "به‌صورت دکمه می‌آید و لازم نیست دوباره بنویسید.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                     OutlinedTextField(
                         value = pieces,

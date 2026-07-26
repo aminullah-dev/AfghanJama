@@ -17,9 +17,13 @@ class CuttingViewModel(private val repo: Repo) : ViewModel() {
         repo.observeOrdersByStatus(OrderStatus.CUTTING.name)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    /** خیاط‌ها برای پیشنهادِ «مسئول برش». */
-    val tailors: StateFlow<List<com.afghanjama.data.entities.Tailor>> =
-        repo.observeTailors()
+    /**
+     * پیشنهادِ «مسئول برش»: کسانی که قبلاً برش زده‌اند + کارکنانِ با سمتِ
+     * برش. نامی که تایپ شود همراهِ رکوردِ برش ذخیره می‌شود و از دفعهٔ بعد
+     * خودش اینجا می‌آید.
+     */
+    val cutters: StateFlow<List<String>> =
+        repo.observeCutterNames()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** ثبت رکورد برش (مسئول/تعداد/ضایعات) و انتقال به «برش تمام». */

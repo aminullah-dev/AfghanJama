@@ -40,6 +40,7 @@ import com.afghanjama.data.entities.Transaction
 import com.afghanjama.data.entities.WorkCost
 import com.afghanjama.util.CurrentUser
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import java.util.UUID
 
@@ -1427,6 +1428,27 @@ class Repo(private val db: AppDatabase) {
 
     fun observeTailors(): Flow<List<Tailor>> =
         db.masterDataDao().observeTailors()
+
+    /**
+     * پیشنهادِ نامِ «مسئول برش»: کسانی که قبلاً برش زده‌اند، به‌علاوهٔ
+     * کارکنانی که سمت‌شان برش است. عمداً خیاطان اینجا نمی‌آیند — برشکار
+     * کارِ دیگری است و آوردنِ فهرستِ خیاط فقط اشتباه‌انداز بود.
+     *
+     * نامی که یک‌بار تایپ شود از دفعهٔ بعد خودش در این فهرست است، چون
+     * از روی رکوردهای برشِ ثبت‌شده ساخته می‌شود.
+     */
+    fun observeCutterNames(): Flow<List<String>> =
+        combine(
+            db.cuttingRecordDao().observeCutters(),
+            db.masterDataDao().observeStaff()
+        ) { past, staff ->
+            val fromStaff = staff
+                .filter { it.role.contains("برش") }
+                .map { it.name.trim() }
+            (past.map { it.trim() } + fromStaff)
+                .filter { it.isNotBlank() }
+                .distinct()
+        }
 
     fun observeInspectors(): Flow<List<Inspector>> =
         db.masterDataDao().observeInspectors()
