@@ -650,6 +650,17 @@ val MIGRATION_47_48 = object : Migration(47, 48) {
  * این سطر باید خنثی باشد؛ بدهکارِ تنها یعنی بیعانه دو بار از مشتری گرفته
  * شده و مشتریِ تسویه‌کرده بدهکار مانده است.
  */
+/**
+ * ارزشِ دقیقِ موجودیِ محصول. مقدارِ اولیه از همان چیزی ساخته می‌شود که
+ * تا امروز داشته‌ایم (تعداد × میانگین)؛ از این به بعد دیگر گرد نمی‌شود.
+ */
+val MIGRATION_49_50 = object : Migration(49, 50) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `finished_stock` ADD COLUMN `totalValue` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("UPDATE finished_stock SET totalValue = qty * avgCost")
+    }
+}
+
 val MIGRATION_48_49 = object : Migration(48, 49) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(

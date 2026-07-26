@@ -321,3 +321,61 @@ fun checkMultiLineInvoice(): List<CheckResult> {
     s.eq("تفکیکِ پول روی جمعِ کلِ فاکتور", total, split.prepay + split.cash + split.credit)
     return s.results
 }
+
+// =====================================================================
+// ۶) ارزشِ انبارِ محصول — نباید ته‌مانده جا بگذارد
+// =====================================================================
+
+/** یک ردیفِ انبار در حالِ آزمایش: تعداد و ارزشِ کل. */
+data class StockFact(var qty: Int, var value: Long)
+
+/** بازتابِ `takeFromStock`: آخرین عددها هرچه مانده را با خود می‌برند. */
+fun takeValue(row: StockFact, qty: Int): Long =
+    if (qty >= row.qty) row.value else row.value * qty / row.qty
+
+fun checkStockValuation(): List<CheckResult> {
+    val s = CheckSink("ارزشِ انبار محصول")
+
+    // ورود و خروجِ کاملِ یک دسته: حساب باید به صفر برگردد
+    run {
+        val row = StockFact(qty = 3, value = 10_000)   // ۱۰٬۰۰۰ برای ۳ عدد
+        val c1 = takeValue(row, 1); row.qty -= 1; row.value -= c1
+        val c2 = takeValue(row, 1); row.qty -= 1; row.value -= c2
+        val c3 = takeValue(row, 1); row.qty -= 1; row.value -= c3
+        s.eq("سه فروشِ تکی، جمعِ بها = کلِ ورودی", 10_000L, c1 + c2 + c3)
+        s.eq("ارزشِ باقی‌مانده پس از خالی‌شدن", 0L, row.value)
+    }
+
+    // مبلغی که بر تعداد بخش‌پذیر نیست — همان حالتی که قبلاً افغانی گم می‌کرد
+    run {
+        val row = StockFact(qty = 7, value = 10_000)
+        var taken = 0L
+        repeat(7) { taken += takeValue(row, 1).also { c -> row.qty -= 1; row.value -= c } }
+        s.eq("۱۰٬۰۰۰ روی ۷ عدد بدونِ گم‌شدن پخش می‌شود", 10_000L, taken)
+        s.eq("ته‌مانده در انبار نمی‌ماند", 0L, row.value)
+    }
+
+    // چند دستهٔ متفاوت روی یک ردیف، بعد خالی‌کردنِ کامل
+    run {
+        val row = StockFact(qty = 0, value = 0)
+        listOf(3 to 10_000L, 5 to 7_777L, 2 to 999L).forEach { (q, v) ->
+            row.qty += q; row.value += v
+        }
+        val deposited = 10_000L + 7_777L + 999L
+        var taken = 0L
+        while (row.qty > 0) {
+            val q = if (row.qty >= 3) 3 else row.qty
+            val c = takeValue(row, q)
+            taken += c; row.qty -= q; row.value -= c
+        }
+        s.eq("سه دستهٔ متفاوت، جمعِ بها = جمعِ ورودی‌ها", deposited, taken)
+        s.eq("ارزشِ ردیف پس از خالی‌شدن", 0L, row.value)
+    }
+
+    // فروشِ بیشتر از موجودی نباید ارزشِ منفی بسازد
+    run {
+        val row = StockFact(qty = 2, value = 500)
+        s.eq("برداشتِ بیش از موجودی همهٔ ارزش را می‌برد", 500L, takeValue(row, 5))
+    }
+    return s.results
+}

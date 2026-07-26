@@ -1174,16 +1174,43 @@ class Repo(private val db: AppDatabase) {
         db.finishedStockDao().observeSales()
 
     /** افزودن محصول تولیدشده به انبار با میانگین وزنی بهای تمام‌شده. */
-    suspend fun addFinishedStock(name: String, size: String, qty: Int, avgCostPerPiece: Long) {
+    /**
+     * ورودِ کالا به انبارِ محصول با **مبلغِ کلِ همان دسته**، نه میانگینِ هر عدد.
+     *
+     * قبلاً میانگینِ گردشده گرفته می‌شد و ته‌ماندهٔ تقسیم گم می‌شد؛ چون
+     * ژورنال کلِ بهای تمام‌شده را بدهکار می‌کرد ولی فروش فقط
+     * «تعداد × میانگینِ گردشده» را برمی‌گرداند، حسابِ موجودیِ محصول
+     * حتی با انبارِ خالی هم به صفر برنمی‌گشت.
+     */
+    suspend fun addFinishedStock(name: String, size: String, qty: Int, batchValue: Long) {
         if (qty <= 0) return
         val now = System.currentTimeMillis()
         val cur = db.finishedStockDao().find(name.trim(), size.trim())
             ?: FinishedStock(name = name.trim(), size = size.trim(), qty = 0, updatedAt = now)
         val newQty = cur.qty + qty
-        val newAvg =
-            if (newQty > 0) ((cur.qty * cur.avgCost) + (qty * avgCostPerPiece)) / newQty
-            else 0L
-        db.finishedStockDao().upsert(cur.copy(qty = newQty, avgCost = newAvg, updatedAt = now))
+        val newValue = cur.totalValue + batchValue
+        db.finishedStockDao().upsert(
+            cur.copy(
+                qty = newQty,
+                totalValue = newValue,
+                // میانگین فقط برای نمایش نگه داشته می‌شود
+                avgCost = if (newQty > 0) newValue / newQty else 0L,
+                updatedAt = now
+            )
+        )
+    }
+
+    /**
+     * بهای تمام‌شدهٔ خروجِ [qty] عدد از یک ردیفِ انبار، و ارزشِ باقی‌مانده.
+     *
+     * وقتی آخرین عددها می‌روند، هرچه در ردیف مانده یک‌جا به بهای تمام‌شده
+     * می‌رود — یعنی ارزشِ ردیف دقیقاً صفر می‌شود و هیچ ته‌مانده‌ای در
+     * حسابِ موجودی جا نمی‌ماند.
+     */
+    private fun takeFromStock(item: FinishedStock, qty: Int): Pair<Long, Long> {
+        if (qty >= item.qty) return item.totalValue to 0L
+        val cost = item.totalValue * qty / item.qty
+        return cost to (item.totalValue - cost)
     }
 
     /**
@@ -1193,8 +1220,8 @@ class Repo(private val db: AppDatabase) {
      */
     suspend fun depositOrderToFinished(order: Order) {
         val totalCost = order.fabricPrice + order.workCost + order.sewingCost
-        val perPieceCost = if (order.qty > 0) totalCost / order.qty else 0L
-        addFinishedStock(order.designTitle, order.size, order.qty, perPieceCost)
+        // مبلغِ کامل می‌رود، نه میانگینِ گردشده — همان عددی که ژورنال بدهکار می‌کند
+        addFinishedStock(order.designTitle, order.size, order.qty, totalCost)
         changeOrderStatus(order, OrderStatus.STORED.name)
         // ژورنال: بهای تمام‌شده از «کار در جریان» به «موجودی محصول» می‌رود؛
         // اگر برگشتی از فروش باشد (SENT)، از «بهای تمام‌شدهٔ فروش» برمی‌گردد.
@@ -1293,7 +1320,6 @@ class Repo(private val db: AppDatabase) {
         val unitPrice: Long
     ) {
         val total: Long get() = qty * unitPrice
-        val cost: Long get() = qty * item.avgCost
     }
 
     /**
@@ -1328,19 +1354,42 @@ class Repo(private val db: AppDatabase) {
 
         val now = System.currentTimeMillis()
         val revenue = valid.sumOf { it.total }
-        val cost = valid.sumOf { it.cost }
-        val profit = revenue - cost
         val code = CodeGen.makePurchaseCode().replaceFirst("KH", "FR")
         val customer = customerName.trim()
 
-        // کسرِ موجودی: یک بار برای هر کالا، به اندازهٔ جمعِ ردیف‌هایش
+        // کسرِ موجودی و برداشتِ ارزش: یک بار برای هر کالا، به اندازهٔ جمعِ
+        // ردیف‌هایش. بهای تمام‌شده از ارزشِ واقعیِ ردیف برداشته می‌شود، نه
+        // از میانگینِ گردشده، تا حسابِ موجودی ته‌مانده نگه ندارد.
+        val costPerItem = mutableMapOf<Long, Long>()
         valid.map { it.item }.distinctBy { it.id }.forEach { item ->
             val taken = neededPerItem[item.id] ?: 0
-            db.finishedStockDao().upsert(item.copy(qty = item.qty - taken, updatedAt = now))
+            val (takenValue, leftValue) = takeFromStock(item, taken)
+            costPerItem[item.id] = takenValue
+            val leftQty = item.qty - taken
+            db.finishedStockDao().upsert(
+                item.copy(
+                    qty = leftQty,
+                    totalValue = leftValue,
+                    avgCost = if (leftQty > 0) leftValue / leftQty else 0L,
+                    updatedAt = now
+                )
+            )
         }
+        val cost = costPerItem.values.sum()
+        val profit = revenue - cost
 
-        // هر ردیف سطرِ خودش را دارد، با کدِ مشترکِ فاکتور
+        // هر ردیف سطرِ خودش را دارد، با کدِ مشترکِ فاکتور. بهای تمام‌شدهٔ
+        // برداشته‌شده بینِ ردیف‌های همان کالا پخش می‌شود و ته‌ماندهٔ تقسیم
+        // به آخرین ردیف می‌رود، تا جمعِ سطرها دقیقاً همان `cost` باشد.
+        val remainingCost = costPerItem.toMutableMap()
+        val remainingQty = neededPerItem.toMutableMap()
         valid.forEach { line ->
+            val id = line.item.id
+            val leftQty = remainingQty[id] ?: line.qty
+            val leftCost = remainingCost[id] ?: 0L
+            val lineCost = if (line.qty >= leftQty) leftCost else leftCost * line.qty / leftQty
+            remainingCost[id] = leftCost - lineCost
+            remainingQty[id] = leftQty - line.qty
             db.finishedStockDao().insertSale(
                 FinishedSale(
                     code = code,
@@ -1349,7 +1398,7 @@ class Repo(private val db: AppDatabase) {
                     qty = line.qty,
                     unitPrice = line.unitPrice,
                     total = line.total,
-                    cost = line.cost,
+                    cost = lineCost,
                     customerName = customer
                 )
             )
@@ -1489,7 +1538,7 @@ class Repo(private val db: AppDatabase) {
         val memo = "برگشت $qty عدد «${sale.productName}» از فروش ${sale.code}"
 
         // کالا با همان بهای تمام‌شده به انبار محصول برمی‌گردد
-        addFinishedStock(sale.productName, sale.size, qty, sale.unitCost)
+        addFinishedStock(sale.productName, sale.size, qty, qty * sale.unitCost)
 
         if (refundCash) spend(cashBox, refund, memo, category = "برگشتی فروش")
 

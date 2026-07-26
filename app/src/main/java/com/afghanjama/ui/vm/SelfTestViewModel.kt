@@ -11,6 +11,7 @@ import com.afghanjama.selftest.checkCustomerLedger
 import com.afghanjama.selftest.checkJalali
 import com.afghanjama.selftest.checkMoneySplit
 import com.afghanjama.selftest.checkMultiLineInvoice
+import com.afghanjama.selftest.checkStockValuation
 import com.afghanjama.selftest.checkTailorAttribution
 import com.afghanjama.ui.format.PersianDate
 import kotlinx.coroutines.Dispatchers
@@ -53,6 +54,7 @@ class SelfTestViewModel(private val repo: Repo) : ViewModel() {
                 addAll(checkCustomerLedger())
                 addAll(checkTailorAttribution())
                 addAll(checkMultiLineInvoice())
+                addAll(checkStockValuation())
                 addAll(
                     checkJalali(
                         toJalali = { millis ->
@@ -136,7 +138,20 @@ class SelfTestViewModel(private val repo: Repo) : ViewModel() {
             "${ledger.size} سطر"
         )
 
-        // ۶) موجودیِ انبارها منفی نشده باشد
+        // ۶) حسابِ «موجودی محصول» باید دقیقاً برابرِ ارزشِ واقعیِ انبار باشد
+        val stockValue = repo.auditFinishedStock().sumOf { it.totalValue }
+        val finishedAccount = byAccount[Accounts.FINISHED]?.net ?: 0L
+        if (finishedAccount == 0L && stockValue == 0L) {
+            s.skip("حسابِ موجودی محصول = ارزشِ واقعیِ انبار", "هنوز محصولی وارد انبار نشده")
+        } else {
+            s.eq(
+                "حسابِ موجودی محصول = ارزشِ واقعیِ انبار",
+                stockValue, finishedAccount,
+                "هر دو ${stockValue} ؋"
+            )
+        }
+
+        // ۷) موجودیِ انبارها منفی نشده باشد
         val negFinished = repo.auditFinishedStock().filter { it.qty < 0 }
         s.isTrue(
             "موجودیِ محصول منفی نیست",

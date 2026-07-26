@@ -109,7 +109,7 @@ import com.afghanjama.data.entities.WorkCost
         AuditLog::class,
         SalaryPayment::class
     ],
-    version = 49,
+    version = 50,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -150,7 +150,7 @@ val ALL_MIGRATIONS = arrayOf(
     MIGRATION_35_36, MIGRATION_36_37, MIGRATION_37_38, MIGRATION_38_39,
     MIGRATION_39_40, MIGRATION_40_41, MIGRATION_41_42, MIGRATION_42_43,
     MIGRATION_43_44, MIGRATION_44_45, MIGRATION_45_46, MIGRATION_46_47,
-    MIGRATION_47_48, MIGRATION_48_49
+    MIGRATION_47_48, MIGRATION_48_49, MIGRATION_49_50
 )
 
 const val DB_NAME = "afghanjama.db"
