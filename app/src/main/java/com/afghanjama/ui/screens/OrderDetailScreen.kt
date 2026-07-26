@@ -23,6 +23,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -100,9 +101,11 @@ fun OrderDetailScreen(
     val assignments by vm.assignments.collectAsState()
     val cuttingRecords by vm.cuttingRecords.collectAsState()
     val measurements by vm.measurements.collectAsState()
+    val prepay by vm.prepay.collectAsState()
     val qcRecords by vm.qcRecords.collectAsState()
     val ui by vm.ui.collectAsState()
 
+    var showDeliver by remember { mutableStateOf(false) }
     var showEdit by remember { mutableStateOf(false) }
     var showDelete by remember { mutableStateOf(false) }
 
@@ -112,6 +115,86 @@ fun OrderDetailScreen(
     // بعد از حذف موفق، برگشت به صفحه قبلی
     LaunchedEffect(ui.deleted) {
         if (ui.deleted) onBack()
+    }
+
+    // ---------- دیالوگ تحویل به مشتری ----------
+    if (showDeliver) order?.let { o ->
+        val defaultUnit = if (o.qty > 0 && o.agreedPrice > 0) o.agreedPrice / o.qty else 0L
+        var unitText by remember(o.id) { mutableStateOf(defaultUnit.takeIf { it > 0 }?.toString() ?: "") }
+        var usePrepay by remember(o.id) { mutableStateOf(prepay > 0) }
+        val unit = unitText.toLongOrNull() ?: 0L
+        val total = unit * o.qty
+        val applied = if (usePrepay) prepay.coerceAtMost(total) else 0L
+        var receivedText by remember(o.id) { mutableStateOf("") }
+        // خالی یعنی «باقی‌مانده را کامل نقد گرفتم» — حالتِ عادیِ پیشخوان
+        val received = (receivedText.toLongOrNull() ?: (total - applied))
+            .coerceIn(0L, total - applied)
+        val remaining = total - applied - received
+
+        AlertDialog(
+            onDismissRequest = { showDeliver = false },
+            title = { Text("تحویل به ${o.customerName}") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "${o.qty.fa()} عدد «${o.designTitle}» از انبار محصول کم می‌شود و " +
+                            "سفارش «تحویل شد» می‌گیرد.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = unitText,
+                        onValueChange = { unitText = it.digitsOnly() },
+                        label = { Text("قیمت هر عدد (؋)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        "جمع: ${total.afn()}" +
+                            if (o.agreedPrice > 0 && total != o.agreedPrice)
+                                " • قیمت توافقیِ سفارش: ${o.agreedPrice.afn()}"
+                            else "",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (o.agreedPrice > 0 && total != o.agreedPrice)
+                            MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    if (prepay > 0) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = usePrepay, onCheckedChange = { usePrepay = it })
+                            Text("استفاده از بیعانهٔ ${prepay.afn()}")
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = receivedText,
+                        onValueChange = { receivedText = it.digitsOnly() },
+                        label = { Text("نقدِ دریافتی همین حالا (خالی = همه)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        "از بیعانه ${applied.afn()} • نقد ${received.afn()} • " +
+                            "باقی‌ماندهٔ طلب ${remaining.afn()}",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (remaining > 0) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.primary
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = unit > 0,
+                    onClick = {
+                        vm.deliverToCustomer(unit, received, applied)
+                        showDeliver = false
+                    }
+                ) { Text("تحویل شد") }
+            },
+            dismissButton = { TextButton(onClick = { showDeliver = false }) { Text("لغو") } }
+        )
     }
 
     // ---------- دیالوگ ویرایش مشخصات ----------
@@ -433,12 +516,13 @@ fun OrderDetailScreen(
                 }
             }
 
-            // ---------- راهنمای فروش و برگشتِ فروش ----------
+            // ---------- تحویل به مشتری ----------
             //
-            // فروش دیگر از دلِ سفارش انجام نمی‌شود: سفارشِ تأییدشده در
-            // «نظارت» خودکار وارد انبار محصول می‌شود و فروش و برگشتِ فروش
-            // هر دو از همان‌جا انجام می‌گیرند. این کارت کاربر را به همان
-            // مسیر راهنمایی می‌کند تا دنبالِ دکمهٔ نبوده نگردد.
+            // سفارشِ تأییدشده وارد انبار محصول می‌شود. اگر مشتری داشته
+            // باشد، تحویل از همین‌جا انجام می‌شود — نامش و تعدادش را
+            // می‌دانیم و کسی نباید همان لباس را در انبار پیدا کند و
+            // دوباره به همان آدم «بفروشد». اگر مشتری ندارد (تولید برای
+            // انبار)، فروش از انبارِ محصول درست‌ترین جاست.
             if (canReturnSale && o.status == OrderStatus.STORED.name) {
                 item {
                     Card(
@@ -449,19 +533,75 @@ fun OrderDetailScreen(
                     ) {
                         Column(
                             Modifier.padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Text(
-                                "این سفارش در انبار محصول است",
+                                "این سفارش آمادهٔ تحویل است",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSecondaryContainer
                             )
+                            if (o.customerName.isNotBlank()) {
+                                Button(
+                                    onClick = { vm.lookupPrepay(); showDeliver = true },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(Icons.Default.CheckCircle, contentDescription = null)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("تحویل به ${o.customerName}")
+                                }
+                                Text(
+                                    "برگشتِ فروش از صفحهٔ «فروش از انبار محصول» انجام می‌شود.",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            } else {
+                                Text(
+                                    "این سفارش مشتری ندارد؛ فروش و برگشتِ فروش از صفحهٔ " +
+                                        "«فروش از انبار محصول» انجام می‌شود.",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ---------- رسیدِ تحویل ----------
+            if (o.status == OrderStatus.SENT.name) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        )
+                    ) {
+                        Column(
+                            Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                             Text(
-                                "فروش و برگشتِ فروش از صفحهٔ «فروش از انبار محصول» انجام می‌شود.",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                                "✅ تحویل ${o.customerName.ifBlank { "مشتری" }} شد",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
+                            TextButton(
+                                onClick = {
+                                    val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(
+                                            android.content.Intent.EXTRA_TEXT,
+                                            deliveryReceipt(o, payments.sumOf { it.amount })
+                                        )
+                                    }
+                                    context.startActivity(
+                                        android.content.Intent.createChooser(intent, "اشتراک رسید تحویل")
+                                    )
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("اشتراک رسید تحویل") }
                         }
                     }
                 }
@@ -788,4 +928,29 @@ private fun DetailRow(label: String, value: String) {
             fontWeight = FontWeight.Medium
         )
     }
+}
+
+/**
+ * رسیدِ تحویل — چیزی که مشتری با خودش می‌برد: چه گرفت، چقدر پرداخت شد و
+ * چقدر مانده. عمداً متنِ ساده است تا از هر پیام‌رسانی فرستاده شود.
+ */
+private fun deliveryReceipt(
+    o: com.afghanjama.data.entities.Order,
+    paidTotal: Long
+): String = buildString {
+    appendLine("🧾 رسید تحویل — AfghanJama")
+    appendLine("تاریخ: ${PersianDate.short(System.currentTimeMillis())}")
+    appendLine("مشتری: ${o.customerName}")
+    appendLine("──────────────")
+    appendLine("• ${o.designTitle} — ${o.qty.fa()} عدد • سایز ${o.size}")
+    appendLine("کد سفارش: ${o.orderCode}")
+    if (o.agreedPrice > 0) {
+        appendLine("──────────────")
+        appendLine("مبلغ سفارش: ${o.agreedPrice.afn()}")
+        appendLine("پرداخت‌شده: ${paidTotal.afn()}")
+        val left = (o.agreedPrice - paidTotal).coerceAtLeast(0L)
+        appendLine(if (left > 0) "باقی‌مانده: ${left.afn()}" else "تسویه شد ✅")
+    }
+    appendLine("──────────────")
+    appendLine("از اعتماد شما سپاسگزاریم.")
 }

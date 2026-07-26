@@ -161,4 +161,32 @@ class OrderDetailViewModel(private val repo: Repo) : ViewModel() {
         _ui.update { it.copy(deleted = true) }
     }
 
+    /** بیعانهٔ استفاده‌نشدهٔ مشتریِ همین سفارش — برای پیشنهادِ خودکار در تحویل. */
+    private val _prepay = MutableStateFlow(0L)
+    val prepay: StateFlow<Long> = _prepay
+
+    fun lookupPrepay() = viewModelScope.launch {
+        val name = order.value?.customerName.orEmpty()
+        _prepay.value = if (name.isBlank()) 0L else repo.customerPrepayBalance(name)
+    }
+
+    /**
+     * تحویلِ سفارش به مشتری: فروش + خروج از انبار + وضعیتِ «تحویل شد».
+     * پیغامِ خطا (اگر باشد) همان‌جا روی صفحه نشان داده می‌شود، چون تحویل
+     * لحظه‌ای است که مشتری جلوی پیشخوان ایستاده و باید بداند چه شد.
+     */
+    fun deliverToCustomer(
+        unitPrice: Long,
+        receivedNow: Long,
+        applyPrepay: Long
+    ) = viewModelScope.launch {
+        val o = order.value ?: return@launch
+        val err = repo.deliverOrderToCustomer(o, unitPrice, receivedNow, applyPrepay)
+        _ui.update {
+            if (err == null) it.copy(message = "✅ سفارش تحویل مشتری شد.", isError = false)
+            else it.copy(message = err, isError = true)
+        }
+        if (err == null) _prepay.value = 0L
+    }
+
 }

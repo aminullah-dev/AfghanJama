@@ -1207,6 +1207,56 @@ class Repo(private val db: AppDatabase) {
      * سود به فایده منتقل و سابقهٔ فروش ثبت می‌شود.
      */
     /**
+     * تحویلِ سفارشِ آمادهٔ یک مشتری به خودِ او — آخرین قدمِ چرخهٔ کار.
+     *
+     * تا حالا سفارشِ تأییدشده به موجودیِ بی‌نامِ انبار تبدیل می‌شد و بعد
+     * باید کسی همان لباس را در انبار پیدا می‌کرد و دوباره به همان مشتری
+     * «می‌فروخت»؛ نام و قیمتِ توافقی دو بار تایپ می‌شد و وضعیتِ «تحویل شد»
+     * هیچ‌وقت روی سفارش نمی‌نشست.
+     *
+     * اینجا همان فروش انجام می‌شود، ولی از روی خودِ سفارش: تعداد، مشتری و
+     * قیمت از سفارش می‌آیند و در پایان سفارش «تحویل شد» می‌شود. حساب‌ها
+     * دقیقاً از مسیرِ [sellFinished] می‌گذرند تا هیچ راهِ دومی برای پول
+     * ساخته نشود.
+     *
+     * @return پیغامِ خطا، یا null اگر انجام شد.
+     */
+    suspend fun deliverOrderToCustomer(
+        order: Order,
+        unitPrice: Long,
+        receivedNow: Long,
+        applyPrepay: Long
+    ): String? {
+        if (order.customerName.isBlank())
+            return "این سفارش مشتری ندارد؛ از انبار محصول بفروشید."
+        if (order.status != OrderStatus.STORED.name)
+            return "فقط سفارشی که نظارت را گذرانده و در انبار محصول است تحویل می‌شود."
+        if (unitPrice <= 0) return "قیمت را وارد کنید."
+
+        val item = db.finishedStockDao().find(order.designTitle, order.size)
+            ?: return "این سفارش در انبار محصول پیدا نشد."
+        if (item.qty < order.qty)
+            return "موجودی انبار ${item.qty} عدد است، کمتر از ${order.qty} عددِ این سفارش."
+
+        val ok = sellFinished(
+            item = item,
+            qty = order.qty,
+            unitPrice = unitPrice,
+            customerName = order.customerName,
+            receivedNow = receivedNow,
+            applyPrepay = applyPrepay
+        )
+        if (!ok) return "ثبتِ فروش انجام نشد."
+
+        changeOrderStatus(order, OrderStatus.SENT.name)
+        audit(
+            "تحویل سفارش به مشتری",
+            "${order.orderCode} — ${order.customerName} — ${(unitPrice * order.qty)} ؋"
+        )
+        return null
+    }
+
+    /**
      * پیش‌دریافتِ استفاده‌نشدهٔ یک مشتری — بیعانه‌هایی که گرفته‌ایم منهای
      * آنچه تا حالا روی فروش‌ها اعمال شده. برای پیشنهادِ خودکار در فروش.
      */
@@ -1266,10 +1316,16 @@ class Repo(private val db: AppDatabase) {
 
         if (cashIn > 0) income("WALLET", cashIn, "فروش $qty عدد «${item.name}» ($code)")
         if (prepay > 0 && customerName.isNotBlank()) {
-            // بیعانه مصرف شد — تا دوباره روی فروشِ بعدی پیشنهاد نشود
+            // بیعانه مصرف شد — تا دوباره روی فروشِ بعدی پیشنهاد نشود.
+            //
+            // عمداً بدهکار و بستانکارش برابر است، یعنی ماندهٔ حساب را تکان
+            // نمی‌دهد. بیعانه لحظهٔ گرفتنش یک بار بستانکار شده و صورت‌حسابِ
+            // همین فروش هم کلِ مبلغ را بدهکار می‌کند؛ پس خودِ بیعانه همان‌جا
+            // تسویه می‌شود. اگر این سطر فقط بدهکار می‌بود، بیعانه دو بار از
+            // مشتری گرفته می‌شد و کسی که کامل تسویه کرده باز بدهکار می‌ماند.
             postLedger(
-                "CUSTOMER", customerName, prepay, 0,
-                "PREPAY_APPLIED", code, "اعمال بیعانه روی فروش"
+                "CUSTOMER", customerName, prepay, prepay,
+                "PREPAY_APPLIED", code, "اعمال بیعانه روی فروش (تسویهٔ داخلی)"
             )
         }
         // بدهکارِ فروش در دفتر کل (متقابلِ دریافتی) تا حساب مشتری تراز بماند؛
