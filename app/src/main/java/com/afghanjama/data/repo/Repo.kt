@@ -738,6 +738,23 @@ class Repo(private val db: AppDatabase) {
     fun observeAccountBalancesBetween(from: Long, to: Long): Flow<List<com.afghanjama.data.dao.AccountBalance>> =
         db.journalDao().observeAccountBalancesBetween(from, to)
 
+    // --- فقط-خواندنی، برای خودآزمایی ---
+
+    suspend fun auditEntryTotals(): List<com.afghanjama.data.dao.EntryTotal> =
+        db.journalDao().entryTotals()
+
+    suspend fun auditAccountBalances(): List<com.afghanjama.data.dao.AccountBalance> =
+        db.journalDao().observeAccountBalances().first()
+
+    suspend fun auditLedgerEntries(): List<LedgerEntry> =
+        db.ledgerDao().observeAllEntries().first()
+
+    suspend fun auditFinishedStock(): List<com.afghanjama.data.entities.FinishedStock> =
+        db.finishedStockDao().observeAll().first()
+
+    suspend fun auditMaterialStock(): List<com.afghanjama.data.entities.MaterialStock> =
+        db.materialStockDao().observeAll().first()
+
     fun observeJournalEntries(): Flow<List<JournalEntry>> =
         db.journalDao().observeRecentEntries()
 

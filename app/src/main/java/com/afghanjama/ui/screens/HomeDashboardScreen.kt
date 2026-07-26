@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material.icons.filled.Settings
@@ -56,6 +57,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -109,7 +111,9 @@ fun HomeDashboardScreen(
     onGoAudit: () -> Unit,
     onGoSearch: () -> Unit,
     onGoSettings: () -> Unit,
-    onGoGuide: () -> Unit
+    onGoGuide: () -> Unit,
+    /** موقتی — با حذفِ نوارِ خودآزمایی این پارامتر هم برداشته می‌شود. */
+    onGoSelfTest: () -> Unit
 ) {
     val s by vm.summary.collectAsState()
     val insideNow by vm.insideNow.collectAsState()
@@ -185,6 +189,49 @@ fun HomeDashboardScreen(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        // ---------- موقتی: نوارِ خودآزمایی ----------
+        //
+        // بالای همه‌چیز و تمام‌عرض تا دیده شود، و با رنگی که عمداً جزوِ
+        // پالتِ اپ نیست تا فراموش نشود موقتی است. برای حذف: همین بلوک،
+        // پارامترِ onGoSelfTest، مسیرِ Routes.SELF_TEST و پوشهٔ selftest.
+        item(span = { fullSpan() }) {
+            Card(
+                onClick = onGoSelfTest,
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = SelfTestBannerColor),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Science,
+                        contentDescription = null,
+                        tint = Color.White
+                    )
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "خودآزمایی اپ",
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Text(
+                            "حساب‌ها و دفتر را وارسی می‌کند • چیزی نمی‌نویسد • موقتی",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White.copy(alpha = 0.85f)
+                        )
+                    }
+                    Icon(
+                        Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                        contentDescription = null,
+                        tint = Color.White
+                    )
+                }
+            }
+        }
+
         // ---------- پرداخت و دریافتِ سریع ----------
         if (isManager) {
             item(span = { fullSpan() }) {

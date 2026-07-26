@@ -38,6 +38,9 @@ object Routes {
     const val MASTER = "master"
     const val SETTINGS = "settings"
     const val GUIDE = "guide"
+
+    /** موقتی — با حذفِ خودآزمایی این هم برداشته می‌شود. */
+    const val SELF_TEST = "self_test"
     const val SEARCH = "search"
     const val ORDER_DETAIL = "order_detail"
 }

@@ -8,6 +8,13 @@ import com.afghanjama.data.entities.JournalLine
 import kotlinx.coroutines.flow.Flow
 
 /** جمعِ بدهکار/بستانکارِ یک حسابِ کل. */
+/** جمعِ بدهکار و بستانکارِ یک سندِ ژورنال — برای بررسیِ ترازِ سند به سند. */
+data class EntryTotal(
+    val entryId: Long,
+    val debit: Long,
+    val credit: Long
+)
+
 data class AccountBalance(
     val account: String,
     val debit: Long,
@@ -47,6 +54,13 @@ interface JournalDao {
 
     @Query("SELECT * FROM journal_entries ORDER BY at DESC LIMIT 200")
     fun observeRecentEntries(): Flow<List<JournalEntry>>
+
+    /** فقط برای خودآزمایی: هر سند با جمعِ بدهکار و بستانکارش. */
+    @Query(
+        "SELECT entryId AS entryId, SUM(debit) AS debit, SUM(credit) AS credit " +
+            "FROM journal_lines GROUP BY entryId"
+    )
+    suspend fun entryTotals(): List<EntryTotal>
 
     @Query("SELECT * FROM journal_lines WHERE entryId = :entryId")
     suspend fun linesFor(entryId: Long): List<JournalLine>

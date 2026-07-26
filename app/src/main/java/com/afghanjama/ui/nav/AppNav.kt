@@ -39,6 +39,7 @@ import com.afghanjama.ui.screens.CuttingScreen
 import com.afghanjama.ui.screens.DailyTradeScreen
 import com.afghanjama.ui.screens.DeliveryQueueScreen
 import com.afghanjama.ui.screens.GuideScreen
+import com.afghanjama.ui.screens.SelfTestScreen
 import com.afghanjama.ui.screens.FinishedWarehouseScreen
 import com.afghanjama.ui.screens.HomeDashboardScreen
 import com.afghanjama.ui.screens.OrderDetailScreen
@@ -86,6 +87,7 @@ import com.afghanjama.ui.vm.OrderDetailViewModel
 import com.afghanjama.ui.vm.OrderSearchViewModel
 import com.afghanjama.ui.vm.PayrollViewModel
 import com.afghanjama.ui.vm.DeliveryQueueViewModel
+import com.afghanjama.ui.vm.SelfTestViewModel
 import com.afghanjama.ui.vm.PerformanceViewModel
 import com.afghanjama.ui.vm.PurchasePlanViewModel
 import com.afghanjama.ui.vm.PurchaseReturnViewModel
@@ -175,6 +177,8 @@ fun AppNav(
     payrollVm: PayrollViewModel,
     performanceVm: PerformanceViewModel,
     deliveryQueueVm: DeliveryQueueViewModel,
+    /** موقتی — همراهِ صفحهٔ خودآزمایی حذف می‌شود. */
+    selfTestVm: SelfTestViewModel,
     purchasePlanVm: PurchasePlanViewModel,
     myWorkVm: MyWorkViewModel,
     moneyVm: MoneyMoveViewModel,
@@ -297,7 +301,8 @@ fun AppNav(
                     onGoAudit = { navController.navigate(Routes.AUDIT) },
                     onGoSearch = { navController.navigate(Routes.SEARCH) },
                     onGoSettings = { navController.navigate(Routes.SETTINGS) },
-                    onGoGuide = { navController.navigate(Routes.GUIDE) }
+                    onGoGuide = { navController.navigate(Routes.GUIDE) },
+                    onGoSelfTest = { navController.navigate(Routes.SELF_TEST) }
                 )
             }
 
@@ -332,6 +337,14 @@ fun AppNav(
             composable(Routes.PERFORMANCE) {
                 PerformanceScreen(
                     vm = performanceVm,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            // موقتی — این بلوک را با دکمهٔ داشبورد یک‌جا حذف کنید
+            composable(Routes.SELF_TEST) {
+                SelfTestScreen(
+                    vm = selfTestVm,
                     onBack = { navController.popBackStack() }
                 )
             }
