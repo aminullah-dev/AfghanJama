@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Button
@@ -116,7 +117,7 @@ fun DeliveryQueueScreen(
             if (ui.rows.isEmpty()) {
                 item {
                     EmptyState(
-                        icon = "📭",
+                        icon = Icons.Default.LocalShipping,
                         title = "چیزی منتظرِ تحویل نیست",
                         hint = "سفارشی که نظارت تأییدش کند و مشتری داشته باشد، " +
                             "همین‌جا می‌آید تا فراموش نشود."

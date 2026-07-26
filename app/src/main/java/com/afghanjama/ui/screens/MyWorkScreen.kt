@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.PersonSearch
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -112,7 +114,7 @@ fun MyWorkScreen(
             if (!ui.identified) {
                 item {
                     EmptyState(
-                        icon = "👤",
+                        icon = Icons.Default.PersonSearch,
                         title = "هنوز مشخص نکرده‌اید شما کدام هستید",
                         hint = "یک بار نامتان را انتخاب کنید تا از این به بعد " +
                             "فقط کارِ خودتان را ببینید."
@@ -188,7 +190,7 @@ fun MyWorkScreen(
             if (ui.inProgress.isEmpty()) {
                 item {
                     EmptyState(
-                        icon = "✅",
+                        icon = Icons.Default.CheckCircle,
                         title = "کارِ ناتمامی ندارید",
                         hint = "هر کاری که به شما تحویل داده شود اینجا نشان داده می‌شود."
                     )

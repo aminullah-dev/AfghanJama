@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -130,7 +131,7 @@ fun PurchasePlanScreen(
             if (!ui.hasData) {
                 item {
                     EmptyState(
-                        icon = "📦",
+                        icon = Icons.Default.Inventory2,
                         title = "انبار مواد خالی است",
                         hint = "اول از بخش «خرید مواد» اقلام را وارد کنید تا " +
                             "مصرف‌شان ثبت شود و پیشنهاد خرید ساخته شود."

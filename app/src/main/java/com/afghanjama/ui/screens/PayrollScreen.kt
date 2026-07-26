@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material3.AlertDialog
@@ -241,7 +242,7 @@ fun PayrollScreen(
             if (ui.rows.isEmpty()) {
                 item {
                     EmptyState(
-                        icon = "👥",
+                        icon = Icons.Default.Groups,
                         title = "هنوز کارمندی ثبت نشده",
                         hint = "با دکمهٔ ➕ بالای صفحه کارمند اضافه کنید و حقوقِ " +
                             "ماهانه‌اش را بنویسید تا یادآورِ پرداخت فعال شود."

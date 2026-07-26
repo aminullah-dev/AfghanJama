@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -69,7 +70,7 @@ fun PerformanceScreen(
             if (!ui.hasData) {
                 item {
                     EmptyState(
-                        icon = "🧵",
+                        icon = Icons.Default.ContentCut,
                         title = "هنوز کارنامه‌ای ساخته نشده",
                         hint = "با اولین تحویلِ کار به خیاط و اولین نظارت، " +
                             "کارنامه خودش پر می‌شود — چیزی لازم نیست وارد کنید."

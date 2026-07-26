@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -93,7 +94,7 @@ fun PurchaseReturnScreen(
             if (ui.materials.isEmpty()) {
                 item {
                     EmptyState(
-                        icon = "📦",
+                        icon = Icons.Default.Inventory2,
                         title = "چیزی در انبار نیست که برگردد",
                         hint = "برگشت فقط برای قلمی ممکن است که موجودی داشته باشد."
                     )

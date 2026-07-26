@@ -2,6 +2,20 @@ package com.afghanjama.ui.vm
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.AddShoppingCart
+import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.ContentCut
+import androidx.compose.material.icons.filled.EventBusy
+import androidx.compose.material.icons.filled.HourglassBottom
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.LocalShipping
+import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.WatchLater
+import androidx.compose.ui.graphics.vector.ImageVector
 import com.afghanjama.data.entities.OrderStatus
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.ui.format.PersianDate
@@ -32,7 +46,7 @@ enum class AlertSeverity { URGENT, WARN, INFO }
 data class Alert(
     val id: String,
     val severity: AlertSeverity,
-    val icon: String,
+    val icon: ImageVector,
     val title: String,
     val detail: String,
     val route: String?
@@ -97,7 +111,7 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
                         id = "stuck_orders",
                         severity = if (worstDays >= STAGE_WARN_DAYS * 2) AlertSeverity.URGENT
                         else AlertSeverity.WARN,
-                        icon = "⏳",
+                        icon = Icons.Default.HourglassBottom,
                         title = "${stuck.size.fa()} سفارش در تولید معطل مانده",
                         detail = "قدیمی‌ترین: ${worst.orderCode} — ${worstDays.fa()} روز در ${stageLabel(worst.status)}",
                         route = Routes.PRODUCTION_ORDER
@@ -114,7 +128,7 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
                     Alert(
                         id = "overdue_orders",
                         severity = AlertSeverity.URGENT,
-                        icon = "📅",
+                        icon = Icons.Default.EventBusy,
                         title = "${overdue.size.fa()} سفارش از مهلتِ تحویل گذشته",
                         detail = "بدترین: ${worst.orderCode} — ${dueDaysLate(worst.dueDate, now).fa()} روز تأخیر" +
                             (if (worst.customerName.isNotBlank()) " (${worst.customerName})" else ""),
@@ -129,7 +143,7 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
                     Alert(
                         id = "due_soon_orders",
                         severity = AlertSeverity.WARN,
-                        icon = "⏱",
+                        icon = Icons.Default.Schedule,
                         title = "${dueSoon.size.fa()} سفارش نزدیکِ مهلتِ تحویل",
                         detail = "نزدیک‌ترین: ${next.orderCode} — ${dueDaysLeft(next.dueDate, now).fa()} روز مانده",
                         route = Routes.PRODUCTION_ORDER
@@ -146,7 +160,7 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
                     Alert(
                         id = "low_stock",
                         severity = if (empty > 0) AlertSeverity.URGENT else AlertSeverity.WARN,
-                        icon = "📦",
+                        icon = Icons.Default.Inventory2,
                         title = "${low.size.fa()} قلم مواد رو به اتمام",
                         detail = names + if (low.size > 3) " و ${(low.size - 3).fa()} قلم دیگر" else "",
                         route = Routes.PROCUREMENT
@@ -162,7 +176,7 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
                     Alert(
                         id = "wages",
                         severity = AlertSeverity.WARN,
-                        icon = "🧵",
+                        icon = Icons.Default.ContentCut,
                         title = "کارمزدِ تسویه‌نشدهٔ ${tailors.fa()} خیاط",
                         detail = "جمعاً ${total.afn()}",
                         route = Routes.LEDGER
@@ -178,7 +192,7 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
                     Alert(
                         id = "payable",
                         severity = AlertSeverity.WARN,
-                        icon = "🧾",
+                        icon = Icons.Default.ReceiptLong,
                         title = "بدهی به ${payables.size.fa()} تأمین‌کننده",
                         detail = "جمعاً ${total.afn()}",
                         route = Routes.LEDGER
@@ -196,7 +210,7 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
                     Alert(
                         id = "overtime",
                         severity = AlertSeverity.WARN,
-                        icon = "🕗",
+                        icon = Icons.Default.WatchLater,
                         title = "${overtime.size.fa()} کارمند هنوز خروج نزده",
                         detail = "$names (بیش از ۸ ساعت)",
                         route = Routes.ATTENDANCE
@@ -218,7 +232,7 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
                     Alert(
                         id = "awaiting_delivery",
                         severity = AlertSeverity.WARN,
-                        icon = "📦",
+                        icon = Icons.Default.LocalShipping,
                         title = "${waiting.size.fa()} کارِ آماده را مشتری نبرده",
                         detail = "قدیمی‌ترین: ${worst.customerName} — " +
                             "${stageDays(worst.stageChangedAt, worst.createdAt).fa()} روز در انبار",
@@ -235,7 +249,7 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
                     Alert(
                         id = "receivable",
                         severity = AlertSeverity.INFO,
-                        icon = "💰",
+                        icon = Icons.Default.AccountBalanceWallet,
                         title = "طلب از ${receivables.size.fa()} مشتری",
                         detail = "جمعاً ${total.afn()}",
                         route = Routes.LEDGER
@@ -275,7 +289,7 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
                     Alert(
                         id = "salary_unpaid",
                         severity = AlertSeverity.WARN,
-                        icon = "👛",
+                        icon = Icons.Default.Payments,
                         title = "حقوقِ $label برای ${unpaid.size.fa()} کارمند پرداخت نشده",
                         detail = "باقی‌مانده ${total.afn()} — ${unpaid.take(3).joinToString("، ") { it.name }}",
                         route = Routes.PAYROLL
@@ -305,7 +319,7 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
                     Alert(
                         id = "runout_soon",
                         severity = AlertSeverity.WARN,
-                        icon = "🛒",
+                        icon = Icons.Default.AddShoppingCart,
                         title = "${runningOut.size.fa()} قلم مواد به‌زودی تمام می‌شود",
                         detail = "زودترین: ${soonest.name} — حدود ${(soonest.daysOfCover ?: 0).fa()} روز باقی",
                         route = Routes.PURCHASE_PLAN
@@ -337,7 +351,7 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
                     Alert(
                         id = "backup_never",
                         severity = AlertSeverity.WARN,
-                        icon = "💾",
+                        icon = Icons.Default.CloudOff,
                         title = "هنوز هیچ بکاپی گرفته نشده",
                         detail = "بکاپِ خودکار روزانه است؛ اگر تا فردا چیزی ثبت نشد، " +
                             "از تنظیمات یک بکاپِ دستی بگیرید.",
@@ -348,7 +362,7 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
                     Alert(
                         id = "backup_stale",
                         severity = if (days >= 7) AlertSeverity.URGENT else AlertSeverity.WARN,
-                        icon = "💾",
+                        icon = Icons.Default.CloudOff,
                         title = "بکاپ ${days.fa()} روز است گرفته نشده",
                         detail = "همهٔ اطلاعاتِ کارگاه روی همین گوشی است. " +
                             "از تنظیمات یک بکاپِ دستی بگیرید.",

@@ -11,14 +11,26 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.RocketLaunch
+import androidx.compose.material.icons.filled.ContentCut
+import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Handshake
+import androidx.compose.material.icons.filled.EventAvailable
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.afghanjama.ui.components.AppScreen
@@ -46,7 +58,7 @@ fun GuideScreen(onBack: () -> Unit) {
 
             item {
                 GuideCard(
-                    icon = "🚀",
+                    icon = Icons.Default.RocketLaunch,
                     title = "روزِ اول",
                     lines = listOf(
                         "اطلاعات پایه: خیاط، ناظر، پارچه، رنگ، سایز.",
@@ -59,7 +71,7 @@ fun GuideScreen(onBack: () -> Unit) {
 
             item {
                 GuideCard(
-                    icon = "🧵",
+                    icon = Icons.Default.ContentCut,
                     title = "یک سفارش از اول تا آخر",
                     lines = listOf(
                         "۱. ثبت سفارش — مشتری، طرح، تعداد، پارچه، قیمت، مهلت. بیعانه را همان‌جا ثبت کنید.",
@@ -74,7 +86,7 @@ fun GuideScreen(onBack: () -> Unit) {
 
             item {
                 GuideCard(
-                    icon = "💰",
+                    icon = Icons.Default.Payments,
                     title = "پول کجاست",
                     lines = listOf(
                         "پرداخت به هر کسی → داشبورد، دکمهٔ «پرداخت».",
@@ -88,7 +100,7 @@ fun GuideScreen(onBack: () -> Unit) {
 
             item {
                 GuideCard(
-                    icon = "🤝",
+                    icon = Icons.Default.Handshake,
                     title = "بیعانه و پیش‌پرداخت",
                     lines = listOf(
                         "بیعانه‌ای که پیش از تحویل می‌گیرید بدهیِ شماست، نه درآمد.",
@@ -100,7 +112,7 @@ fun GuideScreen(onBack: () -> Unit) {
 
             item {
                 GuideCard(
-                    icon = "📅",
+                    icon = Icons.Default.EventAvailable,
                     title = "عادت‌های خوب",
                     lines = listOf(
                         "هر روز صبح: «مرکز هشدار». اگر روزی فقط یک صفحه باز می‌کنید، همین باشد.",
@@ -114,7 +126,7 @@ fun GuideScreen(onBack: () -> Unit) {
 
             item {
                 GuideCard(
-                    icon = "❓",
+                    icon = Icons.AutoMirrored.Filled.HelpOutline,
                     title = "چیزهایی که ممکن است گیج‌کننده باشد",
                     lines = listOf(
                         "سفارشِ تأییدشده وارد «انبار محصول» می‌شود چون تا دستِ مشتری نرسیده مالِ کارگاه است. اگر مشتری دارد، از «آمادهٔ تحویل» تحویلش بدهید.",
@@ -126,7 +138,7 @@ fun GuideScreen(onBack: () -> Unit) {
 
             item {
                 GuideCard(
-                    icon = "👤",
+                    icon = Icons.Default.Group,
                     title = "نقش‌ها",
                     lines = listOf(
                         "هر کس فقط چیزی را می‌بیند که به کارش می‌آید.",
@@ -144,7 +156,7 @@ fun GuideScreen(onBack: () -> Unit) {
 
 @Composable
 private fun GuideCard(
-    icon: String,
+    icon: ImageVector,
     title: String,
     lines: List<String>,
     highlight: Boolean = false
@@ -160,8 +172,17 @@ private fun GuideCard(
         else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(icon)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(22.dp),
+                    tint = if (highlight) MaterialTheme.colorScheme.onSecondaryContainer
+                    else MaterialTheme.colorScheme.primary
+                )
                 Text(
                     title,
                     style = MaterialTheme.typography.titleMedium,
