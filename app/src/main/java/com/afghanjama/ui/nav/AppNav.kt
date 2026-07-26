@@ -39,6 +39,7 @@ import com.afghanjama.ui.screens.CuttingScreen
 import com.afghanjama.ui.screens.DailyTradeScreen
 import com.afghanjama.ui.screens.DeliveryQueueScreen
 import com.afghanjama.ui.screens.GuideScreen
+import com.afghanjama.ui.screens.NewSaleScreen
 import com.afghanjama.ui.screens.SelfTestScreen
 import com.afghanjama.ui.screens.FinishedWarehouseScreen
 import com.afghanjama.ui.screens.HomeDashboardScreen
@@ -87,6 +88,7 @@ import com.afghanjama.ui.vm.OrderDetailViewModel
 import com.afghanjama.ui.vm.OrderSearchViewModel
 import com.afghanjama.ui.vm.PayrollViewModel
 import com.afghanjama.ui.vm.DeliveryQueueViewModel
+import com.afghanjama.ui.vm.NewSaleViewModel
 import com.afghanjama.ui.vm.SelfTestViewModel
 import com.afghanjama.ui.vm.PerformanceViewModel
 import com.afghanjama.ui.vm.PurchasePlanViewModel
@@ -177,6 +179,7 @@ fun AppNav(
     payrollVm: PayrollViewModel,
     performanceVm: PerformanceViewModel,
     deliveryQueueVm: DeliveryQueueViewModel,
+    newSaleVm: NewSaleViewModel,
     /** موقتی — همراهِ صفحهٔ خودآزمایی حذف می‌شود. */
     selfTestVm: SelfTestViewModel,
     purchasePlanVm: PurchasePlanViewModel,
@@ -349,6 +352,13 @@ fun AppNav(
                 )
             }
 
+            composable(Routes.NEW_SALE) {
+                NewSaleScreen(
+                    vm = newSaleVm,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
             composable(Routes.GUIDE) {
                 GuideScreen(onBack = { navController.popBackStack() })
             }
@@ -363,7 +373,7 @@ fun AppNav(
             composable(Routes.DAILY_TRADE) {
                 DailyTradeScreen(
                     onGoPurchase = { navController.navigate(Routes.PROCUREMENT) },
-                    onGoSale = { navController.navigate(Routes.FINISHED_SALES) },
+                    onGoSale = { navController.navigate(Routes.NEW_SALE) },
                     onGoPurchaseReturn = { navController.navigate(Routes.PURCHASE_RETURN) },
                     // برگشتِ فروش از روی خودِ فروشِ ثبت‌شده در انبار محصول
                     onGoSaleReturn = { navController.navigate(Routes.FINISHED_SALES) },

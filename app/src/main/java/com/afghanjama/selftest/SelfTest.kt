@@ -258,3 +258,66 @@ fun checkJalali(
     else s.fail("تبدیل رفت‌وبرگشت دقیق است", firstBad!!)
     return s.results
 }
+
+// =====================================================================
+// ۵) فاکتور فروشِ چندردیفی
+// =====================================================================
+
+/** یک ردیفِ فاکتور برای آزمایش: شناسهٔ کالا، موجودی، تعداد و فی. */
+data class LineFact(val itemId: Long, val stock: Int, val qty: Int, val unitPrice: Long)
+
+/** بازتابِ سنجشِ موجودی در `Repo.sellInvoice`. */
+fun invoiceHasEnoughStock(lines: List<LineFact>): Boolean {
+    val valid = lines.filter { it.qty > 0 && it.unitPrice > 0 }
+    if (valid.isEmpty()) return false
+    val needed = valid.groupBy { it.itemId }.mapValues { (_, r) -> r.sumOf { it.qty } }
+    return valid.distinctBy { it.itemId }.all { (needed[it.itemId] ?: 0) <= it.stock }
+}
+
+fun invoiceTotal(lines: List<LineFact>): Long =
+    lines.filter { it.qty > 0 && it.unitPrice > 0 }.sumOf { it.qty * it.unitPrice }
+
+fun checkMultiLineInvoice(): List<CheckResult> {
+    val s = CheckSink("فاکتور چندردیفی")
+
+    val threeDesigns = listOf(
+        LineFact(1, stock = 10, qty = 2, unitPrice = 1_500),
+        LineFact(2, stock = 5, qty = 1, unitPrice = 4_000),
+        LineFact(3, stock = 8, qty = 3, unitPrice = 900)
+    )
+    s.eq("جمعِ فاکتورِ سه‌طرحه", 2 * 1_500L + 4_000L + 3 * 900L, invoiceTotal(threeDesigns))
+    s.isTrue("سه طرحِ مختلف در یک فاکتور", invoiceHasEnoughStock(threeDesigns),
+        "با وجودِ موجودیِ کافی رد شد")
+
+    // ردیفِ ناقص نباید کلِ فاکتور را از کار بیندازد، فقط خودش کنار می‌رود
+    val withBlank = threeDesigns + LineFact(4, stock = 3, qty = 0, unitPrice = 0)
+    s.eq("ردیفِ ناقص در جمع نمی‌آید", invoiceTotal(threeDesigns), invoiceTotal(withBlank))
+    s.isTrue("ردیفِ ناقص فاکتور را باطل نمی‌کند", invoiceHasEnoughStock(withBlank),
+        "فاکتورِ درست به‌خاطرِ یک ردیفِ خالی رد شد")
+
+    // مهم‌ترین حالت: دو ردیف از یک کالا با هم نباید از موجودی بیشتر شوند
+    val sameItemTwice = listOf(
+        LineFact(7, stock = 5, qty = 3, unitPrice = 1_000),
+        LineFact(7, stock = 5, qty = 3, unitPrice = 1_000)
+    )
+    s.isTrue(
+        "دو ردیف از یک کالا با هم سنجیده می‌شوند",
+        !invoiceHasEnoughStock(sameItemTwice),
+        "۶ عدد از موجودیِ ۵ عددی فروخته شد — موجودی منفی می‌شد"
+    )
+    val sameItemOk = listOf(
+        LineFact(7, stock = 5, qty = 3, unitPrice = 1_000),
+        LineFact(7, stock = 5, qty = 2, unitPrice = 1_200)
+    )
+    s.isTrue("دو ردیف از یک کالا تا سقفِ موجودی مجاز است",
+        invoiceHasEnoughStock(sameItemOk), "۵ عدد از موجودیِ ۵ عددی رد شد")
+
+    s.isTrue("فاکتورِ خالی ثبت نمی‌شود", !invoiceHasEnoughStock(emptyList()),
+        "فاکتورِ بی‌ردیف پذیرفته شد")
+
+    // پولِ فاکتورِ چندردیفی هم باید مثلِ تک‌ردیفی تفکیک شود
+    val total = invoiceTotal(threeDesigns)
+    val split = splitSaleMoney(total, receivedNow = 3_000, applyPrepay = 2_000)
+    s.eq("تفکیکِ پول روی جمعِ کلِ فاکتور", total, split.prepay + split.cash + split.credit)
+    return s.results
+}

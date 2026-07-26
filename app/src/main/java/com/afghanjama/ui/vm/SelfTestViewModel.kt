@@ -10,6 +10,7 @@ import com.afghanjama.selftest.CheckStatus
 import com.afghanjama.selftest.checkCustomerLedger
 import com.afghanjama.selftest.checkJalali
 import com.afghanjama.selftest.checkMoneySplit
+import com.afghanjama.selftest.checkMultiLineInvoice
 import com.afghanjama.selftest.checkTailorAttribution
 import com.afghanjama.ui.format.PersianDate
 import kotlinx.coroutines.Dispatchers
@@ -51,6 +52,7 @@ class SelfTestViewModel(private val repo: Repo) : ViewModel() {
                 addAll(checkMoneySplit())
                 addAll(checkCustomerLedger())
                 addAll(checkTailorAttribution())
+                addAll(checkMultiLineInvoice())
                 addAll(
                     checkJalali(
                         toJalali = { millis ->

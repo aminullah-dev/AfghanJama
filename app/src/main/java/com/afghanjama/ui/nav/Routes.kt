@@ -24,6 +24,7 @@ object Routes {
     const val RECEIVE = "receive"
     const val DAILY_TRADE = "daily_trade"
     const val PURCHASE_RETURN = "purchase_return"
+    const val NEW_SALE = "new_sale"
     const val DELIVERY_QUEUE = "delivery_queue"
 
     const val CUTTING = "cutting"

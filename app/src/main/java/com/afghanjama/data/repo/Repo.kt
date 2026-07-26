@@ -1286,43 +1286,74 @@ class Repo(private val db: AppDatabase) {
         return (paid - used).coerceAtLeast(0L)
     }
 
+    /** یک ردیفِ فاکتور فروش: کدام کالا، چند عدد، به چه قیمتی. */
+    data class SaleLine(
+        val item: FinishedStock,
+        val qty: Int,
+        val unitPrice: Long
+    ) {
+        val total: Long get() = qty * unitPrice
+        val cost: Long get() = qty * item.avgCost
+    }
+
     /**
-     * فروش از انبارِ محصول.
+     * فاکتور فروش با هر تعداد ردیف.
      *
-     * [receivedNow] پولی است که همین حالا نقد گرفته می‌شود و [applyPrepay]
-     * بخشی از بیعانهٔ قبلیِ همین مشتری است که روی این فروش اعمال می‌شود.
-     * باقی‌مانده طلبِ ما از مشتری است. با این تفکیک، بیعانه دیگر دوبار
-     * شمرده نمی‌شود: یک بار موقعِ گرفتن، یک بار موقعِ فروش.
+     * یک فاکتور می‌تواند چند طرحِ متفاوت داشته باشد — همان‌طور که در
+     * دنیای واقعی مشتری یک پیراهن و دو واسکت با هم می‌خرد. همهٔ ردیف‌ها
+     * یک `code` مشترک می‌گیرند، پس یک فاکتورند؛ ولی هر ردیف سطرِ خودش را
+     * در `finished_sales` دارد تا برگشت از فروش بتواند فقط همان ردیف را
+     * برگرداند.
+     *
+     * پول یک بار روی جمعِ کلِ فاکتور تفکیک می‌شود (بیعانه/نقد/نسیه)، یک
+     * سندِ ژورنال و یک فاکتور ساخته می‌شود — نه یکی برای هر ردیف.
+     *
+     * [receivedNow] = -1 یعنی «همه نقد».
      */
-    suspend fun sellFinished(
-        item: FinishedStock,
-        qty: Int,
-        unitPrice: Long,
+    suspend fun sellInvoice(
+        lines: List<SaleLine>,
         customerName: String,
         receivedNow: Long = -1L,
         applyPrepay: Long = 0L
     ): Boolean {
-        if (qty <= 0 || qty > item.qty || unitPrice <= 0) return false
+        val valid = lines.filter { it.qty > 0 && it.unitPrice > 0 }
+        if (valid.isEmpty()) return false
+        // موجودی را برای ردیف‌های تکراریِ یک کالا هم با هم می‌سنجیم،
+        // وگرنه دو ردیف از یک طرح می‌توانستند بیشتر از موجودی بفروشند.
+        val neededPerItem = valid.groupBy { it.item.id }
+            .mapValues { (_, rows) -> rows.sumOf { it.qty } }
+        valid.map { it.item }.distinctBy { it.id }.forEach { item ->
+            if ((neededPerItem[item.id] ?: 0) > item.qty) return false
+        }
+
         val now = System.currentTimeMillis()
-        val revenue = qty * unitPrice
-        val cost = qty * item.avgCost
+        val revenue = valid.sumOf { it.total }
+        val cost = valid.sumOf { it.cost }
         val profit = revenue - cost
-
-        db.finishedStockDao().upsert(item.copy(qty = item.qty - qty, updatedAt = now))
-
         val code = CodeGen.makePurchaseCode().replaceFirst("KH", "FR")
-        db.finishedStockDao().insertSale(
-            FinishedSale(
-                code = code,
-                productName = item.name,
-                size = item.size,
-                qty = qty,
-                unitPrice = unitPrice,
-                total = revenue,
-                cost = cost,
-                customerName = customerName.trim()
+        val customer = customerName.trim()
+
+        // کسرِ موجودی: یک بار برای هر کالا، به اندازهٔ جمعِ ردیف‌هایش
+        valid.map { it.item }.distinctBy { it.id }.forEach { item ->
+            val taken = neededPerItem[item.id] ?: 0
+            db.finishedStockDao().upsert(item.copy(qty = item.qty - taken, updatedAt = now))
+        }
+
+        // هر ردیف سطرِ خودش را دارد، با کدِ مشترکِ فاکتور
+        valid.forEach { line ->
+            db.finishedStockDao().insertSale(
+                FinishedSale(
+                    code = code,
+                    productName = line.item.name,
+                    size = line.item.size,
+                    qty = line.qty,
+                    unitPrice = line.unitPrice,
+                    total = line.total,
+                    cost = line.cost,
+                    customerName = customer
+                )
             )
-        )
+        }
 
         // تفکیکِ پول: نقدِ همین حالا + بیعانهٔ اعمال‌شده + باقی‌ماندهٔ طلب.
         // receivedNow = -1 یعنی صداکنندهٔ قدیمی چیزی نگفته → همه نقد.
@@ -1331,8 +1362,11 @@ class Repo(private val db: AppDatabase) {
             .coerceIn(0L, revenue - prepay)
         val onCredit = revenue - prepay - cashIn
 
-        if (cashIn > 0) income("WALLET", cashIn, "فروش $qty عدد «${item.name}» ($code)")
-        if (prepay > 0 && customerName.isNotBlank()) {
+        val what = if (valid.size == 1) "«${valid.first().item.name}»"
+        else "${valid.size} قلم کالا"
+
+        if (cashIn > 0) income("WALLET", cashIn, "فروش $what ($code)")
+        if (prepay > 0 && customer.isNotBlank()) {
             // بیعانه مصرف شد — تا دوباره روی فروشِ بعدی پیشنهاد نشود.
             //
             // عمداً بدهکار و بستانکارش برابر است، یعنی ماندهٔ حساب را تکان
@@ -1341,23 +1375,23 @@ class Repo(private val db: AppDatabase) {
             // تسویه می‌شود. اگر این سطر فقط بدهکار می‌بود، بیعانه دو بار از
             // مشتری گرفته می‌شد و کسی که کامل تسویه کرده باز بدهکار می‌ماند.
             postLedger(
-                "CUSTOMER", customerName, prepay, prepay,
+                "CUSTOMER", customer, prepay, prepay,
                 "PREPAY_APPLIED", code, "اعمال بیعانه روی فروش (تسویهٔ داخلی)"
             )
         }
         // بدهکارِ فروش در دفتر کل (متقابلِ دریافتی) تا حساب مشتری تراز بماند؛
         // فروشِ بی‌نام طرفِ حساب ندارد و آینه نمی‌شود (دریافتی‌اش هم نمی‌شود).
-        if (customerName.isNotBlank()) {
-            postLedger("CUSTOMER", customerName, revenue, 0, "SALE_BILLING", code, "فروش از انبار")
+        if (customer.isNotBlank()) {
+            postLedger("CUSTOMER", customer, revenue, 0, "SALE_BILLING", code, "فروش از انبار")
         }
         if (cashIn > 0) {
             addCustomerPayment(
                 CustomerPayment(
                     orderId = "FINISHED",
-                    customerName = customerName.trim(),
+                    customerName = customer,
                     amount = cashIn,
                     source = "SALE",
-                    note = "فروش $qty عدد «${item.name}» از انبار محصول"
+                    note = "فروش $what از انبار محصول"
                 )
             )
         }
@@ -1365,18 +1399,15 @@ class Repo(private val db: AppDatabase) {
         // وگرنه صندوق برای پولی که هنوز نرسیده خالی می‌شد.
         val profitMove = profit.coerceAtMost(cashIn).coerceAtLeast(0L)
         if (profitMove > 0L) {
-            spend("WALLET", profitMove, "انتقال سود فروش «${item.name}» به فایده")
-            income("PROFIT", profitMove, "سود فروش «${item.name}»")
+            spend("WALLET", profitMove, "انتقال سود فروش $what به فایده")
+            income("PROFIT", profitMove, "سود فروش $what")
         }
         // فاکتور فروش
-        createDocument(
-            "SALE", customerName, revenue, code,
-            "فروش $qty عدد «${item.name}»"
-        )
-        audit("فروش از انبار", "$code — $revenue ؋")
+        createDocument("SALE", customer, revenue, code, "فروش $what")
+        audit("فروش از انبار", "$code — $revenue ؋ — ${valid.size} ردیف")
         // ژورنال: درآمدِ فروش + خروجِ بهای تمام‌شده + انتقالِ سود به صندوق فایده
         postJournal(
-            "فروش «${item.name}» ($code)", "SALE", code,
+            "فروش $what ($code)", "SALE", code,
             listOf(
                 jl(Accounts.CASH, debit = cashIn),
                 // بیعانه‌ای که قبلاً بدهیِ ما بود، حالا با تحویلِ کالا آزاد می‌شود
@@ -1398,6 +1429,27 @@ class Repo(private val db: AppDatabase) {
             )
         }
         return true
+    }
+
+    /**
+     * فروشِ تک‌ردیفی — پوستهٔ نازکی روی [sellInvoice] تا صفحه‌های موجود
+     * دست‌نخورده کار کنند و هرگز دو مسیرِ جدا برای پول وجود نداشته باشد.
+     */
+    suspend fun sellFinished(
+        item: FinishedStock,
+        qty: Int,
+        unitPrice: Long,
+        customerName: String,
+        receivedNow: Long = -1L,
+        applyPrepay: Long = 0L
+    ): Boolean {
+        if (qty <= 0 || qty > item.qty || unitPrice <= 0) return false
+        return sellInvoice(
+            lines = listOf(SaleLine(item, qty, unitPrice)),
+            customerName = customerName,
+            receivedNow = receivedNow,
+            applyPrepay = applyPrepay
+        )
     }
 
     /**
