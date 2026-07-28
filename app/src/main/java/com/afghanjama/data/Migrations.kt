@@ -645,21 +645,23 @@ val MIGRATION_47_48 = object : Migration(47, 48) {
 }
 
 /**
- * اصلاحِ سطرهای «اعمال بیعانه» که فقط بدهکار ثبت شده بودند. بیعانه لحظهٔ
- * گرفتنش بستانکار شده و صورت‌حسابِ فروش هم کلِ مبلغ را بدهکار می‌کند، پس
- * این سطر باید خنثی باشد؛ بدهکارِ تنها یعنی بیعانه دو بار از مشتری گرفته
- * شده و مشتریِ تسویه‌کرده بدهکار مانده است.
+ * عکس‌های سفارش (طرح، پارچه، نمونهٔ مشتری). فقط یک جدولِ تازه است.
  */
-/**
- * ارزشِ دقیقِ موجودیِ محصول. مقدارِ اولیه از همان چیزی ساخته می‌شود که
- * تا امروز داشته‌ایم (تعداد × میانگین)؛ از این به بعد دیگر گرد نمی‌شود.
- */
-/**
- * وقت‌های نان و چای. فقط یک جدولِ تازه است — هیچ جدولِ موجودی دست نمی‌خورد.
- */
-/**
- * صندوقِ درخواست‌های گوشی‌های کارگران. فقط یک جدولِ تازه است.
- */
+val MIGRATION_53_54 = object : Migration(53, 54) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `order_photos` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`orderId` TEXT NOT NULL, " +
+                "`orderCode` TEXT NOT NULL, " +
+                "`fileName` TEXT NOT NULL, " +
+                "`note` TEXT NOT NULL DEFAULT '', " +
+                "`createdAt` INTEGER NOT NULL)"
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_order_photos_orderId` ON `order_photos` (`orderId`)")
+    }
+}
+
 /** تحویلِ تکه‌تکه: چند عدد از سفارش تا حالا رفته. */
 val MIGRATION_52_53 = object : Migration(52, 53) {
     override fun migrate(db: SupportSQLiteDatabase) {
@@ -669,6 +671,9 @@ val MIGRATION_52_53 = object : Migration(52, 53) {
     }
 }
 
+/**
+ * صندوقِ درخواست‌های گوشی‌های کارگران. فقط یک جدولِ تازه است.
+ */
 val MIGRATION_51_52 = object : Migration(51, 52) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(
@@ -690,6 +695,9 @@ val MIGRATION_51_52 = object : Migration(51, 52) {
     }
 }
 
+/**
+ * وقت‌های نان و چای. فقط یک جدولِ تازه است — هیچ جدولِ موجودی دست نمی‌خورد.
+ */
 val MIGRATION_50_51 = object : Migration(50, 51) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(
@@ -704,6 +712,10 @@ val MIGRATION_50_51 = object : Migration(50, 51) {
     }
 }
 
+/**
+ * ارزشِ دقیقِ موجودیِ محصول. مقدارِ اولیه از همان چیزی ساخته می‌شود که
+ * تا امروز داشته‌ایم (تعداد × میانگین)؛ از این به بعد دیگر گرد نمی‌شود.
+ */
 val MIGRATION_49_50 = object : Migration(49, 50) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE `finished_stock` ADD COLUMN `totalValue` INTEGER NOT NULL DEFAULT 0")
@@ -711,6 +723,12 @@ val MIGRATION_49_50 = object : Migration(49, 50) {
     }
 }
 
+/**
+ * اصلاحِ سطرهای «اعمال بیعانه» که فقط بدهکار ثبت شده بودند. بیعانه لحظهٔ
+ * گرفتنش بستانکار شده و صورت‌حسابِ فروش هم کلِ مبلغ را بدهکار می‌کند، پس
+ * این سطر باید خنثی باشد؛ بدهکارِ تنها یعنی بیعانه دو بار از مشتری گرفته
+ * شده و مشتریِ تسویه‌کرده بدهکار مانده است.
+ */
 val MIGRATION_48_49 = object : Migration(48, 49) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(

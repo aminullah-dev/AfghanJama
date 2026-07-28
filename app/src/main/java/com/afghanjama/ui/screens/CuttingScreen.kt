@@ -56,6 +56,7 @@ import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import com.afghanjama.data.entities.Order
 import com.afghanjama.ui.components.MeasurementsBlock
+import com.afghanjama.ui.components.OrderPhotoStrip
 import com.afghanjama.ui.format.STAGE_WARN_DAYS
 import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.format.fa
@@ -73,6 +74,7 @@ fun CuttingScreen(
     val orders by vm.ordersCutting.collectAsState(initial = emptyList())
     val cutters by vm.cutters.collectAsState(initial = emptyList())
     val measurements by vm.measurements.collectAsState(initial = emptyMap())
+    val photos by vm.photos.collectAsState(initial = emptyMap())
 
     var cutTarget by remember { mutableStateOf<Order?>(null) }
     var scanMsg by remember { mutableStateOf<String?>(null) }
@@ -179,6 +181,19 @@ fun CuttingScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.verticalScroll(rememberScrollState())
                 ) {
+                    // عکسِ طرح اول از همه — برشکار قبل از عدد، شکل را می‌خواهد
+                    val orderPhotos = photos[o.id.toString()].orEmpty()
+                    if (orderPhotos.isNotEmpty()) {
+                        OrderPhotoStrip(
+                            photos = orderPhotos,
+                            canEdit = false,
+                            onCaptured = {},
+                            onDelete = {},
+                            title = "عکس طرح"
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    }
+
                     // اندازه‌ها قبل از هر کادرِ دیگری، چون برش با همین‌ها زده می‌شود
                     MeasurementsBlock(
                         items = measurements[o.customerName.trim()].orEmpty()

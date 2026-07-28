@@ -6,6 +6,7 @@ import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.OrderStatus
 import com.afghanjama.data.repo.Repo
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -32,6 +33,12 @@ class CuttingViewModel(private val repo: Repo) : ViewModel() {
      */
     val measurements: StateFlow<Map<String, List<com.afghanjama.data.dao.NamedMeasurement>>> =
         repo.observeMeasurementsByCustomer()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    /** عکس‌های هر سفارش، کلید: شناسهٔ سفارش — برشکار طرح را می‌بیند نه فقط نامش. */
+    val photos: StateFlow<Map<String, List<com.afghanjama.data.entities.OrderPhoto>>> =
+        repo.observeAllOrderPhotos()
+            .map { rows -> rows.groupBy { it.orderId } }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     /** ثبت رکورد برش (مسئول/تعداد/ضایعات) و انتقال به «برش تمام». */

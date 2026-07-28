@@ -4,6 +4,9 @@ import android.app.Application
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import com.afghanjama.data.buildAppDatabase
+import com.afghanjama.data.repo.Repo
+import com.afghanjama.util.PhotoStore
 import com.afghanjama.work.AutoBackupWorker
 import com.afghanjama.work.BreakReminderWorker
 import com.afghanjama.work.LowStockWorker
@@ -55,6 +58,19 @@ class App : Application() {
         // تا خاموش‌بودنِ گوشی یا ری‌استارت چیزی را از بین نبرد.
         CoroutineScope(Dispatchers.IO).launch {
             runCatching { BreakReminderWorker.rescheduleAll(this@App) }
+            // عکس‌های بی‌صاحب را جارو می‌کنیم: سفارشِ حذف‌شده، عکسِ نیمه‌کاره،
+            // یا بازیابیِ پشتیبانی که سطرش را نداشته. یک جا برای همهٔ حالت‌ها.
+            runCatching {
+                val db = buildAppDatabase(this@App)
+                try {
+                    val live = Repo(db).livePhotoFileNames()
+                    PhotoStore.dir(this@App).listFiles()?.forEach {
+                        if (it.name !in live) it.delete()
+                    }
+                } finally {
+                    db.close()
+                }
+            }
         }
     }
 }

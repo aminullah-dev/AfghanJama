@@ -51,6 +51,8 @@ import com.afghanjama.data.entities.FabricUnit
 import com.afghanjama.data.entities.OrderStatus
 import com.afghanjama.ui.components.DeliverDialog
 import com.afghanjama.ui.components.MeasurementsBlock
+import com.afghanjama.ui.components.OrderPhotoStrip
+import com.afghanjama.util.PhotoStore
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.digitsOnly
@@ -101,6 +103,7 @@ fun OrderDetailScreen(
     val assignments by vm.assignments.collectAsState()
     val cuttingRecords by vm.cuttingRecords.collectAsState()
     val measurements by vm.measurements.collectAsState()
+    val photos by vm.photos.collectAsState()
     val prepay by vm.prepay.collectAsState()
     val stockAvailable by vm.stockAvailable.collectAsState()
     val qcRecords by vm.qcRecords.collectAsState()
@@ -694,6 +697,25 @@ fun OrderDetailScreen(
                                 }
                             }
                         }
+                    }
+                }
+            }
+
+            // ---------- عکس‌های سفارش ----------
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                ) {
+                    Column(Modifier.padding(14.dp)) {
+                        OrderPhotoStrip(
+                            photos = photos,
+                            canEdit = canEdit,
+                            onCaptured = { vm.addPhoto(it) },
+                            onDelete = { p -> vm.deletePhoto(p) { PhotoStore.delete(context, it) } }
+                        )
                     }
                 }
             }

@@ -262,6 +262,7 @@ class Repo(private val db: AppDatabase) {
      * پیش از برش) چیزی برنمی‌گردد چون چیزی از انبار کم نشده بود.
      */
     suspend fun deleteOrderWithStockReturn(order: Order) {
+        db.orderPhotoDao().deleteForOrder(order.id.toString())
         if (order.materialsConsumed) {
             val allRows = db.orderFabricDao().listForOrder(order.id.toString())
             // پارچه‌های «از موجودی» با نام «نوع رنگ» به انبار مواد برمی‌گردند
@@ -1860,6 +1861,45 @@ class Repo(private val db: AppDatabase) {
             )
         )
         audit("رد درخواست کارگر", "${r.worker} — ${r.summary}")
+    }
+
+    // =========================
+    // عکس‌های سفارش
+    // =========================
+
+    fun observeOrderPhotos(orderId: String): Flow<List<com.afghanjama.data.entities.OrderPhoto>> =
+        db.orderPhotoDao().observeForOrder(orderId)
+
+    fun observeAllOrderPhotos(): Flow<List<com.afghanjama.data.entities.OrderPhoto>> =
+        db.orderPhotoDao().observeAll()
+
+    /** نامِ همهٔ عکس‌هایی که هنوز صاحب دارند — برای جاروی فایل‌های یتیم. */
+    suspend fun livePhotoFileNames(): Set<String> =
+        db.orderPhotoDao().observeAll().first().map { it.fileName }.toSet()
+
+    suspend fun addOrderPhoto(order: Order, fileName: String, note: String = "") {
+        db.orderPhotoDao().insert(
+            com.afghanjama.data.entities.OrderPhoto(
+                orderId = order.id.toString(),
+                orderCode = order.orderCode,
+                fileName = fileName,
+                note = note.trim()
+            )
+        )
+        audit("افزودن عکس به سفارش", order.orderCode)
+    }
+
+    /**
+     * حذفِ عکس. فایل را هم پاک می‌کند، وگرنه پوشهٔ اپ پر از عکسِ بی‌صاحب
+     * می‌شود — روی گوشیِ ارزانِ کارگاه این خیلی زود دیده می‌شود.
+     */
+    suspend fun deleteOrderPhoto(
+        photo: com.afghanjama.data.entities.OrderPhoto,
+        deleteFile: (String) -> Unit
+    ) {
+        db.orderPhotoDao().delete(photo)
+        deleteFile(photo.fileName)
+        audit("حذف عکس سفارش", photo.orderCode)
     }
 
     // =========================

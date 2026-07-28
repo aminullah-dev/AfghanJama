@@ -58,6 +58,23 @@ class OrderDetailViewModel(private val repo: Repo) : ViewModel() {
                 .map { it.label to it.value }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    val photos: StateFlow<List<com.afghanjama.data.entities.OrderPhoto>> =
+        orderId.filterNotNull()
+            .flatMapLatest { repo.observeOrderPhotos(it.toString()) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun addPhoto(fileName: String) = viewModelScope.launch {
+        val o = order.value ?: return@launch
+        repo.addOrderPhoto(o, fileName)
+    }
+
+    fun deletePhoto(
+        photo: com.afghanjama.data.entities.OrderPhoto,
+        deleteFile: (String) -> Unit
+    ) = viewModelScope.launch {
+        repo.deleteOrderPhoto(photo, deleteFile)
+    }
+
     val qcRecords: StateFlow<List<com.afghanjama.data.entities.QcRecord>> =
         orderId.filterNotNull()
             .flatMapLatest { repo.observeQcForOrder(it.toString()) }
