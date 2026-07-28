@@ -5,9 +5,9 @@ import com.afghanjama.data.buildAppDatabase
 import com.afghanjama.data.entities.SyncRequest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.json.JSONArray
@@ -158,9 +158,8 @@ class LanServer(private val context: Context) {
         }
         val db = buildAppDatabase(context)
         try {
-            val mine = db.sewingAssignmentDao().observeAll().let { flow ->
-                kotlinx.coroutines.flow.first(flow)
-            }.filter { it.tailorLabel.trim() == name }
+            val mine = db.sewingAssignmentDao().observeAll().first()
+                .filter { it.tailorLabel.trim() == name }
 
             val items = JSONArray()
             mine.filter { it.status != "DONE" }.forEach { a ->
@@ -193,10 +192,8 @@ class LanServer(private val context: Context) {
     private suspend fun serveBoard(client: Socket) {
         val db = buildAppDatabase(context)
         try {
-            val assignments = kotlinx.coroutines.flow.first(
-                db.sewingAssignmentDao().observeInProgress()
-            )
-            val orders = kotlinx.coroutines.flow.first(db.orderDao().observeAll())
+            val assignments = db.sewingAssignmentDao().observeInProgress().first()
+            val orders = db.orderDao().observeAll().first()
             val byCode = orders.associateBy { it.orderCode }
             val now = System.currentTimeMillis()
 
