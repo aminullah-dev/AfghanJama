@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Warehouse
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -112,6 +113,7 @@ fun HomeDashboardScreen(
     onGoSearch: () -> Unit,
     onGoSettings: () -> Unit,
     onGoGuide: () -> Unit,
+    onGoWorkshopLink: () -> Unit,
     /** موقتی — با حذفِ نوارِ خودآزمایی این پارامتر هم برداشته می‌شود. */
     onGoSelfTest: () -> Unit
 ) {
@@ -174,6 +176,7 @@ fun HomeDashboardScreen(
         add(HomeAction("جستجو", Icons.Default.Search, onGoSearch))
         add(HomeAction("تنظیمات", Icons.Default.Settings, onGoSettings))
         add(HomeAction("راهنما", Icons.AutoMirrored.Filled.HelpOutline, onGoGuide))
+        add(HomeAction("اشتراک کارگاه", Icons.Default.Wifi, onGoWorkshopLink))
     }
 
     val sections = listOf(

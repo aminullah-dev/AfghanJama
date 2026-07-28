@@ -657,6 +657,30 @@ val MIGRATION_47_48 = object : Migration(47, 48) {
 /**
  * وقت‌های نان و چای. فقط یک جدولِ تازه است — هیچ جدولِ موجودی دست نمی‌خورد.
  */
+/**
+ * صندوقِ درخواست‌های گوشی‌های کارگران. فقط یک جدولِ تازه است.
+ */
+val MIGRATION_51_52 = object : Migration(51, 52) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `sync_requests` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`deviceName` TEXT NOT NULL, " +
+                "`worker` TEXT NOT NULL, " +
+                "`type` TEXT NOT NULL, " +
+                "`summary` TEXT NOT NULL, " +
+                "`refId` INTEGER NOT NULL DEFAULT 0, " +
+                "`amount` INTEGER NOT NULL DEFAULT 0, " +
+                "`note` TEXT NOT NULL DEFAULT '', " +
+                "`status` TEXT NOT NULL DEFAULT 'PENDING', " +
+                "`createdAt` INTEGER NOT NULL, " +
+                "`decidedAt` INTEGER, " +
+                "`decidedNote` TEXT NOT NULL DEFAULT '')"
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_sync_requests_status` ON `sync_requests` (`status`)")
+    }
+}
+
 val MIGRATION_50_51 = object : Migration(50, 51) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(

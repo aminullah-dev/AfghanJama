@@ -1781,6 +1781,67 @@ class Repo(private val db: AppDatabase) {
     }
 
     // =========================
+    // صندوقِ درخواست‌های گوشی‌های کارگران (مدلِ «یک نویسنده»)
+    // =========================
+
+    fun observePendingRequests(): Flow<List<com.afghanjama.data.entities.SyncRequest>> =
+        db.syncRequestDao().observePending()
+
+    fun observeAllRequests(): Flow<List<com.afghanjama.data.entities.SyncRequest>> =
+        db.syncRequestDao().observeAll()
+
+    fun observePendingRequestCount(): Flow<Int> =
+        db.syncRequestDao().observePendingCount()
+
+    /**
+     * تأییدِ یک درخواست — تنها جایی که کارِ رسیده از شبکه واقعاً ثبت
+     * می‌شود، و از همان توابعِ همیشگی می‌گذرد. هیچ مسیرِ میان‌بری برای
+     * دادهٔ شبکه ساخته نشده است.
+     *
+     * @return پیغامِ خطا، یا null اگر انجام شد.
+     */
+    suspend fun approveRequest(id: Long, note: String = ""): String? {
+        val r = db.syncRequestDao().getById(id) ?: return "درخواست پیدا نشد."
+        if (r.status != "PENDING") return "این درخواست قبلاً رسیدگی شده."
+
+        when (r.type) {
+            "SEWING_DONE" -> {
+                val a = db.sewingAssignmentDao().getById(r.refId)
+                    ?: return "تحویلِ مرتبط پیدا نشد؛ شاید لغو شده باشد."
+                if (a.status == "DONE") return "این کار قبلاً تحویل شده."
+                completeAssignment(a.id, deliveredQty = r.amount.takeIf { it > 0 })
+            }
+            "ATTENDANCE_IN" -> checkIn(r.worker)
+            "ATTENDANCE_OUT" -> checkOut(r.worker)
+            "NOTE" -> Unit  // پیام فقط خوانده می‌شود
+            else -> return "نوعِ درخواست شناخته نشد."
+        }
+
+        db.syncRequestDao().update(
+            r.copy(
+                status = "APPROVED",
+                decidedAt = System.currentTimeMillis(),
+                decidedNote = note.trim()
+            )
+        )
+        audit("تأیید درخواست کارگر", "${r.worker} — ${r.summary}")
+        return null
+    }
+
+    suspend fun rejectRequest(id: Long, note: String = "") {
+        val r = db.syncRequestDao().getById(id) ?: return
+        if (r.status != "PENDING") return
+        db.syncRequestDao().update(
+            r.copy(
+                status = "REJECTED",
+                decidedAt = System.currentTimeMillis(),
+                decidedNote = note.trim()
+            )
+        )
+        audit("رد درخواست کارگر", "${r.worker} — ${r.summary}")
+    }
+
+    // =========================
     // وقت‌های نان و چای
     // =========================
 

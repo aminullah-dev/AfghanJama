@@ -39,6 +39,7 @@ import com.afghanjama.ui.screens.CuttingScreen
 import com.afghanjama.ui.screens.DailyTradeScreen
 import com.afghanjama.ui.screens.DeliveryQueueScreen
 import com.afghanjama.ui.screens.GuideScreen
+import com.afghanjama.ui.screens.WorkshopLinkScreen
 import com.afghanjama.ui.screens.NewSaleScreen
 import com.afghanjama.ui.screens.SelfTestScreen
 import com.afghanjama.ui.screens.FinishedWarehouseScreen
@@ -89,6 +90,7 @@ import com.afghanjama.ui.vm.OrderSearchViewModel
 import com.afghanjama.ui.vm.PayrollViewModel
 import com.afghanjama.ui.vm.DeliveryQueueViewModel
 import com.afghanjama.ui.vm.BreakTimeViewModel
+import com.afghanjama.ui.vm.WorkshopLinkViewModel
 import com.afghanjama.ui.vm.NewSaleViewModel
 import com.afghanjama.ui.vm.SelfTestViewModel
 import com.afghanjama.ui.vm.PerformanceViewModel
@@ -182,6 +184,7 @@ fun AppNav(
     deliveryQueueVm: DeliveryQueueViewModel,
     newSaleVm: NewSaleViewModel,
     breakVm: BreakTimeViewModel,
+    linkVm: WorkshopLinkViewModel,
     /** موقتی — همراهِ صفحهٔ خودآزمایی حذف می‌شود. */
     selfTestVm: SelfTestViewModel,
     purchasePlanVm: PurchasePlanViewModel,
@@ -307,6 +310,7 @@ fun AppNav(
                     onGoSearch = { navController.navigate(Routes.SEARCH) },
                     onGoSettings = { navController.navigate(Routes.SETTINGS) },
                     onGoGuide = { navController.navigate(Routes.GUIDE) },
+                    onGoWorkshopLink = { navController.navigate(Routes.WORKSHOP_LINK) },
                     onGoSelfTest = { navController.navigate(Routes.SELF_TEST) }
                 )
             }
@@ -358,6 +362,14 @@ fun AppNav(
             composable(Routes.NEW_SALE) {
                 NewSaleScreen(
                     vm = newSaleVm,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Routes.WORKSHOP_LINK) {
+                WorkshopLinkScreen(
+                    vm = linkVm,
+                    isManager = authUi.role == UserRole.MANAGER,
                     onBack = { navController.popBackStack() }
                 )
             }
