@@ -102,6 +102,7 @@ fun OrderDetailScreen(
     val cuttingRecords by vm.cuttingRecords.collectAsState()
     val measurements by vm.measurements.collectAsState()
     val prepay by vm.prepay.collectAsState()
+    val stockAvailable by vm.stockAvailable.collectAsState()
     val qcRecords by vm.qcRecords.collectAsState()
     val ui by vm.ui.collectAsState()
 
@@ -121,10 +122,11 @@ fun OrderDetailScreen(
     if (showDeliver) order?.let { o ->
         DeliverDialog(
             order = o,
+            available = stockAvailable,
             prepay = prepay,
             onDismiss = { showDeliver = false },
-            onConfirm = { unit, received, applied ->
-                vm.deliverToCustomer(unit, received, applied)
+            onConfirm = { qty, unit, received, applied ->
+                vm.deliverToCustomer(qty, unit, received, applied)
                 showDeliver = false
             }
         )
@@ -476,7 +478,7 @@ fun OrderDetailScreen(
                             )
                             if (o.customerName.isNotBlank()) {
                                 Button(
-                                    onClick = { vm.lookupPrepay(); showDeliver = true },
+                                    onClick = { vm.lookupPrepay(); vm.lookupStock(); showDeliver = true },
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Icon(Icons.Default.CheckCircle, contentDescription = null)

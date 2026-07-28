@@ -23,8 +23,14 @@ data class DeliveryRow(
     /** ماندهٔ حسابِ همین مشتری؛ مثبت یعنی او به ما بدهکار است. */
     val customerBalance: Long,
     /** بیعانهٔ استفاده‌نشدهٔ او. */
-    val prepay: Long
-)
+    val prepay: Long,
+    /** موجودیِ انبار برای طرحِ این سفارش — مشترک بین سفارش‌های هم‌طرح. */
+    val available: Int = 0
+) {
+    val remainingQty: Int get() = (order.qty - order.deliveredQty).coerceAtLeast(0)
+    /** انبار برای تحویلِ کاملِ باقی‌مانده کم است. */
+    val short: Boolean get() = available < remainingQty
+}
 
 data class DeliveryQueueUi(
     val rows: List<DeliveryRow> = emptyList(),
@@ -49,13 +55,18 @@ class DeliveryQueueViewModel(private val repo: Repo) : ViewModel() {
     /** بیعانه‌های استفاده‌نشده به تفکیکِ نامِ مشتری. */
     private val prepays = MutableStateFlow<Map<String, Long>>(emptyMap())
 
+    /** موجودیِ انبار به تفکیکِ «طرح|سایز» — برای نشان‌دادن پیش از تحویل. */
+    private val stock = MutableStateFlow<Map<String, Int>>(emptyMap())
+
     val ui: StateFlow<DeliveryQueueUi> =
         combine(
             repo.observeOrdersByStatus(OrderStatus.STORED.name),
             repo.observeLedgerBalances(),
+            repo.observeFinishedStock(),
             prepays,
             _ui
-        ) { orders, balances, prepayMap, base ->
+        ) { orders, balances, stockRows, prepayMap, base ->
+            val byDesign = stockRows.associate { "${it.name}|${it.size}" to it.qty }
             val now = System.currentTimeMillis()
             val byCustomer = balances.filter { it.type == "CUSTOMER" }
                 .associate { it.name.trim() to it.net }
@@ -68,7 +79,8 @@ class DeliveryQueueViewModel(private val repo: Repo) : ViewModel() {
                         order = o,
                         waitingDays = ((now - since) / 86_400_000L).toInt().coerceAtLeast(0),
                         customerBalance = byCustomer[o.customerName.trim()] ?: 0L,
-                        prepay = prepayMap[o.customerName.trim()] ?: 0L
+                        prepay = prepayMap[o.customerName.trim()] ?: 0L,
+                        available = byDesign["${o.designTitle}|${o.size}"] ?: 0
                     )
                 }
                 .sortedByDescending { it.waitingDays }
@@ -89,6 +101,7 @@ class DeliveryQueueViewModel(private val repo: Repo) : ViewModel() {
 
     fun deliver(
         orderId: UUID,
+        qty: Int,
         unitPrice: Long,
         receivedNow: Long,
         applyPrepay: Long
@@ -97,6 +110,7 @@ class DeliveryQueueViewModel(private val repo: Repo) : ViewModel() {
             busy.once {
                 doDeliver(
                     orderId = orderId,
+                    qty = qty,
                     unitPrice = unitPrice,
                     receivedNow = receivedNow,
                     applyPrepay = applyPrepay
@@ -106,12 +120,13 @@ class DeliveryQueueViewModel(private val repo: Repo) : ViewModel() {
 
     private suspend fun doDeliver(
         orderId: UUID,
+        qty: Int,
         unitPrice: Long,
         receivedNow: Long,
         applyPrepay: Long
     ) {
         val o = repo.getOrder(orderId) ?: return
-        val err = repo.deliverOrderToCustomer(o, unitPrice, receivedNow, applyPrepay)
+        val err = repo.deliverOrderToCustomer(o, qty, unitPrice, receivedNow, applyPrepay)
         _ui.update {
             if (err == null) it.copy(message = "✅ ${o.customerName} تحویل گرفت.", isError = false)
             else it.copy(message = err, isError = true)

@@ -50,6 +50,15 @@ data class Order(
     val underSewCount: Int = 0,
     val doneSewCount: Int = 0,
 
+    /**
+     * چند عدد از این سفارش تا حالا به مشتری تحویل شده.
+     *
+     * تحویل می‌تواند تکه‌تکه باشد: مشتری امروز ۱۲ عدد می‌برد و باقی را
+     * هفتهٔ بعد. سفارش تا وقتی همه‌اش تحویل نشده در صفِ تحویل می‌ماند.
+     */
+    @ColumnInfo(defaultValue = "0")
+    val deliveredQty: Int = 0,
+
     val reviewed: Boolean = false,
 
     // آیا موادِ این سفارش از انبار کسر شده؟ در مدل جدید کسرِ مواد هنگام

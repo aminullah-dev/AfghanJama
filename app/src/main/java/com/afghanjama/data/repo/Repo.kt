@@ -1265,8 +1265,13 @@ class Repo(private val db: AppDatabase) {
      *
      * @return پیغامِ خطا، یا null اگر انجام شد.
      */
+    /** موجودیِ انبارِ محصول برای طرح و سایزِ یک سفارش — ۰ اگر ردیفی نباشد. */
+    suspend fun stockForOrder(order: Order): Int =
+        db.finishedStockDao().find(order.designTitle, order.size)?.qty ?: 0
+
     suspend fun deliverOrderToCustomer(
         order: Order,
+        qty: Int,
         unitPrice: Long,
         receivedNow: Long,
         applyPrepay: Long
@@ -1277,25 +1282,41 @@ class Repo(private val db: AppDatabase) {
             return "فقط سفارشی که نظارت را گذرانده و در انبار محصول است تحویل می‌شود."
         if (unitPrice <= 0) return "قیمت را وارد کنید."
 
-        val item = db.finishedStockDao().find(order.designTitle, order.size)
-            ?: return "این سفارش در انبار محصول پیدا نشد."
-        if (item.qty < order.qty)
-            return "موجودی انبار ${item.qty} عدد است، کمتر از ${order.qty} عددِ این سفارش."
+        val remaining = (order.qty - order.deliveredQty).coerceAtLeast(0)
+        if (remaining <= 0) return "همهٔ این سفارش قبلاً تحویل شده."
+        if (qty <= 0) return "تعداد را وارد کنید."
+        if (qty > remaining)
+            return "از این سفارش فقط ${remaining} عدد باقی مانده."
 
-        val ok = sellFinished(
-            item = item,
-            qty = order.qty,
-            unitPrice = unitPrice,
+        val item = db.finishedStockDao().find(order.designTitle, order.size)
+        if (item == null || item.qty <= 0) {
+            return "«${order.designTitle}» در انبار محصول موجود نیست. " +
+                "موجودیِ انبار برای هر طرح مشترک است، پس ممکن است با فروش یا " +
+                "تحویلِ دیگری خالی شده باشد."
+        }
+        if (item.qty < qty)
+            return "موجودی انبار ${item.qty} عدد است، کمتر از ${qty} عددِ خواسته‌شده."
+
+        val ok = sellInvoice(
+            lines = listOf(SaleLine(item, qty, unitPrice)),
             customerName = order.customerName,
             receivedNow = receivedNow,
             applyPrepay = applyPrepay
         )
         if (!ok) return "ثبتِ فروش انجام نشد."
 
-        changeOrderStatus(order, OrderStatus.SENT.name)
+        val delivered = order.deliveredQty + qty
+        val fullyDelivered = delivered >= order.qty
+        if (fullyDelivered) {
+            changeOrderStatus(order, OrderStatus.SENT.name) { it.copy(deliveredQty = delivered) }
+        } else {
+            // هنوز باقی دارد — در صفِ تحویل می‌ماند
+            db.orderDao().update(order.copy(deliveredQty = delivered))
+        }
         audit(
             "تحویل سفارش به مشتری",
-            "${order.orderCode} — ${order.customerName} — ${(unitPrice * order.qty)} ؋"
+            "${order.orderCode} — ${order.customerName} — ${qty} عدد — ${(unitPrice * qty)} ؋" +
+                if (fullyDelivered) "" else " (باقی: ${order.qty - delivered})"
         )
         return null
     }

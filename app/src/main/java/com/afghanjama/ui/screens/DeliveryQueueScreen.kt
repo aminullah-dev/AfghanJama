@@ -74,10 +74,11 @@ fun DeliveryQueueScreen(
         ui.rows.firstOrNull { it.order.id == id }?.let { row ->
             DeliverDialog(
                 order = row.order,
+                available = row.available,
                 prepay = prepays[row.order.customerName.trim()] ?: 0L,
                 onDismiss = { deliverTarget = null },
-                onConfirm = { unit, received, applied ->
-                    vm.deliver(row.order.id, unit, received, applied)
+                onConfirm = { qty, unit, received, applied ->
+                    vm.deliver(row.order.id, qty, unit, received, applied)
                     deliverTarget = null
                 }
             )

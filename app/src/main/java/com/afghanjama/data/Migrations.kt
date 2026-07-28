@@ -660,6 +660,15 @@ val MIGRATION_47_48 = object : Migration(47, 48) {
 /**
  * صندوقِ درخواست‌های گوشی‌های کارگران. فقط یک جدولِ تازه است.
  */
+/** تحویلِ تکه‌تکه: چند عدد از سفارش تا حالا رفته. */
+val MIGRATION_52_53 = object : Migration(52, 53) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `orders` ADD COLUMN `deliveredQty` INTEGER NOT NULL DEFAULT 0")
+        // سفارش‌هایی که قبلاً «تحویل شد» گرفته‌اند، کاملاً تحویل شده‌اند
+        db.execSQL("UPDATE orders SET deliveredQty = qty WHERE status = 'SENT'")
+    }
+}
+
 val MIGRATION_51_52 = object : Migration(51, 52) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(
