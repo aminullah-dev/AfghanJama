@@ -131,6 +131,7 @@ class LanServer(private val context: Context) {
 
         when {
             method == "GET" && path == Lan.PATH_MY_WORK -> serveMyWork(client, param(query, "worker"))
+            method == "GET" && path == Lan.PATH_BOARD -> serveBoard(client)
             method == "POST" && path == Lan.PATH_REQUEST -> acceptRequest(client, body)
             else -> respond(client, 404, JSONObject().apply {
                 put("ok", false); put("error", "مسیر پیدا نشد.")
@@ -177,6 +178,43 @@ class LanServer(private val context: Context) {
                 put("worker", name)
                 put("inHand", items)
                 put("doneTotal", doneCount)
+            })
+        } finally {
+            db.close()
+        }
+    }
+
+    /**
+     * تابلوی «در حال دوخت» برای صفحهٔ دیوارِ کارگاه — فقط خواندن.
+     *
+     * نه پول در آن هست نه نامِ مشتری؛ چیزی که روی دیوار می‌ماند نباید
+     * حسابِ کسی را لو بدهد.
+     */
+    private suspend fun serveBoard(client: Socket) {
+        val db = buildAppDatabase(context)
+        try {
+            val assignments = kotlinx.coroutines.flow.first(
+                db.sewingAssignmentDao().observeInProgress()
+            )
+            val orders = kotlinx.coroutines.flow.first(db.orderDao().observeAll())
+            val byCode = orders.associateBy { it.orderCode }
+            val now = System.currentTimeMillis()
+
+            val arr = JSONArray()
+            assignments.forEach { a ->
+                val o = byCode[a.orderCode]
+                arr.put(JSONObject().apply {
+                    put("tailor", a.tailorLabel.trim())
+                    put("orderCode", a.orderCode)
+                    put("design", o?.designTitle.orEmpty())
+                    put("qty", a.qty)
+                    put("days", ((now - a.createdAt) / 86_400_000L).toInt().coerceAtLeast(0))
+                    val due = o?.dueDate ?: 0L
+                    if (due > 0) put("dueIn", ((due - now) / 86_400_000L).toInt())
+                })
+            }
+            respond(client, 200, JSONObject().apply {
+                put("ok", true); put("rows", arr); put("at", now)
             })
         } finally {
             db.close()

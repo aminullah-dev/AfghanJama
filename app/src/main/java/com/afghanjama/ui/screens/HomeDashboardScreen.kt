@@ -32,6 +32,7 @@ import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Monitor
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Science
@@ -114,6 +115,7 @@ fun HomeDashboardScreen(
     onGoSettings: () -> Unit,
     onGoGuide: () -> Unit,
     onGoWorkshopLink: () -> Unit,
+    onGoBoard: () -> Unit,
     /** موقتی — با حذفِ نوارِ خودآزمایی این پارامتر هم برداشته می‌شود. */
     onGoSelfTest: () -> Unit
 ) {
@@ -152,6 +154,7 @@ fun HomeDashboardScreen(
     // تولید: از سفارش تا تحویل
     val production = buildList {
         if (isManager) add(HomeAction("خط تولید", Icons.Default.Checkroom, onGoProduction))
+        add(HomeAction("تابلوی دوخت", Icons.Default.Monitor, onGoBoard))
         if (canBuyMaterial) add(HomeAction("خرید مواد", Icons.Default.ShoppingCart, onGoProcurement))
     }
 

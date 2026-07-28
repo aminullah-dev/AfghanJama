@@ -42,6 +42,7 @@ import com.afghanjama.ui.vm.OrderDetailViewModel
 import com.afghanjama.ui.vm.OrderSearchViewModel
 import com.afghanjama.ui.vm.PayrollViewModel
 import com.afghanjama.ui.vm.DeliveryQueueViewModel
+import com.afghanjama.ui.vm.BoardViewModel
 import com.afghanjama.ui.vm.BreakTimeViewModel
 import com.afghanjama.ui.vm.WorkshopLinkViewModel
 import com.afghanjama.ui.vm.NewSaleViewModel
@@ -123,6 +124,7 @@ class MainActivity : FragmentActivity() {
                 val newSaleVm = remember { NewSaleViewModel(repo) }
                 val breakVm = remember { BreakTimeViewModel(repo) }
                 val linkVm = remember { WorkshopLinkViewModel(repo) }
+                val boardVm = remember { BoardViewModel(repo) }
                 // موقتی — همراهِ صفحهٔ خودآزمایی حذف می‌شود
                 val selfTestVm = remember { SelfTestViewModel(repo) }
                 val purchasePlanVm = remember { PurchasePlanViewModel(repo) }
@@ -162,6 +164,7 @@ class MainActivity : FragmentActivity() {
                     newSaleVm = newSaleVm,
                     breakVm = breakVm,
                     linkVm = linkVm,
+                    boardVm = boardVm,
                     selfTestVm = selfTestVm,
                     purchasePlanVm = purchasePlanVm,
                     myWorkVm = myWorkVm,

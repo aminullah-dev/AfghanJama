@@ -38,6 +38,7 @@ import com.afghanjama.ui.screens.CustomersScreen
 import com.afghanjama.ui.screens.CuttingScreen
 import com.afghanjama.ui.screens.DailyTradeScreen
 import com.afghanjama.ui.screens.DeliveryQueueScreen
+import com.afghanjama.ui.screens.BoardScreen
 import com.afghanjama.ui.screens.GuideScreen
 import com.afghanjama.ui.screens.WorkshopLinkScreen
 import com.afghanjama.ui.screens.NewSaleScreen
@@ -89,6 +90,7 @@ import com.afghanjama.ui.vm.OrderDetailViewModel
 import com.afghanjama.ui.vm.OrderSearchViewModel
 import com.afghanjama.ui.vm.PayrollViewModel
 import com.afghanjama.ui.vm.DeliveryQueueViewModel
+import com.afghanjama.ui.vm.BoardViewModel
 import com.afghanjama.ui.vm.BreakTimeViewModel
 import com.afghanjama.ui.vm.WorkshopLinkViewModel
 import com.afghanjama.ui.vm.NewSaleViewModel
@@ -185,6 +187,7 @@ fun AppNav(
     newSaleVm: NewSaleViewModel,
     breakVm: BreakTimeViewModel,
     linkVm: WorkshopLinkViewModel,
+    boardVm: BoardViewModel,
     /** موقتی — همراهِ صفحهٔ خودآزمایی حذف می‌شود. */
     selfTestVm: SelfTestViewModel,
     purchasePlanVm: PurchasePlanViewModel,
@@ -311,6 +314,7 @@ fun AppNav(
                     onGoSettings = { navController.navigate(Routes.SETTINGS) },
                     onGoGuide = { navController.navigate(Routes.GUIDE) },
                     onGoWorkshopLink = { navController.navigate(Routes.WORKSHOP_LINK) },
+                    onGoBoard = { navController.navigate(Routes.BOARD) },
                     onGoSelfTest = { navController.navigate(Routes.SELF_TEST) }
                 )
             }
@@ -362,6 +366,13 @@ fun AppNav(
             composable(Routes.NEW_SALE) {
                 NewSaleScreen(
                     vm = newSaleVm,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Routes.BOARD) {
+                BoardScreen(
+                    vm = boardVm,
                     onBack = { navController.popBackStack() }
                 )
             }

@@ -1,0 +1,135 @@
+package com.afghanjama.ui.vm
+
+import android.content.Context
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.afghanjama.data.repo.Repo
+import com.afghanjama.lan.LanClient
+import com.afghanjama.lan.LanResult
+import com.afghanjama.prefs.DeviceMode
+import com.afghanjama.prefs.LanPrefs
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+
+/** یک سطرِ تابلو — یک کارِ زیرِ دستِ یک خیاط. */
+data class BoardRow(
+    val tailor: String,
+    val orderCode: String,
+    val design: String,
+    val qty: Int,
+    /** چند روز است دستِ خیاط مانده. */
+    val days: Int,
+    /** روزِ مانده تا مهلتِ سفارش؛ منفی یعنی گذشته، null یعنی مهلت ندارد. */
+    val dueIn: Int?
+) {
+    /** دیر شده — روی تابلو قرمز می‌شود، مثلِ پروازِ تأخیردار. */
+    val late: Boolean get() = (dueIn != null && dueIn < 0)
+
+    /** نزدیکِ مهلت یا زیادی طول کشیده. */
+    val warn: Boolean get() = !late && ((dueIn != null && dueIn <= 1) || days >= 3)
+}
+
+data class BoardUi(
+    val rows: List<BoardRow> = emptyList(),
+    val updatedAt: Long = 0L,
+    val remote: Boolean = false,
+    val error: String? = null
+) {
+    val pieces: Int get() = rows.sumOf { it.qty }
+    val tailors: Int get() = rows.map { it.tailor }.distinct().size
+    val lateCount: Int get() = rows.count { it.late }
+}
+
+/**
+ * تابلوی «در حال دوخت» — مثلِ تابلوی پروازِ فرودگاه.
+ *
+ * دو منبع دارد و خودش تشخیص می‌دهد کدام:
+ *  - روی گوشیِ اصلی/تنها، مستقیم از دیتابیس و کاملاً زنده (Flow).
+ *  - روی گوشیِ دیوار که «کارگر» است، هر چند ثانیه از گوشیِ اصلی می‌پرسد.
+ *
+ * `tick` فقط برای این است که «چند روز» و ساعتِ بالای تابلو بدونِ تغییرِ
+ * داده هم جلو بروند.
+ */
+class BoardViewModel(private val repo: Repo) : ViewModel() {
+
+    private val tick = MutableStateFlow(System.currentTimeMillis())
+
+    private val _remote = MutableStateFlow(BoardUi(remote = true))
+
+    /** حالتِ محلی: از خودِ دیتابیس، بدونِ هیچ تأخیری. */
+    private val local: StateFlow<BoardUi> =
+        combine(
+            repo.observeAssignmentsInProgress(),
+            repo.observeAllOrders(),
+            tick
+        ) { assignments, orders, now ->
+            val byCode = orders.associateBy { it.orderCode }
+            val rows = assignments.map { a ->
+                val o = byCode[a.orderCode]
+                BoardRow(
+                    tailor = a.tailorLabel.trim(),
+                    orderCode = a.orderCode,
+                    design = o?.designTitle.orEmpty(),
+                    qty = a.qty,
+                    days = ((now - a.createdAt) / 86_400_000L).toInt().coerceAtLeast(0),
+                    dueIn = o?.dueDate?.takeIf { it > 0 }?.let {
+                        ((it - now) / 86_400_000L).toInt()
+                    }
+                )
+            }.sortedWith(
+                // دیرشده‌ها بالا، بعد قدیمی‌ترها — همان ترتیبی که تابلوی
+                // فرودگاه دارد: چیزی که مشکل دارد اول دیده شود.
+                compareByDescending<BoardRow> { it.late }
+                    .thenByDescending { it.warn }
+                    .thenByDescending { it.days }
+            )
+            BoardUi(rows = rows, updatedAt = now, remote = false)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BoardUi())
+
+    private val _mode = MutableStateFlow(DeviceMode.STANDALONE)
+
+    val ui: StateFlow<BoardUi> =
+        combine(_mode, local, _remote) { mode, l, r ->
+            if (mode == DeviceMode.WORKER) r else l
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BoardUi())
+
+    /** ساعت و «چند روز» را زنده نگه می‌دارد. */
+    fun start(context: Context) {
+        _mode.value = LanPrefs.mode(context)
+        viewModelScope.launch {
+            while (true) {
+                tick.value = System.currentTimeMillis()
+                if (_mode.value == DeviceMode.WORKER) pullRemote(context)
+                delay(REFRESH_MS)
+            }
+        }
+    }
+
+    private suspend fun pullRemote(context: Context) {
+        val host = LanPrefs.host(context)
+        if (host.isBlank()) {
+            _remote.value = _remote.value.copy(error = "نشانیِ گوشیِ اصلی تنظیم نشده.")
+            return
+        }
+        when (val r = LanClient(host, LanPrefs.code(context)).board()) {
+            is LanResult.Err -> _remote.value = _remote.value.copy(error = r.message)
+            is LanResult.Ok -> _remote.value = BoardUi(
+                rows = r.value,
+                updatedAt = System.currentTimeMillis(),
+                remote = true,
+                error = null
+            )
+        }
+    }
+
+    companion object {
+        /** هر ۱۵ ثانیه — برای تابلوی دیوار کافی است و باتری را نمی‌سوزاند. */
+        const val REFRESH_MS = 15_000L
+    }
+}

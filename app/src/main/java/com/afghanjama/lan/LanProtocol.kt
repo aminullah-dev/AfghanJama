@@ -20,6 +20,7 @@ object Lan {
     const val PATH_PING = "/ping"
     const val PATH_MY_WORK = "/my-work"
     const val PATH_REQUEST = "/request"
+    const val PATH_BOARD = "/board"
 
     /** هدرِ رمزِ اتصال. سرور هر درخواستِ بدونِ رمزِ درست را رد می‌کند. */
     const val HEADER_CODE = "X-Workshop-Code"

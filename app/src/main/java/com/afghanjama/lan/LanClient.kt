@@ -97,6 +97,32 @@ class LanClient(
         }
     }
 
+    /** سطرهای تابلوی «در حال دوخت» از گوشیِ اصلی. */
+    suspend fun board(): LanResult<List<com.afghanjama.ui.vm.BoardRow>> =
+        when (val r = call(Lan.PATH_BOARD)) {
+            is LanResult.Err -> r
+            is LanResult.Ok -> {
+                val arr = r.value.optJSONArray("rows")
+                LanResult.Ok(
+                    buildList {
+                        for (i in 0 until (arr?.length() ?: 0)) {
+                            val o = arr!!.getJSONObject(i)
+                            add(
+                                com.afghanjama.ui.vm.BoardRow(
+                                    tailor = o.optString("tailor"),
+                                    orderCode = o.optString("orderCode"),
+                                    design = o.optString("design"),
+                                    qty = o.optInt("qty"),
+                                    days = o.optInt("days"),
+                                    dueIn = if (o.has("dueIn")) o.optInt("dueIn") else null
+                                )
+                            )
+                        }
+                    }
+                )
+            }
+        }
+
     suspend fun sendRequest(
         device: String,
         worker: String,

@@ -40,6 +40,7 @@ object Routes {
     const val SETTINGS = "settings"
     const val GUIDE = "guide"
     const val WORKSHOP_LINK = "workshop_link"
+    const val BOARD = "board"
 
     /** موقتی — با حذفِ خودآزمایی این هم برداشته می‌شود. */
     const val SELF_TEST = "self_test"
