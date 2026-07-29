@@ -540,13 +540,20 @@ class Repo(private val db: AppDatabase) {
     fun observeTx(): Flow<List<Transaction>> =
         db.financeDao().observeTx()
 
-    suspend fun income(source: String, amount: Long, note: String) {
+    /**
+     * [category] فقط توصیفی است و ماندهٔ صندوق را عوض نمی‌کند؛ خالی یعنی
+     * ورودیِ عادی. برای جابه‌جاییِ بینِ صندوق‌های خودمان
+     * [CashPolicy.INTERNAL_MOVE] داده می‌شود تا گزارشِ نقد آن را با پولِ
+     * واقعی قاطی نکند.
+     */
+    suspend fun income(source: String, amount: Long, note: String, category: String = "") {
         db.financeDao().insertTx(
             Transaction(
                 type = "IN",
                 source = source,
                 amount = amount.coerceAtLeast(0),
-                note = note
+                note = note,
+                category = category
             )
         )
     }
@@ -589,8 +596,10 @@ class Repo(private val db: AppDatabase) {
     suspend fun transfer(from: String, to: String, amount: Long, note: String): Boolean {
         if (from == to || amount <= 0) return false
         if (!hasFunds(from, amount)) return false
-        spend(from, amount, note)
-        income(to, amount, note)
+        // جابه‌جاییِ داخلی: پولی وارد یا خارجِ کارگاه نمی‌شود، پس هر دو سطر
+        // برچسب می‌خورند تا گزارشِ نقد آن را درآمد یا هزینه نشمارد.
+        spend(from, amount, note, category = CashPolicy.INTERNAL_MOVE)
+        income(to, amount, note, category = CashPolicy.INTERNAL_MOVE)
         audit("انتقال بین صندوق‌ها", "$from → $to — $amount ؋")
         postJournal(
             note, "TRANSFER", "",
@@ -928,6 +937,10 @@ class Repo(private val db: AppDatabase) {
 
     suspend fun auditMaterialStock(): List<com.afghanjama.data.entities.MaterialStock> =
         db.materialStockDao().observeAll().first()
+
+    /** همهٔ سطرهای صندوق — برای تطبیقِ جریانِ نقد با ژورنال. */
+    suspend fun auditTransactions(): List<Transaction> =
+        db.financeDao().observeTx().first()
 
     fun observeJournalEntries(): Flow<List<JournalEntry>> =
         db.journalDao().observeRecentEntries()
@@ -1791,8 +1804,17 @@ class Repo(private val db: AppDatabase) {
         // وگرنه صندوق برای پولی که هنوز نرسیده خالی می‌شد.
         val profitMove = profit.coerceAtMost(cashIn).coerceAtLeast(0L)
         if (profitMove > 0L) {
-            spend("WALLET", profitMove, "انتقال سود فروش $what به فایده")
-            income("PROFIT", profitMove, "سود فروش $what")
+            // برچسبِ داخلی لازم است: بی آن، سودِ **هر فروش** در گزارش هم
+            // ورودیِ نقد شمرده می‌شد و هم خروجیِ نقد، و زیرِ دستهٔ «سایر»
+            // به‌عنوان هزینه دیده می‌شد.
+            spend(
+                "WALLET", profitMove, "انتقال سود فروش $what به فایده",
+                category = CashPolicy.INTERNAL_MOVE
+            )
+            income(
+                "PROFIT", profitMove, "سود فروش $what",
+                category = CashPolicy.INTERNAL_MOVE
+            )
         }
         // فاکتور فروش
         createDocument("SALE", customer, revenue, code, "فروش $what")
@@ -1923,8 +1945,14 @@ class Repo(private val db: AppDatabase) {
                 balanceOf("PROFIT").coerceAtLeast(0)
             )
             if (movable > 0) {
-                spend("PROFIT", movable, "برگشت سود فروش «${sale.productName}» ($code)")
-                income("WALLET", movable, "برگشت سود فروش ($code)")
+                spend(
+                    "PROFIT", movable, "برگشت سود فروش «${sale.productName}» ($code)",
+                    category = CashPolicy.INTERNAL_MOVE
+                )
+                income(
+                    "WALLET", movable, "برگشت سود فروش ($code)",
+                    category = CashPolicy.INTERNAL_MOVE
+                )
                 postJournal(
                     "برگشت سود فروش ($code) از صندوق فایده", "PROFIT_MOVE", code,
                     listOf(

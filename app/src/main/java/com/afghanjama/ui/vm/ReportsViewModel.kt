@@ -2,6 +2,7 @@ package com.afghanjama.ui.vm
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.afghanjama.data.CashPolicy
 import com.afghanjama.data.dao.PartyBalance
 import com.afghanjama.data.entities.Accounts
 import com.afghanjama.data.entities.FinishedSale
@@ -46,6 +47,15 @@ data class ReportData(
     val incomeTotal: Long = 0,
     val expenseTotal: Long = 0,
     val expenseByCategory: List<Pair<String, Long>> = emptyList(),
+
+    /**
+     * جابه‌جاییِ پول بینِ صندوق‌های خودِ کارگاه در این بازه.
+     *
+     * از ورودی و خروجیِ نقد بیرون گذاشته شده چون پولی وارد یا خارجِ کارگاه
+     * نمی‌کند — ولی ناپدید هم نمی‌شود، وگرنه کاربر نمی‌فهمد چرا جمعِ
+     * تراکنش‌ها با گزارش نمی‌خوانَد. فقط یک سمتِ هر جفت شمرده می‌شود.
+     */
+    val internalMoves: Long = 0,
 
     val receivable: Long = 0,
     val payable: Long = 0,
@@ -472,7 +482,15 @@ class ReportsViewModel(private val repo: Repo) : ViewModel() {
         val revenue = sales.sumOf { it.total }
         val cogs = sales.sumOf { it.cost }
 
-        val tx = r.tx.filter { it.createdAt in range }
+        val allTx = r.tx.filter { it.createdAt in range }
+        // جابه‌جاییِ بینِ صندوق‌های خودمان پولِ کارگاه را کم یا زیاد نمی‌کند،
+        // پس نه ورودیِ نقد است نه خروجیِ نقد. تا پیش از این شمرده می‌شد و
+        // سودِ هر فروش را در فهرستِ هزینه‌ها زیرِ «سایر» نشان می‌داد.
+        val tx = allTx.filterNot { CashPolicy.isInternalMove(it.category) }
+        val moves = allTx.filter { CashPolicy.isInternalMove(it.category) }
+        // فقط یک سمتِ هر جفت، وگرنه مبلغ دو برابر دیده می‌شود
+        val internalMoves = moves.filter { it.type == "OUT" }.sumOf { it.amount }
+
         val income = tx.filter { it.type == "IN" }.sumOf { it.amount }
         val outTx = tx.filter { it.type == "OUT" }
         val expenseTotal = outTx.sumOf { it.amount }
@@ -501,6 +519,7 @@ class ReportsViewModel(private val repo: Repo) : ViewModel() {
             salesCount = sales.size, revenue = revenue, cogs = cogs,
             grossProfit = revenue - cogs,
             incomeTotal = income, expenseTotal = expenseTotal, expenseByCategory = byCat,
+            internalMoves = internalMoves,
             receivable = receivable, payable = payable,
             debtorCount = r.ledger.count { it.net > 0 },
             creditorCount = r.ledger.count { it.net < 0 },

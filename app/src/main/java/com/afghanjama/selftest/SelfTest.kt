@@ -1374,3 +1374,160 @@ fun checkSalaryAdvance(): List<CheckResult> {
 
     return s.results
 }
+
+// =====================================================================
+// 17) جریانِ نقد — جابه‌جاییِ داخلی نه درآمد است نه هزینه
+// =====================================================================
+
+/** یک سطرِ صندوق، همان‌قدر که گزارشِ نقد از آن می‌داند. */
+data class CashRow(
+    /** IN یا OUT */
+    val type: String,
+    val amount: Long,
+    val category: String
+)
+
+/** خروجیِ کارتِ «جریان نقد دوره». */
+data class CashFlow(
+    val income: Long,
+    val expense: Long,
+    val internalMoves: Long,
+    val byCategory: List<Pair<String, Long>>
+) {
+    val net: Long get() = income - expense
+}
+
+/**
+ * بازتابِ دقیقِ `ReportsViewModel.build` برای کارتِ جریانِ نقد.
+ *
+ * سه مسیر پول را بینِ صندوق‌های خودِ کارگاه جابه‌جا می‌کنند و هر سه یک جفت
+ * سطرِ IN/OUT می‌نویسند. تا پیش از این، گزارش این جفت‌ها را پولِ واقعی
+ * می‌شمرد: سودِ **هر فروش** هم ورودیِ نقد می‌شد و هم خروجیِ نقد، و مبلغش
+ * زیرِ دستهٔ «سایر» به‌عنوان هزینه دیده می‌شد.
+ */
+fun runCashFlow(rows: List<CashRow>, isInternal: (String) -> Boolean): CashFlow {
+    val real = rows.filterNot { isInternal(it.category) }
+    val moves = rows.filter { isInternal(it.category) }
+    val out = real.filter { it.type == "OUT" }
+    return CashFlow(
+        income = real.filter { it.type == "IN" }.sumOf { it.amount },
+        expense = out.sumOf { it.amount },
+        // فقط یک سمتِ هر جفت، وگرنه مبلغ دو برابر دیده می‌شود
+        internalMoves = moves.filter { it.type == "OUT" }.sumOf { it.amount },
+        byCategory = out
+            .groupBy { it.category.ifBlank { "سایر" } }
+            .map { (cat, list) -> cat to list.sumOf { it.amount } }
+            .sortedByDescending { it.second }
+    )
+}
+
+fun checkCashFlow(internalMoveCategory: String, isInternal: (String) -> Boolean): List<CheckResult> {
+    val s = CheckSink("جریان نقد")
+
+    s.isTrue("دستهٔ انتقالِ داخلی خالی نیست", internalMoveCategory.isNotBlank(),
+        "بی نام، هیچ سطری قابلِ تشخیص نیست")
+    s.isTrue("دستهٔ انتقالِ داخلی شناخته می‌شود", isInternal(internalMoveCategory),
+        "خودِ ثابت با تابعِ تشخیص نمی‌خوانَد")
+    s.isTrue("دستهٔ خالی داخلی شمرده نمی‌شود", !isInternal(""),
+        "سطرِ بی‌دسته داخلی شمرده شد — هزینه‌های دسته‌بندی‌نشده ناپدید می‌شوند")
+    s.isTrue("دستهٔ هزینهٔ عادی داخلی شمرده نمی‌شود", !isInternal("کرایه"),
+        "«کرایه» داخلی شمرده شد")
+
+    // ---- یک فروشِ سوددار: همان حالتی که در هر فروش رخ می‌داد ----
+    run {
+        val rows = listOf(
+            CashRow("IN", 10_000, ""),                          // نقدِ فروش
+            CashRow("OUT", 4_000, internalMoveCategory),        // سود به فایده
+            CashRow("IN", 4_000, internalMoveCategory)
+        )
+        val f = runCashFlow(rows, isInternal)
+        s.eq("ورودیِ نقد فقط پولِ واقعیِ فروش است", 10_000L, f.income)
+        s.eq("فروشِ سوددار هیچ خروجِ نقدی نمی‌سازد", 0L, f.expense)
+        s.eq("انتقالِ داخلی جدا گزارش می‌شود", 4_000L, f.internalMoves)
+        s.isTrue(
+            "سودِ فروش در فهرستِ هزینه‌ها ظاهر نمی‌شود",
+            f.byCategory.none { it.first == "سایر" },
+            "زیر «سایر» نشست: " + f.byCategory.joinToString("، ") { "${it.first}=${it.second}" }
+        )
+    }
+
+    // ---- هزینهٔ واقعیِ بی‌دسته باید بمانَد ----
+    run {
+        val rows = listOf(
+            CashRow("OUT", 1_500, ""),                          // خرجِ دسته‌بندی‌نشده
+            CashRow("OUT", 4_000, internalMoveCategory),
+            CashRow("IN", 4_000, internalMoveCategory)
+        )
+        val f = runCashFlow(rows, isInternal)
+        s.eq("خرجِ دسته‌بندی‌نشدهٔ واقعی حذف نمی‌شود", 1_500L, f.expense)
+        s.eq("«سایر» فقط خرجِ واقعی را دارد", 1_500L,
+            f.byCategory.firstOrNull { it.first == "سایر" }?.second ?: 0L)
+    }
+
+    // ---- جمعِ دسته‌ها همیشه باید با خروجیِ نقد بخوانَد ----
+    run {
+        val rows = listOf(
+            CashRow("OUT", 3_000, "کرایه"),
+            CashRow("OUT", 2_000, "حقوق کارکنان"),
+            CashRow("OUT", 500, ""),
+            CashRow("OUT", 9_000, internalMoveCategory),
+            CashRow("IN", 9_000, internalMoveCategory),
+            CashRow("IN", 50_000, "")
+        )
+        val f = runCashFlow(rows, isInternal)
+        s.eq("جمعِ دسته‌ها با خروجیِ نقد می‌خوانَد", f.expense,
+            f.byCategory.sumOf { it.second })
+        s.eq("ورودیِ نقد", 50_000L, f.income)
+        s.eq("خروجیِ نقد", 5_500L, f.expense)
+    }
+
+    // ---- جمعِ خالص نباید عوض شده باشد ----
+    // انتقالِ داخلی جفت است، پس در تفاضل خودش را خنثی می‌کرد؛ همان عددی که
+    // از قبل درست بود نباید تکان بخورد.
+    run {
+        var seed = 2718281L
+        fun rnd(bound: Int): Long {
+            seed = seed * 6364136223846793005L + 1442695040888963407L
+            return ((((seed ushr 33).toInt() % bound) + bound) % bound).toLong()
+        }
+        var netChanged = 0
+        var moveLeaked = 0
+        var categorySumBroken = 0
+        repeat(500) {
+            val rows = ArrayList<CashRow>()
+            var naiveIn = 0L
+            var naiveOut = 0L
+            repeat((rnd(20) + 1).toInt()) {
+                when (rnd(4)) {
+                    0L -> {
+                        val a = rnd(60_000) + 1
+                        rows += CashRow("IN", a, "")
+                        naiveIn += a
+                    }
+                    1L -> {
+                        val a = rnd(20_000) + 1
+                        rows += CashRow("OUT", a, "کرایه")
+                        naiveOut += a
+                    }
+                    else -> {
+                        // جفتِ انتقالِ داخلی
+                        val a = rnd(40_000) + 1
+                        rows += CashRow("OUT", a, internalMoveCategory)
+                        rows += CashRow("IN", a, internalMoveCategory)
+                        naiveIn += a
+                        naiveOut += a
+                    }
+                }
+            }
+            val f = runCashFlow(rows, isInternal)
+            if (f.net != naiveIn - naiveOut) netChanged++
+            if (f.byCategory.any { isInternal(it.first) }) moveLeaked++
+            if (f.byCategory.sumOf { it.second } != f.expense) categorySumBroken++
+        }
+        s.eq("۵۰۰ حالتِ تصادفی: جمعِ خالصِ نقد عوض نشد", 0, netChanged)
+        s.eq("۵۰۰ حالتِ تصادفی: انتقالِ داخلی به دسته‌ها نفوذ نکرد", 0, moveLeaked)
+        s.eq("۵۰۰ حالتِ تصادفی: جمعِ دسته‌ها با خروجیِ نقد می‌خوانَد", 0, categorySumBroken)
+    }
+
+    return s.results
+}

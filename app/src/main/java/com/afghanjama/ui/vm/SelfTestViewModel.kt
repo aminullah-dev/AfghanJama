@@ -15,6 +15,7 @@ import com.afghanjama.selftest.checkMoneySplit
 import com.afghanjama.selftest.checkMultiLineInvoice
 import com.afghanjama.selftest.checkBackupArchive
 import com.afghanjama.selftest.checkBreakSchedule
+import com.afghanjama.selftest.checkCashFlow
 import com.afghanjama.selftest.checkInvoiceTotals
 import com.afghanjama.selftest.checkDiscountMath
 import com.afghanjama.selftest.checkOrderCycle
@@ -79,6 +80,12 @@ class SelfTestViewModel(private val repo: Repo) : ViewModel() {
                 addAll(checkDiscountMath())
                 addAll(checkOrderCycle())
                 addAll(checkSalaryAdvance())
+                addAll(
+                    checkCashFlow(
+                        internalMoveCategory = CashPolicy.INTERNAL_MOVE,
+                        isInternal = { CashPolicy.isInternalMove(it) }
+                    )
+                )
                 addAll(
                     checkCashOutflowPolicy(
                         canSpend = { balance, amount -> CashPolicy.canSpend(balance, amount) },
@@ -275,6 +282,30 @@ class SelfTestViewModel(private val repo: Repo) : ViewModel() {
             negMaterial.isEmpty(),
             negMaterial.joinToString("، ") { "${it.name}: ${it.amount}" }
         )
+
+        // ۸) تطبیقِ جابه‌جاییِ داخلی: سندِ ژورنال با سطرِ صندوق
+        //
+        // همین تطبیق بود که غایب بودنش گذاشت سودِ هر فروش سال‌ها در گزارشِ
+        // «جریان نقد» هزینه شمرده شود: ژورنال درست بود (`PROFIT_MOVE` سندِ
+        // خودش را داشت) ولی سطرهای صندوق بی‌برچسب می‌ماندند و هیچ‌کس این دو
+        // را با هم نمی‌سنجید.
+        val moveRows = repo.auditTransactions()
+            .filter { CashPolicy.isInternalMove(it.category) }
+        val movedOut = moveRows.filter { it.type == "OUT" }.sumOf { it.amount }
+        val movedIn = moveRows.filter { it.type == "IN" }.sumOf { it.amount }
+        if (moveRows.isEmpty()) {
+            s.skip("جابه‌جاییِ داخلی جفت‌به‌جفت است", "هنوز انتقالِ داخلی‌ای ثبت نشده")
+        } else {
+            s.isTrue(
+                "جابه‌جاییِ داخلی جفت‌به‌جفت است",
+                movedOut == movedIn,
+                "خروج ${movedOut} ؋ ولی ورود ${movedIn} ؋ — اختلاف " +
+                    "${movedOut - movedIn} ؋. محتمل‌ترین دلیل: یک سمتِ یک " +
+                    "انتقال از فهرستِ تراکنش‌ها حذف شده. صندوق‌ها را با " +
+                    "دفتر تطبیق بدهید.",
+                "${moveRows.size} سطر، هر سمت ${movedOut} ؋"
+            )
+        }
 
         return s.results + checkResetPlan(
             clear = ResetPlan.CLEAR,

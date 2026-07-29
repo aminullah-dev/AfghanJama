@@ -410,6 +410,20 @@ fun ReportsScreen(
                             StatRow(cat, amount.afn())
                         }
                     }
+                    // انتقالِ داخلی در دو عددِ بالا شمرده نشده — ولی پنهان هم
+                    // نمی‌شود، وگرنه کاربر نمی‌فهمد چرا جمعِ تراکنش‌ها با
+                    // گزارش نمی‌خوانَد.
+                    if (r.internalMoves > 0) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        StatRow("انتقال بین صندوق‌ها", r.internalMoves.afn())
+                        Text(
+                            "این مبلغ بین صندوق‌های خودِ کارگاه جابه‌جا شده " +
+                                "(مثلاً سودِ فروش به صندوق فایده)، پس نه درآمد " +
+                                "است و نه هزینه و در دو عددِ بالا شمرده نشده.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
 

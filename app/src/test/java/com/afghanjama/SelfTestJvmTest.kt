@@ -11,6 +11,7 @@ import com.afghanjama.selftest.CheckStatus
 import com.afghanjama.selftest.PaperSpec
 import com.afghanjama.selftest.checkBackupArchive
 import com.afghanjama.selftest.checkBreakSchedule
+import com.afghanjama.selftest.checkCashFlow
 import com.afghanjama.selftest.checkCashOutflowPolicy
 import com.afghanjama.selftest.checkCustomerLedger
 import com.afghanjama.selftest.checkDiscountMath
@@ -56,6 +57,12 @@ class SelfTestJvmTest {
         addAll(checkOrderCycle())
         addAll(checkResetPlan(ResetPlan.CLEAR, ResetPlan.KEEP))
         addAll(checkSalaryAdvance())
+        addAll(
+            checkCashFlow(
+                internalMoveCategory = CashPolicy.INTERNAL_MOVE,
+                isInternal = { CashPolicy.isInternalMove(it) }
+            )
+        )
         addAll(
             checkCashOutflowPolicy(
                 canSpend = { balance, amount -> CashPolicy.canSpend(balance, amount) },
