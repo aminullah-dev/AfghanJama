@@ -14,6 +14,7 @@ import com.afghanjama.selftest.checkMultiLineInvoice
 import com.afghanjama.selftest.checkBreakSchedule
 import com.afghanjama.selftest.checkInvoiceTotals
 import com.afghanjama.selftest.checkPaperGeometry
+import com.afghanjama.selftest.checkShortage
 import com.afghanjama.selftest.checkStockValuation
 import com.afghanjama.selftest.checkTailorAttribution
 import com.afghanjama.selftest.PaperSpec
@@ -64,6 +65,7 @@ class SelfTestViewModel(private val repo: Repo) : ViewModel() {
                 addAll(checkMultiLineInvoice())
                 addAll(checkStockValuation())
                 addAll(checkInvoiceTotals())
+                addAll(checkShortage())
                 addAll(
                     checkPaperGeometry(
                         Paper.ALL.map { p ->

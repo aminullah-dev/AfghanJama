@@ -372,10 +372,12 @@ fun checkStockValuation(): List<CheckResult> {
         s.eq("ارزشِ ردیف پس از خالی‌شدن", 0L, row.value)
     }
 
-    // فروشِ بیشتر از موجودی نباید ارزشِ منفی بسازد
+    // برداشتِ بیش از موجودی، هرچه در ردیف هست را می‌برد. از اینجا به بعد
+    // ردیف وارد «کسری» می‌شود و ارزشش می‌تواند منفی شود — که درست است و
+    // به‌طور کامل در بررسیِ «کسری انبار» سنجیده می‌شود، نه اینجا.
     run {
         val row = StockFact(qty = 2, value = 500)
-        s.eq("برداشتِ بیش از موجودی همهٔ ارزش را می‌برد", 500L, takeValue(row, 5))
+        s.eq("برداشتِ بیش از موجودی همهٔ ارزشِ موجود را می‌برد", 500L, takeValue(row, 5))
     }
     return s.results
 }
@@ -584,6 +586,146 @@ fun checkInvoiceTotals(): List<CheckResult> {
             prevWrong == -56_737L,
             "انتظارِ بازتولیدِ اشکالِ قدیمی داشتیم ولی $prevWrong آمد",
             "با برچسبِ ثابت، «بدهی قبلی» ${prevWrong} می‌شد — برای همین کدِ فاکتور جایگزینش شد"
+        )
+    }
+    return s.results
+}
+
+// =====================================================================
+// ۱۰) کسری: فروشِ بیشتر از موجودی
+// =====================================================================
+
+/**
+ * کسری خطرناک‌ترین جای حساب است، چون کالایی فروخته می‌شود که بهایش هنوز
+ * معلوم نیست. سه قاعده باید همیشه برقرار بماند وگرنه حسابِ «موجودی محصول»
+ * بی‌سروصدا از واقعیت جدا می‌افتد:
+ *
+ *   الف) ماندهٔ حسابِ موجودی == جمعِ ارزشِ ردیف‌ها
+ *   ب )  تعدادِ صفر یعنی ارزشِ صفر
+ *   ج )  تعدادِ منفی یعنی ارزش == تعداد × برآوردِ بهای هر عدد
+ *
+ * این بازتابِ دقیقِ `Repo.takeFromStock` و `Repo.addFinishedStock` است.
+ */
+data class StockRow(var qty: Int, var value: Long, var avg: Long)
+
+/** بهای خروجِ [n] عدد و ارزشِ باقی‌مانده — آینهٔ `takeFromStock`. */
+fun takeCost(row: StockRow, n: Int): Pair<Long, Long> {
+    if (n <= 0) return 0L to row.value
+    val available = row.qty.coerceAtLeast(0)
+    if (n <= available) {
+        if (n >= row.qty) return row.value to 0L
+        val cost = row.value * n / row.qty
+        return cost to (row.value - cost)
+    }
+    val fromStock = if (available > 0) row.value else 0L
+    val cost = fromStock + (n - available) * row.avg
+    return cost to (row.value - cost)
+}
+
+/** فروش: تعداد و ارزش را جلو می‌برد و بهای تمام‌شده را برمی‌گرداند. */
+fun sellFrom(row: StockRow, n: Int): Long {
+    val (cost, left) = takeCost(row, n)
+    row.qty -= n
+    row.value = left
+    if (row.qty > 0) row.avg = left / row.qty
+    return cost
+}
+
+/** ورودِ جنس؛ مقدارِ برگشتی، اثرِ خالص روی حسابِ موجودی است. */
+fun addTo(row: StockRow, n: Int, batchValue: Long): Long {
+    if (n <= 0) return 0L
+    val variance =
+        if (row.qty < 0) {
+            val covered = minOf(n, -row.qty)
+            covered * batchValue / n - covered * row.avg
+        } else 0L
+    row.qty += n
+    row.value = row.value + batchValue - variance
+    if (row.qty > 0) row.avg = row.value / row.qty
+    return batchValue - variance
+}
+
+fun checkShortage(): List<CheckResult> {
+    val s = CheckSink("کسری انبار")
+
+    // ---- سناریوی اصلی: ۳ تا داریم، ۵ تا می‌فروشیم، ۲ تا وارد می‌کنیم ----
+    run {
+        val row = StockRow(qty = 0, value = 0, avg = 0)
+        var finished = addTo(row, 3, 300)                 // ۳ عدد، هرکدام ۱۰۰
+        s.eq("سه عدد وارد شد", 3, row.qty)
+        s.eq("ارزشِ انبار ۳۰۰", 300L, row.value)
+
+        finished -= sellFrom(row, 5)                      // دو تا بیشتر از موجودی
+        s.eq("تعداد به کسریِ ۲ رسید", -2, row.qty)
+        s.eq("ارزش منفی شد به اندازهٔ برآورد", -200L, row.value)
+        s.eq("قاعدهٔ (ج): ارزش == تعداد × برآورد", row.qty * row.avg, row.value)
+        s.eq("حسابِ موجودی با جمعِ ارزش‌ها یکی است", row.value, finished)
+
+        finished += addTo(row, 2, 200)                    // با همان بها می‌رسد
+        s.eq("کسری تسویه شد", 0, row.qty)
+        s.eq("قاعدهٔ (ب): تعدادِ صفر یعنی ارزشِ صفر", 0L, row.value)
+        s.eq("حسابِ موجودی دقیقاً به صفر برگشت", 0L, finished)
+    }
+
+    // ---- وقتی جنسِ تازه گران‌تر از برآورد درمی‌آید ----
+    run {
+        val row = StockRow(qty = 0, value = 0, avg = 0)
+        var finished = addTo(row, 3, 300)
+        finished -= sellFrom(row, 5)
+        finished += addTo(row, 2, 300)                    // هرکدام ۱۵۰ نه ۱۰۰
+        s.eq("با بهای گران‌تر هم تعداد صفر می‌شود", 0, row.qty)
+        s.eq("و ارزش دقیقاً صفر می‌ماند", 0L, row.value)
+        s.eq("اختلافِ برآورد به حساب نشست، نه در انبار", 0L, finished)
+    }
+
+    // ---- کالایی که هرگز واردش نکرده‌ایم و مستقیم فروخته می‌شود ----
+    run {
+        val row = StockRow(qty = 0, value = 0, avg = 0)
+        var finished = 0L
+        finished -= sellFrom(row, 4)
+        s.eq("کسریِ ۴ ثبت شد", -4, row.qty)
+        s.eq("بهای نامعلوم صفر برآورد می‌شود، نه عددِ ساختگی", 0L, row.value)
+        finished += addTo(row, 4, 800)                    // بعداً معلوم شد ۲۰۰ تایی
+        s.eq("بعد از ورود، تعداد صفر", 0, row.qty)
+        s.eq("و ارزش صفر", 0L, row.value)
+        s.eq("کلِ ۸۰۰ به بهای تمام‌شده رفت، نه به دارایی", 0L, finished)
+    }
+
+    // ---- هزار سناریوی تصادفی ----
+    run {
+        var seed = 20250729L
+        fun rnd(bound: Int): Int {
+            seed = (seed * 6364136223846793005L + 1442695040888963407L)
+            return (((seed ushr 33).toInt() % bound) + bound) % bound
+        }
+        var broken = 0
+        var negatives = 0
+        repeat(1000) {
+            val row = StockRow(0, 0, 0)
+            var finished = 0L
+            repeat(10) {
+                if (rnd(2) == 0) {
+                    val n = rnd(6) + 1
+                    finished += addTo(row, n, (n * (rnd(300) + 50)).toLong())
+                } else {
+                    val n = rnd(8) + 1
+                    finished -= sellFrom(row, n)
+                    if (row.qty < 0) negatives++
+                }
+                if (row.value != finished) broken++
+                if (row.qty == 0 && row.value != 0L) broken++
+                if (row.qty < 0 && row.value != row.qty * row.avg) broken++
+            }
+            // همه‌چیز را به صفر برگردان
+            if (row.qty < 0) finished += addTo(row, -row.qty, (-row.qty) * row.avg)
+            if (row.qty > 0) finished -= sellFrom(row, row.qty)
+            if (finished != 0L) broken++
+        }
+        s.isTrue(
+            "هزار سناریوی تصادفی، هر سه قاعده برقرار و حساب به صفر برمی‌گردد",
+            broken == 0,
+            "$broken بار یکی از قاعده‌ها شکست",
+            "$negatives بار موجودی منفی شد و هیچ‌کدام حساب را خراب نکرد"
         )
     }
     return s.results

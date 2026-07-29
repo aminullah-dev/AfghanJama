@@ -63,6 +63,7 @@ import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.format.dueDaysLate
 import com.afghanjama.ui.format.dueDaysLeft
 import com.afghanjama.ui.format.isOverdue
+import com.afghanjama.prefs.SalePrefs
 import com.afghanjama.pdf.InvoicePdf
 import com.afghanjama.ui.vm.OrderDetailViewModel
 import com.afghanjama.util.PrintKit
@@ -135,7 +136,8 @@ fun OrderDetailScreen(
             onConfirm = { qty, unit, received, applied ->
                 vm.deliverToCustomer(qty, unit, received, applied)
                 showDeliver = false
-            }
+            },
+            allowShortage = SalePrefs.allowNegativeStock(context)
         )
     }
 

@@ -25,6 +25,7 @@ import com.afghanjama.data.entities.Order
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.format.fa
+import com.afghanjama.ui.format.stockText
 
 /**
  * دیالوگِ تحویلِ سفارش به مشتری — یک نسخه، هرجا که تحویل انجام می‌شود.
@@ -43,10 +44,15 @@ fun DeliverDialog(
     available: Int,
     prepay: Long,
     onDismiss: () -> Unit,
-    onConfirm: (qty: Int, unitPrice: Long, receivedNow: Long, applyPrepay: Long) -> Unit
+    onConfirm: (qty: Int, unitPrice: Long, receivedNow: Long, applyPrepay: Long) -> Unit,
+    allowShortage: Boolean = true
 ) {
     val remainingQty = (order.qty - order.deliveredQty).coerceAtLeast(0)
-    val maxQty = minOf(remainingQty, available)
+    // با اجازهٔ کسری، سقفْ باقی‌ماندهٔ خودِ سفارش است نه موجودیِ انبار.
+    // قبلاً وقتی انبار صفر بود سقف صفر می‌شد و دکمهٔ تحویل هرگز فعال
+    // نمی‌شد، بدونِ اینکه معلوم باشد چرا.
+    val maxQty = if (allowShortage) remainingQty else minOf(remainingQty, available)
+    val shortageQty = (remainingQty - available).coerceAtLeast(0)
 
     val defaultUnit = if (order.qty > 0 && order.agreedPrice > 0) order.agreedPrice / order.qty else 0L
     var qtyText by remember(order.id) { mutableStateOf(maxQty.takeIf { it > 0 }?.toString() ?: "") }
@@ -76,11 +82,20 @@ fun DeliverDialog(
                 Text(
                     "«${order.designTitle}» — از این سفارش ${remainingQty.fa()} عدد باقی است" +
                         (if (order.deliveredQty > 0) " (${order.deliveredQty.fa()} عدد قبلاً رفته)" else "") +
-                        " • موجودیِ انبار: ${available.fa()} عدد",
+                        " • " + stockText(available),
                     style = MaterialTheme.typography.bodySmall,
                     color = if (available < remainingQty) MaterialTheme.colorScheme.error
                     else MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (allowShortage && shortageQty > 0) {
+                    Text(
+                        "انبار به اندازهٔ این سفارش جنس ندارد. تحویل انجام می‌شود و " +
+                            "${shortageQty.fa()} عدد به‌عنوان «کسری» ثبت می‌ماند تا ورودِ " +
+                            "بعدی آن را جبران کند.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
@@ -101,7 +116,7 @@ fun DeliverDialog(
                 }
                 if (qty > maxQty) {
                     Text(
-                        if (available < remainingQty)
+                        if (!allowShortage && available < remainingQty)
                             "بیشتر از موجودیِ انبار (${available.fa()} عدد) نمی‌شود تحویل داد."
                         else "بیشتر از باقی‌ماندهٔ سفارش (${remainingQty.fa()} عدد) نمی‌شود تحویل داد.",
                         style = MaterialTheme.typography.labelSmall,

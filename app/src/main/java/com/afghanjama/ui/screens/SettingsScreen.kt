@@ -50,6 +50,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.material3.Switch
+import com.afghanjama.prefs.SalePrefs
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -80,6 +83,7 @@ fun SettingsScreen(
     val ui by authVm.ui.collectAsState()
     val backupUi by backupVm.ui.collectAsState()
     val context = LocalContext.current
+    var allowShortage by remember { mutableStateOf(SalePrefs.allowNegativeStock(context)) }
 
     fun stamp(): String =
         SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())
@@ -250,6 +254,47 @@ fun SettingsScreen(
             }
 
             // قفل اپ با رمز عددی
+            // ---------- سیاستِ فروش ----------
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+            ) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "فروشِ بیشتر از موجودی (کسری)",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        if (allowShortage)
+                            "فروش و تحویل حتی وقتی انبار خالی است انجام می‌شود و کمبود " +
+                                "به‌عنوان «کسری» با رنگِ قرمز نشان داده می‌شود. بهای " +
+                                "تمام‌شده با آخرین میانگین برآورد می‌شود و با ورودِ بعدیِ " +
+                                "همان کالا خودش اصلاح می‌گردد."
+                        else
+                            "فروشِ بیشتر از موجودی رد می‌شود. امن‌تر است، ولی اگر جنسی " +
+                                "پیش از ثبتِ ورودش فروخته شود، فروشنده گیر می‌کند.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Switch(
+                            checked = allowShortage,
+                            onCheckedChange = {
+                                allowShortage = it
+                                SalePrefs.setAllowNegativeStock(context, it)
+                            }
+                        )
+                        Text(if (allowShortage) "اجازه هست" else "اجازه نیست")
+                    }
+                }
+            }
+
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),

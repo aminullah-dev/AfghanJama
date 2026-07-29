@@ -11,7 +11,13 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface FinishedStockDao {
 
-    @Query("SELECT * FROM finished_stock WHERE qty > 0 ORDER BY name ASC")
+    /**
+     * ردیف‌هایی که وضعیتشان صفر نیست — چه موجودی داشته باشند چه کسری.
+     *
+     * قبلاً فقط `qty > 0` بود و ردیفِ کسری کاملاً ناپدید می‌شد؛ فروشنده
+     * می‌دید «موجودی ۰» ولی نمی‌فهمید که در واقع بدهکارِ جنس است.
+     */
+    @Query("SELECT * FROM finished_stock WHERE qty != 0 ORDER BY name ASC")
     fun observeAvailable(): Flow<List<FinishedStock>>
 
     @Query("SELECT * FROM finished_stock ORDER BY name ASC")

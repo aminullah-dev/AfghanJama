@@ -69,7 +69,9 @@ class HomeViewModel(repo: Repo) : ViewModel() {
 
     val summary: StateFlow<HomeSummary> =
         combine(base, repo.observeFinishedStock()) { s, finished ->
-            s.copy(finishedPieces = finished.sumOf { it.qty })
+            // ردیفِ کسری از شمارشِ «آماده» کم نمی‌شود — آن یک بدهیِ جنسی
+            // است، نه کالایی که کم شده باشد.
+            s.copy(finishedPieces = finished.sumOf { it.qty.coerceAtLeast(0) })
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeSummary())
 
     /** بازه‌های بازِ حضور (کارمندانِ داخل کارگاه) برای ساعتِ شیفتِ داشبورد. */

@@ -142,6 +142,8 @@ class DashboardViewModel(repo: Repo) : ViewModel() {
 
     val stats: StateFlow<DashboardStats> =
         combine(base, repo.observeFinishedStock()) { s, finished ->
-            s.copy(readyPieces = finished.sumOf { it.qty })
+            // «آماده» یعنی چیزی که واقعاً در انبار هست؛ ردیفِ کسری از آن
+            // کم نمی‌شود، وگرنه یک کسری، موجودیِ طرحِ دیگری را پنهان می‌کند.
+            s.copy(readyPieces = finished.sumOf { it.qty.coerceAtLeast(0) })
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DashboardStats())
 }

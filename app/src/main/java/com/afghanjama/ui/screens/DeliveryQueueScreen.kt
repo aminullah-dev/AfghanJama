@@ -39,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import com.afghanjama.prefs.SalePrefs
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -80,7 +81,8 @@ fun DeliveryQueueScreen(
                 onConfirm = { qty, unit, received, applied ->
                     vm.deliver(row.order.id, qty, unit, received, applied)
                     deliverTarget = null
-                }
+                },
+                allowShortage = SalePrefs.allowNegativeStock(context)
             )
         }
     }

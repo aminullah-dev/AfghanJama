@@ -39,6 +39,7 @@ import com.afghanjama.data.entities.Tailor
 import com.afghanjama.data.entities.TailorWage
 import com.afghanjama.data.entities.Transaction
 import com.afghanjama.data.entities.WorkCost
+import com.afghanjama.prefs.SalePrefs
 import com.afghanjama.util.CurrentUser
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -1188,17 +1189,45 @@ class Repo(private val db: AppDatabase) {
         val now = System.currentTimeMillis()
         val cur = db.finishedStockDao().find(name.trim(), size.trim())
             ?: FinishedStock(name = name.trim(), size = size.trim(), qty = 0, updatedAt = now)
+
+        // اگر ردیف کسری داشت، بهای آن عددها قبلاً با برآورد به حساب رفته
+        // بود. حالا بهای واقعی رسیده و اختلافِ برآورد باید اصلاح شود،
+        // وگرنه ردیفی با تعدادِ صفر ارزشِ غیرِ صفر نگه می‌دارد.
+        val variance = if (cur.qty < 0) {
+            val covered = minOf(qty, -cur.qty)
+            covered * batchValue / qty - covered * cur.avgCost
+        } else 0L
+
         val newQty = cur.qty + qty
-        val newValue = cur.totalValue + batchValue
+        val newValue = cur.totalValue + batchValue - variance
         db.finishedStockDao().upsert(
             cur.copy(
                 qty = newQty,
                 totalValue = newValue,
-                // میانگین فقط برای نمایش نگه داشته می‌شود
-                avgCost = if (newQty > 0) newValue / newQty else 0L,
+                // میانگین فقط برای نمایش است، ولی وقتی تعداد مثبت نیست
+                // همان برآوردِ قبلی باید بماند: ارزشِ منفیِ ردیف بر همین
+                // عدد بنا شده و صفر کردنش حساب را به‌هم می‌ریزد.
+                avgCost = if (newQty > 0) newValue / newQty else cur.avgCost,
                 updatedAt = now
             )
         )
+
+        if (variance != 0L) {
+            // اختلافِ برآورد به بهای تمام‌شدهٔ فروش می‌رود — چون خطا آنجا
+            // رخ داده بود: کالایی فروخته شده و بهایش اشتباه برآورد شده.
+            val label = "اصلاح بهای کسری «${name.trim()}»"
+            postJournal(
+                label, "SHORTAGE_ADJUST", "",
+                if (variance > 0) listOf(
+                    jl(Accounts.COGS, debit = variance),
+                    jl(Accounts.FINISHED, credit = variance)
+                ) else listOf(
+                    jl(Accounts.FINISHED, debit = -variance),
+                    jl(Accounts.COGS, credit = -variance)
+                )
+            )
+            audit("اصلاح بهای کسری", "${name.trim()} — ${variance} ؋")
+        }
     }
 
     /**
@@ -1209,8 +1238,21 @@ class Repo(private val db: AppDatabase) {
      * حسابِ موجودی جا نمی‌ماند.
      */
     private fun takeFromStock(item: FinishedStock, qty: Int): Pair<Long, Long> {
-        if (qty >= item.qty) return item.totalValue to 0L
-        val cost = item.totalValue * qty / item.qty
+        if (qty <= 0) return 0L to item.totalValue
+        val available = item.qty.coerceAtLeast(0)
+        if (qty <= available) {
+            if (qty >= item.qty) return item.totalValue to 0L
+            val cost = item.totalValue * qty / item.qty
+            return cost to (item.totalValue - cost)
+        }
+        // کسری: بیشتر از موجودی رفت. آنچه واقعاً در انبار بود کلِ ارزشش را
+        // می‌برد، و برای عددهای اضافه بهای تمام‌شده با آخرین میانگینِ معلوم
+        // برآورد می‌شود. ارزشِ ردیف منفی می‌ماند، یعنی «به اندازهٔ این مبلغ
+        // جنسی فروخته‌ایم که هنوز واردش نکرده‌ایم» — و با ورودِ بعدی خودش
+        // تسویه می‌شود.
+        val fromStock = if (available > 0) item.totalValue else 0L
+        val excess = qty - available
+        val cost = fromStock + excess * item.avgCost
         return cost to (item.totalValue - cost)
     }
 
@@ -1289,14 +1331,38 @@ class Repo(private val db: AppDatabase) {
         if (qty > remaining)
             return "از این سفارش فقط ${remaining} عدد باقی مانده."
 
-        val item = db.finishedStockDao().find(order.designTitle, order.size)
-        if (item == null || item.qty <= 0) {
-            return "«${order.designTitle}» در انبار محصول موجود نیست. " +
-                "موجودیِ انبار برای هر طرح مشترک است، پس ممکن است با فروش یا " +
-                "تحویلِ دیگری خالی شده باشد."
+        val allowShortage = SalePrefs.allowNegativeStockCached()
+        var item = db.finishedStockDao().find(order.designTitle, order.size)
+
+        if (item == null) {
+            if (!allowShortage) {
+                return "«${order.designTitle}» در انبار محصول موجود نیست. " +
+                    "موجودیِ انبار برای هر طرح مشترک است، پس ممکن است با فروش یا " +
+                    "تحویلِ دیگری خالی شده باشد."
+            }
+            // با اجازهٔ کسری، ردیفِ صفر ساخته می‌شود تا کسری جایی ثبت شود
+            // و بعداً با ورودِ جنس تسویه گردد.
+            db.finishedStockDao().upsert(
+                FinishedStock(
+                    name = order.designTitle.trim(),
+                    size = order.size.trim(),
+                    qty = 0,
+                    updatedAt = System.currentTimeMillis()
+                )
+            )
+            item = db.finishedStockDao().find(order.designTitle, order.size)
+                ?: return "ساختِ ردیفِ انبار انجام نشد."
         }
-        if (item.qty < qty)
-            return "موجودی انبار ${item.qty} عدد است، کمتر از ${qty} عددِ خواسته‌شده."
+
+        if (!allowShortage) {
+            if (item.qty <= 0) {
+                return "«${order.designTitle}» در انبار محصول موجود نیست. " +
+                    "موجودیِ انبار برای هر طرح مشترک است، پس ممکن است با فروش یا " +
+                    "تحویلِ دیگری خالی شده باشد."
+            }
+            if (item.qty < qty)
+                return "موجودی انبار ${item.qty} عدد است، کمتر از ${qty} عددِ خواسته‌شده."
+        }
 
         val ok = sellInvoice(
             lines = listOf(SaleLine(item, qty, unitPrice)),
@@ -1370,8 +1436,10 @@ class Repo(private val db: AppDatabase) {
         // وگرنه دو ردیف از یک طرح می‌توانستند بیشتر از موجودی بفروشند.
         val neededPerItem = valid.groupBy { it.item.id }
             .mapValues { (_, rows) -> rows.sumOf { it.qty } }
-        valid.map { it.item }.distinctBy { it.id }.forEach { item ->
-            if ((neededPerItem[item.id] ?: 0) > item.qty) return false
+        if (!SalePrefs.allowNegativeStockCached()) {
+            valid.map { it.item }.distinctBy { it.id }.forEach { item ->
+                if ((neededPerItem[item.id] ?: 0) > item.qty) return false
+            }
         }
 
         val now = System.currentTimeMillis()
@@ -1392,7 +1460,10 @@ class Repo(private val db: AppDatabase) {
                 item.copy(
                     qty = leftQty,
                     totalValue = leftValue,
-                    avgCost = if (leftQty > 0) leftValue / leftQty else 0L,
+                    // با تعدادِ صفر یا منفی، برآوردِ قبلی نگه داشته می‌شود:
+                    // ارزشِ منفیِ کسری بر همین عدد بنا شده و صفر کردنش
+                    // رابطهٔ «ارزش = تعداد × برآورد» را می‌شکند.
+                    avgCost = if (leftQty > 0) leftValue / leftQty else item.avgCost,
                     updatedAt = now
                 )
             )

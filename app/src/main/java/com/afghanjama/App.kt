@@ -6,6 +6,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.afghanjama.data.buildAppDatabase
 import com.afghanjama.data.repo.Repo
+import com.afghanjama.prefs.SalePrefs
 import com.afghanjama.util.PhotoStore
 import com.afghanjama.work.AutoBackupWorker
 import com.afghanjama.work.BreakReminderWorker
@@ -56,6 +57,10 @@ class App : Application() {
 
         // یادآورهای نان و چای: هر بار که اپ باز می‌شود از نو چیده می‌شوند،
         // تا خاموش‌بودنِ گوشی یا ری‌استارت چیزی را از بین نبرد.
+        // سیاستِ فروش پیش از هر کارِ دیگری خوانده می‌شود، چون `Repo` به
+        // Context دسترسی ندارد و از نسخهٔ حافظه‌ایِ همین می‌خواند.
+        SalePrefs.allowNegativeStock(this)
+
         CoroutineScope(Dispatchers.IO).launch {
             runCatching { BreakReminderWorker.rescheduleAll(this@App) }
             // عکس‌های بی‌صاحب را جارو می‌کنیم: سفارشِ حذف‌شده، عکسِ نیمه‌کاره،

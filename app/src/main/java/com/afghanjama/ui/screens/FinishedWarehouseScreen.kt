@@ -51,6 +51,9 @@ import com.afghanjama.data.entities.FinishedStock
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.format.fa
+import com.afghanjama.ui.format.isShortage
+import com.afghanjama.ui.format.stockText
+import com.afghanjama.ui.format.stockBadge
 import com.afghanjama.ui.vm.FinishedSaleViewModel
 
 @Composable
@@ -83,11 +86,20 @@ fun FinishedWarehouseScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        "موجودی: ${item.qty.fa()} عدد" +
+                        stockText(item.qty) +
                             if (item.size.isNotBlank()) " • سایز ${item.size}" else "",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = if (isShortage(item.qty)) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    if (isShortage(item.qty)) {
+                        Text(
+                            "این طرح کسری دارد. فروشِ تازه کسری را بیشتر می‌کند؛ " +
+                                "با ورودِ بعدیِ همین کالا خودش تسویه می‌شود.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
                     OutlinedTextField(
                         value = qtyText,
                         onValueChange = { qtyText = it.digitsOnly() },
@@ -317,11 +329,13 @@ fun FinishedWarehouseScreen(
                             Column(Modifier.weight(1f)) {
                                 Text(item.name, fontWeight = FontWeight.SemiBold)
                                 Text(
-                                    "موجودی: ${item.qty.fa()} عدد" +
+                                    stockBadge(item.qty) + " عدد" +
                                         (if (item.size.isNotBlank()) " • سایز ${item.size}" else "") +
                                         " • بهای هر عدد ${item.avgCost.afn()}",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    // ردیفِ کسری باید در نگاهِ اول قرمز دیده شود
+                                    color = if (isShortage(item.qty)) MaterialTheme.colorScheme.error
+                                    else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                             Button(onClick = { sellTarget = item }) {
