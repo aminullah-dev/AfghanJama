@@ -5,6 +5,7 @@ import com.afghanjama.data.entities.Document
 import com.afghanjama.data.entities.docTypeLabel
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.prefs.CompanyPrefs
+import com.afghanjama.ui.format.fa
 import java.io.File
 
 /**
