@@ -1226,3 +1226,151 @@ fun checkCashOutflowPolicy(
 
     return s.results
 }
+
+// =====================================================================
+// 16) حقوق و پیش‌پرداختِ کارمند — تهاتر باید کامل باشد
+// =====================================================================
+
+/** نتیجهٔ یک پرداختِ حقوق: چه از صندوق رفت و حساب‌ها کجا نشستند. */
+data class SalaryResult(
+    val cashOut: Long,
+    val deducted: Long,
+    /** ماندهٔ کارمند در دفتر کل پس از پرداخت — باید صفر شود. */
+    val employeeBalance: Long,
+    /** ماندهٔ «پیش‌پرداخت کارکنان» پس از پرداخت. */
+    val advanceLeft: Long,
+    /** هزینهٔ حقوقِ ثبت‌شده — باید حقوقِ کامل باشد، نه فقط نقد. */
+    val expense: Long,
+    val unbalanced: Boolean
+)
+
+/**
+ * بازتابِ دقیقِ `Repo.paySalary` به‌همراهِ پیش‌پرداختی که از قبل داده شده.
+ *
+ * چرا این‌جا؟ چون تا پیش از این، پیش‌پرداخت هیچ‌وقت تهاتر نمی‌شد: کارمند
+ * تا ابد در دفتر بدهکار می‌ماند، حسابِ «پیش‌پرداخت کارکنان» بادکرده، و
+ * هزینهٔ حقوق به اندازهٔ همان پیش‌پرداخت کمتر از واقع. سه اشکال از یک ریشه.
+ */
+fun runSalaryCycle(salary: Long, advance: Long, askedDeduct: Long): SalaryResult {
+    var employee = 0L          // بدهکار مثبت = کارمند به ما بدهکار است
+    var staffAdvance = 0L
+    var expense = 0L
+    var unbalanced = false
+
+    fun post(lines: List<Pair<Long, Long>>) {
+        if (lines.sumOf { it.first } != lines.sumOf { it.second }) unbalanced = true
+    }
+
+    // پیش‌پرداختِ قبلی: کارمند بدهکار، حسابِ پیش‌پرداخت پر
+    if (advance > 0) {
+        employee += advance
+        staffAdvance += advance
+        post(listOf(advance to advance))
+    }
+
+    // کسر نه از حقوق بیشتر می‌شود و نه از پیش‌پرداختِ واقعی
+    val deduct = askedDeduct.coerceIn(0L, minOf(salary, employee.coerceAtLeast(0L)))
+    val cashOut = salary - deduct
+
+    // دفتر کل: تعهدِ حقوقِ کامل بستانکار، نقدِ پرداختی بدهکار
+    employee -= salary
+    if (cashOut > 0) employee += cashOut
+
+    // ژورنال: هزینهٔ کاملِ حقوق در برابرِ تهاترِ پیش‌پرداخت و نقد
+    expense += salary
+    staffAdvance -= deduct
+    post(listOf(salary to (deduct + cashOut)))
+
+    return SalaryResult(
+        cashOut = cashOut,
+        deducted = deduct,
+        employeeBalance = employee,
+        advanceLeft = staffAdvance,
+        expense = expense,
+        unbalanced = unbalanced
+    )
+}
+
+fun checkSalaryAdvance(): List<CheckResult> {
+    val s = CheckSink("حقوق و پیش‌پرداخت")
+
+    // ---- تهاترِ کامل: هر سه حساب باید صفر شوند ----
+    run {
+        val r = runSalaryCycle(salary = 10_000, advance = 2_000, askedDeduct = 2_000)
+        s.eq("نقدِ پرداختی = حقوق منهای پیش‌پرداخت", 8_000L, r.cashOut)
+        s.eq("ماندهٔ کارمند پس از پرداخت صفر می‌شود", 0L, r.employeeBalance)
+        s.eq("حسابِ پیش‌پرداخت کارکنان خالی می‌شود", 0L, r.advanceLeft)
+        s.eq("هزینهٔ حقوق کاملِ حقوق است، نه فقط نقد", 10_000L, r.expense)
+        s.isTrue("سندِ حقوق تراز است", !r.unbalanced, "بدهکار و بستانکار نخواندند")
+    }
+
+    // ---- بی‌کسر: رفتارِ قبلی مو‌به‌مو ----
+    run {
+        val r = runSalaryCycle(salary = 10_000, advance = 2_000, askedDeduct = 0)
+        s.eq("بی‌کسر، همهٔ حقوق نقد داده می‌شود", 10_000L, r.cashOut)
+        s.eq("بی‌کسر، پیش‌پرداخت سرِ جایش می‌ماند", 2_000L, r.advanceLeft)
+        s.eq("بی‌کسر، کارمند همان‌قدر بدهکار می‌ماند", 2_000L, r.employeeBalance)
+        s.eq("بی‌کسر هم هزینه کاملِ حقوق است", 10_000L, r.expense)
+    }
+
+    // ---- حقوق تماماً از پیش‌پرداخت: نقدی خارج نمی‌شود ----
+    run {
+        val r = runSalaryCycle(salary = 3_000, advance = 3_000, askedDeduct = 3_000)
+        s.eq("وقتی پیش‌پرداخت همهٔ حقوق است، نقدی خارج نمی‌شود", 0L, r.cashOut)
+        s.eq("ماندهٔ کارمند بازهم صفر می‌شود", 0L, r.employeeBalance)
+        s.eq("هزینهٔ حقوق بازهم کامل ثبت می‌شود", 3_000L, r.expense)
+        s.isTrue("سندِ بی‌نقد هم تراز است", !r.unbalanced, "سندِ ناتراز")
+    }
+
+    // ---- کسرِ بیش از حد باید بریده شود ----
+    run {
+        val r = runSalaryCycle(salary = 3_000, advance = 5_000, askedDeduct = 5_000)
+        s.eq("کسر از حقوقِ این ماه بیشتر نمی‌شود", 3_000L, r.deducted)
+        s.eq("پیش‌پرداختِ باقی‌مانده برای ماهِ بعد می‌ماند", 2_000L, r.advanceLeft)
+        s.eq("نقدی خارج نمی‌شود", 0L, r.cashOut)
+    }
+    run {
+        val r = runSalaryCycle(salary = 10_000, advance = 2_000, askedDeduct = 9_999)
+        s.eq("کسر از پیش‌پرداختِ واقعی بیشتر نمی‌شود", 2_000L, r.deducted)
+        s.eq("بقیه نقد داده می‌شود", 8_000L, r.cashOut)
+    }
+    run {
+        val r = runSalaryCycle(salary = 10_000, advance = 0, askedDeduct = 8_000)
+        s.eq("بی پیش‌پرداخت، کسری انجام نمی‌شود", 0L, r.deducted)
+        s.eq("همهٔ حقوق نقد داده می‌شود", 10_000L, r.cashOut)
+    }
+
+    // ---- صدها حالتِ تصادفی ----
+    run {
+        var seed = 161803L
+        fun rnd(bound: Int): Long {
+            seed = seed * 6364136223846793005L + 1442695040888963407L
+            return ((((seed ushr 33).toInt() % bound) + bound) % bound).toLong()
+        }
+        var brokenBalance = 0
+        var brokenExpense = 0
+        var negativeCash = 0
+        var unbalanced = 0
+        var leakedAdvance = 0
+        repeat(1_000) {
+            val salary = rnd(60_000) + 1
+            val advance = if (rnd(3) == 0L) 0L else rnd(30_000)
+            val asked = advance                     // کارگاه همهٔ پیش‌پرداخت را کسر می‌کند
+            val r = runSalaryCycle(salary, advance, asked)
+            val expectedDeduct = minOf(salary, advance)
+            if (r.cashOut < 0) negativeCash++
+            if (r.expense != salary) brokenExpense++
+            if (r.unbalanced) unbalanced++
+            // ماندهٔ کارمند باید همان پیش‌پرداختِ کسرنشده باشد
+            if (r.employeeBalance != advance - expectedDeduct) brokenBalance++
+            if (r.advanceLeft != advance - expectedDeduct) leakedAdvance++
+        }
+        s.eq("۱۰۰۰ حالتِ تصادفی: نقدِ منفی نداریم", 0, negativeCash)
+        s.eq("۱۰۰۰ حالتِ تصادفی: هزینهٔ حقوق همیشه کاملِ حقوق است", 0, brokenExpense)
+        s.eq("۱۰۰۰ حالتِ تصادفی: هیچ سندِ ناترازی", 0, unbalanced)
+        s.eq("۱۰۰۰ حالتِ تصادفی: ماندهٔ کارمند همان‌قدر که باید", 0, brokenBalance)
+        s.eq("۱۰۰۰ حالتِ تصادفی: پیش‌پرداخت جا نمی‌ماند", 0, leakedAdvance)
+    }
+
+    return s.results
+}

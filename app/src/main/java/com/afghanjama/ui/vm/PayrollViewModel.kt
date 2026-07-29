@@ -18,7 +18,9 @@ data class PayrollRow(
     val role: String,
     val monthlySalary: Long,
     val paidThisMonth: Long,
-    val lastPaidLabel: String
+    val lastPaidLabel: String,
+    /** پیش‌پرداختِ تسویه‌نشده — پولی که کارمند از قبل گرفته. */
+    val advance: Long = 0
 ) {
     val isPaid: Boolean get() = monthlySalary > 0 && paidThisMonth >= monthlySalary
     val remaining: Long get() = (monthlySalary - paidThisMonth).coerceAtLeast(0)
@@ -60,9 +62,16 @@ class PayrollViewModel(private val repo: Repo) : ViewModel() {
         repo.observeStaff(),
         repo.observeSalaryPayments(),
         repo.observeWalletBalance(),
-        repo.observeBankBalance()
-    ) { staff, payments, wallet, bank ->
+        repo.observeBankBalance(),
+        repo.observeLedgerBalances()
+    ) { staff, payments, wallet, bank, ledger ->
         val key = nowKey()
+        // ماندهٔ مثبتِ کارمند در دفتر کل همان پیش‌پرداختِ تسویه‌نشده است:
+        // پرداختِ حقوق تعهد و پرداختش را با هم می‌نویسد و ماندهٔ حقوق را
+        // صفر می‌کند، پس هرچه می‌ماند پولی است که از قبل گرفته.
+        val advances = ledger
+            .filter { it.type == "EMPLOYEE" }
+            .associate { it.name to it.net.coerceAtLeast(0) }
         val rows = staff.map { s ->
             val mine = payments.filter { it.employee == s.name }
             PayrollRow(
@@ -70,7 +79,8 @@ class PayrollViewModel(private val repo: Repo) : ViewModel() {
                 role = s.role,
                 monthlySalary = s.monthlySalary,
                 paidThisMonth = mine.filter { it.periodKey == key }.sumOf { it.amount },
-                lastPaidLabel = mine.maxByOrNull { it.at }?.periodLabel.orEmpty()
+                lastPaidLabel = mine.maxByOrNull { it.at }?.periodLabel.orEmpty(),
+                advance = advances[s.name] ?: 0L
             )
         }.sortedWith(
             compareByDescending<PayrollRow> { it.monthlySalary > 0 }
@@ -96,11 +106,31 @@ class PayrollViewModel(private val repo: Repo) : ViewModel() {
         _message.value = "«${name.trim()}» ذخیره شد."
     }
 
-    /** پرداختِ حقوقِ ماهِ جاری. */
-    fun pay(employee: String, amount: Long, source: String) =
-        viewModelScope.launch { busy.once { doPay(employee = employee, amount = amount, source = source) } }
+    /**
+     * پرداختِ حقوقِ ماهِ جاری.
+     *
+     * [amount] حقوقِ کامل است. [deductAdvance] آن بخشش که کارمند از قبل
+     * پیش‌پرداخت گرفته و اکنون تهاتر می‌شود؛ صفر یعنی همهٔ مبلغ نقد داده
+     * شود، همان رفتارِ قبلی.
+     */
+    fun pay(employee: String, amount: Long, source: String, deductAdvance: Long = 0) =
+        viewModelScope.launch {
+            busy.once {
+                doPay(
+                    employee = employee,
+                    amount = amount,
+                    source = source,
+                    deductAdvance = deductAdvance
+                )
+            }
+        }
 
-    private suspend fun doPay(employee: String, amount: Long, source: String) {
+    private suspend fun doPay(
+        employee: String,
+        amount: Long,
+        source: String,
+        deductAdvance: Long
+    ) {
         if (amount <= 0) {
             _message.value = "مبلغ را درست وارد کنید."
             return
@@ -110,10 +140,17 @@ class PayrollViewModel(private val repo: Repo) : ViewModel() {
             amount = amount,
             periodKey = nowKey(),
             periodLabel = nowLabel(),
-            source = source
+            source = source,
+            deductAdvance = deductAdvance
         )
-        _message.value =
-            if (ok) "حقوق $employee برای ${nowLabel()} پرداخت شد."
-            else "موجودیِ صندوق کافی نیست."
+        // مبلغِ کسرشده را خودِ Repo می‌بُرد (نه بیشتر از حقوق، نه بیشتر از
+        // پیش‌پرداختِ واقعی)، پس پیام از همان عددِ بریده‌شده حرف می‌زند.
+        val deducted = deductAdvance.coerceIn(0L, amount)
+        _message.value = when {
+            !ok -> "موجودیِ صندوق کافی نیست."
+            deducted > 0 ->
+                "حقوق $employee برای ${nowLabel()} ثبت شد؛ پیش‌پرداختِ تسویه‌شده کسر شد."
+            else -> "حقوق $employee برای ${nowLabel()} پرداخت شد."
+        }
     }
 }

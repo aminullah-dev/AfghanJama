@@ -2048,13 +2048,33 @@ class Repo(private val db: AppDatabase) {
         db.salaryDao().observeAll()
 
     /**
+     * پیش‌پرداختِ تسویه‌نشدهٔ یک طرفِ حساب — عددِ مثبت یعنی او به ما بدهکار
+     * است.
+     *
+     * چرا ماندهٔ دفتر کل همان پیش‌پرداخت است؟ چون [paySalary] تعهد و
+     * پرداختش را با هم ثبت می‌کند و ماندهٔ حقوق همان‌جا صفر می‌شود. پس هر
+     * ماندهٔ مثبتی که روی کارمند می‌ماند، پولی است که از قبل گرفته.
+     */
+    suspend fun outstandingAdvance(type: String, name: String): Long =
+        partyBalanceUpTo(type, name, System.currentTimeMillis()).coerceAtLeast(0L)
+
+    /**
      * پرداختِ حقوقِ ماهانه. مثلِ هر رویدادِ مالیِ دیگر از همین قیف عبور
      * می‌کند: نقد → دفتر کل → ژورنالِ دوطرفه → رسید → لاگِ حسابرسی.
      *
      * در دفتر کل دو سطر ثبت می‌شود (تعهدِ حقوق و پرداختِ آن) تا صورت‌حسابِ
      * کارمند خوانا بماند و ماندهٔ حسابش پس از پرداخت صفر شود.
      *
-     * @return false اگر مبلغ نامعتبر باشد یا موجودیِ صندوق کفایت نکند.
+     * [amount] حقوقِ **کامل** است و [deductAdvance] آن بخشش که کارمند از
+     * قبل به‌عنوان پیش‌پرداخت گرفته. نقدِ خارج‌شده تفاوتِ این دو است.
+     *
+     * بی این کسر، پیش‌پرداخت هیچ‌وقت تهاتر نمی‌شد: کارمند تا ابد در دفتر
+     * بدهکار می‌ماند، حسابِ «پیش‌پرداخت کارکنان» تا ابد بادکرده، و هزینهٔ
+     * حقوق به اندازهٔ همان پیش‌پرداخت کمتر از واقع ثبت می‌شد. مقدارِ پیش‌فرضِ
+     * صفر یعنی رفتارِ قبلی مو‌به‌مو حفظ می‌شود.
+     *
+     * @return false اگر مبلغ نامعتبر باشد یا موجودیِ صندوق برای نقدِ
+     * پرداختی کفایت نکند.
      */
     suspend fun paySalary(
         employee: String,
@@ -2062,11 +2082,17 @@ class Repo(private val db: AppDatabase) {
         periodKey: String,
         periodLabel: String,
         source: String = "WALLET",
-        note: String = ""
+        note: String = "",
+        deductAdvance: Long = 0
     ): Boolean {
         val emp = employee.trim()
         if (emp.isEmpty() || amount <= 0) return false
-        if (balanceOf(source) < amount) return false
+        // کسر نه از حقوق بیشتر می‌شود و نه از پیش‌پرداختِ واقعیِ کارمند
+        val deduct = deductAdvance.coerceIn(0L, minOf(amount, outstandingAdvance("EMPLOYEE", emp)))
+        val cashOut = amount - deduct
+        // کنترل روی نقدِ خارج‌شده است، نه حقوقِ کامل — وگرنه کارگاهی که
+        // بخشی را از قبل پیش‌پرداخت کرده نمی‌تواند بقیه را بدهد.
+        if (!hasFunds(source, cashOut)) return false
 
         val memo = "حقوق $periodLabel — $emp"
         db.salaryDao().insert(
@@ -2076,22 +2102,33 @@ class Repo(private val db: AppDatabase) {
                 source = source, note = note.trim()
             )
         )
-        spend(source, amount, note.ifBlank { memo }, category = "حقوق کارکنان")
+        if (cashOut > 0) {
+            spend(source, cashOut, note.ifBlank { memo }, category = "حقوق کارکنان")
+        }
 
-        // دفتر کل: تعهدِ حقوق (بستانکار) و پرداختِ آن (بدهکار) → ماندهٔ صفر
+        // دفتر کل: تعهدِ حقوقِ کامل (بستانکار) و نقدِ پرداختی (بدهکار).
+        // تفاوتشان همان پیش‌پرداختی است که تهاتر می‌شود، پس ماندهٔ کارمند
+        // از پیش‌پرداخت هم پاک می‌شود و به صفر می‌رسد.
         postLedger("EMPLOYEE", emp, 0, amount, "SALARY", periodKey, memo)
-        postLedger("EMPLOYEE", emp, amount, 0, "SALARY_PAID", periodKey, note.ifBlank { memo })
+        if (cashOut > 0) {
+            postLedger("EMPLOYEE", emp, cashOut, 0, "SALARY_PAID", periodKey, note.ifBlank { memo })
+        }
 
         createDocument("SALARY_RECEIPT", emp, amount, refId = periodKey, note = memo)
-        audit("پرداخت حقوق", "$emp — $periodLabel — $amount ؋")
+        audit(
+            "پرداخت حقوق",
+            "$emp — $periodLabel — $amount ؋" +
+                if (deduct > 0) " (کسرِ پیش‌پرداخت $deduct ؋)" else ""
+        )
 
-        // ژورنال: هزینهٔ حقوق در برابرِ خروجِ نقد
+        // ژورنال: هزینهٔ حقوقِ کامل، در برابرِ نقد و تهاترِ پیش‌پرداخت
         postJournal(
             memo, "SALARY", periodKey,
-            listOf(
-                jl(Accounts.EXPENSES, debit = amount),
-                jl(Accounts.box(source), credit = amount)
-            )
+            buildList {
+                add(jl(Accounts.EXPENSES, debit = amount))
+                if (deduct > 0) add(jl(Accounts.STAFF_ADVANCE, credit = deduct))
+                if (cashOut > 0) add(jl(Accounts.box(source), credit = cashOut))
+            }
         )
         return true
     }

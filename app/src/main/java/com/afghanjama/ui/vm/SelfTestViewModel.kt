@@ -19,6 +19,7 @@ import com.afghanjama.selftest.checkInvoiceTotals
 import com.afghanjama.selftest.checkDiscountMath
 import com.afghanjama.selftest.checkOrderCycle
 import com.afghanjama.selftest.checkPaperGeometry
+import com.afghanjama.selftest.checkSalaryAdvance
 import com.afghanjama.selftest.checkResetPlan
 import com.afghanjama.selftest.checkShortage
 import com.afghanjama.selftest.checkStockValuation
@@ -77,6 +78,7 @@ class SelfTestViewModel(private val repo: Repo) : ViewModel() {
                 addAll(checkShortage())
                 addAll(checkDiscountMath())
                 addAll(checkOrderCycle())
+                addAll(checkSalaryAdvance())
                 addAll(
                     checkCashOutflowPolicy(
                         canSpend = { balance, amount -> CashPolicy.canSpend(balance, amount) },
@@ -162,8 +164,10 @@ class SelfTestViewModel(private val repo: Repo) : ViewModel() {
             Accounts.BANK to "بانک",
             Accounts.PROFIT_BOX to "صندوق فایده",
             Accounts.RECEIVABLE to "طلب از مشتریان",
-            // پیش‌پرداختِ کارکنان عمداً اینجا نیست: پرداختِ حقوق هنوز آن را
-            // تهاتر نمی‌کند، پس ماندهٔ منفی‌اش می‌تواند واقعی باشد و هشدارِ
+            // پیش‌پرداختِ کارکنان عمداً اینجا نیست. پرداختِ حقوق اکنون
+            // تهاترش می‌کند، ولی این حساب سرجمعِ همهٔ کارکنان و بازرسان است
+            // و کسر بر مبنای ماندهٔ **هر کارمند** بریده می‌شود؛ پس ماندهٔ
+            // منفیِ سرجمع در حالت‌های نامتعارف می‌تواند واقعی باشد و هشدارِ
             // بی‌مورد اعتمادِ کاربر به این دکمه را از بین می‌برد.
             Accounts.MATERIALS to "موجودی مواد",
             Accounts.FINISHED to "موجودی محصول",

@@ -48,7 +48,9 @@ object CashPolicy {
         Triple("recordPurchaseInvoice", "hasFunds", true),
         Triple("recordManualLedger", "balanceOf", true),
         Triple("recordSaleReturn", "balanceOf", true),
-        Triple("paySalary", "balanceOf", true),
+        // کنترلش روی نقدِ خارج‌شده است، نه حقوقِ کامل: بخشی از حقوق می‌تواند
+        // تهاترِ پیش‌پرداخت باشد و آن بخش از صندوق بیرون نمی‌رود.
+        Triple("paySalary", "hasFunds", true),
         // تنها صداکننده‌اش مسیرِ کنترل‌شدهٔ recordManualLedger است، پس در
         // عمل پوشیده است. اگر روزی از جای دیگری صدا زده شد، نگهبان لازم دارد.
         Triple("settleTailorWages", "recordManualLedger", true),

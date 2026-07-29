@@ -131,6 +131,12 @@ fun PayrollScreen(
             mutableStateOf(row.remaining.takeIf { it > 0 }?.toString() ?: row.monthlySalary.toString())
         }
         var source by remember(row) { mutableStateOf("WALLET") }
+        // پیش‌پرداختِ تسویه‌نشده پیش‌فرض کسر می‌شود — همان کاری که کارگاه در
+        // عمل می‌کند. کاربر می‌تواند خاموشش کند.
+        var deduct by remember(row) { mutableStateOf(row.advance > 0) }
+        val salary = amount.toLongOrNull() ?: 0L
+        val deducted = if (deduct) minOf(row.advance, salary) else 0L
+        val cashOut = (salary - deducted).coerceAtLeast(0)
         AlertDialog(
             onDismissRequest = { paying = null },
             title = { Text("پرداخت حقوق ${row.name}") },
@@ -151,10 +157,29 @@ fun PayrollScreen(
                     OutlinedTextField(
                         value = amount,
                         onValueChange = { amount = it.digitsOnly() },
-                        label = { Text("مبلغ پرداخت (؋)") },
+                        label = { Text("حقوقِ کامل (؋)") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
+                    // ---------- پیش‌پرداختِ تسویه‌نشده ----------
+                    if (row.advance > 0) {
+                        FilterChip(
+                            selected = deduct,
+                            onClick = { deduct = !deduct },
+                            label = { Text("کسرِ پیش‌پرداخت (${row.advance.afn()})") }
+                        )
+                        Text(
+                            if (deducted > 0)
+                                "از حقوقِ ${salary.afn()} مبلغِ ${deducted.afn()} پیش‌پرداختِ " +
+                                    "قبلی تهاتر می‌شود و ${cashOut.afn()} نقد داده می‌شود."
+                            else
+                                "پیش‌پرداختِ ${row.advance.afn()} کسر نمی‌شود و روی حسابِ " +
+                                    "${row.name} باقی می‌ماند.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (deducted > 0) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         FilterChip(
                             selected = source == "WALLET",
@@ -171,7 +196,7 @@ fun PayrollScreen(
             },
             confirmButton = {
                 TextButton(onClick = {
-                    vm.pay(row.name, amount.toLongOrNull() ?: 0L, source)
+                    vm.pay(row.name, salary, source, deductAdvance = deducted)
                     paying = null
                 }) { Text("پرداخت") }
             },
@@ -299,6 +324,17 @@ fun PayrollScreen(
                                 "حقوقِ ماهانه ثبت نشده (کارمزدی)",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        // پیش‌پرداختِ تسویه‌نشده باید پیش از پرداختِ حقوق دیده
+                        // شود، وگرنه دو بار پول داده می‌شود.
+                        if (row.advance > 0) {
+                            Text(
+                                "پیش‌پرداختِ تسویه‌نشده: ${row.advance.afn()}",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.error
                             )
                         }
 
