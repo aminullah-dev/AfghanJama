@@ -6,6 +6,7 @@ import com.afghanjama.pdf.invoiceColumns
 import com.afghanjama.selftest.CheckResult
 import com.afghanjama.selftest.CheckStatus
 import com.afghanjama.selftest.PaperSpec
+import com.afghanjama.selftest.checkBackupArchive
 import com.afghanjama.selftest.checkBreakSchedule
 import com.afghanjama.selftest.checkCustomerLedger
 import com.afghanjama.selftest.checkDiscountMath
@@ -18,6 +19,7 @@ import com.afghanjama.selftest.checkShortage
 import com.afghanjama.selftest.checkStockValuation
 import com.afghanjama.selftest.checkTailorAttribution
 import com.afghanjama.ui.format.PersianDate
+import com.afghanjama.util.BackupArchive
 import com.afghanjama.work.BreakSchedule
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -44,6 +46,12 @@ class SelfTestJvmTest {
         addAll(checkInvoiceTotals())
         addAll(checkShortage())
         addAll(checkDiscountMath())
+        addAll(
+            checkBackupArchive(
+                safePhotoName = { BackupArchive.safePhotoName(it) },
+                detect = { BackupArchive.detect(it).name }
+            )
+        )
         addAll(
             checkPaperGeometry(
                 Paper.ALL.map { p ->

@@ -836,3 +836,58 @@ fun checkDiscountMath(): List<CheckResult> {
     }
     return s.results
 }
+
+// =====================================================================
+// 12) فایلِ پشتیبان
+// =====================================================================
+
+/**
+ * دو چیز در پشتیبان می‌تواند بی‌سروصدا خراب کند:
+ *
+ *  - **نامِ ورودیِ zip.** فایلِ پشتیبان ممکن است از هر جایی آمده باشد.
+ *    نامی با ../ می‌تواند بیرون از پوشهٔ اپ بنویسد. باید رد شود.
+ *  - **تشخیصِ قالب.** پشتیبانِ قدیمی فایلِ خامِ SQLite بود و باید تا همیشه
+ *    باز شود؛ فایلِ ناشناس هم باید خطای روشن بدهد نه کرش.
+ *
+ * توابع تزریق می‌شوند تا این فایل بدونِ وابستگی بماند.
+ */
+fun checkBackupArchive(
+    safePhotoName: (String) -> String?,
+    detect: (ByteArray) -> String
+): List<CheckResult> {
+    val s = CheckSink("فایل پشتیبان")
+
+    // ---- نام‌هایی که باید پذیرفته شوند ----
+    listOf("p_1712345678_4242.jpg", "photo.png", "aks-1.jpg").forEach { n ->
+        s.eq("نامِ سالم پذیرفته می‌شود: $n", n, safePhotoName("photos/$n"))
+    }
+
+    // ---- نام‌هایی که باید رد شوند ----
+    val dangerous = listOf(
+        "photos/../../../databases/afghanjama.db" to "بالا رفتن از پوشه",
+        "photos/../evil.jpg" to "یک پله بالا",
+        "photos/sub/dir.jpg" to "زیرپوشه",
+        "photos/" to "نامِ خالی",
+        "photos/.." to "خودِ پوشهٔ بالا",
+        "database" to "خارج از پوشهٔ عکس",
+        "meta.txt" to "خارج از پوشهٔ عکس",
+        "evil.jpg" to "بدونِ پیشوند"
+    )
+    var blocked = 0
+    dangerous.forEach { (name, why) ->
+        val got = safePhotoName(name)
+        if (got == null) blocked++
+        else s.fail("«$why» باید رد شود", "ولی «$got» برگشت (ورودی: $name)")
+    }
+    s.eq("همهٔ نام‌های خطرناک رد شدند", dangerous.size, blocked)
+
+    // ---- تشخیصِ قالب ----
+    val zipHead = byteArrayOf(0x50, 0x4B, 0x03, 0x04, 0, 0, 0, 0)
+    val sqliteHead = "SQLite format 3 ".toByteArray(Charsets.US_ASCII)
+    s.eq("فایلِ zip شناخته می‌شود", "ZIP", detect(zipHead))
+    s.eq("پشتیبانِ قدیمیِ SQLite شناخته می‌شود", "RAW_DB", detect(sqliteHead))
+    s.eq("فایلِ آشغال ناشناس می‌ماند", "UNKNOWN", detect("hello world!!!!!".toByteArray()))
+    s.eq("فایلِ خالی ناشناس می‌ماند", "UNKNOWN", detect(ByteArray(0)))
+    s.eq("چند بایتِ ناقص کرش نمی‌کند", "UNKNOWN", detect(byteArrayOf(0x50, 0x4B)))
+    return s.results
+}

@@ -5,6 +5,9 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.afghanjama.data.repo.Repo
+import com.afghanjama.util.BackupArchive
+import com.afghanjama.util.PhotoStore
+import com.afghanjama.ui.format.fa
 import com.afghanjama.util.ShareUtil
 import com.afghanjama.work.AutoBackupWorker
 import kotlinx.coroutines.Dispatchers
@@ -38,10 +41,16 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
             repo.checkpoint() // یکپارچه‌سازی WAL تا فایل اصلی کامل باشد
             val dbFile = context.getDatabasePath(DB_NAME)
             context.contentResolver.openOutputStream(uri)?.use { out ->
-                dbFile.inputStream().use { it.copyTo(out) }
+                BackupArchive.write(dbFile, PhotoStore.dir(context), out)
             } ?: error("openOutputStream returned null")
-        }.onSuccess {
-            _ui.update { it.copy(message = "✅ پشتیبان‌گیری کامل شد.", isError = false) }
+        }.onSuccess { photos ->
+            _ui.update {
+                it.copy(
+                    message = "✅ پشتیبان‌گیری کامل شد" +
+                        (if (photos > 0) " — همراهِ ${photos.fa()} عکس." else "."),
+                    isError = false
+                )
+            }
         }.onFailure { e ->
             _ui.update { it.copy(message = "خطا در پشتیبان‌گیری: ${e.message}", isError = true) }
         }
@@ -56,9 +65,11 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
             val dbFile = context.getDatabasePath(DB_NAME)
             val out = java.io.File(
                 ShareUtil.sharedDir(context),
-                "afghanjama-backup.db"
+                "afghanjama-backup.ajb"
             )
-            dbFile.copyTo(out, overwrite = true)
+            out.outputStream().use {
+                BackupArchive.write(dbFile, PhotoStore.dir(context), it)
+            }
             out
         }.onSuccess { file ->
             withContext(Dispatchers.Main) {
@@ -81,23 +92,70 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
     // ------------------------------------------------
     // بازیابی: جایگزینی فایل دیتابیس + نیاز به راه‌اندازی دوباره اپ
     // ------------------------------------------------
+    /**
+     * بازیابی. دو قالب پذیرفته می‌شود: پشتیبانِ کاملِ تازه (zip با عکس‌ها)
+     * و فایلِ خامِ دیتابیس که نسخه‌های قبلی می‌ساختند — کاربر ممکن است
+     * پشتیبانِ هفتهٔ پیش را داشته باشد و آن نباید بی‌مصرف شود.
+     *
+     * دیتابیس **اول در فایلِ موقت** باز می‌شود و فقط وقتی کامل شد جای
+     * اصلی را می‌گیرد. اگر وسطِ کار قطع شود، دادهٔ سالمِ کارگاه دست‌نخورده
+     * می‌ماند.
+     */
     fun restoreFrom(context: Context, uri: Uri) = viewModelScope.launch(Dispatchers.IO) {
         runCatching {
+            val dbFile = context.getDatabasePath(DB_NAME)
+            val staged = java.io.File(dbFile.parentFile, "$DB_NAME.restore")
+            staged.delete()
+
+            // قالب از چند بایتِ اول تشخیص داده می‌شود، نه از پسوندِ فایل —
+            // کاربر ممکن است اسمِ فایل را عوض کرده باشد.
+            val head = context.contentResolver.openInputStream(uri)?.use { input ->
+                ByteArray(BackupArchive.HEAD_BYTES).let { buf ->
+                    val n = input.read(buf).coerceAtLeast(0)
+                    buf.copyOf(n)
+                }
+            } ?: error("openInputStream returned null")
+
+            val format = BackupArchive.detect(head)
+            if (format == BackupArchive.Format.UNKNOWN) {
+                error("این فایل پشتیبانِ افغان‌جامه نیست.")
+            }
+
+            var photos = 0
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                when (format) {
+                    BackupArchive.Format.ZIP -> {
+                        val res = BackupArchive.extract(
+                            input, staged, PhotoStore.dir(context)
+                        )
+                        if (!res.dbWritten) error("فایلِ پشتیبان دیتابیس ندارد.")
+                        photos = res.photos
+                    }
+                    else -> staged.outputStream().use { input.copyTo(it) }
+                }
+            } ?: error("openInputStream returned null")
+
+            if (staged.length() <= 0L) error("فایلِ پشتیبان خالی است.")
+
             repo.checkpoint()
             // اتصالِ باز باید قبل از بازنویسیِ فایل بسته شود؛ وگرنه صفحه‌های
             // کش‌شدهٔ آن اتصال روی دیتابیسِ تازه می‌نشیند و خرابش می‌کند.
             repo.closeDatabase()
-            val dbFile = context.getDatabasePath(DB_NAME)
             // فایل‌های WAL/SHM قدیمی نباید با دیتابیس بازیابی‌شده قاطی شوند
             java.io.File(dbFile.path + "-wal").delete()
             java.io.File(dbFile.path + "-shm").delete()
-            context.contentResolver.openInputStream(uri)?.use { input ->
+
+            staged.inputStream().use { input ->
                 dbFile.outputStream().use { input.copyTo(it) }
-            } ?: error("openInputStream returned null")
-        }.onSuccess {
+            }
+            staged.delete()
+            photos
+        }.onSuccess { photos ->
             _ui.update {
                 it.copy(
-                    message = "✅ بازیابی انجام شد. اپ را ببندید و دوباره باز کنید.",
+                    message = "✅ بازیابی انجام شد" +
+                        (if (photos > 0) " — ${photos.fa()} عکس هم برگشت" else "") +
+                        ". اپ را ببندید و دوباره باز کنید.",
                     isError = false,
                     restartRequired = true
                 )

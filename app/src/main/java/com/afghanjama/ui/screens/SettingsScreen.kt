@@ -412,6 +412,13 @@ fun SettingsScreen(
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary
                         )
+                        Text(
+                            "بکاپ خودکار فقط دیتابیس است و روی همین گوشی می‌ماند (۷ نسخهٔ آخر). " +
+                                "بکاپی که خودتان می‌گیرید یا می‌فرستید، عکس‌ها را هم دارد — " +
+                                "همان است که اگر گوشی گم شود به کارتان می‌آید.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
 
                         OutlinedButton(
                             onClick = { backupVm.shareBackup(context) },
@@ -419,16 +426,16 @@ fun SettingsScreen(
                         ) {
                             Icon(Icons.Default.Share, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
-                            Text("ارسال بکاپ به Drive / واتساپ")
+                            Text("ارسال بکاپ کامل به Drive / واتساپ")
                         }
 
                         OutlinedButton(
-                            onClick = { backupLauncher.launch("afghanjama-backup-${stamp()}.db") },
+                            onClick = { backupLauncher.launch("afghanjama-backup-${stamp()}.ajb") },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Icon(Icons.Default.CloudUpload, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
-                            Text("پشتیبان‌گیری از دیتابیس")
+                            Text("پشتیبان‌گیری کامل (با عکس‌ها)")
                         }
 
                         OutlinedButton(
