@@ -494,3 +494,97 @@ fun checkPaperGeometry(papers: List<PaperSpec>): List<CheckResult> {
     }
     return s.results
 }
+
+// =====================================================================
+// ۹) اعدادِ پایینِ فاکتور
+// =====================================================================
+
+/**
+ * فاکتور سه عددِ پایین دارد که مشتری دقیقاً همان‌ها را می‌خواند:
+ * «بدهی قبلی»، «پرداخت» و «مبلغ قابل پرداخت». هر سه باید از دفتر کل
+ * بیرون بیایند، نه از حسابِ جداگانه — وگرنه روزی برگه با دفتر اختلاف
+ * پیدا می‌کند و کارگاه نمی‌فهمد کدام درست است.
+ *
+ * رابطه‌ای که همیشه باید برقرار باشد:
+ *   بدهی قبلی + جمعِ فاکتور − پرداخت = مبلغ قابل پرداخت = ماندهٔ دفتر
+ */
+data class LedgerRow(val at: Long, val refId: String, val debit: Long, val credit: Long)
+
+fun balanceBefore(rows: List<LedgerRow>, excludeRef: String, atMs: Long): Long =
+    rows.filter { it.refId != excludeRef && it.at <= atMs }.sumOf { it.debit - it.credit }
+
+fun balanceUpTo(rows: List<LedgerRow>, atMs: Long): Long =
+    rows.filter { it.at <= atMs }.sumOf { it.debit - it.credit }
+
+fun checkInvoiceTotals(): List<CheckResult> {
+    val s = CheckSink("اعدادِ پایینِ فاکتور")
+
+    /** همان ترتیبی که `Repo.sellInvoice` در دفتر ثبت می‌کند. */
+    fun sale(at: Long, code: String, revenue: Long, cash: Long, prepay: Long): List<LedgerRow> =
+        buildList {
+            if (prepay > 0) add(LedgerRow(at, code, prepay, prepay))   // خنثی
+            add(LedgerRow(at, code, revenue, 0))                       // صورت‌حساب
+            if (cash > 0) add(LedgerRow(at, code, 0, cash))            // پرداخت
+        }
+
+    fun figures(rows: List<LedgerRow>, code: String, at: Long, subtotal: Long): Triple<Long, Long, Long> {
+        val prev = balanceBefore(rows, code, at)
+        val cur = balanceUpTo(rows, at)
+        val paid = prev + subtotal - cur
+        return Triple(prev, paid, subtotal + prev - paid)
+    }
+
+    // ---- مشتریِ تازه که کاملاً نقد می‌خرد ----
+    run {
+        val rows = sale(10, "FR-1", 59_394, 59_394, 0)
+        val (prev, paid, payable) = figures(rows, "FR-1", 10, 59_394)
+        s.eq("مشتریِ تازهٔ نقدی: بدهی قبلی صفر", 0L, prev)
+        s.eq("مشتریِ تازهٔ نقدی: پرداخت برابرِ کلِ فاکتور", 59_394L, paid)
+        s.eq("مشتریِ تازهٔ نقدی: چیزی برای پرداخت نمی‌ماند", 0L, payable)
+    }
+
+    // ---- مشتریِ بدهکارِ قبلی، پرداختِ جزئی ----
+    run {
+        val rows = sale(1, "FR-OLD", 239_930, 0, 0) + sale(10, "FR-2", 21_060, 13_860, 0)
+        val (prev, paid, payable) = figures(rows, "FR-2", 10, 21_060)
+        s.eq("بدهیِ قبلی از فاکتورهای گذشته می‌آید", 239_930L, prev)
+        s.eq("پرداختِ همین فاکتور جدا شمرده می‌شود", 13_860L, paid)
+        s.eq("مبلغ قابل پرداخت = ۲۳۹٬۹۳۰ + ۲۱٬۰۶۰ − ۱۳٬۸۶۰", 247_130L, payable)
+        s.eq("و همان ماندهٔ دفتر است", balanceUpTo(rows, 10), payable)
+    }
+
+    // ---- بیعانه نباید در «پرداخت» دوباره شمرده شود ----
+    run {
+        val rows = sale(10, "FR-3", 10_000, 3_000, 4_000)
+        val (prev, paid, payable) = figures(rows, "FR-3", 10, 10_000)
+        s.eq("سطرِ خنثای بیعانه ماندهٔ قبلی را تکان نمی‌دهد", 0L, prev)
+        s.eq("پرداخت فقط نقدِ واقعی است، نه نقد + بیعانه", 3_000L, paid)
+        s.eq("باقی‌ماندهٔ طلب درست می‌ماند", 7_000L, payable)
+    }
+
+    // ---- پرداختِ دستیِ بی‌مرجع نباید به این فاکتور بچسبد ----
+    run {
+        val rows = listOf(LedgerRow(1, "", 0, 5_000)) + sale(10, "FR-4", 8_000, 8_000, 0)
+        val (prev, paid, _) = figures(rows, "FR-4", 10, 8_000)
+        s.eq("پرداختِ بی‌مرجعِ قبلی در «بدهی قبلی» می‌نشیند", -5_000L, prev)
+        s.eq("و در «پرداختِ» این فاکتور نمی‌آید", 8_000L, paid)
+    }
+
+    // ---- مرجعِ مشترک: اشکالی که واقعاً وجود داشت ----
+    run {
+        // اگر پرداخت به‌جای کدِ فاکتور برچسبِ ثابت بگیرد، از «سطرهای این
+        // فاکتور» بیرون می‌ماند و در بدهیِ قبلی می‌نشیند.
+        val wrong = listOf(
+            LedgerRow(10, "FR-5", 59_394, 0),
+            LedgerRow(10, "FINISHED", 0, 56_737)
+        )
+        val prevWrong = balanceBefore(wrong, "FR-5", 10)
+        s.isTrue(
+            "پرداخت باید کدِ فاکتورِ خودش را داشته باشد",
+            prevWrong == -56_737L,
+            "انتظارِ بازتولیدِ اشکالِ قدیمی داشتیم ولی $prevWrong آمد",
+            "با برچسبِ ثابت، «بدهی قبلی» ${prevWrong} می‌شد — برای همین کدِ فاکتور جایگزینش شد"
+        )
+    }
+    return s.results
+}

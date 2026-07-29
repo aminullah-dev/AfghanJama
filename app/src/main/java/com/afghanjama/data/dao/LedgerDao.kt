@@ -63,4 +63,11 @@ interface LedgerDao {
         excludeRef: String,
         atMs: Long
     ): Long
+
+    /** ماندهٔ طرفِ حساب تا یک لحظه، با احتسابِ همه‌چیز. */
+    @Query(
+        "SELECT COALESCE(SUM(debit - credit), 0) FROM ledger_entries " +
+            "WHERE partyType = :type AND partyName = :name AND at <= :atMs"
+    )
+    suspend fun balanceUpTo(type: String, name: String, atMs: Long): Long
 }

@@ -1458,7 +1458,11 @@ class Repo(private val db: AppDatabase) {
         if (cashIn > 0) {
             addCustomerPayment(
                 CustomerPayment(
-                    orderId = "FINISHED",
+                    // کدِ همین فاکتور، نه یک برچسبِ ثابت: دفتر کل این را
+                    // به‌عنوان مرجعِ سطر ثبت می‌کند و «بدهی قبلی» روی
+                    // فاکتور فقط وقتی درست درمی‌آید که پرداختِ همین فاکتور
+                    // از ماندهٔ قبلی قابلِ جدا کردن باشد.
+                    orderId = code,
                     customerName = customer,
                     amount = cashIn,
                     source = "SALE",
@@ -1892,6 +1896,17 @@ class Repo(private val db: AppDatabase) {
         if (n.isBlank()) return 0L
         return db.ledgerDao().balanceBefore(type, n, excludeRef, atMs)
     }
+
+    /** ماندهٔ طرفِ حساب تا یک لحظه، با احتسابِ همین فاکتور. */
+    suspend fun partyBalanceUpTo(type: String, name: String, atMs: Long): Long {
+        val n = name.trim()
+        if (n.isBlank()) return 0L
+        return db.ledgerDao().balanceUpTo(type, n, atMs)
+    }
+
+    /** شناسهٔ کالای انبار برای چاپِ ستونِ «کد» روی فاکتور. */
+    suspend fun finishedStockIdFor(name: String, size: String): Long? =
+        db.finishedStockDao().find(name, size)?.id
 
     /** مشتری بر اساسِ نام — برای بلوکِ «خریدار» روی فاکتور. */
     suspend fun customerByName(name: String): Customer? {

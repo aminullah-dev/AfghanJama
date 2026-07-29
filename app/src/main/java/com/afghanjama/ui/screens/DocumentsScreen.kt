@@ -53,15 +53,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.afghanjama.data.entities.Document
 import com.afghanjama.data.entities.docTypeLabel
-import com.afghanjama.pdf.DocumentPdf
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.vm.DocumentsViewModel
 import com.afghanjama.util.QrGen
 import com.afghanjama.util.ShareUtil
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 private fun receiptText(d: Document): String = buildString {
     appendLine("افغان‌جامه — ${docTypeLabel(d.type)}")
@@ -107,9 +104,10 @@ fun DocumentsScreen(
                         Text("  متن")
                     }
                     Button(onClick = {
-                        // ساختِ PDF (فونت + رندر + نوشتنِ فایل) خارج از نخِ UI
+                        // برگه از روی نوعِ سند ساخته می‌شود: فاکتور ردیف‌دار
+                        // برای فروش و خرید، رسیدِ فشرده برای پول‌ها.
                         scope.launch {
-                            val file = withContext(Dispatchers.IO) { DocumentPdf.create(context, d) }
+                            val file = vm.sheet(context, d, vm.defaultPaper(d))
                             ShareUtil.shareFile(context, file, "application/pdf", "اشتراک‌گذاری PDF")
                         }
                     }) {
