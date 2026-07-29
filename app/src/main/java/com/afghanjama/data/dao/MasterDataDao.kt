@@ -126,6 +126,10 @@ interface MasterDataDao {
     @Query("SELECT * FROM customers ORDER BY name ASC")
     fun observeCustomers(): Flow<List<Customer>>
 
+    /** برای بلوکِ «خریدار» روی فاکتور — تلفن از اینجا می‌آید. */
+    @Query("SELECT * FROM customers WHERE name = :name LIMIT 1")
+    suspend fun findCustomerByName(name: String): Customer?
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertCustomer(item: Customer)
 

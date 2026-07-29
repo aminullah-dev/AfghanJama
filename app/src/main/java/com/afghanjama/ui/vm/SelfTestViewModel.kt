@@ -12,8 +12,13 @@ import com.afghanjama.selftest.checkJalali
 import com.afghanjama.selftest.checkMoneySplit
 import com.afghanjama.selftest.checkMultiLineInvoice
 import com.afghanjama.selftest.checkBreakSchedule
+import com.afghanjama.selftest.checkPaperGeometry
 import com.afghanjama.selftest.checkStockValuation
 import com.afghanjama.selftest.checkTailorAttribution
+import com.afghanjama.selftest.PaperSpec
+import com.afghanjama.pdf.Paper
+import com.afghanjama.pdf.columnWidths
+import com.afghanjama.pdf.invoiceColumns
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.work.BreakReminderWorker
 import kotlinx.coroutines.Dispatchers
@@ -57,6 +62,20 @@ class SelfTestViewModel(private val repo: Repo) : ViewModel() {
                 addAll(checkTailorAttribution())
                 addAll(checkMultiLineInvoice())
                 addAll(checkStockValuation())
+                addAll(
+                    checkPaperGeometry(
+                        Paper.ALL.map { p ->
+                            val cols = invoiceColumns(p)
+                            PaperSpec(
+                                label = p.label,
+                                contentW = p.contentW,
+                                cellTextSize = p.cellTextSize,
+                                columnTitles = cols.titles,
+                                columnWidths = columnWidths(p, cols.weights)
+                            )
+                        }
+                    )
+                )
                 addAll(
                     checkBreakSchedule { h, m, now ->
                         BreakReminderWorker.delayUntilNext(h, m, now)

@@ -1864,6 +1864,43 @@ class Repo(private val db: AppDatabase) {
     }
 
     // =========================
+    // خواندنِ اسناد برای چاپ
+    // =========================
+
+    /** ردیف‌های یک فاکتور فروش (کدِ مشترک). */
+    suspend fun saleLinesByCode(code: String): List<com.afghanjama.data.entities.FinishedSale> =
+        db.finishedStockDao().salesByCode(code)
+
+    /** اقلامِ یک فاکتور خرید بر اساسِ کدِ فاکتور. */
+    suspend fun purchaseItemsByCode(code: String): List<PurchaseItem> =
+        db.procurementDao().itemsByInvoiceCode(code)
+
+    suspend fun purchaseInvoiceByCode(code: String): PurchaseInvoice? =
+        db.procurementDao().invoiceByCode(code)
+
+    /**
+     * «بدهی قبلی» برای چاپ روی فاکتور: ماندهٔ طرفِ حساب بدونِ احتسابِ
+     * خودِ این فاکتور. عددِ مثبت یعنی طرف به ما بدهکار است.
+     */
+    suspend fun partyBalanceBefore(
+        type: String,
+        name: String,
+        excludeRef: String,
+        atMs: Long
+    ): Long {
+        val n = name.trim()
+        if (n.isBlank()) return 0L
+        return db.ledgerDao().balanceBefore(type, n, excludeRef, atMs)
+    }
+
+    /** مشتری بر اساسِ نام — برای بلوکِ «خریدار» روی فاکتور. */
+    suspend fun customerByName(name: String): Customer? {
+        val n = name.trim()
+        if (n.isBlank()) return null
+        return db.masterDataDao().findCustomerByName(n)
+    }
+
+    // =========================
     // عکس‌های سفارش
     // =========================
 

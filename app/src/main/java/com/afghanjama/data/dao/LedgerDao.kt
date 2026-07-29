@@ -42,4 +42,25 @@ interface LedgerDao {
             "FROM ledger_entries GROUP BY partyType, partyName ORDER BY partyType, partyName"
     )
     fun observeBalances(): Flow<List<PartyBalance>>
+
+    /**
+     * ماندهٔ یک طرفِ حساب پیش از یک فاکتورِ مشخص — همان «بدهی قبلی» که
+     * روی فاکتور چاپ می‌شود.
+     *
+     * دو شرط لازم است، نه یکی: سطرهای خودِ این فاکتور با [excludeRef] کنار
+     * می‌روند (چون هم‌زمان با سند ثبت شده‌اند و زمانشان جدا نمی‌شود)، و
+     * [atMs] جلوی وارد شدنِ خریدهای بعدی را می‌گیرد تا چاپِ دوبارهٔ یک
+     * فاکتورِ قدیمی هم همان عددِ آن روز را نشان دهد.
+     */
+    @Query(
+        "SELECT COALESCE(SUM(debit - credit), 0) FROM ledger_entries " +
+            "WHERE partyType = :type AND partyName = :name " +
+            "AND refId <> :excludeRef AND at <= :atMs"
+    )
+    suspend fun balanceBefore(
+        type: String,
+        name: String,
+        excludeRef: String,
+        atMs: Long
+    ): Long
 }

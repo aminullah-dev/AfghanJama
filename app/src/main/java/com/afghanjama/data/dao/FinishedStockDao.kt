@@ -30,6 +30,13 @@ interface FinishedStockDao {
     fun observeSales(): Flow<List<FinishedSale>>
 
     /**
+     * ردیف‌های یک فاکتور فروش. همهٔ ردیف‌های یک فاکتور کدِ مشترک دارند —
+     * همین پل است که از سندِ مالی به قلم‌های چاپی می‌رسد.
+     */
+    @Query("SELECT * FROM finished_sales WHERE code = :code ORDER BY createdAt ASC, rowid ASC")
+    suspend fun salesByCode(code: String): List<FinishedSale>
+
+    /**
      * افزایشِ تعدادِ مرجوعِ یک فروش. شرطِ سقف داخلِ خودِ UPDATE است تا دو
      * برگشتِ هم‌زمان هرگز بیشتر از تعدادِ فروخته‌شده را مرجوع نکنند.
      *

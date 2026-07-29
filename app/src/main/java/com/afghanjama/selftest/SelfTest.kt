@@ -433,3 +433,64 @@ fun checkBreakSchedule(delayUntilNext: (Int, Int, Long) -> Long): List<CheckResu
     )
     return s.results
 }
+
+// =====================================================================
+// ۸) هندسهٔ برگهٔ چاپی
+// =====================================================================
+
+/**
+ * برگه‌ای که از کاغذ بیرون بزند هیچ خطایی نمی‌دهد — فقط بد چاپ می‌شود و
+ * تا وقتی کسی برگه را دستش نگیرد کسی نمی‌فهمد. این بررسی همان را می‌گیرد:
+ * جمعِ ستون‌ها باید دقیقاً عرضِ محتوا باشد و هر سرستون در خانهٔ خودش جا شود.
+ *
+ * پارامترها تزریق می‌شوند تا این فایل به `com.afghanjama.pdf` وابسته نماند
+ * و همان‌طور بی‌وابستگی بماند که بوده.
+ */
+data class PaperSpec(
+    val label: String,
+    val contentW: Int,
+    val cellTextSize: Float,
+    val columnTitles: List<String>,
+    val columnWidths: List<Float>
+)
+
+fun checkPaperGeometry(papers: List<PaperSpec>): List<CheckResult> {
+    val s = CheckSink("هندسهٔ برگهٔ چاپی")
+
+    if (papers.isEmpty()) {
+        s.skip("کاغذی برای بررسی نبود", "فهرستِ کاغذها خالی بود")
+        return s.results
+    }
+
+    papers.forEach { p ->
+        val sum = p.columnWidths.sum()
+        s.isTrue(
+            "${p.label}: ستون‌ها دقیقاً عرضِ محتوا را پر می‌کنند",
+            kotlin.math.abs(sum - p.contentW) < 0.5f,
+            "جمعِ ستون‌ها ${"%.1f".format(sum)} شد ولی عرضِ محتوا ${p.contentW} است",
+            "${p.columnWidths.size} ستون روی ${p.contentW} نقطه"
+        )
+
+        // تقریبِ محافظه‌کارانهٔ پهنای متنِ فارسی: هر حرف ≈ ۰٫۵۸ اندازهٔ قلم.
+        // ۴ نقطه هم فاصلهٔ خانه. اگر سرستون جا نشود، وسطش می‌شکند و
+        // ردیف‌ها روی هم می‌افتند.
+        val perChar = p.cellTextSize * 0.58f
+        var tightest = Float.MAX_VALUE
+        var tightestName = ""
+        p.columnTitles.forEachIndexed { i, title ->
+            val need = title.length * perChar + 4f
+            val slack = (p.columnWidths.getOrElse(i) { 0f }) - need
+            if (slack < tightest) {
+                tightest = slack
+                tightestName = title
+            }
+        }
+        s.isTrue(
+            "${p.label}: سرستون‌ها در یک خط جا می‌شوند",
+            tightest >= 0f,
+            "«$tightestName» ${"%.1f".format(-tightest)} نقطه جا کم دارد",
+            "تنگ‌ترین ستون «$tightestName» با ${"%.1f".format(tightest)} نقطه فضای اضافه"
+        )
+    }
+    return s.results
+}

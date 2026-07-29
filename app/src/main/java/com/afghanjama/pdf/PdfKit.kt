@@ -27,11 +27,12 @@ import com.afghanjama.ui.format.fa
  */
 object PdfKit {
 
-    // A4 در ۷۲dpi (استاندارد PDF)
-    const val PAGE_W = 595
-    const val PAGE_H = 842
-    const val MARGIN = 40f
-    val CONTENT_W = (PAGE_W - 2 * MARGIN).toInt()
+    // A4 در ۷۲dpi — نامِ مستعار، تا اسنادی که فقط A4 چاپ می‌شوند
+    // دست‌نخورده بمانند.
+    val PAGE_W = Paper.A4.w
+    val PAGE_H = Paper.A4.h
+    val MARGIN = Paper.A4.margin
+    val CONTENT_W = Paper.A4.contentW
 
     const val BRAND = 0xFF1F6E5C.toInt()
     const val BRAND_DEEP = 0xFF17594A.toInt()
@@ -41,11 +42,11 @@ object PdfKit {
     const val SOFT = 0xFFF4F7F5.toInt()      // زمینهٔ ردیف‌های یک‌درمیان
     const val DANGER = 0xFFB3261E.toInt()
 
-    private const val HEADER_H = 104f
-    private const val FOOTER_TOP = PAGE_H - 46f
+    private fun headerH(paper: Paper) = if (paper.narrow) 62f else 104f
+    private fun footerTop(paper: Paper) = paper.h - (if (paper.narrow) 26f else 46f)
 
     /** فضای امنِ بدنه — پایین‌تر از این باید صفحهٔ جدید باز شود. */
-    const val BODY_BOTTOM = PAGE_H - 74f
+    val BODY_BOTTOM = Paper.A4.bodyBottom
 
     class Fonts(val regular: Typeface, val bold: Typeface)
 
@@ -121,35 +122,56 @@ object PdfKit {
         f: Fonts,
         docTitle: String,
         docNumber: String = "",
-        docDate: Long = System.currentTimeMillis()
+        docDate: Long = System.currentTimeMillis(),
+        paper: Paper = Paper.A4
     ): Float {
-        c.drawRect(0f, 0f, PAGE_W.toFloat(), HEADER_H, fill(BRAND))
-        // نوارِ باریکِ تیره برای عمق
-        c.drawRect(0f, HEADER_H - 4f, PAGE_W.toFloat(), HEADER_H, fill(BRAND_DEEP))
-
-        val logoSize = 44f
-        drawLogo(c, PAGE_W - MARGIN - logoSize, 20f, logoSize)
-
         val coName = CompanyPrefs.name(context).ifBlank { "افغان‌جامه" }
         val addr = CompanyPrefs.address(context)
         val phone = CompanyPrefs.phone(context)
-
-        val nameW = CONTENT_W - logoSize.toInt() - 14
-        rtl(c, coName, MARGIN, 24f, paint(17f, Color.WHITE, f.bold), nameW)
-        val sub = listOf(addr, phone).filter { it.isNotBlank() }.joinToString(" • ")
-        if (sub.isNotBlank()) {
-            rtl(c, sub, MARGIN, 48f, paint(9f, 0xFFD7EBE3.toInt(), f.regular), nameW)
-        }
-
-        // عنوانِ سند در سمتِ مقابل
-        rtlEnd(c, docTitle, MARGIN, 66f, paint(14f, Color.WHITE, f.bold), CONTENT_W)
         val meta = buildString {
             if (docNumber.isNotBlank()) append("شمارهٔ $docNumber • ")
             append(PersianDate.long(docDate))
         }
-        rtlEnd(c, meta, MARGIN, 84f, paint(9f, 0xFFD7EBE3.toInt(), f.regular), CONTENT_W)
 
-        return HEADER_H + 22f
+        // رولِ حرارتی سیاه‌وسفید است و زمینهٔ پررنگ فقط جوهر/حرارت هدر
+        // می‌دهد؛ آنجا سربرگ ساده و بی‌زمینه چاپ می‌شود.
+        if (paper.narrow) {
+            drawLogo(c, (paper.w - 26f) / 2f, 6f, 26f, badge = Color.WHITE, mark = INK)
+            var y = 36f
+            y += rtlCenter(c, coName, paper.margin, y, paint(11f, INK, f.bold), paper.contentW)
+            val sub = listOf(phone, addr).filter { it.isNotBlank() }.joinToString(" • ")
+            if (sub.isNotBlank()) {
+                y += rtlCenter(c, sub, paper.margin, y, paint(7.5f, MUTED, f.regular), paper.contentW)
+            }
+            y += 4f
+            c.drawLine(paper.margin, y, paper.w - paper.margin, y,
+                Paint().apply { color = INK; strokeWidth = 0.8f })
+            y += 6f
+            y += rtlCenter(c, docTitle, paper.margin, y, paint(10.5f, INK, f.bold), paper.contentW)
+            y += rtlCenter(c, meta, paper.margin, y, paint(7.5f, MUTED, f.regular), paper.contentW)
+            return y + 8f
+        }
+
+        val h = headerH(paper)
+        c.drawRect(0f, 0f, paper.w.toFloat(), h, fill(BRAND))
+        // نوارِ باریکِ تیره برای عمق
+        c.drawRect(0f, h - 4f, paper.w.toFloat(), h, fill(BRAND_DEEP))
+
+        val logoSize = 44f
+        drawLogo(c, paper.w - paper.margin - logoSize, 20f, logoSize)
+
+        val nameW = paper.contentW - logoSize.toInt() - 14
+        rtl(c, coName, paper.margin, 24f, paint(17f, Color.WHITE, f.bold), nameW)
+        val sub = listOf(addr, phone).filter { it.isNotBlank() }.joinToString(" • ")
+        if (sub.isNotBlank()) {
+            rtl(c, sub, paper.margin, 48f, paint(9f, 0xFFD7EBE3.toInt(), f.regular), nameW)
+        }
+
+        // عنوانِ سند در سمتِ مقابل
+        rtlEnd(c, docTitle, paper.margin, 66f, paint(14f, Color.WHITE, f.bold), paper.contentW)
+        rtlEnd(c, meta, paper.margin, 84f, paint(9f, 0xFFD7EBE3.toInt(), f.regular), paper.contentW)
+
+        return h + 22f
     }
 
     // ==================================================
@@ -160,10 +182,20 @@ object PdfKit {
         context: Context,
         f: Fonts,
         pageNo: Int,
-        note: String = ""
+        note: String = "",
+        paper: Paper = Paper.A4
     ) {
-        c.drawLine(MARGIN, FOOTER_TOP, PAGE_W - MARGIN, FOOTER_TOP,
+        val top = footerTop(paper)
+        c.drawLine(paper.margin, top, paper.w - paper.margin, top,
             Paint().apply { color = LINE; strokeWidth = 0.8f })
+
+        val credit = note.ifBlank { "صادرشده با اپلیکیشن افغان‌جامه" }
+
+        // روی رول صفحه‌شماری معنا ندارد و جا هم نیست
+        if (paper.narrow) {
+            rtlCenter(c, credit, paper.margin, top + 6f, paint(7f, MUTED, f.regular), paper.contentW)
+            return
+        }
 
         val small = paint(8.5f, MUTED, f.regular)
         val phone = CompanyPrefs.phone(context)
@@ -171,11 +203,9 @@ object PdfKit {
             append(CompanyPrefs.name(context).ifBlank { "افغان‌جامه" })
             if (phone.isNotBlank()) append(" • $phone")
         }
-        rtl(c, right, MARGIN, FOOTER_TOP + 8f, small, CONTENT_W)
-        rtlEnd(c, "صفحهٔ ${pageNo.fa()}", MARGIN, FOOTER_TOP + 8f, small, CONTENT_W)
-
-        val credit = note.ifBlank { "صادرشده با اپلیکیشن افغان‌جامه" }
-        rtl(c, credit, MARGIN, FOOTER_TOP + 22f, paint(8f, MUTED, f.regular), CONTENT_W)
+        rtl(c, right, paper.margin, top + 8f, small, paper.contentW)
+        rtlEnd(c, "صفحهٔ ${pageNo.fa()}", paper.margin, top + 8f, small, paper.contentW)
+        rtl(c, credit, paper.margin, top + 22f, paint(8f, MUTED, f.regular), paper.contentW)
     }
 
     // ==================================================
@@ -211,19 +241,20 @@ object PdfKit {
     // ==================================================
     // اجزای بدنه
     // ==================================================
-    fun rule(c: Canvas, y: Float): Float {
-        c.drawLine(MARGIN, y, PAGE_W - MARGIN, y,
+    fun rule(c: Canvas, y: Float, paper: Paper = Paper.A4): Float {
+        c.drawLine(paper.margin, y, paper.w - paper.margin, y,
             Paint().apply { color = LINE; strokeWidth = 0.8f })
         return y + 12f
     }
 
     /** عنوانِ بخش با یک نشانهٔ کوچکِ برند در ابتدای آن. */
-    fun section(c: Canvas, title: String, y: Float, f: Fonts): Float {
+    fun section(c: Canvas, title: String, y: Float, f: Fonts, paper: Paper = Paper.A4): Float {
+        val ink = if (paper.narrow) INK else BRAND
         c.drawRoundRect(
-            RectF(PAGE_W - MARGIN - 3f, y + 2f, PAGE_W - MARGIN, y + 15f),
-            1.5f, 1.5f, fill(BRAND)
+            RectF(paper.w - paper.margin - 3f, y + 2f, paper.w - paper.margin, y + 15f),
+            1.5f, 1.5f, fill(ink)
         )
-        rtl(c, title, MARGIN, y, paint(12.5f, BRAND, f.bold), CONTENT_W - 8)
+        rtl(c, title, paper.margin, y, paint(12.5f, ink, f.bold), paper.contentW - 8)
         return y + 24f
     }
 
@@ -235,25 +266,34 @@ object PdfKit {
         y: Float,
         f: Fonts,
         strong: Boolean = false,
-        danger: Boolean = false
+        danger: Boolean = false,
+        paper: Paper = Paper.A4
     ): Float {
-        val lp = paint(10.5f, MUTED, f.regular)
+        val size = if (paper.narrow) 8.5f else 10.5f
+        val lp = paint(size, MUTED, f.regular)
         val vp = paint(
-            if (strong) 12f else 10.5f,
+            if (strong) size + 1.5f else size,
             if (danger) DANGER else INK,
             if (strong) f.bold else f.regular
         )
-        val h1 = rtl(c, label, MARGIN, y, lp, (CONTENT_W * 0.58f).toInt())
-        val h2 = rtlEnd(c, value, MARGIN, y, vp, CONTENT_W)
+        val h1 = rtl(c, label, paper.margin, y, lp, (paper.contentW * 0.58f).toInt())
+        val h2 = rtlEnd(c, value, paper.margin, y, vp, paper.contentW)
         return y + maxOf(h1, h2, 15).toFloat() + 5f
     }
 
     /** سرستونِ جدول. */
-    fun tableHeader(c: Canvas, cells: List<String>, weights: List<Float>, y: Float, f: Fonts): Float {
+    fun tableHeader(
+        c: Canvas,
+        cells: List<String>,
+        weights: List<Float>,
+        y: Float,
+        f: Fonts,
+        paper: Paper = Paper.A4
+    ): Float {
         c.drawRoundRect(
-            RectF(MARGIN, y - 4f, PAGE_W - MARGIN, y + 17f), 3f, 3f, fill(SOFT)
+            RectF(paper.margin, y - 4f, paper.w - paper.margin, y + 17f), 3f, 3f, fill(SOFT)
         )
-        drawCells(c, cells, weights, y, paint(9.5f, BRAND, f.bold))
+        drawCells(c, cells, weights, y, paint(paper.cellTextSize, if (paper.narrow) INK else BRAND, f.bold), paper)
         return y + 24f
     }
 
@@ -264,12 +304,13 @@ object PdfKit {
         weights: List<Float>,
         y: Float,
         f: Fonts,
-        zebra: Boolean = false
+        zebra: Boolean = false,
+        paper: Paper = Paper.A4
     ): Float {
         if (zebra) {
-            c.drawRect(MARGIN, y - 3f, PAGE_W - MARGIN, y + 16f, fill(SOFT))
+            c.drawRect(paper.margin, y - 3f, paper.w - paper.margin, y + 16f, fill(SOFT))
         }
-        drawCells(c, cells, weights, y, paint(9.5f, INK, f.regular))
+        drawCells(c, cells, weights, y, paint(paper.cellTextSize, INK, f.regular), paper)
         return y + 21f
     }
 
@@ -277,11 +318,18 @@ object PdfKit {
      * ستون‌ها از راست چیده می‌شوند (اولین عنوان راست‌ترین ستون است) و
      * آخرین ستون — که معمولاً مبلغ است — چپ‌چین می‌شود.
      */
-    private fun drawCells(c: Canvas, cells: List<String>, weights: List<Float>, y: Float, tp: TextPaint) {
+    private fun drawCells(
+        c: Canvas,
+        cells: List<String>,
+        weights: List<Float>,
+        y: Float,
+        tp: TextPaint,
+        paper: Paper = Paper.A4
+    ) {
         val total = weights.sum().takeIf { it > 0f } ?: 1f
-        var right = PAGE_W - MARGIN
+        var right = paper.w - paper.margin
         cells.forEachIndexed { i, text ->
-            val w = CONTENT_W * (weights.getOrElse(i) { 1f } / total)
+            val w = paper.contentW * (weights.getOrElse(i) { 1f } / total)
             val left = right - w
             if (i == cells.lastIndex) rtlEnd(c, text, left, y, tp, w.toInt())
             else rtl(c, text, left, y, tp, w.toInt())
@@ -290,31 +338,81 @@ object PdfKit {
     }
 
     /** جعبهٔ جمعِ نهایی — پررنگ‌ترین عددِ برگه. */
-    fun totalBox(c: Canvas, label: String, value: String, y: Float, f: Fonts): Float {
-        val h = 34f
-        c.drawRoundRect(RectF(MARGIN, y, PAGE_W - MARGIN, y + h), 6f, 6f, fill(BRAND))
-        rtl(c, label, MARGIN + 12f, y + 9f, paint(11f, Color.WHITE, f.regular), CONTENT_W - 24)
-        rtlEnd(c, value, MARGIN + 12f, y + 7f, paint(14f, Color.WHITE, f.bold), CONTENT_W - 24)
+    fun totalBox(
+        c: Canvas,
+        label: String,
+        value: String,
+        y: Float,
+        f: Fonts,
+        paper: Paper = Paper.A4
+    ): Float {
+        val h = if (paper.narrow) 28f else 34f
+        val inner = paper.contentW - 24
+        // روی رول، زمینهٔ پر جوهر/حرارتِ زیادی می‌برد — کادرِ خطی می‌زنیم
+        if (paper.narrow) {
+            c.drawRoundRect(
+                RectF(paper.margin, y, paper.w - paper.margin, y + h), 4f, 4f,
+                stroke(INK, 1.2f)
+            )
+            rtl(c, label, paper.margin + 8f, y + 7f, paint(9f, INK, f.regular), inner)
+            rtlEnd(c, value, paper.margin + 8f, y + 6f, paint(11f, INK, f.bold), inner)
+            return y + h + 10f
+        }
+        c.drawRoundRect(RectF(paper.margin, y, paper.w - paper.margin, y + h), 6f, 6f, fill(BRAND))
+        rtl(c, label, paper.margin + 12f, y + 9f, paint(11f, Color.WHITE, f.regular), inner)
+        rtlEnd(c, value, paper.margin + 12f, y + 7f, paint(14f, Color.WHITE, f.bold), inner)
         return y + h + 14f
     }
 
     /** جای امضا — رسیدِ بدونِ امضا در کارگاه اعتبار ندارد. */
-    fun signatures(c: Canvas, y: Float, f: Fonts, right: String, left: String): Float {
-        val tp = paint(9.5f, MUTED, f.regular)
-        val half = CONTENT_W / 2f
+    fun signatures(
+        c: Canvas,
+        y: Float,
+        f: Fonts,
+        right: String,
+        left: String,
+        paper: Paper = Paper.A4
+    ): Float {
+        val tp = paint(if (paper.narrow) 7.5f else 9.5f, MUTED, f.regular)
+        val half = paper.contentW / 2f
         val lineY = y + 26f
-        c.drawLine(PAGE_W - MARGIN - half + 20f, lineY, PAGE_W - MARGIN, lineY,
+        val gap = if (paper.narrow) 6f else 20f
+        c.drawLine(paper.w - paper.margin - half + gap, lineY, paper.w - paper.margin, lineY,
             Paint().apply { color = LINE; strokeWidth = 0.8f })
-        c.drawLine(MARGIN, lineY, MARGIN + half - 20f, lineY,
+        c.drawLine(paper.margin, lineY, paper.margin + half - gap, lineY,
             Paint().apply { color = LINE; strokeWidth = 0.8f })
-        rtl(c, right, PAGE_W - MARGIN - half, lineY + 6f, tp, half.toInt())
-        rtl(c, left, MARGIN, lineY + 6f, tp, (half - 20f).toInt())
+        rtl(c, right, paper.w - paper.margin - half, lineY + 6f, tp, half.toInt())
+        rtl(c, left, paper.margin, lineY + 6f, tp, (half - gap).toInt())
         return lineY + 26f
     }
 
     /** یادداشتِ کم‌رنگ (شرایط، توضیح، سلبِ مسئولیت). */
-    fun note(c: Canvas, text: String, y: Float, f: Fonts): Float {
-        val h = rtl(c, text, MARGIN, y, paint(8.5f, MUTED, f.regular), CONTENT_W)
+    fun note(c: Canvas, text: String, y: Float, f: Fonts, paper: Paper = Paper.A4): Float {
+        val h = rtl(c, text, paper.margin, y, paint(8.5f, MUTED, f.regular), paper.contentW)
         return y + h + 8f
+    }
+
+    /**
+     * کادرِ متنی با حاشیه — برای پیامِ پایانِ فاکتور. مقدارِ برگشتی، y ِ
+     * بعد از کادر است.
+     */
+    fun boxedNote(
+        c: Canvas,
+        lines: List<String>,
+        y: Float,
+        f: Fonts,
+        paper: Paper = Paper.A4
+    ): Float {
+        val tp = paint(if (paper.narrow) 7.5f else 9f, INK, f.regular)
+        val innerW = paper.contentW - 20
+        var inner = y + 8f
+        lines.filter { it.isNotBlank() }.forEach {
+            inner += rtl(c, it, paper.margin + 10f, inner, tp, innerW)
+        }
+        val bottom = inner + 8f
+        c.drawRoundRect(
+            RectF(paper.margin, y, paper.w - paper.margin, bottom), 4f, 4f, stroke(LINE, 1f)
+        )
+        return bottom + 10f
     }
 }
