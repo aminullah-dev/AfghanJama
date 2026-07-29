@@ -42,6 +42,7 @@ import com.afghanjama.data.entities.Transaction
 import com.afghanjama.data.entities.WorkCost
 import com.afghanjama.data.ResetPlan
 import com.afghanjama.prefs.SalePrefs
+import com.afghanjama.ui.format.bareWorkerName
 import com.afghanjama.util.CurrentUser
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -2224,8 +2225,11 @@ class Repo(private val db: AppDatabase) {
                 if (a.status == "DONE") return "این کار قبلاً تحویل شده."
                 completeAssignment(a.id, deliveredQty = r.amount.takeIf { it > 0 })
             }
-            "ATTENDANCE_IN" -> checkIn(r.worker)
-            "ATTENDANCE_OUT" -> checkOut(r.worker)
+            // حضور و غیاب با نامِ خالی کار می‌کند، نه با برچسبِ «[T10] احمد».
+            // برچسب برای کارمزد و تحویلِ دوخت کلیدِ درست است و دست نمی‌خورد؛
+            // فقط همین دو شاخه نامِ خالی می‌خواهند.
+            "ATTENDANCE_IN" -> checkIn(r.worker.bareWorkerName())
+            "ATTENDANCE_OUT" -> checkOut(r.worker.bareWorkerName())
             "NOTE" -> Unit  // پیام فقط خوانده می‌شود
             else -> return "نوعِ درخواست شناخته نشد."
         }

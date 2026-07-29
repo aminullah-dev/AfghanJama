@@ -23,6 +23,8 @@ import com.afghanjama.selftest.checkPaperGeometry
 import com.afghanjama.selftest.checkSalaryAdvance
 import com.afghanjama.selftest.checkResetPlan
 import com.afghanjama.selftest.checkShortage
+import com.afghanjama.selftest.checkWorkSummary
+import com.afghanjama.selftest.checkWorkerName
 import com.afghanjama.selftest.checkStockValuation
 import com.afghanjama.selftest.checkTailorAttribution
 import com.afghanjama.selftest.PaperSpec
@@ -33,6 +35,7 @@ import com.afghanjama.util.BackupArchive
 import com.afghanjama.pdf.columnWidths
 import com.afghanjama.pdf.invoiceColumns
 import com.afghanjama.ui.format.PersianDate
+import com.afghanjama.ui.format.bareWorkerName
 import com.afghanjama.work.BreakReminderWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -80,6 +83,8 @@ class SelfTestViewModel(private val repo: Repo) : ViewModel() {
                 addAll(checkDiscountMath())
                 addAll(checkOrderCycle())
                 addAll(checkSalaryAdvance())
+                addAll(checkWorkerName { it.bareWorkerName() })
+                addAll(checkWorkSummary())
                 addAll(
                     checkCashFlow(
                         internalMoveCategory = CashPolicy.INTERNAL_MOVE,

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.afghanjama.data.entities.AttendanceRecord
 import com.afghanjama.data.repo.Repo
+import com.afghanjama.ui.format.PersianDate
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -60,9 +61,18 @@ class AttendanceViewModel(private val repo: Repo) : ViewModel() {
                     .map { (name, list) ->
                         WorkSummary(
                             name = name,
-                            totalMinutes = list.sumOf { ((it.checkOut ?: 0L) - it.checkIn) / 60_000L }
-                                .coerceAtLeast(0),
-                            daysWorked = list.map { it.checkIn / 86_400_000L }.distinct().size
+                            // صفرکَف روی **هر بازه**، نه روی جمع: یک سطرِ خرابِ
+                            // منفی (ساعتِ گوشی عقب رفته) نباید کارکردِ واقعیِ
+                            // بازه‌های دیگر را کم کند.
+                            totalMinutes = list.sumOf {
+                                (((it.checkOut ?: 0L) - it.checkIn) / 60_000L).coerceAtLeast(0)
+                            },
+                            // روزِ تقویمیِ محلی، نه تقسیمِ ساده بر ۸۶۴۰۰۰۰۰ که
+                            // مرزش UTC است — یعنی ۰۴:۳۰ به وقتِ کابل، و هر
+                            // ورودِ سرِ صبح روزِ قبل شمرده می‌شد.
+                            daysWorked = list
+                                .map { PersianDate.todayJalali(it.checkIn).toList() }
+                                .distinct().size
                         )
                     }
                     .sortedByDescending { it.totalMinutes }

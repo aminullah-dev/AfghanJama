@@ -24,9 +24,12 @@ import com.afghanjama.selftest.checkPaperGeometry
 import com.afghanjama.selftest.checkSalaryAdvance
 import com.afghanjama.selftest.checkResetPlan
 import com.afghanjama.selftest.checkShortage
+import com.afghanjama.selftest.checkWorkSummary
+import com.afghanjama.selftest.checkWorkerName
 import com.afghanjama.selftest.checkStockValuation
 import com.afghanjama.selftest.checkTailorAttribution
 import com.afghanjama.ui.format.PersianDate
+import com.afghanjama.ui.format.bareWorkerName
 import com.afghanjama.util.BackupArchive
 import com.afghanjama.work.BreakSchedule
 import org.junit.Assert.assertTrue
@@ -57,6 +60,8 @@ class SelfTestJvmTest {
         addAll(checkOrderCycle())
         addAll(checkResetPlan(ResetPlan.CLEAR, ResetPlan.KEEP))
         addAll(checkSalaryAdvance())
+        addAll(checkWorkerName { it.bareWorkerName() })
+        addAll(checkWorkSummary())
         addAll(
             checkCashFlow(
                 internalMoveCategory = CashPolicy.INTERNAL_MOVE,

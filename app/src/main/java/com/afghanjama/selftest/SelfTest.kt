@@ -1531,3 +1531,127 @@ fun checkCashFlow(internalMoveCategory: String, isInternal: (String) -> Boolean)
 
     return s.results
 }
+
+// =====================================================================
+// 18) نامِ کارگر و کارکردِ ماهانه
+// =====================================================================
+
+/** یک بازهٔ حضور، همان‌قدر که محاسبهٔ کارکرد از آن می‌داند. */
+data class Shift(val checkIn: Long, val checkOut: Long?)
+
+/**
+ * کارکردِ یک کارمند از بازه‌هایش — بازتابِ
+ * `AttendanceViewModel.monthlyWork`.
+ *
+ * [dayKey] روزِ تقویمیِ **محلی** را برمی‌گرداند. تقسیمِ سادهٔ زمان بر
+ * ۸۶۴۰۰۰۰۰ مرزش UTC است، یعنی ۰۴:۳۰ به وقتِ کابل، و هر ورودِ سرِ صبح روزِ
+ * قبل شمرده می‌شد.
+ */
+fun runWorkSummary(shifts: List<Shift>, dayKey: (Long) -> Any): Pair<Long, Int> {
+    val closed = shifts.filter { it.checkOut != null }
+    // صفرکَف روی هر بازه، نه روی جمع — وگرنه یک سطرِ خرابِ منفی کارکردِ
+    // بازه‌های سالم را کم می‌کند
+    val minutes = closed.sumOf {
+        (((it.checkOut ?: 0L) - it.checkIn) / 60_000L).coerceAtLeast(0)
+    }
+    val days = closed.map { dayKey(it.checkIn) }.distinct().size
+    return minutes to days
+}
+
+fun checkWorkerName(bare: (String) -> String): List<CheckResult> {
+    val s = CheckSink("نام کارگر")
+
+    s.eq("برچسبِ معمولی پاک می‌شود", "احمد", bare("[T10] احمد"))
+    s.eq("برچسبِ بازرس هم پاک می‌شود", "نجیب", bare("[I2] نجیب"))
+    s.eq("نامِ بی‌برچسب دست نمی‌خورد", "احمد", bare("احمد"))
+    s.eq("فاصلهٔ اضافی برداشته می‌شود", "احمد", bare("  [T10]   احمد  "))
+    s.eq("نامِ چندبخشی کامل می‌مانَد", "احمد شاه کریمی", bare("[T7] احمد شاه کریمی"))
+    s.eq("نامِ خالی خالی می‌مانَد", "", bare(""))
+    s.eq("فقط فاصله خالی می‌شود", "", bare("   "))
+    // براکتِ ناقص یعنی داده‌ی عجیب؛ بریدنش می‌تواند نام را نابود کند
+    s.eq("براکتِ بازِ بی‌بسته دست‌نخورده می‌مانَد", "[T10 احمد", bare("[T10 احمد"))
+    // برچسبِ تنها بی نام: اگر کورکورانه ببُریم، نام خالی می‌شود و بازهٔ
+    // حضور به هیچ‌کس نمی‌چسبد
+    s.eq("برچسبِ تنها بی‌نام حذف نمی‌شود", "[T10]", bare("[T10]"))
+    s.eq("نامی که خودش براکت دارد سالم می‌مانَد", "احمد [کوچک]", bare("[T3] احمد [کوچک]"))
+    // بی‌اثر بودنِ دوباره‌زدن: نامِ پاک‌شده دیگر عوض نمی‌شود
+    s.eq("دوباره‌زدن نتیجه را عوض نمی‌کند", bare("[T10] احمد"), bare(bare("[T10] احمد")))
+
+    return s.results
+}
+
+fun checkWorkSummary(): List<CheckResult> {
+    val s = CheckSink("کارکرد ماهانه")
+
+    val hour = 3_600_000L
+    // روزِ تقویمیِ ساختگی با مرزِ محلی: کابل UTC+4:30
+    val kabulOffset = 4 * hour + 1_800_000L
+    val localDay: (Long) -> Any = { (it + kabulOffset) / 86_400_000L }
+    val utcDay: (Long) -> Any = { it / 86_400_000L }
+
+    // ---- بازهٔ ساده ----
+    run {
+        val (minutes, days) = runWorkSummary(
+            listOf(Shift(0L, 8 * hour)), localDay
+        )
+        s.eq("هشت ساعت = ۴۸۰ دقیقه", 480L, minutes)
+        s.eq("یک بازه یعنی یک روز", 1, days)
+    }
+
+    // ---- بازهٔ باز شمرده نمی‌شود ----
+    run {
+        val (minutes, days) = runWorkSummary(
+            listOf(Shift(0L, null), Shift(86_400_000L, 86_400_000L + 4 * hour)), localDay
+        )
+        s.eq("بازهٔ بازِ بی‌خروج در کارکرد نمی‌آید", 240L, minutes)
+        s.eq("فقط روزِ بازهٔ بسته شمرده می‌شود", 1, days)
+    }
+
+    // ---- سطرِ خرابِ منفی نباید کارکردِ سالم را بخورد ----
+    run {
+        val shifts = listOf(
+            Shift(10 * hour, 18 * hour),        // ۸ ساعتِ سالم
+            Shift(20 * hour, 12 * hour)         // خروجِ پیش از ورود
+        )
+        val (minutes, _) = runWorkSummary(shifts, localDay)
+        s.eq("بازهٔ منفی صفر شمرده می‌شود، نه کسرکننده", 480L, minutes)
+        s.isTrue("کارکرد هرگز منفی نمی‌شود", minutes >= 0, "کارکردِ منفی: $minutes")
+    }
+
+    // ---- مرزِ روز: همان حالتی که با UTC غلط می‌شد ----
+    run {
+        // ۰۲:۰۰ به وقتِ کابل روزِ دوم = ۲۱:۳۰ UTC روزِ اول
+        val kabulTwoAm = 86_400_000L + 2 * hour - kabulOffset
+        val shifts = listOf(
+            Shift(6 * hour, 14 * hour),         // روزِ اول، صبح
+            Shift(kabulTwoAm, kabulTwoAm + 3 * hour)
+        )
+        val (_, localDays) = runWorkSummary(shifts, localDay)
+        val (_, utcDays) = runWorkSummary(shifts, utcDay)
+        s.eq("دو روزِ تقویمیِ محلی، دو روز شمرده می‌شود", 2, localDays)
+        s.isTrue(
+            "مرزِ UTC همین حالت را اشتباه می‌شمرد",
+            utcDays != localDays,
+            "اگر این ادعا رد شد یعنی حالتِ آزمون دیگر تفاوت را نشان نمی‌دهد " +
+                "و باید بازنویسی شود (محلی=$localDays، UTC=$utcDays)"
+        )
+    }
+
+    // ---- دو بازه در یک روز = یک روز ----
+    run {
+        val (minutes, days) = runWorkSummary(
+            listOf(Shift(6 * hour, 10 * hour), Shift(12 * hour, 17 * hour)), localDay
+        )
+        s.eq("دو بازه در یک روز جمع می‌شوند", 540L, minutes)
+        s.eq("ولی یک روز شمرده می‌شود", 1, days)
+    }
+
+    // ---- بی بازه ----
+    run {
+        val (minutes, days) = runWorkSummary(emptyList(), localDay)
+        s.eq("بی بازه، کارکرد صفر است", 0L, minutes)
+        s.eq("بی بازه، روزی شمرده نمی‌شود", 0, days)
+    }
+
+    return s.results
+}
