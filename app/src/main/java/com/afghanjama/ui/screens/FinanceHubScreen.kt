@@ -73,6 +73,18 @@ fun FinanceHubScreen(
     var tab by rememberSaveable { mutableIntStateOf(0) }
     val tabs = listOf("گزارش", "کیف پول")
 
+    // پیامِ ردشدن (موجودیِ ناکافی) — بی این، کاربر فکر می‌کرد ثبت شد
+    val financeMessage by financeVm.message.collectAsState()
+    financeMessage?.let { msg ->
+        AlertDialog(
+            onDismissRequest = { financeVm.clearMessage() },
+            text = { Text(msg) },
+            confirmButton = {
+                TextButton(onClick = { financeVm.clearMessage() }) { Text("باشه") }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(

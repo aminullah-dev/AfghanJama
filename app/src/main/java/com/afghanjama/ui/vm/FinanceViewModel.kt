@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.afghanjama.data.entities.Transaction
 import com.afghanjama.data.repo.Repo
 import java.util.UUID
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -32,6 +33,25 @@ class FinanceViewModel(private val repo: Repo) : ViewModel() {
         repo.observeTx()
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
+    /**
+     * پیامِ رد شدن. سکوت بدترین حالت بود: کاربر مبلغ را می‌زد، هیچ اتفاقی
+     * نمی‌افتاد و فکر می‌کرد ثبت شد.
+     */
+    private val _message = MutableStateFlow<String?>(null)
+    val message: StateFlow<String?> = _message
+
+    fun clearMessage() { _message.value = null }
+
+    private fun refuse(source: String) {
+        _message.value = "موجودیِ ${boxName(source)} برای این مبلغ کافی نیست؛ چیزی ثبت نشد."
+    }
+
+    private fun boxName(source: String): String = when (source) {
+        "BANK" -> "بانک"
+        "PROFIT" -> "صندوق فایده"
+        else -> "کیف پول"
+    }
+
     // ================================
     // Actions
     // ================================
@@ -48,7 +68,9 @@ class FinanceViewModel(private val repo: Repo) : ViewModel() {
 
     fun spendWallet(amount: Long, note: String) =
         viewModelScope.launch {
-            repo.recordManualCash("WALLET", amount, isIn = false, note = note)
+            if (!repo.recordManualCash("WALLET", amount, isIn = false, note = note)) {
+                refuse("WALLET")
+            }
         }
 
     /** حذف تراکنش (اصلاح اشتباه). */
@@ -58,23 +80,28 @@ class FinanceViewModel(private val repo: Repo) : ViewModel() {
     fun transfer(from: String, to: String, amount: Long, note: String = "") =
         viewModelScope.launch {
             if (amount <= 0L || from == to) return@launch
-            repo.transfer(from, to, amount, note.trim().ifBlank { "انتقال بین صندوق‌ها" })
+            if (!repo.transfer(from, to, amount, note.trim().ifBlank { "انتقال بین صندوق‌ها" })) {
+                refuse(from)
+            }
         }
 
     /** ثبت هزینه عمومی کارگاه (کرایه، برق و آب، معاش، ...) از کیف پول. */
     fun addExpense(category: String, amount: Long, note: String) =
         viewModelScope.launch {
             if (amount <= 0L || category.isBlank()) return@launch
-            repo.recordExpense(
+            val ok = repo.recordExpense(
                 source = "WALLET",
                 category = category,
                 amount = amount,
                 note = note.trim().ifBlank { "هزینه: $category" }
             )
+            if (!ok) refuse("WALLET")
         }
 
     fun spendProfit(amount: Long, note: String) =
         viewModelScope.launch {
-            repo.recordManualCash("PROFIT", amount, isIn = false, note = note)
+            if (!repo.recordManualCash("PROFIT", amount, isIn = false, note = note)) {
+                refuse("PROFIT")
+            }
         }
 }

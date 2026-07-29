@@ -11,7 +11,6 @@ import com.afghanjama.ui.format.decimalOnly
 import com.afghanjama.ui.format.digitsOnly
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -117,24 +116,6 @@ class ProcurementViewModel(private val repo: Repo) : ViewModel() {
             return@launch
         }
 
-        // کنترل موجودی صندوق (نسیه و مشتری کنترل نمی‌شوند)
-        if (src != "CREDIT" && src != "CUSTOMER" && total > 0) {
-            val balance = when (src) {
-                "PROFIT" -> repo.observeProfitBalance().first()
-                "BANK" -> repo.observeBankBalance().first()
-                else -> repo.observeWalletBalance().first()
-            }
-            if (balance < total) {
-                val label = when (src) {
-                    "PROFIT" -> "فایده"
-                    "BANK" -> "بانک"
-                    else -> "کیف پول"
-                }
-                _ui.update { it.copy(message = "موجودی $label کافی نیست. مبلغ خرید: $total ؋", isError = true) }
-                return@launch
-            }
-        }
-
         val invoice = PurchaseInvoice(
             code = CodeGen.makePurchaseCode(),
             supplier = s.supplier.trim(),
@@ -152,7 +133,25 @@ class ProcurementViewModel(private val repo: Repo) : ViewModel() {
                 total = it.total
             )
         }
-        repo.recordPurchaseInvoice(invoice, rows)
+        // کنترلِ موجودی یک‌جا انجام می‌شود — داخلِ خودِ ثبت — تا صفحهٔ خرید و
+        // بقیهٔ مسیرهای پول یک قاعده داشته باشند و از هم دور نیفتند.
+        // تنها دلیلِ ردشدنِ منبع‌های قابلِ انتخاب (کیف پول/بانک/فایده)
+        // کم‌بودنِ موجودی است؛ «نسیه» هرگز رد نمی‌شود.
+        if (!repo.recordPurchaseInvoice(invoice, rows)) {
+            val label = when (src) {
+                "PROFIT" -> "فایده"
+                "BANK" -> "بانک"
+                else -> "کیف پول"
+            }
+            _ui.update {
+                ProcurementUi(
+                    message = "موجودی $label کافی نیست. مبلغ خرید: $total ؋ — " +
+                        "مبلغ را کم کنید یا «نسیه (قرض)» را انتخاب کنید.",
+                    isError = true
+                )
+            }
+            return@launch
+        }
 
         _ui.update {
             ProcurementUi(message = "✅ خرید ثبت شد و ${rows.size} قلم وارد انبار شد.", isError = false)

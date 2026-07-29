@@ -550,9 +550,26 @@ class Repo(private val db: AppDatabase) {
         audit("حذف تراکنش مالی", id.toString().take(8))
     }
 
-    /** انتقال بین صندوق‌ها (کیف پول / بانک / فایده). */
-    suspend fun transfer(from: String, to: String, amount: Long, note: String) {
-        if (from == to || amount <= 0) return
+    /**
+     * آیا صندوق این مبلغ را دارد؟
+     *
+     * `spend` خودش هیچ سقفی ندارد و بی‌سروصدا ثبت می‌کند، پس هر مسیرِ
+     * خروجِ نقد باید پیش از پرداخت از اینجا بگذرد. چهار مسیر این کنترل را
+     * داشتند و چهار مسیر نه — همان ناسازگاری بود که صندوق را منفی می‌کرد.
+     */
+    private suspend fun hasFunds(source: String, amount: Long): Boolean =
+        amount <= 0 || balanceOf(source) >= amount
+
+    /**
+     * انتقال بین صندوق‌ها (کیف پول / بانک / فایده).
+     *
+     * @return false اگر صندوقِ مبدأ کافی نباشد؛ چیزی ثبت نمی‌شود. انتقال
+     * پول را از بین نمی‌برد ولی مبدأ می‌تواند منفی شود، پس همان کنترل
+     * لازم است.
+     */
+    suspend fun transfer(from: String, to: String, amount: Long, note: String): Boolean {
+        if (from == to || amount <= 0) return false
+        if (!hasFunds(from, amount)) return false
         spend(from, amount, note)
         income(to, amount, note)
         audit("انتقال بین صندوق‌ها", "$from → $to — $amount ؋")
@@ -563,6 +580,7 @@ class Repo(private val db: AppDatabase) {
                 jl(Accounts.box(from), credit = amount)
             )
         )
+        return true
     }
 
     /** دریافتیِ دستی از مشتری: نقد + حساب مشتری + دفتر کل + ژورنال، یک‌جا. */
@@ -637,9 +655,18 @@ class Repo(private val db: AppDatabase) {
         return if (owes >= amount) Accounts.RECEIVABLE else Accounts.CUSTOMER_PREPAY
     }
 
-    /** هزینهٔ عمومی (کرایه، برق، معاش...): خروجِ نقد + ثبتِ ژورنالِ هزینه. */
-    suspend fun recordExpense(source: String, category: String, amount: Long, note: String) {
-        if (amount <= 0) return
+    /**
+     * هزینهٔ عمومی (کرایه، برق، معاش...): خروجِ نقد + ثبتِ ژورنالِ هزینه.
+     * @return false اگر موجودیِ صندوق کافی نباشد؛ چیزی ثبت نمی‌شود.
+     */
+    suspend fun recordExpense(
+        source: String,
+        category: String,
+        amount: Long,
+        note: String
+    ): Boolean {
+        if (amount <= 0) return false
+        if (!hasFunds(source, amount)) return false
         spend(source, amount, note, category = category)
         audit("ثبت هزینه", "$category — $amount ؋")
         postJournal(
@@ -649,11 +676,21 @@ class Repo(private val db: AppDatabase) {
                 jl(Accounts.box(source), credit = amount)
             )
         )
+        return true
     }
 
-    /** ورود/خروجِ دستیِ نقد (اصلاحِ صندوق): در برابرِ سایر درآمد/هزینه. */
-    suspend fun recordManualCash(source: String, amount: Long, isIn: Boolean, note: String) {
-        if (amount <= 0) return
+    /**
+     * ورود/خروجِ دستیِ نقد (اصلاحِ صندوق): در برابرِ سایر درآمد/هزینه.
+     * @return false اگر پرداخت باشد و موجودیِ صندوق کافی نباشد.
+     */
+    suspend fun recordManualCash(
+        source: String,
+        amount: Long,
+        isIn: Boolean,
+        note: String
+    ): Boolean {
+        if (amount <= 0) return false
+        if (!isIn && !hasFunds(source, amount)) return false
         if (isIn) {
             income(source, amount, note)
             postJournal(
@@ -673,6 +710,7 @@ class Repo(private val db: AppDatabase) {
                 )
             )
         }
+        return true
     }
 
     /** یکپارچه‌سازی WAL قبل از پشتیبان‌گیری فایل دیتابیس. */
@@ -1188,16 +1226,31 @@ class Repo(private val db: AppDatabase) {
 
     /**
      * ثبت یک فاکتور خرید: فاکتور و اقلامش ذخیره، هر قلم وارد انبار و
-     * مبلغ کل از منبع انتخابی پرداخت می‌شود. صندوق پرداخت‌کننده باید از
-     * قبل موجودی کافی داشته باشد (کنترل در ViewModel).
+     * مبلغ کل از منبع انتخابی پرداخت می‌شود.
+     *
+     * @return false اگر خرید نقدی باشد و صندوق کافی نباشد، یا منبعِ
+     * پرداخت پشتیبانی‌نشده باشد. در هر دو حالت **هیچ چیزی ثبت نمی‌شود**.
      */
-    suspend fun recordPurchaseInvoice(invoice: PurchaseInvoice, items: List<PurchaseItem>) {
+    suspend fun recordPurchaseInvoice(
+        invoice: PurchaseInvoice,
+        items: List<PurchaseItem>
+    ): Boolean {
+        // «به حساب مشتری» هنوز پیاده نشده: پولی خارج نمی‌شد ولی سندش نقد را
+        // بستانکار می‌کرد و مواد هم وارد انبار می‌شد — یعنی صندوقِ سند از
+        // صندوقِ واقعی جدا می‌افتاد. تا پیاده شدنش، رد می‌شود؛ نیمه‌ثبت
+        // بدتر از ثبت‌نشدن است. از صفحهٔ خرید قابلِ انتخاب نیست.
+        if (invoice.paySource == "CUSTOMER") return false
+        // خریدِ نقدی نباید صندوق را منفی کند. کنترل **پیش از** هر نوشتنی
+        // انجام می‌شود، وگرنه فاکتور و مواد ثبت می‌شدند و فقط پولش نه.
+        val cashPurchase = invoice.paySource != "CREDIT"
+        if (invoice.total > 0 && cashPurchase && !hasFunds(invoice.paySource, invoice.total)) {
+            return false
+        }
         db.procurementDao().insertInvoice(invoice)
         db.procurementDao().insertItems(items)
         items.forEach { addMaterialPurchase(it.name, it.unit, it.qty, it.total) }
         if (invoice.total > 0) {
             when (invoice.paySource) {
-                "CUSTOMER" -> { /* بعداً */ }
                 // نسیه: پول کم نمی‌شود؛ به‌عنوان بدهی فروشنده ثبت می‌شود
                 "CREDIT" -> recordSupplierCredit(
                     invoice.supplier.ifBlank { "نامشخص" },
@@ -1226,6 +1279,7 @@ class Repo(private val db: AppDatabase) {
                 )
             )
         }
+        return true
     }
 
     // =========================
