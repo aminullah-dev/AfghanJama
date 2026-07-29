@@ -38,6 +38,17 @@ android {
         )
     }
 
+    testOptions {
+        unitTests.all {
+            // بدونِ این، Gradle وقتی تست‌ها قبول می‌شوند هیچ چیزی چاپ نمی‌کند
+            // و لاگِ CI با «هیچ تستی پیدا نشد» یک شکل درمی‌آید.
+            it.testLogging {
+                events("passed", "failed", "skipped")
+                showStandardStreams = false
+            }
+        }
+    }
+
     packaging {
         resources.excludes += setOf(
             "META-INF/DEPENDENCIES",

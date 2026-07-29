@@ -36,6 +36,29 @@ jobs:
       - name: آزمون‌های ریاضیِ پول
         run: ./gradlew --no-daemon testDebugUnitTest
 
+      # سبزبودنِ مرحلهٔ بالا کافی نیست: اگر Gradle هیچ کلاسِ تستی پیدا
+      # نکند هم موفق گزارش می‌دهد و لاگش با اجرای واقعی یک شکل است.
+      # اینجا از خروجیِ XML شمرده می‌شود که واقعاً چیزی اجرا شده باشد.
+      - name: مطمئن شو تست‌ها واقعاً اجرا شدند
+        run: |
+          python3 - <<'PY'
+          import glob, sys, xml.etree.ElementTree as ET
+          files = glob.glob('app/build/test-results/testDebugUnitTest/*.xml')
+          if not files:
+              sys.exit('هیچ فایلِ نتیجه‌ای تولید نشد — یعنی هیچ تستی اجرا نشده.')
+          tests = failures = errors = 0
+          for f in files:
+              r = ET.parse(f).getroot()
+              tests    += int(r.get('tests', 0))
+              failures += int(r.get('failures', 0))
+              errors   += int(r.get('errors', 0))
+          print(f'{tests} تست در {len(files)} کلاس — {failures} شکست، {errors} خطا')
+          if tests == 0:
+              sys.exit('صفر تست اجرا شد. پوشهٔ src/test دیده نشده است.')
+          if failures or errors:
+              sys.exit('تست شکست خورد.')
+          PY
+
       - name: گزارشِ تست وقتی شکست
         if: failure()
         uses: actions/upload-artifact@v4
