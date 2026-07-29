@@ -4,9 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.afghanjama.data.entities.Accounts
 import com.afghanjama.data.repo.Repo
+import com.afghanjama.selftest.CashPath
 import com.afghanjama.selftest.CheckResult
 import com.afghanjama.selftest.CheckSink
 import com.afghanjama.selftest.CheckStatus
+import com.afghanjama.selftest.checkCashOutflowPolicy
 import com.afghanjama.selftest.checkCustomerLedger
 import com.afghanjama.selftest.checkJalali
 import com.afghanjama.selftest.checkMoneySplit
@@ -22,6 +24,7 @@ import com.afghanjama.selftest.checkShortage
 import com.afghanjama.selftest.checkStockValuation
 import com.afghanjama.selftest.checkTailorAttribution
 import com.afghanjama.selftest.PaperSpec
+import com.afghanjama.data.CashPolicy
 import com.afghanjama.data.ResetPlan
 import com.afghanjama.pdf.Paper
 import com.afghanjama.util.BackupArchive
@@ -74,6 +77,15 @@ class SelfTestViewModel(private val repo: Repo) : ViewModel() {
                 addAll(checkShortage())
                 addAll(checkDiscountMath())
                 addAll(checkOrderCycle())
+                addAll(
+                    checkCashOutflowPolicy(
+                        canSpend = { balance, amount -> CashPolicy.canSpend(balance, amount) },
+                        isCashSource = { CashPolicy.isCashSource(it) },
+                        paths = CashPolicy.OUTFLOWS.map { (name, guard, reports) ->
+                            CashPath(name, guard, reports)
+                        }
+                    )
+                )
                 addAll(
                     checkBackupArchive(
                         safePhotoName = { BackupArchive.safePhotoName(it) },
@@ -142,9 +154,17 @@ class SelfTestViewModel(private val repo: Repo) : ViewModel() {
 
         // ۳) حساب‌هایی که نباید در سمتِ اشتباه بنشینند
         val byAccount = balances.associateBy { it.account }
+        // هر سه صندوقِ نقد اینجا می‌آیند. پیش‌تر فقط «صندوق» بود، یعنی ماندهٔ
+        // منفیِ بانک یا صندوقِ فایده هرگز گزارش نمی‌شد — همان جایی که
+        // نگهبانِ موجودی هم غایب بود. دو اشکال که همدیگر را پنهان می‌کردند.
         val assets = listOf(
             Accounts.CASH to "صندوق",
+            Accounts.BANK to "بانک",
+            Accounts.PROFIT_BOX to "صندوق فایده",
             Accounts.RECEIVABLE to "طلب از مشتریان",
+            // پیش‌پرداختِ کارکنان عمداً اینجا نیست: پرداختِ حقوق هنوز آن را
+            // تهاتر نمی‌کند، پس ماندهٔ منفی‌اش می‌تواند واقعی باشد و هشدارِ
+            // بی‌مورد اعتمادِ کاربر به این دکمه را از بین می‌برد.
             Accounts.MATERIALS to "موجودی مواد",
             Accounts.FINISHED to "موجودی محصول",
             Accounts.WIP to "کار در جریان"

@@ -1,6 +1,7 @@
 package com.afghanjama.data.repo
 
 import com.afghanjama.data.AppDatabase
+import com.afghanjama.data.CashPolicy
 import com.afghanjama.data.entities.AttendanceRecord
 import com.afghanjama.data.entities.Customer
 import com.afghanjama.data.dao.NamedMeasurement
@@ -558,7 +559,7 @@ class Repo(private val db: AppDatabase) {
      * داشتند و چهار مسیر نه — همان ناسازگاری بود که صندوق را منفی می‌کرد.
      */
     private suspend fun hasFunds(source: String, amount: Long): Boolean =
-        amount <= 0 || balanceOf(source) >= amount
+        CashPolicy.canSpend(balanceOf(source), amount)
 
     /**
      * انتقال بین صندوق‌ها (کیف پول / بانک / فایده).
@@ -1242,8 +1243,9 @@ class Repo(private val db: AppDatabase) {
         if (invoice.paySource == "CUSTOMER") return false
         // خریدِ نقدی نباید صندوق را منفی کند. کنترل **پیش از** هر نوشتنی
         // انجام می‌شود، وگرنه فاکتور و مواد ثبت می‌شدند و فقط پولش نه.
-        val cashPurchase = invoice.paySource != "CREDIT"
-        if (invoice.total > 0 && cashPurchase && !hasFunds(invoice.paySource, invoice.total)) {
+        if (CashPolicy.isCashSource(invoice.paySource) &&
+            !hasFunds(invoice.paySource, invoice.total)
+        ) {
             return false
         }
         db.procurementDao().insertInvoice(invoice)

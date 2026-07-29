@@ -1,14 +1,17 @@
 package com.afghanjama
 
+import com.afghanjama.data.CashPolicy
 import com.afghanjama.data.ResetPlan
 import com.afghanjama.pdf.Paper
 import com.afghanjama.pdf.columnWidths
 import com.afghanjama.pdf.invoiceColumns
+import com.afghanjama.selftest.CashPath
 import com.afghanjama.selftest.CheckResult
 import com.afghanjama.selftest.CheckStatus
 import com.afghanjama.selftest.PaperSpec
 import com.afghanjama.selftest.checkBackupArchive
 import com.afghanjama.selftest.checkBreakSchedule
+import com.afghanjama.selftest.checkCashOutflowPolicy
 import com.afghanjama.selftest.checkCustomerLedger
 import com.afghanjama.selftest.checkDiscountMath
 import com.afghanjama.selftest.checkInvoiceTotals
@@ -51,6 +54,15 @@ class SelfTestJvmTest {
         addAll(checkDiscountMath())
         addAll(checkOrderCycle())
         addAll(checkResetPlan(ResetPlan.CLEAR, ResetPlan.KEEP))
+        addAll(
+            checkCashOutflowPolicy(
+                canSpend = { balance, amount -> CashPolicy.canSpend(balance, amount) },
+                isCashSource = { CashPolicy.isCashSource(it) },
+                paths = CashPolicy.OUTFLOWS.map { (name, guard, reports) ->
+                    CashPath(name, guard, reports)
+                }
+            )
+        )
         addAll(
             checkBackupArchive(
                 safePhotoName = { BackupArchive.safePhotoName(it) },

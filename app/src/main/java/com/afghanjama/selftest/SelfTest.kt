@@ -1097,3 +1097,108 @@ fun checkOrderCycle(): List<CheckResult> {
     }
     return s.results
 }
+
+// =====================================================================
+// 15) قاعدهٔ خروجِ پول از صندوق — همه‌جا یکی
+// =====================================================================
+
+/** یک مسیرِ خروجِ پول، همان‌طور که `CashPolicy.OUTFLOWS` توصیفش می‌کند. */
+data class CashPath(
+    val name: String,
+    /** نامِ نگهبانی که **پیش از هر نوشتنی** موجودی را می‌سنجد. خالی = بی‌نگهبان. */
+    val guard: String,
+    /** وقتی رد شد، به کاربر می‌گوید؟ سکوت بدترین حالت است. */
+    val reportsRefusal: Boolean
+)
+
+/**
+ * قاعدهٔ خروجِ پول را می‌سنجد، نه یک مسیرِ خاص را.
+ *
+ * پیش‌تر هر مسیر قاعدهٔ خودش را داشت — چهار مسیر موجودی را می‌سنجیدند و
+ * چهار مسیر نه — و کارگاه می‌توانست صندوق را منفی کند. حالا یک قاعده هست
+ * و اینجا سنجیده می‌شود: مرزهایش، و اینکه هیچ مسیری بی‌نگهبان و بی‌صدا
+ * نمانده باشد.
+ */
+fun checkCashOutflowPolicy(
+    canSpend: (Long, Long) -> Boolean,
+    isCashSource: (String) -> Boolean,
+    paths: List<CashPath>
+): List<CheckResult> {
+    val s = CheckSink("قاعدهٔ خروج پول")
+
+    // ---- مرزها: صندوق تا صفر خالی می‌شود، ولی نه یک افغانی زیرِ آن ----
+    s.isTrue("مبلغِ برابرِ موجودی قبول می‌شود", canSpend(10_000L, 10_000L),
+        "صندوقِ ۱۰٬۰۰۰ نتوانست ۱۰٬۰۰۰ بدهد — کارگاه نمی‌تواند صندوق را خالی کند")
+    s.isTrue("یک افغانی بیشتر از موجودی رد می‌شود", !canSpend(10_000L, 10_001L),
+        "صندوقِ ۱۰٬۰۰۰ مبلغِ ۱۰٬۰۰۱ را قبول کرد — صندوق منفی می‌شود")
+    s.isTrue("صندوقِ خالی هیچ پرداختی نمی‌کند", !canSpend(0L, 1L),
+        "صندوقِ خالی مبلغِ ۱ را قبول کرد")
+    s.isTrue("صندوقِ خالی مبلغِ صفر را قبول می‌کند", canSpend(0L, 0L),
+        "مبلغِ صفر خروجِ پولی ندارد ولی رد شد")
+    s.isTrue("مبلغِ منفی به این قاعده گیر نمی‌کند", canSpend(0L, -500L),
+        "ردکردنِ مبلغِ منفی کارِ کنترلِ ورودی است، نه این قاعده")
+    s.isTrue("از صندوقِ منفی هم پرداخت نمی‌شود", !canSpend(-100L, 1L),
+        "صندوقی که از قبل منفی است بازهم پرداخت کرد")
+
+    // ---- منبعِ پرداخت: نسیه و حسابِ مشتری به صندوق کار ندارند ----
+    listOf("WALLET", "BANK", "PROFIT").forEach { src ->
+        s.isTrue("$src از صندوق پول کم می‌کند", isCashSource(src),
+            "$src نقدی شمرده نشد، پس موجودی‌اش کنترل نمی‌شود")
+    }
+    listOf("CREDIT", "CUSTOMER").forEach { src ->
+        s.isTrue("$src به موجودیِ صندوق گیر نمی‌کند", !isCashSource(src),
+            "$src نقدی شمرده شد، پس خریدِ نسیه با صندوقِ خالی رد می‌شود")
+    }
+
+    // ---- هیچ‌گاه اجازهٔ منفی‌شدن ----
+    run {
+        var seed = 271828L
+        fun rnd(bound: Int): Long {
+            seed = seed * 6364136223846793005L + 1442695040888963407L
+            return ((((seed ushr 33).toInt() % bound) + bound) % bound).toLong()
+        }
+        var wouldGoNegative = 0
+        var wronglyRefused = 0
+        repeat(2_000) {
+            val balance = rnd(500_000)
+            val amount = rnd(500_000) + 1
+            if (canSpend(balance, amount)) {
+                if (balance - amount < 0L) wouldGoNegative++
+            } else {
+                if (balance - amount >= 0L) wronglyRefused++
+            }
+        }
+        s.eq("۲۰۰۰ حالتِ تصادفی: هیچ پرداختی صندوق را منفی نمی‌کند", 0, wouldGoNegative)
+        s.eq("۲۰۰۰ حالتِ تصادفی: هیچ پرداختِ ممکنی رد نمی‌شود", 0, wronglyRefused)
+    }
+
+    // ---- فهرستِ مسیرها ----
+    s.isTrue("فهرستِ مسیرهای خروجِ پول خالی نیست", paths.isNotEmpty(),
+        "هیچ مسیری ثبت نشده — این بررسی بی‌معنا می‌شود")
+
+    val unguarded = paths.filter { it.guard.isBlank() }
+    s.isTrue(
+        "هر مسیرِ خروجِ پول نگهبانِ موجودی دارد",
+        unguarded.isEmpty(),
+        "بی‌نگهبان: " + unguarded.joinToString("، ") { it.name },
+        "${paths.size} مسیر"
+    )
+
+    val silent = paths.filter { !it.reportsRefusal }
+    s.isTrue(
+        "هر مسیر ردشدنش را به کاربر می‌گوید",
+        silent.isEmpty(),
+        "بی‌صدا رد می‌شوند — کاربر فکر می‌کند ثبت شد: " +
+            silent.joinToString("، ") { it.name },
+        "${paths.size} مسیر"
+    )
+
+    val dupes = paths.groupBy { it.name }.filter { it.value.size > 1 }.keys
+    s.isTrue(
+        "نامِ مسیرِ تکراری در فهرست نیست",
+        dupes.isEmpty(),
+        "تکراری: " + dupes.joinToString("، ")
+    )
+
+    return s.results
+}
