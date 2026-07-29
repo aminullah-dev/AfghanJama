@@ -18,6 +18,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -51,6 +53,7 @@ import com.afghanjama.data.entities.FabricUnit
 import com.afghanjama.data.entities.OrderStatus
 import com.afghanjama.ui.components.DeliverDialog
 import com.afghanjama.ui.components.MeasurementsBlock
+import com.afghanjama.ui.components.BusyButton
 import com.afghanjama.ui.components.OrderPhotoStrip
 import com.afghanjama.util.PhotoStore
 import com.afghanjama.ui.format.PersianDate
@@ -62,6 +65,7 @@ import com.afghanjama.ui.format.dueDaysLeft
 import com.afghanjama.ui.format.isOverdue
 import com.afghanjama.pdf.InvoicePdf
 import com.afghanjama.ui.vm.OrderDetailViewModel
+import com.afghanjama.util.PrintKit
 import com.afghanjama.util.ShareUtil
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -406,31 +410,92 @@ fun OrderDetailScreen(
                 }
             }
 
-            // ---------- فاکتور PDF ----------
+            // ---------- فاکتور سفارش ----------
             item {
-                Button(
-                    onClick = {
-                        scope.launch {
-                            runCatching {
-                                withContext(Dispatchers.IO) {
-                                    InvoicePdf.create(context, o, fabrics, workItems, payments)
+                var sheetBusy by remember { mutableStateOf(false) }
+
+                /**
+                 * یک بار برگه ساخته می‌شود و هر سه کار روی همان انجام می‌گیرد.
+                 * دکمه تا پایانِ کارِ واقعی قفل می‌ماند — نه تا پایانِ ساختِ
+                 * فایل — وگرنه در حالتِ تصویر زودتر باز می‌شد.
+                 */
+                fun withSheet(then: suspend (java.io.File) -> Unit) {
+                    if (sheetBusy) return
+                    sheetBusy = true
+                    scope.launch {
+                        runCatching {
+                            val file = withContext(Dispatchers.IO) {
+                                InvoicePdf.create(context, o, fabrics, workItems, payments)
+                            }
+                            then(file)
+                        }.onFailure {
+                            android.widget.Toast.makeText(
+                                context,
+                                "ساخت فاکتور ناموفق بود: ${it.message}",
+                                android.widget.Toast.LENGTH_LONG
+                            ).show()
+                        }
+                        sheetBusy = false
+                    }
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    BusyButton(
+                        text = "چاپ",
+                        onClick = {
+                            withSheet { file ->
+                                if (!PrintKit.print(context, file, o.orderCode)) {
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        "چاپ ممکن نشد؛ PDF یا تصویر را بفرستید.",
+                                        android.widget.Toast.LENGTH_LONG
+                                    ).show()
                                 }
-                            }.onSuccess { file ->
-                                ShareUtil.shareFile(context, file, "application/pdf", "اشتراک فاکتور")
-                            }.onFailure {
-                                android.widget.Toast.makeText(
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        busy = sheetBusy,
+                        busyText = "…",
+                        leading = { Icon(Icons.Default.Print, contentDescription = null) }
+                    )
+                    BusyButton(
+                        text = "PDF",
+                        onClick = {
+                            withSheet { file ->
+                                ShareUtil.shareFile(
+                                    context, file, "application/pdf", "اشتراک فاکتور"
+                                )
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        busy = sheetBusy,
+                        busyText = "…",
+                        leading = { Icon(Icons.Default.PictureAsPdf, contentDescription = null) }
+                    )
+                    BusyButton(
+                        text = "تصویر",
+                        onClick = {
+                            withSheet { file ->
+                                val jpg = java.io.File(
+                                    ShareUtil.sharedDir(context), "${o.orderCode}.jpg"
+                                )
+                                val ok = withContext(Dispatchers.IO) {
+                                    PrintKit.toImage(file, jpg)
+                                }
+                                if (ok) ShareUtil.shareFile(
+                                    context, jpg, "image/jpeg", "اشتراک تصویر فاکتور"
+                                ) else android.widget.Toast.makeText(
                                     context,
-                                    "ساخت فاکتور ناموفق بود: ${it.message}",
+                                    "تبدیل به تصویر انجام نشد؛ همان PDF را بفرستید.",
                                     android.widget.Toast.LENGTH_LONG
                                 ).show()
                             }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Default.PictureAsPdf, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("فاکتور PDF — چاپ / اشتراک")
+                        },
+                        modifier = Modifier.weight(1f),
+                        busy = sheetBusy,
+                        busyText = "…",
+                        leading = { Icon(Icons.Default.Image, contentDescription = null) }
+                    )
                 }
             }
 

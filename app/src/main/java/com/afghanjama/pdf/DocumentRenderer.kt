@@ -29,9 +29,12 @@ object DocumentRenderer {
         "WAGE_RECEIPT", "SALARY_RECEIPT"
     )
 
+    /** رسیدِ پول است یا فاکتور؟ کاغذ و چیدمانِ این دو فرق دارد. */
+    fun isReceipt(type: String): Boolean = type in RECEIPTS
+
     /** کاغذِ منطقی برای هر نوع سند، وقتی کاربر چیزی انتخاب نکرده. */
     fun defaultPaper(type: String): Paper =
-        if (type in RECEIPTS) Paper.ROLL80 else Paper.A5
+        if (isReceipt(type)) Paper.ROLL80 else Paper.A5
 
     suspend fun render(
         context: Context,

@@ -22,10 +22,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -43,7 +41,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,10 +52,9 @@ import com.afghanjama.data.entities.Document
 import com.afghanjama.data.entities.docTypeLabel
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
+import com.afghanjama.ui.components.SheetActions
 import com.afghanjama.ui.vm.DocumentsViewModel
 import com.afghanjama.util.QrGen
-import com.afghanjama.util.ShareUtil
-import kotlinx.coroutines.launch
 
 private fun receiptText(d: Document): String = buildString {
     appendLine("افغان‌جامه — ${docTypeLabel(d.type)}")
@@ -76,11 +72,20 @@ fun DocumentsScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val documents by vm.documents.collectAsState()
 
     var typeFilter by remember { mutableStateOf<String?>(null) }
     var selected by remember { mutableStateOf<Document?>(null) }
+    val working by vm.working.collectAsState()
+    val message by vm.message.collectAsState()
+
+    message?.let { msg ->
+        AlertDialog(
+            onDismissRequest = { vm.clearMessage() },
+            text = { Text(msg) },
+            confirmButton = { TextButton(onClick = { vm.clearMessage() }) { Text("باشه") } }
+        )
+    }
 
     val types = documents.map { it.type }.distinct()
     val shown = documents.filter { typeFilter == null || it.type == typeFilter }
@@ -88,35 +93,25 @@ fun DocumentsScreen(
     // ---------- دیالوگ سند ----------
     selected?.let { d ->
         val qr = remember(d.id) { QrGen.bitmap(receiptText(d)) }
+        var paper by remember(d.id) { mutableStateOf(vm.paperFor(context, d)) }
         AlertDialog(
-            onDismissRequest = { selected = null },
+            onDismissRequest = { if (!working) selected = null },
             confirmButton = {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick = {
-                        val send = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_SUBJECT, "سند ${d.number}")
-                            putExtra(Intent.EXTRA_TEXT, receiptText(d))
-                        }
-                        context.startActivity(Intent.createChooser(send, "اشتراک‌گذاری متن"))
-                    }) {
-                        Icon(Icons.Default.Share, contentDescription = null)
-                        Text("  متن")
+                TextButton(onClick = {
+                    val send = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_SUBJECT, "سند ${d.number}")
+                        putExtra(Intent.EXTRA_TEXT, receiptText(d))
                     }
-                    Button(onClick = {
-                        // برگه از روی نوعِ سند ساخته می‌شود: فاکتور ردیف‌دار
-                        // برای فروش و خرید، رسیدِ فشرده برای پول‌ها.
-                        scope.launch {
-                            val file = vm.sheet(context, d, vm.defaultPaper(d))
-                            ShareUtil.shareFile(context, file, "application/pdf", "اشتراک‌گذاری PDF")
-                        }
-                    }) {
-                        Icon(Icons.Default.PictureAsPdf, contentDescription = null)
-                        Text("  PDF")
-                    }
+                    context.startActivity(Intent.createChooser(send, "اشتراک‌گذاری متن"))
+                }) {
+                    Icon(Icons.Default.Share, contentDescription = null)
+                    Text("  متن")
                 }
             },
-            dismissButton = { TextButton(onClick = { selected = null }) { Text("بستن") } },
+            dismissButton = {
+                TextButton(onClick = { selected = null }, enabled = !working) { Text("بستن") }
+            },
             title = { Text("${docTypeLabel(d.type)} • ${d.number}") },
             text = {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -124,11 +119,21 @@ fun DocumentsScreen(
                         Image(
                             bitmap = qr.asImageBitmap(),
                             contentDescription = "QR",
-                            modifier = Modifier.size(160.dp)
+                            modifier = Modifier.size(120.dp)
                         )
                         Spacer(Modifier.height(8.dp))
                     }
                     Text(receiptText(d), modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(12.dp))
+                    SheetActions(
+                        paper = paper,
+                        onPaperChange = {
+                            paper = it
+                            vm.rememberPaper(context, d, it)
+                        },
+                        busy = working,
+                        onAction = { vm.act(context, d, paper, it) }
+                    )
                 }
             }
         )

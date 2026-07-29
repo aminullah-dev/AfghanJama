@@ -321,7 +321,9 @@ fun BusyButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     busy: Boolean = false,
-    busyText: String = "در حال ثبت…"
+    busyText: String = "در حال ثبت…",
+    /** نشانهٔ کوچکِ کنارِ متن — وقتی چند دکمه کنارِ هم‌اند و باید زود از هم جدا شوند. */
+    leading: (@Composable () -> Unit)? = null
 ) {
     Button(
         onClick = onClick,
@@ -335,6 +337,9 @@ fun BusyButton(
                 color = MaterialTheme.colorScheme.onPrimary
             )
             Spacer(Modifier.width(10.dp))
+        } else if (leading != null) {
+            leading()
+            Spacer(Modifier.width(6.dp))
         }
         Text(if (busy) busyText else text)
     }
