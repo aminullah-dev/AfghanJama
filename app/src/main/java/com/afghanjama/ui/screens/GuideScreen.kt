@@ -20,6 +20,8 @@ import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Handshake
 import androidx.compose.material.icons.filled.EventAvailable
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
+import androidx.compose.material.icons.filled.Print
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
@@ -145,6 +147,32 @@ fun GuideScreen(onBack: () -> Unit) {
                         "خیاط «کارِ من» را می‌بیند: کارِ زیرِ دستش و کارمزدش.",
                         "فهرستِ مشتریان و شماره‌هایشان فقط برای مدیر و بخشِ فروش باز است.",
                         "روی گوشیِ خیاط، یک بار در تنظیمات مشخص کنید دستِ کدام خیاط است — از نامِ ورود حدس زده نمی‌شود، چون دو خیاطِ هم‌نام کارِ همدیگر را می‌دیدند."
+                    )
+                )
+            }
+
+            item {
+                GuideCard(
+                    icon = Icons.Default.Print,
+                    title = "چاپ فاکتور و رسید",
+                    lines = listOf(
+                        "هر سند از صفحهٔ «اسناد» باز می‌شود: چاپ، PDF، یا تصویر.",
+                        "اندازهٔ کاغذ را خودتان می‌گویید: A4، A5، یا رولِ ۸ سانتی. انتخابتان یادش می‌ماند.",
+                        "برای واتساپ «تصویر» را بزنید؛ عکس مطمئن‌تر از PDF می‌رسد.",
+                        "فاکتور فروش جدولِ کالاها را دارد و پایینش بدهی قبلی، پرداخت و مبلغ قابل پرداخت — هر سه از دفتر کل."
+                    )
+                )
+            }
+
+            item {
+                GuideCard(
+                    icon = Icons.Default.Warning,
+                    title = "کسری",
+                    lines = listOf(
+                        "اگر جنس در انبار نباشد، فروش و تحویل باز هم انجام می‌شود و کمبود قرمز به‌عنوان «کسری» می‌ماند.",
+                        "کسری یعنی «به این اندازه فروخته‌ایم که هنوز نداریم». با ورودِ بعدیِ همان کالا خودش تسویه می‌شود.",
+                        "بهای تمام‌شده هم خودش اصلاح می‌شود؛ لازم نیست کاری بکنید.",
+                        "اگر اپ را سخت‌گیر می‌خواهید: تنظیمات ← فروشِ بیشتر از موجودی را خاموش کنید."
                     )
                 )
             }

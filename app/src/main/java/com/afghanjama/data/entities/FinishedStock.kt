@@ -36,6 +36,14 @@ data class FinishedStock(
     @ColumnInfo(defaultValue = "0")
     val totalValue: Long = 0,
 
+    /**
+     * نامِ فایلِ عکسِ کالا در پوشهٔ خصوصیِ اپ (خالی یعنی عکس ندارد).
+     * خیاطی کارِ چشمی است؛ فروشنده با دیدنِ عکس زودتر از خواندنِ نام
+     * می‌فهمد کدام طرح است.
+     */
+    @ColumnInfo(defaultValue = "")
+    val photoFile: String = "",
+
     val updatedAt: Long
 ) {
     /** بهای تمام‌شدهٔ هر عدد بر اساسِ ارزشِ واقعی — برای نمایش. */

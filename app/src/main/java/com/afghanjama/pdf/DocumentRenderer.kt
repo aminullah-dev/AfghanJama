@@ -62,8 +62,11 @@ object DocumentRenderer {
         title: String,
         paper: Paper
     ): File {
+        val saleRows = if (doc.type == "SALE") repo.saleLinesByCode(doc.refId) else emptyList()
+        val discountTotal = saleRows.sumOf { it.discount }
+
         val lines = when (doc.type) {
-            "SALE" -> repo.saleLinesByCode(doc.refId).map {
+            "SALE" -> saleRows.map {
                 InvoiceLine(
                     // کدِ واقعیِ کالا در انبار. اگر ردیفِ انبار حذف شده
                     // باشد خالی می‌ماند — کدِ ساختگی روی فاکتوری که دستِ
@@ -120,6 +123,7 @@ object DocumentRenderer {
                 partyName = doc.partyName,
                 partyPhone = phone,
                 lines = lines,
+                discount = discountTotal,
                 paid = paid,
                 previousDue = previousDue,
                 note = doc.note

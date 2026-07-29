@@ -730,3 +730,109 @@ fun checkShortage(): List<CheckResult> {
     }
     return s.results
 }
+
+// =====================================================================
+// ۱۱) تخفیفِ ردیفِ فاکتور و برگشت از فروش
+// =====================================================================
+
+/**
+ * تخفیف ساده به نظر می‌رسد ولی دو جا را خراب می‌کند اگر «تعداد × فی» جای
+ * «جمعِ ردیف» به کار برود:
+ *  - برگشتِ کاملِ یک ردیفِ تخفیف‌دار بیشتر از چیزی که مشتری داده پس می‌دهد.
+ *  - تقسیمِ صحیح در برگشتِ تکه‌تکه هر بار چند افغانی جا می‌گذارد.
+ *
+ * بازتابِ `FinishedSale.share` است.
+ */
+fun shareOf(amount: Long, qty: Int, returned: Int, n: Int): Long {
+    if (qty <= 0 || n <= 0) return 0L
+    val doneSoFar = if (returned >= qty) amount else amount * returned / qty
+    val remaining = qty - returned
+    return if (n >= remaining) amount - doneSoFar
+    else amount * (returned + n) / qty - doneSoFar
+}
+
+fun checkDiscountMath(): List<CheckResult> {
+    val s = CheckSink("تخفیف و برگشت از فروش")
+
+    // ---- جمعِ ردیف با تخفیف ----
+    run {
+        val qty = 12
+        val unit = 600L
+        val discount = 1_200L
+        val total = qty * unit - discount
+        s.eq("جمعِ ردیف = تعداد × فی − تخفیف", 6_000L, total)
+        s.eq("تخفیفِ بیشتر از ردیف پذیرفته نمی‌شود", 7_200L, 9_999L.coerceIn(0L, qty * unit))
+    }
+
+    // ---- برگشتِ کامل باید دقیقاً همان مبلغِ فروش باشد ----
+    run {
+        val qty = 12
+        val total = 6_000L                       // با تخفیف، نه ۷٬۲۰۰
+        val old = qty * 600L                     // روشِ قدیمی: تعداد × فی
+        s.isTrue(
+            "روشِ قدیمی بیشتر از مبلغِ فروش پس می‌داد",
+            old > total,
+            "انتظار داشتیم روشِ قدیمی زیادی پس بدهد ولی $old ≤ $total",
+            "${old - total} ؋ اضافه روی همین یک ردیف"
+        )
+        s.eq("برگشتِ کاملِ یک‌جا دقیقاً مبلغِ فروش است", total, shareOf(total, qty, 0, qty))
+    }
+
+    // ---- برگشتِ تکه‌تکه نباید افغانی گم کند ----
+    run {
+        val qty = 7
+        val total = 10_000L                      // بر ۷ بخش‌پذیر نیست
+        var returned = 0
+        var got = 0L
+        while (returned < qty) {
+            val n = if (qty - returned >= 2) 2 else qty - returned
+            got += shareOf(total, qty, returned, n)
+            returned += n
+        }
+        s.eq("جمعِ برگشت‌های تکه‌تکه = مبلغِ فروش", total, got)
+    }
+
+    // ---- بهای تمام‌شده هم با همان قاعده برمی‌گردد ----
+    run {
+        val qty = 9
+        val cost = 4_444L
+        var returned = 0
+        var back = 0L
+        while (returned < qty) {
+            val n = if (qty - returned >= 4) 4 else qty - returned
+            back += shareOf(cost, qty, returned, n)
+            returned += n
+        }
+        s.eq("جمعِ بهای برگشتی = بهای تمام‌شدهٔ ردیف", cost, back)
+    }
+
+    // ---- هزار ردیفِ تصادفی ----
+    run {
+        var seed = 4242L
+        fun rnd(bound: Int): Int {
+            seed = (seed * 6364136223846793005L + 1442695040888963407L)
+            return (((seed ushr 33).toInt() % bound) + bound) % bound
+        }
+        var broken = 0
+        repeat(1000) {
+            val qty = rnd(30) + 1
+            val unit = (rnd(4_950) + 50).toLong()
+            val discount = if (rnd(3) == 0) (rnd((qty * unit / 2).toInt() + 1)).toLong() else 0L
+            val total = qty * unit - discount
+            var returned = 0
+            var got = 0L
+            while (returned < qty) {
+                val n = minOf(rnd(5) + 1, qty - returned)
+                got += shareOf(total, qty, returned, n)
+                returned += n
+            }
+            if (got != total) broken++
+        }
+        s.isTrue(
+            "هزار ردیفِ تصادفی: جمعِ برگشت‌ها دقیقاً برابرِ مبلغِ فروش",
+            broken == 0,
+            "$broken ردیف اختلاف داشت"
+        )
+    }
+    return s.results
+}

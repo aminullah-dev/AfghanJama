@@ -54,6 +54,9 @@ import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.format.isShortage
 import com.afghanjama.ui.format.stockText
 import com.afghanjama.ui.format.stockBadge
+import com.afghanjama.ui.components.SinglePhotoPicker
+import com.afghanjama.util.PhotoStore
+import androidx.compose.ui.platform.LocalContext
 import com.afghanjama.ui.vm.FinishedSaleViewModel
 
 @Composable
@@ -66,6 +69,7 @@ fun FinishedWarehouseScreen(
     val ui by vm.ui.collectAsState()
     val wallet by vm.wallet.collectAsState()
     val bank by vm.bank.collectAsState()
+    val context = LocalContext.current
 
     var sellTarget by remember { mutableStateOf<FinishedStock?>(null) }
     var returnTarget by remember { mutableStateOf<FinishedSale?>(null) }
@@ -76,6 +80,7 @@ fun FinishedWarehouseScreen(
         var priceText by remember(item.id) { mutableStateOf("") }
         var customer by remember(item.id) { mutableStateOf("") }
         var receivedText by remember(item.id) { mutableStateOf("") }
+        var discountText by remember(item.id) { mutableStateOf("") }
         var usePrepay by remember(item.id) { mutableStateOf(true) }
 
         // با تایپِ نامِ مشتری، بیعانهٔ استفاده‌نشده‌اش پیدا می‌شود
@@ -100,6 +105,16 @@ fun FinishedWarehouseScreen(
                             color = MaterialTheme.colorScheme.error
                         )
                     }
+                    SinglePhotoPicker(
+                        fileName = item.photoFile,
+                        canEdit = true,
+                        onPicked = { name ->
+                            vm.setPhoto(item, name) { PhotoStore.delete(context, it) }
+                        },
+                        onCleared = {
+                            vm.setPhoto(item, "") { PhotoStore.delete(context, it) }
+                        }
+                    )
                     OutlinedTextField(
                         value = qtyText,
                         onValueChange = { qtyText = it.digitsOnly() },
@@ -117,6 +132,14 @@ fun FinishedWarehouseScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
+                        value = discountText,
+                        onValueChange = { discountText = it.digitsOnly() },
+                        label = { Text("تخفیف روی کلِ این ردیف (؋) — اختیاری") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
                         value = customer,
                         onValueChange = { customer = it },
                         label = { Text("نام مشتری (اختیاری)") },
@@ -125,10 +148,14 @@ fun FinishedWarehouseScreen(
                     )
                     val q = qtyText.toIntOrNull() ?: 0
                     val p = priceText.toLongOrNull() ?: 0L
-                    val total = q.toLong() * p
+                    val gross = q.toLong() * p
+                    // تخفیف هرگز بیشتر از خودِ ردیف نمی‌شود، وگرنه فروشِ منفی می‌شد
+                    val disc = (discountText.toLongOrNull() ?: 0L).coerceIn(0L, gross)
+                    val total = gross - disc
                     if (q > 0 && p > 0) {
                         Text(
-                            "جمع فروش: ${total.afn()}",
+                            if (disc > 0) "جمع فروش: ${total.afn()} (پس از ${disc.afn()} تخفیف)"
+                            else "جمع فروش: ${total.afn()}",
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -178,13 +205,16 @@ fun FinishedWarehouseScreen(
                 TextButton(onClick = {
                     val q = qtyText.toIntOrNull() ?: 0
                     val p = priceText.toLongOrNull() ?: 0L
-                    val total = q.toLong() * p
+                    val gross = q.toLong() * p
+                    val disc = (discountText.toLongOrNull() ?: 0L).coerceIn(0L, gross)
+                    val total = gross - disc
                     val prepay = if (usePrepay) minOf(ui.prepayOfCustomer, total) else 0L
                     val due = total - prepay
                     vm.sell(
                         item, q, p, customer,
                         receivedNow = (receivedText.toLongOrNull() ?: due).coerceIn(0L, due),
-                        applyPrepay = prepay
+                        applyPrepay = prepay,
+                        discount = disc
                     )
                     sellTarget = null
                 }) { Text("ثبت فروش") }
@@ -326,6 +356,15 @@ fun FinishedWarehouseScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            if (item.photoFile.isNotBlank()) {
+                                SinglePhotoPicker(
+                                    fileName = item.photoFile,
+                                    canEdit = false,
+                                    onPicked = {},
+                                    onCleared = {}
+                                )
+                                Spacer(Modifier.width(10.dp))
+                            }
                             Column(Modifier.weight(1f)) {
                                 Text(item.name, fontWeight = FontWeight.SemiBold)
                                 Text(

@@ -645,6 +645,17 @@ val MIGRATION_47_48 = object : Migration(47, 48) {
 }
 
 /**
+ * تخفیفِ ردیفِ فاکتور و عکسِ کالای انبار. هر دو فقط ستونِ افزودنی با
+ * پیش‌فرضِ بی‌اثر، پس فروش‌ها و موجودی‌های ثبت‌شده دست نمی‌خورند.
+ */
+val MIGRATION_54_55 = object : Migration(54, 55) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `finished_sales` ADD COLUMN `discount` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `finished_stock` ADD COLUMN `photoFile` TEXT NOT NULL DEFAULT ''")
+    }
+}
+
+/**
  * عکس‌های سفارش (طرح، پارچه، نمونهٔ مشتری). فقط یک جدولِ تازه است.
  */
 val MIGRATION_53_54 = object : Migration(53, 54) {

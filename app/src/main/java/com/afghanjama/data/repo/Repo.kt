@@ -1405,9 +1405,14 @@ class Repo(private val db: AppDatabase) {
     data class SaleLine(
         val item: FinishedStock,
         val qty: Int,
-        val unitPrice: Long
+        val unitPrice: Long,
+        /** تخفیفِ همین ردیف؛ هرگز بیشتر از خودِ ردیف نمی‌شود. */
+        val discount: Long = 0
     ) {
-        val total: Long get() = qty * unitPrice
+        /** تخفیفِ مؤثر — بیشتر از مبلغِ ردیف پذیرفته نمی‌شود، وگرنه فروش منفی می‌شد. */
+        val appliedDiscount: Long get() = discount.coerceIn(0L, qty * unitPrice)
+
+        val total: Long get() = qty * unitPrice - appliedDiscount
     }
 
     /**
@@ -1492,7 +1497,8 @@ class Repo(private val db: AppDatabase) {
                     unitPrice = line.unitPrice,
                     total = line.total,
                     cost = lineCost,
-                    customerName = customer
+                    customerName = customer,
+                    discount = line.appliedDiscount
                 )
             )
         }
@@ -1587,11 +1593,13 @@ class Repo(private val db: AppDatabase) {
         unitPrice: Long,
         customerName: String,
         receivedNow: Long = -1L,
-        applyPrepay: Long = 0L
+        applyPrepay: Long = 0L,
+        discount: Long = 0L
     ): Boolean {
-        if (qty <= 0 || qty > item.qty || unitPrice <= 0) return false
+        if (qty <= 0 || unitPrice <= 0) return false
+        if (qty > item.qty && !SalePrefs.allowNegativeStockCached()) return false
         return sellInvoice(
-            lines = listOf(SaleLine(item, qty, unitPrice)),
+            lines = listOf(SaleLine(item, qty, unitPrice, discount)),
             customerName = customerName,
             receivedNow = receivedNow,
             applyPrepay = applyPrepay
@@ -1620,8 +1628,11 @@ class Repo(private val db: AppDatabase) {
     ): Boolean {
         if (qty <= 0 || qty > sale.returnableQty) return false
 
-        val refund = qty * sale.unitPrice
-        val costBack = qty * sale.unitCost
+        // سهمی حساب می‌شود نه «تعداد × فی»: ردیفِ تخفیف‌دار وگرنه بیشتر از
+        // چیزی که مشتری داده بود پس می‌گرفت، و تقسیمِ صحیح هم هر بار چند
+        // افغانی جا می‌گذاشت.
+        val refund = sale.refundFor(qty)
+        val costBack = sale.costFor(qty)
 
         // پولی که نداریم نمی‌توانیم پس بدهیم — قبل از هر تغییری کنترل شود
         if (refundCash && balanceOf(cashBox) < refund) return false
@@ -1635,7 +1646,7 @@ class Repo(private val db: AppDatabase) {
         val memo = "برگشت $qty عدد «${sale.productName}» از فروش ${sale.code}"
 
         // کالا با همان بهای تمام‌شده به انبار محصول برمی‌گردد
-        addFinishedStock(sale.productName, sale.size, qty, qty * sale.unitCost)
+        addFinishedStock(sale.productName, sale.size, qty, costBack)
 
         if (refundCash) spend(cashBox, refund, memo, category = "برگشتی فروش")
 
@@ -1975,6 +1986,31 @@ class Repo(private val db: AppDatabase) {
         return db.ledgerDao().balanceUpTo(type, n, atMs)
     }
 
+    /**
+     * عکسِ کالای انبار. عکسِ قبلی — اگر بود — پاک می‌شود تا پوشهٔ اپ پر از
+     * فایلِ بی‌صاحب نشود. نامِ خالی یعنی «عکس را بردار».
+     */
+    suspend fun setStockPhoto(
+        item: FinishedStock,
+        fileName: String,
+        deleteFile: (String) -> Unit
+    ) {
+        val old = item.photoFile
+        db.finishedStockDao().upsert(
+            item.copy(photoFile = fileName.trim(), updatedAt = System.currentTimeMillis())
+        )
+        if (old.isNotBlank() && old != fileName.trim()) deleteFile(old)
+        audit(
+            if (fileName.isBlank()) "حذف عکس کالا" else "افزودن عکس کالا",
+            "${item.name} ${item.size}".trim()
+        )
+    }
+
+    /** نامِ عکس‌هایی که هنوز صاحب دارند — سفارش‌ها و کالاهای انبار. */
+    suspend fun liveStockPhotoFileNames(): Set<String> =
+        db.finishedStockDao().observeAll().first()
+            .map { it.photoFile }.filter { it.isNotBlank() }.toSet()
+
     /** شناسهٔ کالای انبار برای چاپِ ستونِ «کد» روی فاکتور. */
     suspend fun finishedStockIdFor(name: String, size: String): Long? =
         db.finishedStockDao().find(name, size)?.id
@@ -1996,9 +2032,14 @@ class Repo(private val db: AppDatabase) {
     fun observeAllOrderPhotos(): Flow<List<com.afghanjama.data.entities.OrderPhoto>> =
         db.orderPhotoDao().observeAll()
 
-    /** نامِ همهٔ عکس‌هایی که هنوز صاحب دارند — برای جاروی فایل‌های یتیم. */
+    /**
+     * نامِ همهٔ عکس‌هایی که هنوز صاحب دارند — برای جاروی فایل‌های یتیم.
+     * عکسِ کالای انبار هم در همین پوشه است، پس باید اینجا شمرده شود وگرنه
+     * جارو عکسِ سالمِ کالاها را پاک می‌کند.
+     */
     suspend fun livePhotoFileNames(): Set<String> =
-        db.orderPhotoDao().observeAll().first().map { it.fileName }.toSet()
+        db.orderPhotoDao().observeAll().first().map { it.fileName }.toSet() +
+            liveStockPhotoFileNames()
 
     suspend fun addOrderPhoto(order: Order, fileName: String, note: String = "") {
         db.orderPhotoDao().insert(

@@ -46,6 +46,8 @@ data class InvoiceData(
     val partyName: String,
     val partyPhone: String = "",
     val lines: List<InvoiceLine>,
+    /** جمعِ تخفیفِ ردیف‌ها — از جمعِ ردیف‌ها کم شده و فقط نشان داده می‌شود. */
+    val discount: Long = 0,
     val paid: Long = 0,
     /** ماندهٔ طرفِ حساب پیش از این فاکتور؛ مثبت یعنی به ما بدهکار بوده. */
     val previousDue: Long = 0,
@@ -117,6 +119,11 @@ object LineInvoicePdf {
 
         // ---------- خلاصهٔ پول ----------
         newPageIfNeeded(120f)
+        if (data.discount > 0) {
+            // جمعِ ردیف‌ها از قبل تخفیف‌خورده است؛ این سطر فقط می‌گوید چقدر
+            // کم شده، تا مشتری ببیند چه گرفته.
+            y = PdfKit.kv(c, "تخفیف", data.discount.afn(), y, f, paper = paper)
+        }
         if (data.paid != 0L) y = PdfKit.kv(c, "پرداخت", data.paid.afn(), y, f, paper = paper)
         if (data.previousDue != 0L) {
             y = PdfKit.kv(

@@ -13,6 +13,7 @@ import com.afghanjama.selftest.checkMoneySplit
 import com.afghanjama.selftest.checkMultiLineInvoice
 import com.afghanjama.selftest.checkBreakSchedule
 import com.afghanjama.selftest.checkInvoiceTotals
+import com.afghanjama.selftest.checkDiscountMath
 import com.afghanjama.selftest.checkPaperGeometry
 import com.afghanjama.selftest.checkShortage
 import com.afghanjama.selftest.checkStockValuation
@@ -66,6 +67,7 @@ class SelfTestViewModel(private val repo: Repo) : ViewModel() {
                 addAll(checkStockValuation())
                 addAll(checkInvoiceTotals())
                 addAll(checkShortage())
+                addAll(checkDiscountMath())
                 addAll(
                     checkPaperGeometry(
                         Paper.ALL.map { p ->
@@ -181,12 +183,26 @@ class SelfTestViewModel(private val repo: Repo) : ViewModel() {
             )
         }
 
-        // ۷) موجودیِ انبارها منفی نشده باشد
-        val negFinished = repo.auditFinishedStock().filter { it.qty < 0 }
+        // ۷) کسریِ انبار: خودِ منفی‌بودن اشکال نیست — گزارش می‌شود تا کارگاه
+        // بداند چه چیزی را باید وارد کند. اشکال آنجاست که ارزشِ ردیفِ کسری
+        // با برآوردش نخواند، چون همان یعنی حسابِ موجودی کج شده.
+        val allFinished = repo.auditFinishedStock()
+        val short = allFinished.filter { it.qty < 0 }
+        if (short.isEmpty()) {
+            s.pass("هیچ طرحی کسری ندارد", "${allFinished.size} ردیفِ انبار")
+        } else {
+            s.pass(
+                "کسری‌های ثبت‌شده",
+                short.joinToString("، ") { "${it.name}: ${-it.qty} عدد" }
+            )
+        }
+        val brokenShort = short.filter { it.totalValue != it.qty * it.avgCost }
         s.isTrue(
-            "موجودیِ محصول منفی نیست",
-            negFinished.isEmpty(),
-            negFinished.joinToString("، ") { "${it.name}: ${it.qty}" }
+            "ارزشِ هر ردیفِ کسری با برآوردش می‌خواند",
+            brokenShort.isEmpty(),
+            brokenShort.joinToString("، ") {
+                "${it.name}: ارزش ${it.totalValue} ولی ${it.qty}×${it.avgCost}"
+            }
         )
         val negMaterial = repo.auditMaterialStock().filter { it.amount < 0.0 }
         s.isTrue(

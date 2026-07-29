@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.afghanjama.data.entities.FinishedSale
 import com.afghanjama.data.entities.FinishedStock
 import com.afghanjama.data.repo.Repo
+import com.afghanjama.prefs.SalePrefs
 import com.afghanjama.ui.format.fa
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -65,7 +66,8 @@ class FinishedSaleViewModel(private val repo: Repo) : ViewModel() {
         unitPrice: Long,
         customerName: String,
         receivedNow: Long = -1L,
-        applyPrepay: Long = 0L
+        applyPrepay: Long = 0L,
+        discount: Long = 0L
     ) =
         viewModelScope.launch {
             busy.once {
@@ -75,7 +77,8 @@ class FinishedSaleViewModel(private val repo: Repo) : ViewModel() {
                     unitPrice = unitPrice,
                     customerName = customerName,
                     receivedNow = receivedNow,
-                    applyPrepay = applyPrepay
+                    applyPrepay = applyPrepay,
+                    discount = discount
                 )
             }
         }
@@ -86,10 +89,20 @@ class FinishedSaleViewModel(private val repo: Repo) : ViewModel() {
         unitPrice: Long,
         customerName: String,
         receivedNow: Long = -1L,
-        applyPrepay: Long = 0L
+        applyPrepay: Long = 0L,
+        discount: Long = 0L
     ) {
-            if (qty <= 0 || qty > item.qty) {
-                _ui.update { it.copy(message = "تعداد فروش نامعتبر است. موجودی: ${item.qty}", isError = true) }
+            if (qty <= 0) {
+                _ui.update { it.copy(message = "تعداد فروش را وارد کنید.", isError = true) }
+                return
+            }
+            if (qty > item.qty && !SalePrefs.allowNegativeStockCached()) {
+                _ui.update {
+                    it.copy(
+                        message = "تعداد فروش بیشتر از موجودی است. موجودی: ${item.qty.fa()} عدد",
+                        isError = true
+                    )
+                }
                 return
             }
             if (unitPrice <= 0) {
@@ -98,7 +111,7 @@ class FinishedSaleViewModel(private val repo: Repo) : ViewModel() {
             }
             val ok = repo.sellFinished(
                 item, qty, unitPrice, customerName,
-                receivedNow = receivedNow, applyPrepay = applyPrepay
+                receivedNow = receivedNow, applyPrepay = applyPrepay, discount = discount
             )
             _ui.update {
                 if (ok) it.copy(
@@ -110,6 +123,15 @@ class FinishedSaleViewModel(private val repo: Repo) : ViewModel() {
                 else it.copy(message = "فروش ناموفق بود.", isError = true)
             }
         }
+
+    /** عکسِ کالای انبار — یکی برای هر کالا. نامِ خالی یعنی برداشتنِ عکس. */
+    fun setPhoto(
+        item: FinishedStock,
+        fileName: String,
+        deleteFile: (String) -> Unit
+    ) = viewModelScope.launch {
+        repo.setStockPhoto(item, fileName, deleteFile)
+    }
 
     /**
      * برگشت از فروش: کالا به انبار محصول برمی‌گردد و پولِ مشتری یا نقد
