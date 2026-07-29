@@ -1017,7 +1017,18 @@ fun runOrderCycle(input: CycleInput, deletedAfterCutting: Boolean = false,
                 if (back > 0) add(Triple("WIP", 0L, back))
             }
         )
-        // سفارشِ حذف‌شده به انبار محصول نمی‌رسد؛ خرج‌کارش در WIP می‌ماند
+        // خرج‌کار همان لحظهٔ ثبتِ سفارش وارد سند شد، پس با حذفِ سفارش هم
+        // برمی‌گردد — بی‌شرط، چون به برش کاری ندارد. تا وقتی خرج‌کار از
+        // رابط قابلِ انتخاب نبود این مبلغ همیشه صفر بود و کسی نمی‌دید که
+        // در «کار در جریان» جا می‌ماند.
+        if (input.workCost > 0) {
+            post(
+                listOf(
+                    Triple("PAYABLE", input.workCost, 0L),
+                    Triple("WIP", 0L, input.workCost)
+                )
+            )
+        }
         return acc
     }
 
@@ -1069,6 +1080,19 @@ fun checkOrderCycle(): List<CheckResult> {
         s.eq("جنس با ارزشِ امروزش به انبار برگشت", 400L, r["MATERIALS"] ?: 0L)
     }
 
+    // ---- حذفِ سفارشی که خرج‌کار داشت ----
+    // تا وقتی خرج‌کار از رابط قابلِ انتخاب نبود، این حالت هرگز پیش نمی‌آمد
+    // و مبلغش بی‌سروصدا در «کار در جریان» و «پرداختنی» جا می‌ماند.
+    run {
+        val r = runOrderCycle(
+            CycleInput(fabricPrice = 2_000, takenValue = 2_000, workCost = 900, wage = 0),
+            deletedAfterCutting = true, returnedValue = 2_000
+        )
+        s.eq("حذفِ سفارشِ خرج‌کاردار «کار در جریان» را صفر می‌کند", 0L, r["WIP"] ?: 0L)
+        s.eq("بدهیِ خرج‌کار با حذفِ سفارش برگشت", 0L, r["PAYABLE"] ?: 0L)
+        s.eq("هیچ سندِ ناترازی در این حذف نبود", null, r["__UNBALANCED__"])
+    }
+
     // ---- صدها حالتِ تصادفی ----
     run {
         var seed = 314159L
@@ -1087,13 +1111,13 @@ fun checkOrderCycle(): List<CheckResult> {
             )
             val deleted = rnd(4) == 0
             val r = runOrderCycle(input, deleted, if (deleted) rnd(20_000).toLong() else 0L)
-            // در سفارشِ حذف‌شده، خرج‌کار عمداً در «کار در جریان» می‌ماند
-            val expected = if (deleted) input.workCost else 0L
-            if ((r["WIP"] ?: 0L) != expected) brokenWip++
+            // هر دو راه — تکمیل یا حذف — باید «کار در جریان» را به صفر
+            // برگردانند. هیچ حالتی نمانده که مبلغی داخلش جا بماند.
+            if ((r["WIP"] ?: 0L) != 0L) brokenWip++
             if (r["__UNBALANCED__"] != null) unbalanced++
         }
         s.eq("۶۰۰ چرخهٔ تصادفی: هیچ سندِ ناترازی", 0, unbalanced)
-        s.eq("۶۰۰ چرخهٔ تصادفی: «کار در جریان» همان‌قدر که باید", 0, brokenWip)
+        s.eq("۶۰۰ چرخهٔ تصادفی: «کار در جریان» همیشه به صفر برمی‌گردد", 0, brokenWip)
     }
     return s.results
 }

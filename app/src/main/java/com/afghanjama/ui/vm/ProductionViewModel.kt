@@ -8,7 +8,9 @@ import com.afghanjama.data.entities.MaterialStock
 import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.OrderFabric
 import com.afghanjama.data.entities.OrderStatus
+import com.afghanjama.data.entities.OrderWorkItem
 import com.afghanjama.data.entities.SizeItem
+import com.afghanjama.data.entities.WorkCost
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.ui.format.decimalOnly
 import com.afghanjama.ui.format.digitsOnly
@@ -28,6 +30,13 @@ data class ConsumeLine(
     val perPiece: Boolean,     // فی‌عدد است یا کل سفارش
     val avgPrice: Double       // میانگین قیمت هر واحد (برای بهای تمام‌شده)
 )
+
+/**
+ * یک خرج‌کارِ انتخاب‌شده برای سفارش. [price] قیمتِ **فی‌عدد** است — همان
+ * قراردادی که `OrderWorkItem` دارد و `Order.workCost` جمعِ کلش را نگه
+ * می‌دارد.
+ */
+data class WorkLine(val title: String, val price: Long)
 
 data class ProductionUi(
     val designTitle: String = "",
@@ -50,6 +59,12 @@ data class ProductionUi(
 
     val lines: List<ConsumeLine> = emptyList(),
 
+    /**
+     * خرج‌کارهای انتخاب‌شده (دکمه، زیپ، لایی…). قیمتِ هر ردیف **فی‌عدد**
+     * است، پس خرج‌کارِ کلِ سفارش = جمعِ قیمت‌ها × تعداد.
+     */
+    val workItems: List<WorkLine> = emptyList(),
+
     val message: String? = null,
     val isError: Boolean = false
 )
@@ -70,6 +85,11 @@ class ProductionViewModel(private val repo: Repo) : ViewModel() {
     /** طرح‌های ازقبل‌تعریف‌شده برای انتخابِ «نام طرح/محصول». */
     val designs: StateFlow<List<DesignItem>> =
         repo.observeDesignItems()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** خرج‌کارهای ازقبل‌تعریف‌شده در «اطلاعات پایه» (دکمه، زیپ، لایی…). */
+    val workCosts: StateFlow<List<WorkCost>> =
+        repo.observeWorkCosts()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** سایزهای ازقبل‌تعریف‌شده (منبعِ واحدِ حقیقت برای سایز). */
@@ -147,6 +167,28 @@ class ProductionViewModel(private val repo: Repo) : ViewModel() {
         else it
     }
 
+    /**
+     * افزودن یا برداشتنِ یک خرج‌کار از فهرستِ الگوها.
+     *
+     * قیمت از همان الگو گرفته می‌شود، نه از دستِ کاربر: اگر قیمتِ الگو
+     * عوض شد، سفارشِ تازه قیمتِ تازه را می‌گیرد و سفارشِ قدیم قیمتِ خودش
+     * را نگه می‌دارد، چون در `order_work_items` کپی می‌شود.
+     */
+    fun toggleWorkItem(template: WorkCost) = _ui.update { s ->
+        val exists = s.workItems.any { it.title == template.title }
+        s.copy(
+            workItems =
+                if (exists) s.workItems.filterNot { it.title == template.title }
+                else s.workItems + WorkLine(template.title, template.price),
+            message = null,
+            isError = false
+        )
+    }
+
+    fun removeWorkItem(title: String) = _ui.update {
+        it.copy(workItems = it.workItems.filterNot { w -> w.title == title })
+    }
+
     fun completeProduction() = viewModelScope.launch {
         val s = _ui.value
         _ui.update { it.copy(message = null, isError = false) }
@@ -206,6 +248,12 @@ class ProductionViewModel(private val repo: Repo) : ViewModel() {
         val materialsCost = resolved.sumOf { it.price }
         val agreedPrice = s.agreedPrice.toLongOrNull()?.coerceAtLeast(0) ?: 0L
 
+        // قیمتِ هر خرج‌کار فی‌عدد است، پس در تعداد ضرب می‌شود. همین جمع در
+        // Order.workCost می‌نشیند تا صفحه‌های دیگر و بهای تمام‌شده بی‌تغییر
+        // کار کنند، و ردیف‌هایش جدا در order_work_items می‌مانند.
+        val workLines = s.workItems.filter { it.price > 0 }
+        val workCostTotal = workLines.sumOf { it.price } * qty
+
         val first = resolved.first()
         val order = Order(
             orderCode = CodeGen.makeOrderCode(nextNumber = repo.nextOrderNumber()),
@@ -219,7 +267,7 @@ class ProductionViewModel(private val repo: Repo) : ViewModel() {
             fabricAmount = first.amount,
             fabricSource = "MATERIAL",
             fabricPrice = materialsCost,
-            workCost = 0,
+            workCost = workCostTotal,
             agreedPrice = agreedPrice,
             customerName = s.customerName.trim(),
             customerPhone = s.customerPhone.trim(),
@@ -234,7 +282,11 @@ class ProductionViewModel(private val repo: Repo) : ViewModel() {
         // مواد اینجا کسر نمی‌شوند؛ کسرِ واقعی از انبار هنگام «برش» انجام
         // می‌شود. سفارش با فهرست موادش (BOM) و بهای تمام‌شدهٔ برآوردی ثبت
         // می‌گردد و وارد انبار سفارش‌ها می‌شود.
-        repo.createOrder(order, resolved, emptyList())
+        repo.createOrder(
+            order,
+            resolved,
+            workLines.map { OrderWorkItem(orderId = "", title = it.title, price = it.price) }
+        )
 
         // بیعانه بعد از ثبتِ سفارش گرفته می‌شود تا بدهیِ مشتری اول ثبت
         // شده باشد و این دریافت آن را کم کند، نه اینکه طلبِ منفی بسازد.

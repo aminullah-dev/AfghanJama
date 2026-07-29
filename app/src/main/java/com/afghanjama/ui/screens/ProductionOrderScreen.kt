@@ -1,10 +1,14 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@file:OptIn(
+    androidx.compose.material3.ExperimentalMaterial3Api::class,
+    androidx.compose.foundation.layout.ExperimentalLayoutApi::class
+)
 
 package com.afghanjama.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -64,6 +68,7 @@ fun ProductionOrderScreen(
     val designs by vm.designs.collectAsState()
     val sizes by vm.sizes.collectAsState()
     val designCounts by vm.designCounts.collectAsState()
+    val workCosts by vm.workCosts.collectAsState()
 
     var pickerOpen by remember { mutableStateOf(false) }
     var designMenu by remember { mutableStateOf(false) }
@@ -395,6 +400,55 @@ fun ProductionOrderScreen(
                                         )
                                     }
                                 }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ---------- خرج‌کار ----------
+            // قیمتِ هر الگو فی‌عدد است، پس جمعِ سفارش در تعداد ضرب می‌شود.
+            // اگر تعداد هنوز وارد نشده، ۱ فرض می‌شود تا عدد بی‌معنا نشود.
+            if (workCosts.isNotEmpty()) {
+                item {
+                    val qtyForPreview = ui.qty.toIntOrNull()?.coerceAtLeast(1) ?: 1
+                    val perPiece = ui.workItems.sumOf { it.price }
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                    ) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                "خرج کار (اختیاری)",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                "دکمه، زیپ، لایی… — قیمتِ هر کدام فی‌عدد است. " +
+                                    "فهرست از «اطلاعات پایه» می‌آید.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                workCosts.forEach { w ->
+                                    FilterChip(
+                                        selected = ui.workItems.any { it.title == w.title },
+                                        onClick = { vm.toggleWorkItem(w) },
+                                        label = { Text("${w.title} — ${w.price.afn()}") }
+                                    )
+                                }
+                            }
+                            if (perPiece > 0) {
+                                Text(
+                                    "جمع فی‌عدد: ${perPiece.afn()}  •  " +
+                                        "خرج کار این سفارش: ${(perPiece * qtyForPreview).afn()}" +
+                                        if (ui.qty.toIntOrNull() == null) " (برای ۱ عدد)" else "",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.SemiBold
+                                )
                             }
                         }
                     }

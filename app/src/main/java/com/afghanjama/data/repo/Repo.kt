@@ -364,6 +364,24 @@ class Repo(private val db: AppDatabase) {
         db.sewingAssignmentDao().deleteForOrder(order.id.toString())
         db.orderDao().delete(order)
         audit("حذف سفارش", order.orderCode)
+        // خرج‌کار هنگام ثبتِ سفارش بدهکارِ «کار در جریان» و بستانکارِ
+        // «پرداختنی» شد. با حذفِ سفارش هر دو باید برگردند، وگرنه «کار در
+        // جریان» به اندازهٔ خرج‌کار بادکرده می‌ماند و بدهیِ فروشنده‌ای ثبت
+        // می‌شود که هیچ‌وقت کسی از او چیزی نگرفته.
+        //
+        // برگشتِ موادِ سفارش شرطِ `materialsConsumed` دارد چون کسرِ مواد
+        // هنگامِ برش انجام می‌شود؛ خرج‌کار ولی همان لحظهٔ ثبت وارد سند
+        // می‌شود، پس برگشتش بی‌شرط است.
+        if (order.workCost > 0) {
+            postJournal(
+                "برگشتِ خرج‌کارِ سفارشِ حذف‌شده ${order.orderCode}",
+                "ORDER_DELETE", order.orderCode,
+                listOf(
+                    jl(Accounts.PAYABLE, debit = order.workCost),
+                    jl(Accounts.WIP, credit = order.workCost)
+                )
+            )
+        }
         // بدهیِ مشتری بابتِ این سفارش (SALE_BILLING هنگام ثبت) خنثی می‌شود
         // تا با حذفِ سفارش، ماندهٔ مشتری در دفتر کل متورم نماند.
         if (order.customerName.isNotBlank() && order.agreedPrice > 0) {
