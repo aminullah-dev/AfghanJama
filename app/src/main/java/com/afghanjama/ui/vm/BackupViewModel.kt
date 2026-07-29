@@ -17,6 +17,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.afghanjama.util.DownloadsWriter
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.io.OutputStream
 
 data class BackupUi(
@@ -30,6 +34,10 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
 
     private val _ui = MutableStateFlow(BackupUi())
     val ui: StateFlow<BackupUi> = _ui
+
+    /** ریست چند ثانیه طول می‌کشد؛ دو بار زدن نباید دو بار اجرایش کند. */
+    private val busy = Busy()
+    val working: StateFlow<Boolean> = busy.state
 
     fun clearMessage() = _ui.update { it.copy(message = null, isError = false) }
 
@@ -162,6 +170,62 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
             }
         }.onFailure { e ->
             _ui.update { it.copy(message = "خطا در بازیابی: ${e.message}", isError = true) }
+        }
+    }
+
+    // ------------------------------------------------
+    // ریست داده
+    // ------------------------------------------------
+
+    /** واژه‌ای که کاربر باید بنویسد تا دکمهٔ ریست فعال شود. */
+    val resetPhrase: String get() = "پاک کن"
+
+    /**
+     * پاک‌کردنِ کارها و حساب‌ها. اطلاعات پایه و مشتریان می‌مانند.
+     *
+     * پیش از هر پاک‌کردنی یک پشتیبانِ **کامل** در Downloads نوشته می‌شود و
+     * اگر آن نوشته نشود، ریست **انجام نمی‌شود**. کاربر نباید بتواند بدونِ
+     * تور پرواز کند؛ این کار برگشت ندارد.
+     */
+    fun resetData(context: Context) = viewModelScope.launch {
+        busy.once {
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    repo.checkpoint()
+                    val dbFile = context.getDatabasePath(DB_NAME)
+                    val stamp = SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())
+
+                    val saved = DownloadsWriter.write(
+                        context, "afghanjama-pish-az-reset-$stamp.ajb"
+                    ) { out -> BackupArchive.write(dbFile, PhotoStore.dir(context), out) }
+
+                    if (!saved) {
+                        error(
+                            "پشتیبانِ ایمنی نوشته نشد، پس چیزی پاک نشد. " +
+                                "فضای گوشی را بررسی کنید و دوباره امتحان کنید."
+                        )
+                    }
+
+                    val cleared = repo.resetOperationalData()
+                    // عکس‌ها صاحبشان را از دست داده‌اند؛ پوشه یک‌جا پاک می‌شود
+                    runCatching { PhotoStore.dir(context).listFiles()?.forEach { it.delete() } }
+                    cleared
+                }
+            }
+            result.onSuccess { cleared ->
+                _ui.update {
+                    it.copy(
+                        message = "✅ ${cleared.fa()} جدول پاک شد. اطلاعات پایه و " +
+                            "مشتریان سرِ جایشان‌اند. پشتیبانِ پیش از ریست در " +
+                            "Downloads/${DownloadsWriter.FOLDER} است.",
+                        isError = false
+                    )
+                }
+            }.onFailure { e ->
+                _ui.update {
+                    it.copy(message = e.message ?: "ریست انجام نشد.", isError = true)
+                }
+            }
         }
     }
 

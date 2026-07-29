@@ -39,6 +39,7 @@ import com.afghanjama.data.entities.Tailor
 import com.afghanjama.data.entities.TailorWage
 import com.afghanjama.data.entities.Transaction
 import com.afghanjama.data.entities.WorkCost
+import com.afghanjama.data.ResetPlan
 import com.afghanjama.prefs.SalePrefs
 import com.afghanjama.util.CurrentUser
 import kotlinx.coroutines.flow.Flow
@@ -626,6 +627,56 @@ class Repo(private val db: AppDatabase) {
      */
     fun closeDatabase() {
         if (db.isOpen) db.close()
+    }
+
+    /** نامِ همهٔ جدول‌های واقعیِ دیتابیس — برای وارسیِ فهرستِ ریست. */
+    fun tableNames(): List<String> {
+        val names = mutableListOf<String>()
+        db.openHelper.writableDatabase.query(
+            "SELECT name FROM sqlite_master WHERE type='table' " +
+                "AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'android_metadata' " +
+                "AND name NOT LIKE 'room_master_table'"
+        ).use { c ->
+            while (c.moveToNext()) names += c.getString(0)
+        }
+        return names
+    }
+
+    /**
+     * پاک‌کردنِ کارها و حساب‌ها. اطلاعات پایه و مشتریان دست نمی‌خورند —
+     * فهرستِ دقیقش در `ResetPlan` است.
+     *
+     * همه در یک تراکنش انجام می‌شود: ریستِ نصفه — مثلاً سفارش‌ها رفته ولی
+     * دفتر مانده — بدترین حالتِ ممکن است، چون دفتر به سفارشی ارجاع می‌دهد
+     * که دیگر وجود ندارد.
+     *
+     * @return تعدادِ جدولی که خالی شد.
+     */
+    suspend fun resetOperationalData(): Int {
+        var cleared = 0
+        // شکلِ Runnable عمداً صریح نوشته شده: `runInTransaction` دو نسخه
+        // دارد (Runnable و Callable) و لامبدای برهنه می‌تواند مبهم باشد.
+        db.runInTransaction(
+            Runnable {
+                val w = db.openHelper.writableDatabase
+                ResetPlan.CLEAR.forEach { table ->
+                    w.execSQL("DELETE FROM `$table`")
+                    cleared++
+                }
+                // شمارنده‌های AUTOINCREMENT هم از اول شروع کنند، وگرنه
+                // شناسهٔ اولین سندِ تازه از وسطِ راه ادامه پیدا می‌کند.
+                // اگر جدولی AUTOINCREMENT نداشته باشد این جدول اصلاً وجود
+                // ندارد، پس شکستش بی‌اهمیت است.
+                runCatching {
+                    w.execSQL(
+                        "DELETE FROM sqlite_sequence WHERE name IN (" +
+                            ResetPlan.CLEAR.joinToString(",") { "'$it'" } + ")"
+                    )
+                }
+            }
+        )
+        audit("ریست داده", "${cleared} جدول خالی شد؛ اطلاعات پایه و مشتریان ماندند")
+        return cleared
     }
 
     // =========================

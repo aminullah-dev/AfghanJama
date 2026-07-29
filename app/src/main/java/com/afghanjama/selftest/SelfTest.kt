@@ -891,3 +891,67 @@ fun checkBackupArchive(
     s.eq("چند بایتِ ناقص کرش نمی‌کند", "UNKNOWN", detect(byteArrayOf(0x50, 0x4B)))
     return s.results
 }
+
+// =====================================================================
+// 13) فهرستِ ریست
+// =====================================================================
+
+/**
+ * ریست فقط وقتی درست است که فهرستِ جدول‌ها با واقعیتِ دیتابیس بخواند.
+ *
+ * خطرناک‌ترین حالت سکوت است: جدولی که در هیچ فهرستی نیست، بی‌سروصدا از
+ * ریست جان به در می‌برد و کارگاه فکر می‌کند همه‌چیز پاک شده. این اتفاق
+ * هر بار که جدولِ تازه‌ای اضافه شود ممکن است — مثلِ `order_photos` که
+ * همین اواخر اضافه شد.
+ *
+ * [actualTables] از دیتابیسِ زنده می‌آید؛ اگر خالی باشد (اجرای بیرون از
+ * گوشی) فقط خودِ فهرست‌ها سنجیده می‌شوند.
+ */
+fun checkResetPlan(
+    clear: List<String>,
+    keep: List<String>,
+    actualTables: List<String> = emptyList()
+): List<CheckResult> {
+    val s = CheckSink("فهرست ریست")
+
+    s.isTrue("فهرستِ پاک‌شدنی خالی نیست", clear.isNotEmpty(), "هیچ جدولی برای پاک‌کردن نیست")
+    s.isTrue("فهرستِ ماندنی خالی نیست", keep.isNotEmpty(), "هیچ جدولی نگه داشته نمی‌شود")
+
+    val both = clear.toSet() intersect keep.toSet()
+    s.isTrue(
+        "هیچ جدولی هم‌زمان پاک و نگه داشته نمی‌شود",
+        both.isEmpty(),
+        "در هر دو فهرست: " + both.sorted().joinToString("، ")
+    )
+
+    listOf("پاک‌شدنی" to clear, "ماندنی" to keep).forEach { (label, list) ->
+        val dupes = list.groupBy { it }.filter { it.value.size > 1 }.keys
+        s.isTrue(
+            "نامِ تکراری در فهرستِ $label نیست",
+            dupes.isEmpty(),
+            "تکراری: " + dupes.sorted().joinToString("، ")
+        )
+    }
+
+    if (actualTables.isEmpty()) {
+        s.skip("هر جدولِ دیتابیس دسته‌بندی شده", "بیرون از گوشی اجرا شد")
+        return s.results
+    }
+
+    val listed = clear.toSet() + keep.toSet()
+    val uncategorised = (actualTables.toSet() - listed).sorted()
+    s.isTrue(
+        "هر جدولِ دیتابیس دسته‌بندی شده",
+        uncategorised.isEmpty(),
+        "دسته‌بندی‌نشده — با ریست پاک نمی‌شود: " + uncategorised.joinToString("، "),
+        "${actualTables.size} جدول"
+    )
+
+    val ghosts = (listed - actualTables.toSet()).sorted()
+    s.isTrue(
+        "هر نامِ فهرست واقعاً در دیتابیس هست",
+        ghosts.isEmpty(),
+        "نامِ جدولی که وجود ندارد: " + ghosts.joinToString("، ")
+    )
+    return s.results
+}

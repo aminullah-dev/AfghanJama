@@ -565,6 +565,7 @@ fun AppNav(
                     backupVm = backupVm,
                     canManageMaster = Permissions.canManageMaster(authUi.role),
                     canBackup = Permissions.canBackup(authUi.role),
+                    canResetData = Permissions.canResetData(authUi.role),
                     onGoMaster = { navController.navigate(Routes.MASTER) },
                     onLoggedOut = {
                         navController.navigate(Routes.LOGIN) {

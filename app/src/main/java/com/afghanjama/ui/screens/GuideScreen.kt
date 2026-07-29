@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.EventAvailable
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
@@ -174,6 +175,19 @@ fun GuideScreen(onBack: () -> Unit) {
                         "کسری یعنی «به این اندازه فروخته‌ایم که هنوز نداریم». با ورودِ بعدیِ همان کالا خودش تسویه می‌شود.",
                         "بهای تمام‌شده هم خودش اصلاح می‌شود؛ لازم نیست کاری بکنید.",
                         "اگر اپ را سخت‌گیر می‌خواهید: تنظیمات ← فروشِ بیشتر از موجودی را خاموش کنید."
+                    )
+                )
+            }
+
+            item {
+                GuideCard(
+                    icon = Icons.Default.DeleteForever,
+                    title = "ریست داده",
+                    lines = listOf(
+                        "تنظیمات ← کارتِ قرمزِ پایینِ صفحه. فقط مدیر می‌بیندش.",
+                        "کارها و حساب‌ها پاک می‌شوند؛ خیاط‌ها، پارچه‌ها، طرح‌ها و مشتری‌ها با اندازه‌هایشان می‌مانند.",
+                        "پیش از پاک‌کردن، پشتیبانِ کامل خودش در Downloads گذاشته می‌شود — پشیمان شدید، بازیابی‌اش کنید.",
+                        "برای تأیید باید «پاک کن» را بنویسید. این کار برگشت ندارد."
                     )
                 )
             }

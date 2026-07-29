@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
@@ -76,6 +77,7 @@ fun SettingsScreen(
     backupVm: BackupViewModel,
     canManageMaster: Boolean,
     canBackup: Boolean,
+    canResetData: Boolean,
     onGoMaster: () -> Unit,
     onLoggedOut: () -> Unit,
     onBack: () -> Unit,
@@ -146,6 +148,73 @@ fun SettingsScreen(
 
     var oldPin by remember { mutableStateOf("") }
     var newPin by remember { mutableStateOf("") }
+
+    // ---------- ریست داده ----------
+    val resetWorking by backupVm.working.collectAsState()
+    var showResetDialog by remember { mutableStateOf(false) }
+    if (showResetDialog) {
+        var typed by remember { mutableStateOf("") }
+        val phrase = backupVm.resetPhrase
+        AlertDialog(
+            onDismissRequest = { if (!resetWorking) showResetDialog = false },
+            title = { Text("پاک‌کردن کارها و حساب‌ها") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "این کار برگشت ندارد.",
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    Text(
+                        "پاک می‌شود: سفارش‌ها و مراحلشان، فروش‌ها، خریدها، دفتر کل، " +
+                            "اسناد، انبار مواد و محصول، حضور و غیاب، و عکس‌ها. " +
+                            "شمارهٔ سفارش هم از ۱ شروع می‌شود.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        "می‌ماند: خیاط‌ها، ناظرها، کارکنان، پارچه‌ها، رنگ‌ها، سایزها، " +
+                            "طرح‌ها، خرج‌کارها، و مشتری‌ها با اندازه‌هایشان.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        "پیش از پاک‌کردن، یک پشتیبانِ کامل خودکار در " +
+                            "Downloads/AfghanJama نوشته می‌شود. اگر آن نوشته نشود، " +
+                            "هیچ چیزی پاک نمی‌شود.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = typed,
+                        onValueChange = { typed = it },
+                        label = { Text("برای تأیید بنویسید: $phrase") },
+                        singleLine = true,
+                        enabled = !resetWorking,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = typed.trim() == phrase && !resetWorking,
+                    onClick = {
+                        backupVm.resetData(context)
+                        showResetDialog = false
+                    }
+                ) {
+                    Text(
+                        if (resetWorking) "در حال پاک‌کردن…" else "پاک کن",
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showResetDialog = false },
+                    enabled = !resetWorking
+                ) { Text("لغو") }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -544,6 +613,52 @@ fun SettingsScreen(
                         Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
                         Text("خروج از حساب")
+                    }
+                }
+            }
+
+            // ---------- ریست داده — آخرین کارت، چون برگشت ندارد ----------
+            if (canResetData) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+                ) {
+                    Column(
+                        Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            "ریست داده",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Text(
+                            "برای وقتی که تست تمام شده و می‌خواهید با دفترِ تمیز شروع " +
+                                "کنید. سفارش‌ها، فروش‌ها، خریدها، دفتر کل، اسناد، انبار، " +
+                                "حضور و غیاب و عکس‌ها پاک می‌شوند.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Text(
+                            "خیاط‌ها، ناظرها، کارکنان، پارچه‌ها، رنگ‌ها، سایزها، طرح‌ها، " +
+                                "خرج‌کارها و مشتری‌ها با اندازه‌هایشان می‌مانند.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        OutlinedButton(
+                            onClick = { showResetDialog = true },
+                            enabled = !resetWorking,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.DeleteForever, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("پاک‌کردن کارها و حساب‌ها")
+                        }
                     }
                 }
             }

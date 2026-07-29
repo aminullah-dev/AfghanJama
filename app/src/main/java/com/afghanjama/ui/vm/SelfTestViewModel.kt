@@ -16,10 +16,12 @@ import com.afghanjama.selftest.checkBreakSchedule
 import com.afghanjama.selftest.checkInvoiceTotals
 import com.afghanjama.selftest.checkDiscountMath
 import com.afghanjama.selftest.checkPaperGeometry
+import com.afghanjama.selftest.checkResetPlan
 import com.afghanjama.selftest.checkShortage
 import com.afghanjama.selftest.checkStockValuation
 import com.afghanjama.selftest.checkTailorAttribution
 import com.afghanjama.selftest.PaperSpec
+import com.afghanjama.data.ResetPlan
 import com.afghanjama.pdf.Paper
 import com.afghanjama.util.BackupArchive
 import com.afghanjama.pdf.columnWidths
@@ -219,6 +221,10 @@ class SelfTestViewModel(private val repo: Repo) : ViewModel() {
             negMaterial.joinToString("، ") { "${it.name}: ${it.amount}" }
         )
 
-        return s.results
+        return s.results + checkResetPlan(
+            clear = ResetPlan.CLEAR,
+            keep = ResetPlan.KEEP,
+            actualTables = runCatching { repo.tableNames() }.getOrDefault(emptyList())
+        )
     }
 }

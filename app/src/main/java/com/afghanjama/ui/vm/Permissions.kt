@@ -44,4 +44,9 @@ object Permissions {
 
     /** مدیریت اطلاعات پایه. */
     fun canManageMaster(role: UserRole) = role == UserRole.MANAGER
+
+    /**
+     * پاک‌کردنِ کارها و حساب‌ها. برگشت‌ناپذیرترین کارِ اپ، پس فقط مدیر.
+     */
+    fun canResetData(role: UserRole) = role == UserRole.MANAGER
 }

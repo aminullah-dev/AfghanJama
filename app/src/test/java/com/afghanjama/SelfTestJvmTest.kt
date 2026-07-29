@@ -1,5 +1,6 @@
 package com.afghanjama
 
+import com.afghanjama.data.ResetPlan
 import com.afghanjama.pdf.Paper
 import com.afghanjama.pdf.columnWidths
 import com.afghanjama.pdf.invoiceColumns
@@ -15,6 +16,7 @@ import com.afghanjama.selftest.checkJalali
 import com.afghanjama.selftest.checkMoneySplit
 import com.afghanjama.selftest.checkMultiLineInvoice
 import com.afghanjama.selftest.checkPaperGeometry
+import com.afghanjama.selftest.checkResetPlan
 import com.afghanjama.selftest.checkShortage
 import com.afghanjama.selftest.checkStockValuation
 import com.afghanjama.selftest.checkTailorAttribution
@@ -46,6 +48,7 @@ class SelfTestJvmTest {
         addAll(checkInvoiceTotals())
         addAll(checkShortage())
         addAll(checkDiscountMath())
+        addAll(checkResetPlan(ResetPlan.CLEAR, ResetPlan.KEEP))
         addAll(
             checkBackupArchive(
                 safePhotoName = { BackupArchive.safePhotoName(it) },
