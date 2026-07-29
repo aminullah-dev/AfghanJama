@@ -13,7 +13,6 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.afghanjama.data.buildAppDatabase
-import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
 /**
@@ -98,20 +97,12 @@ class BreakReminderWorker(
         private fun workName(id: Long) = "break_reminder_$id"
 
         /**
-         * فاصله تا نوبتِ بعدیِ [hour]:[minute]. اگر امروز گذشته باشد،
-         * فردا. همیشه مثبت است تا WorkManager فوراً شلیک نکند.
+         * فاصله تا نوبتِ بعدی. خودِ محاسبه در `BreakSchedule` است تا
+         * آزمونِ JVM بتواند بسنجدش؛ اینجا فقط برای سازگاریِ صداکننده‌های
+         * موجود نگه داشته شده.
          */
-        fun delayUntilNext(hour: Int, minute: Int, now: Long = System.currentTimeMillis()): Long {
-            val cal = Calendar.getInstance().apply {
-                timeInMillis = now
-                set(Calendar.HOUR_OF_DAY, hour.coerceIn(0, 23))
-                set(Calendar.MINUTE, minute.coerceIn(0, 59))
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-            }
-            if (cal.timeInMillis <= now) cal.add(Calendar.DAY_OF_YEAR, 1)
-            return cal.timeInMillis - now
-        }
+        fun delayUntilNext(hour: Int, minute: Int, now: Long = System.currentTimeMillis()): Long =
+            BreakSchedule.delayUntilNext(hour, minute, now)
 
         /** چیدنِ یادآور برای نوبتِ بعدی (جایگزینِ قبلی می‌شود). */
         fun schedule(context: Context, id: Long, hour: Int, minute: Int) {

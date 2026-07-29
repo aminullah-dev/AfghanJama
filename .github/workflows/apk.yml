@@ -31,6 +31,20 @@ jobs:
       - name: برداشتنِ local.properties
         run: rm -f local.properties
 
+      # عمداً پیش از ساختِ APK: اگر ریاضیِ پول بشکند، اصلاً نباید فایلی
+      # ساخته شود که کسی روی گوشیِ کارگاه نصبش کند.
+      - name: آزمون‌های ریاضیِ پول
+        run: ./gradlew --no-daemon testDebugUnitTest
+
+      - name: گزارشِ تست وقتی شکست
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: app/build/reports/tests/
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Build
         run: ./gradlew --no-daemon assembleDebug
 
