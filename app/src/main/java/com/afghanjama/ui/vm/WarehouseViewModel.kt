@@ -37,14 +37,14 @@ class WarehouseViewModel(private val repo: Repo) : ViewModel() {
     /** اصلاح دستی موجودی (شمارش انبار): مقدار به رقم دقیقِ واردشده تنظیم می‌شود. */
     fun setAmount(item: MaterialStock, newAmount: Double) = viewModelScope.launch {
         val delta = newAmount - item.amount
-        repo.changeMaterialStock(item.name, item.unit, delta, reason = "اصلاح موجودی")
+        repo.adjustMaterialStock(item.name, item.unit, delta, reason = "اصلاح موجودی")
         _ui.update { it.copy(message = "موجودی «${item.name}» به‌روزرسانی شد.", isError = false) }
     }
 
     /** ثبت ضایعات: مقدار مشخص از انبار خارج و در کاردکس با دلیلِ «ضایعات» ثبت می‌شود. */
     fun recordWaste(item: MaterialStock, amount: Double) = viewModelScope.launch {
         if (amount <= 0.0) return@launch
-        repo.changeMaterialStock(item.name, item.unit, -amount, reason = "ضایعات")
+        repo.adjustMaterialStock(item.name, item.unit, -amount, reason = "ضایعات")
         _ui.update { it.copy(message = "ضایعاتِ «${item.name}» ثبت شد.", isError = false) }
     }
 

@@ -955,3 +955,145 @@ fun checkResetPlan(
     )
     return s.results
 }
+
+// =====================================================================
+// 14) چرخهٔ کاملِ یک سفارش — «کار در جریان» باید به صفر برگردد
+// =====================================================================
+
+/**
+ * سفارش از برش تا ورودِ محصول به انبار، با همان سطرهایی که `Repo`
+ * می‌نویسد. حسابِ «کار در جریان» یک حسابِ گذراست: هرچه داخلش می‌رود باید
+ * با ورودِ محصول به انبار کامل بیرون بیاید. اگر نه، یعنی «موجودی محصول»
+ * بیش‌ازواقع است و دارایی‌های اپ باد کرده.
+ *
+ * سه راهِ خراب‌شدنش که این بررسی می‌گیرد:
+ *  - خرج‌کار از «کار در جریان» بستانکار شود بی‌آنکه هرگز بدهکارش شده باشد
+ *  - ارزشِ موادِ برداشته‌شده با برآوردِ ثبتِ سفارش فرق کند و تفاوت جایی نرود
+ *  - حذفِ سفارشِ برش‌خورده جنس را برگرداند ولی سندش را خنثی نکند
+ */
+data class CycleInput(
+    /** برآوردِ موادِ سفارش، حساب‌شده هنگامِ ثبت. */
+    val fabricPrice: Long,
+    /** ارزشِ واقعیِ موادی که هنگامِ برش از انبار رفت. */
+    val takenValue: Long,
+    val workCost: Long,
+    val wage: Long
+)
+
+/** ماندهٔ حساب‌ها پس از یک چرخهٔ کامل. کلید: نامِ حساب. */
+fun runOrderCycle(input: CycleInput, deletedAfterCutting: Boolean = false,
+                  returnedValue: Long = 0L): Map<String, Long> {
+    val acc = mutableMapOf<String, Long>()
+    fun post(lines: List<Triple<String, Long, Long>>) {
+        val d = lines.sumOf { it.second }
+        val c = lines.sumOf { it.third }
+        if (d != c) {
+            acc["__UNBALANCED__"] = (acc["__UNBALANCED__"] ?: 0L) + (d - c)
+            return
+        }
+        lines.forEach { (a, dr, cr) -> acc[a] = (acc[a] ?: 0L) + dr - cr }
+    }
+
+    // ثبتِ سفارش: خرج‌کار وارد «کار در جریان»
+    if (input.workCost > 0) {
+        post(listOf(Triple("WIP", input.workCost, 0L), Triple("PAYABLE", 0L, input.workCost)))
+    }
+    // برش: ارزشِ واقعیِ مواد، بعد تسویهٔ تفاوتِ برآورد
+    if (input.takenValue > 0) {
+        post(listOf(Triple("WIP", input.takenValue, 0L), Triple("MATERIALS", 0L, input.takenValue)))
+    }
+    val gap = input.fabricPrice - input.takenValue
+    if (gap > 0) post(listOf(Triple("WIP", gap, 0L), Triple("EXPENSES", 0L, gap)))
+    if (gap < 0) post(listOf(Triple("EXPENSES", -gap, 0L), Triple("WIP", 0L, -gap)))
+
+    if (deletedAfterCutting) {
+        val back = input.fabricPrice
+        val g = back - returnedValue
+        post(
+            buildList {
+                if (returnedValue > 0) add(Triple("MATERIALS", returnedValue, 0L))
+                if (g > 0) add(Triple("EXPENSES", g, 0L))
+                if (g < 0) add(Triple("EXPENSES", 0L, -g))
+                if (back > 0) add(Triple("WIP", 0L, back))
+            }
+        )
+        // سفارشِ حذف‌شده به انبار محصول نمی‌رسد؛ خرج‌کارش در WIP می‌ماند
+        return acc
+    }
+
+    // کارمزد دوخت
+    if (input.wage > 0) {
+        post(listOf(Triple("WIP", input.wage, 0L), Triple("WAGES_PAYABLE", 0L, input.wage)))
+    }
+    // ورود به انبار محصول
+    val totalCost = input.fabricPrice + input.workCost + input.wage
+    if (totalCost > 0) {
+        post(listOf(Triple("FINISHED", totalCost, 0L), Triple("WIP", 0L, totalCost)))
+    }
+    return acc
+}
+
+fun checkOrderCycle(): List<CheckResult> {
+    val s = CheckSink("چرخهٔ سفارش")
+
+    // ---- سناریوی روشن: برآورد با واقعیت فرق دارد و خرج‌کار هم هست ----
+    run {
+        val r = runOrderCycle(CycleInput(fabricPrice = 500, takenValue = 1_000,
+                                        workCost = 300, wage = 2_000))
+        s.eq("«کار در جریان» پس از تکمیل صفر می‌شود", 0L, r["WIP"] ?: 0L)
+        s.eq("هیچ سندِ ناترازی ثبت نشد", null, r["__UNBALANCED__"])
+        s.eq("موجودی مواد به اندازهٔ ارزشِ واقعی کم شد", -1_000L, r["MATERIALS"] ?: 0L)
+        s.eq(
+            "موجودی محصول = پارچه + خرج‌کار + دستمزد",
+            2_800L, r["FINISHED"] ?: 0L
+        )
+        // تفاوتِ برآورد (۵۰۰ − ۱۰۰۰ = −۵۰۰) به هزینه‌ها رفت
+        s.eq("تفاوتِ برآورد در هزینه‌ها نشست", 500L, r["EXPENSES"] ?: 0L)
+    }
+
+    // ---- خرج‌کارِ تنها: همان اشکالی که بمبِ ساعتی بود ----
+    run {
+        val r = runOrderCycle(CycleInput(0, 0, workCost = 750, wage = 0))
+        s.eq("سفارشی با فقط خرج‌کار هم «کار در جریان» را صفر می‌کند", 0L, r["WIP"] ?: 0L)
+        s.eq("خرج‌کار بدهیِ پرداختنی ساخت", -750L, r["PAYABLE"] ?: 0L)
+    }
+
+    // ---- حذفِ سفارشِ برش‌خورده ----
+    run {
+        val r = runOrderCycle(
+            CycleInput(fabricPrice = 1_000, takenValue = 1_000, workCost = 0, wage = 0),
+            deletedAfterCutting = true, returnedValue = 1_400
+        )
+        s.eq("حذف پس از برش «کار در جریان» را صفر می‌کند", 0L, r["WIP"] ?: 0L)
+        s.eq("هیچ سندِ ناترازی در حذف نبود", null, r["__UNBALANCED__"])
+        s.eq("جنس با ارزشِ امروزش به انبار برگشت", 400L, r["MATERIALS"] ?: 0L)
+    }
+
+    // ---- صدها حالتِ تصادفی ----
+    run {
+        var seed = 314159L
+        fun rnd(bound: Int): Int {
+            seed = seed * 6364136223846793005L + 1442695040888963407L
+            return (((seed ushr 33).toInt() % bound) + bound) % bound
+        }
+        var brokenWip = 0
+        var unbalanced = 0
+        repeat(600) {
+            val input = CycleInput(
+                fabricPrice = rnd(20_000).toLong(),
+                takenValue = rnd(20_000).toLong(),
+                workCost = if (rnd(3) == 0) rnd(3_000).toLong() else 0L,
+                wage = if (rnd(4) == 0) 0L else rnd(5_000).toLong()
+            )
+            val deleted = rnd(4) == 0
+            val r = runOrderCycle(input, deleted, if (deleted) rnd(20_000).toLong() else 0L)
+            // در سفارشِ حذف‌شده، خرج‌کار عمداً در «کار در جریان» می‌ماند
+            val expected = if (deleted) input.workCost else 0L
+            if ((r["WIP"] ?: 0L) != expected) brokenWip++
+            if (r["__UNBALANCED__"] != null) unbalanced++
+        }
+        s.eq("۶۰۰ چرخهٔ تصادفی: هیچ سندِ ناترازی", 0, unbalanced)
+        s.eq("۶۰۰ چرخهٔ تصادفی: «کار در جریان» همان‌قدر که باید", 0, brokenWip)
+    }
+    return s.results
+}

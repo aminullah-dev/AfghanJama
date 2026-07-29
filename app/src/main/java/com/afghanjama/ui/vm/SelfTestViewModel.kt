@@ -15,6 +15,7 @@ import com.afghanjama.selftest.checkBackupArchive
 import com.afghanjama.selftest.checkBreakSchedule
 import com.afghanjama.selftest.checkInvoiceTotals
 import com.afghanjama.selftest.checkDiscountMath
+import com.afghanjama.selftest.checkOrderCycle
 import com.afghanjama.selftest.checkPaperGeometry
 import com.afghanjama.selftest.checkResetPlan
 import com.afghanjama.selftest.checkShortage
@@ -72,6 +73,7 @@ class SelfTestViewModel(private val repo: Repo) : ViewModel() {
                 addAll(checkInvoiceTotals())
                 addAll(checkShortage())
                 addAll(checkDiscountMath())
+                addAll(checkOrderCycle())
                 addAll(
                     checkBackupArchive(
                         safePhotoName = { BackupArchive.safePhotoName(it) },
@@ -192,6 +194,35 @@ class SelfTestViewModel(private val repo: Repo) : ViewModel() {
                 "هر دو ${stockValue} ؋"
             )
         }
+
+        // ۶ب) حسابِ «موجودی مواد» باید برابرِ ارزشِ واقعیِ انبار باشد.
+        // این قاعده تا امروز سنجیده نمی‌شد و همان‌جا بود که حسابِ مواد
+        // با هر خریدِ میانیِ تازه از انبار جدا می‌افتاد.
+        val materials = repo.auditMaterialStock()
+        val materialValue = materials.sumOf { it.amount * it.avgPrice }
+        val materialAccount = byAccount[Accounts.MATERIALS]?.net ?: 0L
+        if (materials.isEmpty() && materialAccount == 0L) {
+            s.skip("حسابِ موجودی مواد = ارزشِ واقعیِ انبار", "هنوز موادی وارد نشده")
+        } else {
+            // مقدارِ مواد اعشاری است، پس اختلافِ کمترِ از یک افغانی طبیعی
+            // است و به‌ازای هر ردیف یک افغانی روداری داده می‌شود.
+            val tolerance = 1L + materials.size
+            val drift = materialAccount - materialValue.toLong()
+            s.isTrue(
+                "حسابِ موجودی مواد = ارزشِ واقعیِ انبار",
+                kotlin.math.abs(drift) <= tolerance,
+                "اختلافِ ${drift} ؋ — حساب ${materialAccount}، انبار ${materialValue.toLong()}",
+                "هر دو حدودِ ${materialAccount} ؋ (${materials.size} ردیف)"
+            )
+        }
+
+        // ۶ج) هیچ ردیفِ موادی نباید مقدار یا قیمتِ منفی داشته باشد
+        val badMaterial = materials.filter { it.amount < 0.0 || it.avgPrice < 0.0 }
+        s.isTrue(
+            "هیچ ردیفِ موادی مقدار یا قیمتِ منفی ندارد",
+            badMaterial.isEmpty(),
+            badMaterial.joinToString("، ") { "${it.name}: ${it.amount} × ${it.avgPrice}" }
+        )
 
         // ۷) کسریِ انبار: خودِ منفی‌بودن اشکال نیست — گزارش می‌شود تا کارگاه
         // بداند چه چیزی را باید وارد کند. اشکال آنجاست که ارزشِ ردیفِ کسری

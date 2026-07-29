@@ -15,6 +15,7 @@ import com.afghanjama.selftest.checkInvoiceTotals
 import com.afghanjama.selftest.checkJalali
 import com.afghanjama.selftest.checkMoneySplit
 import com.afghanjama.selftest.checkMultiLineInvoice
+import com.afghanjama.selftest.checkOrderCycle
 import com.afghanjama.selftest.checkPaperGeometry
 import com.afghanjama.selftest.checkResetPlan
 import com.afghanjama.selftest.checkShortage
@@ -48,6 +49,7 @@ class SelfTestJvmTest {
         addAll(checkInvoiceTotals())
         addAll(checkShortage())
         addAll(checkDiscountMath())
+        addAll(checkOrderCycle())
         addAll(checkResetPlan(ResetPlan.CLEAR, ResetPlan.KEEP))
         addAll(
             checkBackupArchive(

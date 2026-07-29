@@ -93,6 +93,21 @@ class Repo(private val db: AppDatabase) {
             )
         )
         audit("ثبت سفارش تولید", order.orderCode)
+
+        // خرج‌کار (دکمه، زیپ، لایی…) بخشی از بهای تمام‌شده است و هنگام
+        // ورودِ محصول به انبار از «کار در جریان» بستانکار می‌شود. پس باید
+        // همین‌جا بدهکارش شود، وگرنه «کار در جریان» به اندازهٔ خرج‌کار
+        // منفی می‌ماند و «موجودی محصول» همان‌قدر بیش‌ازواقع می‌شود.
+        // پرداختش بعداً از «پرداخت به فروشنده» تسویه می‌شود.
+        if (order.workCost > 0) {
+            postJournal(
+                "خرج‌کارِ سفارش ${order.orderCode}", "WORK_ITEMS", order.orderCode,
+                listOf(
+                    jl(Accounts.WIP, debit = order.workCost),
+                    jl(Accounts.PAYABLE, credit = order.workCost)
+                )
+            )
+        }
         // بدهیِ مشتری بابتِ این سفارش → بدهکارِ حساب مشتری در دفتر کل
         // (پرداخت‌های او بستانکار می‌شوند؛ مانده = طلبِ ما از مشتری).
         if (order.customerName.isNotBlank() && order.agreedPrice > 0) {
@@ -231,24 +246,47 @@ class Repo(private val db: AppDatabase) {
             )
         )
         if (!order.materialsConsumed) {
+            // ارزشِ واقعیِ برداشته‌شده جمع می‌شود، نه برآوردِ ثبتِ سفارش.
+            // این دو با هر خریدِ تازه از هم فاصله می‌گیرند، چون میانگینِ
+            // وزنیِ انبار عوض می‌شود ولی `fabricPrice` همان عددِ روزِ ثبت
+            // می‌ماند. اگر برآورد ژورنال شود، حسابِ مواد از انبار جدا
+            // می‌افتد و هرگز خودش را جبران نمی‌کند.
+            var takenValue = 0L
             db.orderFabricDao().listForOrder(order.id.toString())
                 .filter { it.source == "MATERIAL" || it.source == "STOCK" }
                 .forEach { f ->
                     val matName =
                         if (f.source == "STOCK") fabricMaterialName(f.fabricType, f.fabricColor)
                         else f.fabricType
-                    changeMaterialStock(
+                    takenValue += changeMaterialStock(
                         matName, f.fabricUnit, -f.amount,
                         reason = "مصرف برش", note = "سفارش ${order.orderCode}"
                     )
                 }
             // ژورنال: ارزشِ موادِ مصرفی از انبار به «کار در جریان» می‌رود
-            if (order.fabricPrice > 0) {
+            if (takenValue > 0) {
                 postJournal(
                     "مصرف مواد در برش ${order.orderCode}", "CUTTING", order.orderCode,
                     listOf(
-                        jl(Accounts.WIP, debit = order.fabricPrice),
-                        jl(Accounts.MATERIALS, credit = order.fabricPrice)
+                        jl(Accounts.WIP, debit = takenValue),
+                        jl(Accounts.MATERIALS, credit = takenValue)
+                    )
+                )
+            }
+            // بهای تمام‌شدهٔ سفارش بر `fabricPrice` بنا شده و هنگام ورود به
+            // انبار محصول همان از «کار در جریان» بستانکار می‌شود. تفاوتِ
+            // برآورد با واقعیت باید همین‌جا تسویه شود، وگرنه «کار در جریان»
+            // به صفر برنمی‌گردد.
+            val estimateGap = order.fabricPrice - takenValue
+            if (estimateGap != 0L) {
+                postJournal(
+                    "اصلاح برآوردِ موادِ ${order.orderCode}", "CUTTING_ADJUST", order.orderCode,
+                    if (estimateGap > 0) listOf(
+                        jl(Accounts.WIP, debit = estimateGap),
+                        jl(Accounts.EXPENSES, credit = estimateGap)
+                    ) else listOf(
+                        jl(Accounts.EXPENSES, debit = -estimateGap),
+                        jl(Accounts.WIP, credit = -estimateGap)
                     )
                 )
             }
@@ -271,22 +309,48 @@ class Repo(private val db: AppDatabase) {
             val stockRows = allRows.filter { it.source == "STOCK" }
             // موادِ مصرفی «از انبار عمومی» با نام خودشان به انبار مواد برمی‌گردند
             val materialRows = allRows.filter { it.source == "MATERIAL" }
+            var returnedValue = 0L
             when {
                 stockRows.isNotEmpty() || materialRows.isNotEmpty() -> {
                     stockRows.forEach {
-                        changeMaterialStock(fabricMaterialName(it.fabricType, it.fabricColor), it.fabricUnit, it.amount,
+                        returnedValue += changeMaterialStock(
+                            fabricMaterialName(it.fabricType, it.fabricColor), it.fabricUnit, it.amount,
                             reason = "برگشت به انبار", note = "حذف سفارش ${order.orderCode}")
                     }
                     materialRows.forEach {
-                        changeMaterialStock(it.fabricType, it.fabricUnit, it.amount,
+                        returnedValue += changeMaterialStock(it.fabricType, it.fabricUnit, it.amount,
                             reason = "برگشت به انبار", note = "حذف سفارش ${order.orderCode}")
                     }
                 }
                 order.fabricSource == "STOCK" -> {
                     // سفارش‌های قدیمی که ردیف پارچه ندارند
-                    changeMaterialStock(fabricMaterialName(order.fabricType, order.fabricColor), order.fabricUnit, order.fabricAmount,
+                    returnedValue += changeMaterialStock(
+                        fabricMaterialName(order.fabricType, order.fabricColor), order.fabricUnit, order.fabricAmount,
                         reason = "برگشت به انبار", note = "حذف سفارش ${order.orderCode}")
                 }
+            }
+            // تا امروز جنس به انبار برمی‌گشت ولی سندش خنثی نمی‌شد: ارزشِ
+            // انبار بالا می‌رفت، حسابِ مواد نه، و «کار در جریان» برای همیشه
+            // بادکرده می‌ماند. مسیرش هم دور از دسترس نبود — برش، بعد
+            // «برگشت به انبار»، بعد حذف.
+            // «کار در جریان» باید دقیقاً به صفر برگردد، پس همان مبلغی که
+            // هنگام برش داخلش رفت (`fabricPrice`) بستانکار می‌شود — نه
+            // ارزشِ برگشتی. مواد به ارزشِ واقعیِ امروز بدهکار می‌شود و
+            // تفاوتِ این دو به هزینه‌ها می‌رود، همان‌جا که تفاوتِ برآورد
+            // هنگام برش هم رفته بود.
+            val wipBack = order.fabricPrice
+            if (returnedValue > 0 || wipBack > 0) {
+                val gap = wipBack - returnedValue
+                postJournal(
+                    "برگشت موادِ سفارشِ حذف‌شده ${order.orderCode}",
+                    "ORDER_DELETE", order.orderCode,
+                    buildList {
+                        if (returnedValue > 0) add(jl(Accounts.MATERIALS, debit = returnedValue))
+                        if (gap > 0) add(jl(Accounts.EXPENSES, debit = gap))
+                        if (gap < 0) add(jl(Accounts.EXPENSES, credit = -gap))
+                        if (wipBack > 0) add(jl(Accounts.WIP, credit = wipBack))
+                    }
+                )
             }
         }
         deleteOrder(order)
@@ -1045,6 +1109,12 @@ class Repo(private val db: AppDatabase) {
     /**
      * افزایش/کاهش موجودی یک قلم؛ delta منفی برای مصرف. زیر صفر نمی‌رود.
      * هر تغییر با «دلیل» در کاردکس ثبت می‌شود (رد حسابرسی).
+     *
+     * @return ارزشِ ریالیِ جابه‌جاشده (همیشه مثبت) بر اساسِ میانگینِ **همین
+     * لحظه**. صداکننده باید همین عدد را ژورنال کند نه برآوردِ خودش —
+     * وگرنه حسابِ مواد از ارزشِ واقعیِ انبار جدا می‌افتد. مقدارِ برگشتی
+     * مقدارِ واقعاً جابه‌جاشده را در نظر می‌گیرد، پس اگر سقفِ صفر جلوی
+     * بخشی از برداشت را بگیرد، ارزش هم به همان نسبت کمتر است.
      */
     suspend fun changeMaterialStock(
         name: String,
@@ -1052,16 +1122,51 @@ class Repo(private val db: AppDatabase) {
         delta: Double,
         reason: String = "اصلاح",
         note: String = ""
-    ) {
-        if (delta == 0.0) return
+    ): Long {
+        if (delta == 0.0) return 0L
         val now = System.currentTimeMillis()
         val cur = db.materialStockDao().find(name.trim(), unit.trim())
             ?: MaterialStock(name = name.trim(), unit = unit.trim(), amount = 0.0, updatedAt = now)
-        db.materialStockDao().upsert(
-            cur.copy(amount = (cur.amount + delta).coerceAtLeast(0.0), updatedAt = now)
-        )
+        val newAmount = (cur.amount + delta).coerceAtLeast(0.0)
+        // آنچه واقعاً جابه‌جا شد؛ با سقفِ صفر می‌تواند کمتر از delta باشد
+        val movedAmount = newAmount - cur.amount
+        db.materialStockDao().upsert(cur.copy(amount = newAmount, updatedAt = now))
         logMovement(name, unit, delta, reason, note)
         if (reason == "اصلاح") audit("اصلاح دستی موجودی", "$name: $delta $unit")
+        return kotlin.math.abs(movedAmount * cur.avgPrice).toLong()
+    }
+
+    /**
+     * اصلاحِ موجودی یا ثبتِ ضایعات، **با سندِ حسابداری**.
+     *
+     * تا امروز این دو مسیر فقط مقدارِ انبار را عوض می‌کردند و هیچ سندی
+     * نمی‌زدند؛ یعنی ارزشِ انبار تغییر می‌کرد ولی حسابِ «موجودی مواد» سرِ
+     * جایش می‌ماند و برای همیشه از واقعیت جدا می‌شد. شمارشِ انبار و ضایعات
+     * در کارگاه هر هفته پیش می‌آید، پس انحرافش هم مرتب بیشتر می‌شد.
+     *
+     * کم‌شدن هزینه است (ضایعات یا کسریِ شمارش) و زیادشدن هزینهٔ منفی
+     * (چیزی که پیدا شده و ثبت نبوده) — همان رسمِ استانداردِ اصلاحِ انبار.
+     */
+    suspend fun adjustMaterialStock(
+        name: String,
+        unit: String,
+        delta: Double,
+        reason: String,
+        note: String = ""
+    ) {
+        if (delta == 0.0) return
+        val moved = changeMaterialStock(name, unit, delta, reason = reason, note = note)
+        if (moved <= 0L) return
+        postJournal(
+            "$reason — ${name.trim()}", "MATERIAL_ADJUST", "",
+            if (delta < 0) listOf(
+                jl(Accounts.EXPENSES, debit = moved),
+                jl(Accounts.MATERIALS, credit = moved)
+            ) else listOf(
+                jl(Accounts.MATERIALS, debit = moved),
+                jl(Accounts.EXPENSES, credit = moved)
+            )
+        )
     }
 
     suspend fun setMaterialMinLevel(name: String, unit: String, minLevel: Double) {
@@ -1192,7 +1297,12 @@ class Repo(private val db: AppDatabase) {
 
         val memo = note.ifBlank { "برگشت $item به $sup" }
 
-        changeMaterialStock(item, unit, -qty, reason = "برگشت به فروشنده", note = memo)
+        // ارزشِ واقعیِ جنسی که از انبار بیرون رفت — نه مبلغی که فروشنده
+        // پس می‌دهد. این دو می‌توانند فرق کنند (چانه‌زنی، نرخِ عوض‌شده) و
+        // ژورنال‌کردنِ مبلغِ برگشتی حسابِ مواد را از انبار جدا می‌کرد.
+        val stockValueOut = changeMaterialStock(
+            item, unit, -qty, reason = "برگشت به فروشنده", note = memo
+        )
 
         if (refundCash) {
             income(cashBox, amount, memo)
@@ -1206,12 +1316,17 @@ class Repo(private val db: AppDatabase) {
         createDocument("RETURN", sup, amount, note = memo)
         audit("برگشت از خرید", "$sup — $item — $amount ؋")
 
+        // مواد به ارزشِ واقعیِ خودش از انبار بیرون می‌رود؛ تفاوتش با مبلغِ
+        // برگشتی سود یا زیانِ همین برگشت است و به هزینه‌ها می‌نشیند.
+        val gap = amount - stockValueOut
         postJournal(
             memo, "PURCHASE_RETURN", "",
-            listOf(
-                jl(if (refundCash) Accounts.box(cashBox) else Accounts.PAYABLE, debit = amount),
-                jl(Accounts.MATERIALS, credit = amount)
-            )
+            buildList {
+                add(jl(if (refundCash) Accounts.box(cashBox) else Accounts.PAYABLE, debit = amount))
+                if (stockValueOut > 0) add(jl(Accounts.MATERIALS, credit = stockValueOut))
+                if (gap > 0) add(jl(Accounts.EXPENSES, credit = gap))
+                if (gap < 0) add(jl(Accounts.EXPENSES, debit = -gap))
+            }
         )
         return true
     }
