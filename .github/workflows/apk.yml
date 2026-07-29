@@ -1,0 +1,47 @@
+name: ساخت APK
+
+# دستی یا با هر push روی شاخهٔ کاری. خروجی یک APK دیباگ است که
+# مستقیم روی گوشی نصب می‌شود — برای تست، نه برای انتشار.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/**
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: کشِ Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # این فایل به مسیرِ SDK روی کامپیوترِ شخصی اشاره می‌کند و روی
+      # ماشینِ CI وجود ندارد؛ اگر بماند، Gradle همان اول شکست می‌خورد.
+      # ANDROID_HOME روی رانر از قبل تنظیم است.
+      - name: برداشتنِ local.properties
+        run: rm -f local.properties
+
+      - name: Build
+        run: ./gradlew --no-daemon assembleDebug
+
+      - name: نامِ فایل با شمارهٔ کامیت
+        id: name
+        run: echo "tag=$(date +%Y%m%d-%H%M)-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: بارگذاری APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: afghanjama-${{ steps.name.outputs.tag }}
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 30
