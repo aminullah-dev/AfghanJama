@@ -8,12 +8,12 @@ plugins {
 
 android {
     namespace = "com.afghanjama"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.afghanjama"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
@@ -60,12 +60,12 @@ android {
 
 dependencies {
     val room = "2.6.1"
-    val nav = "2.8.0"
+    val nav = "2.8.9"
     val datastore = "1.1.1"
-    val lifecycle = "2.8.6"
+    val lifecycle = "2.8.7"
 
-    implementation("androidx.core:core-ktx:1.13.1")
-    implementation("androidx.activity:activity-compose:1.9.2")
+    implementation("androidx.core:core-ktx:1.16.0")
+    implementation("androidx.activity:activity-compose:1.10.1")
 
     // تولید QR برای اسناد (کتابخانهٔ خالص جاوا، بدون وابستگی اندرویدی).
     // نسخه باید با zxing-android-embedded هم‌خوان بماند (4.3.0 ← core 3.4.1)؛
@@ -75,8 +75,8 @@ dependencies {
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
 
     // ✅ Compose BOM (نسخه‌ها را یکدست می‌کند)
-    implementation(platform("androidx.compose:compose-bom:2024.10.00"))
-    androidTestImplementation(platform("androidx.compose:compose-bom:2024.10.00"))
+    implementation(platform("androidx.compose:compose-bom:2025.04.01"))
+    androidTestImplementation(platform("androidx.compose:compose-bom:2025.04.01"))
 
     // Compose core
     implementation("androidx.compose.ui:ui")

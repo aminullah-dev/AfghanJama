@@ -27,9 +27,16 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
+        <!--
+            windowSoftInputMode: بی این، کیبورد روی کادرهای پایینِ صفحه
+            می‌افتد و کاربر جایی را که تایپ می‌کند نمی‌بیند — در اپی که
+            کارش پر کردنِ فرم است، آزاردهنده. adjustResize صفحه را جمع
+            می‌کند تا کادرِ فعال بالای کیبورد بمانَد.
+        -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:windowSoftInputMode="adjustResize"
             android:enableOnBackInvokedCallback="true">
 
             <intent-filter>

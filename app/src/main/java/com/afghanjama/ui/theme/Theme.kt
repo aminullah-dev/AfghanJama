@@ -1,6 +1,9 @@
 package com.afghanjama.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
@@ -9,6 +12,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
@@ -133,8 +137,13 @@ fun AfghanJamaTheme(content: @Composable () -> Unit) {
         MaterialTheme(
             colorScheme = if (dark) DarkColors else LightColors,
             typography = AppTypography,
-            shapes = AppShapes,
-            content = content
-        )
+            shapes = AppShapes
+        ) {
+            // اندروید ۱۵ به بعد صفحه را لبه‌به‌لبه می‌کند و دیگر خودش
+            // پنجره را برای کیبورد جمع نمی‌کند؛ پس کیبورد روی کادرهای
+            // پایینی می‌افتاد و کاربر جایی را که تایپ می‌کرد نمی‌دید.
+            // یک جا برای کلِ اپ درست می‌شود، نه در تک‌تکِ ۲۶ صفحه.
+            Box(Modifier.fillMaxSize().imePadding()) { content() }
+        }
     }
 }
