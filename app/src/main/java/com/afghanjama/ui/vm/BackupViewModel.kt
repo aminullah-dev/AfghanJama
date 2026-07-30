@@ -4,6 +4,8 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.afghanjama.data.DB_NAME
+import com.afghanjama.data.DB_VERSION
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.util.BackupArchive
 import com.afghanjama.util.PhotoStore
@@ -145,6 +147,21 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
 
             if (staged.length() <= 0L) error("فایلِ پشتیبان خالی است.")
 
+            // ---- سنجشِ فایل **پیش از** اینکه به دیتابیسِ زنده دست بزنیم ----
+            // بی این، یک فایلِ خراب یا ساخته‌شده با نسخهٔ جلوترِ اپ جایگزین
+            // می‌شد و Room در اجرای بعدی نمی‌توانست بازش کند — و چون
+            // fallbackToDestructiveMigration روشن است، کلِ دادهٔ کارگاه بی
+            // هیچ پیامی پاک می‌شد. یعنی خودِ بازیابی داده را نابود می‌کرد.
+            val probe = probeDatabase(staged)
+            if (probe.verdict != BackupArchive.Verdict.OK) {
+                // نسخه پیش از پاک‌کردنِ فایل خوانده شده، وگرنه پیام عددِ صفر
+                // نشان می‌داد
+                staged.delete()
+                error(
+                    BackupArchive.verdictMessage(probe.verdict, probe.version, DB_VERSION)
+                )
+            }
+
             repo.checkpoint()
             // اتصالِ باز باید قبل از بازنویسیِ فایل بسته شود؛ وگرنه صفحه‌های
             // کش‌شدهٔ آن اتصال روی دیتابیسِ تازه می‌نشیند و خرابش می‌کند.
@@ -153,9 +170,33 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
             java.io.File(dbFile.path + "-wal").delete()
             java.io.File(dbFile.path + "-shm").delete()
 
-            staged.inputStream().use { input ->
-                dbFile.outputStream().use { input.copyTo(it) }
+            // ---- نسخهٔ برگشت ----
+            // تا امروز دیتابیسِ زنده مستقیم بازنویسی می‌شد. اگر کپی وسطِ کار
+            // می‌شکست (دیسکِ پر)، نه فایلِ سالم می‌ماند و نه بازیابی تمام
+            // می‌شد. حالا نسخهٔ قبلی کنار گذاشته می‌شود و فقط پس از موفقیت
+            // پاک می‌گردد.
+            val previous = java.io.File(dbFile.parentFile, "$DB_NAME.prev")
+            previous.delete()
+            if (dbFile.exists() && !dbFile.renameTo(previous)) {
+                dbFile.inputStream().use { input ->
+                    previous.outputStream().use { input.copyTo(it) }
+                }
             }
+            try {
+                staged.inputStream().use { input ->
+                    dbFile.outputStream().use { input.copyTo(it) }
+                }
+            } catch (e: Throwable) {
+                // برگرداندنِ دادهٔ سالم؛ بازیابی نشد ولی چیزی هم از دست نرفت
+                runCatching {
+                    dbFile.delete()
+                    previous.inputStream().use { input ->
+                        dbFile.outputStream().use { input.copyTo(it) }
+                    }
+                }
+                throw e
+            }
+            previous.delete()
             staged.delete()
             photos
         }.onSuccess { photos ->
@@ -171,6 +212,44 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
         }.onFailure { e ->
             _ui.update { it.copy(message = "خطا در بازیابی: ${e.message}", isError = true) }
         }
+    }
+
+    /** سرنوشتِ فایل به‌همراهِ نسخه‌اش — نسخه برای پیامِ کاربر لازم است. */
+    private data class Probe(val verdict: BackupArchive.Verdict, val version: Int)
+
+    /**
+     * آیا این فایل واقعاً یک دیتابیسِ سالم و قابلِ بازکردن است؟
+     *
+     * `detect` فقط چند بایتِ اولِ **فایلِ ورودی** را می‌دید؛ محتوای zip
+     * اصلاً سنجیده نمی‌شد. یک zip با ورودیِ `database` پر از آشغال از آن
+     * کنترل رد می‌شد و مستقیم جای دیتابیسِ زنده می‌نشست.
+     *
+     * Room نسخهٔ اسکیما را در `user_version` می‌گذارد، پس بی بازکردنِ کاملِ
+     * Room هم خواندنی است.
+     */
+    private fun probeDatabase(file: java.io.File): Probe {
+        var openable = false
+        var integrityOk = false
+        var version = 0
+        runCatching {
+            android.database.sqlite.SQLiteDatabase.openDatabase(
+                file.path, null,
+                android.database.sqlite.SQLiteDatabase.OPEN_READONLY
+            ).use { db ->
+                openable = true
+                version = db.version
+                // quick_check از integrity_check سبک‌تر است و برای فایلِ
+                // بریده یا آشغال کافی؛ روی گوشیِ کارگاه نباید دقیقه‌ها طول بکشد
+                db.rawQuery("PRAGMA quick_check", null).use { c ->
+                    integrityOk = c.moveToFirst() &&
+                        c.getString(0).equals("ok", ignoreCase = true)
+                }
+            }
+        }
+        return Probe(
+            BackupArchive.verdict(openable, integrityOk, version, DB_VERSION),
+            version
+        )
     }
 
     // ------------------------------------------------
@@ -306,7 +385,4 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
     private fun formatDate(millis: Long): String =
         com.afghanjama.ui.format.PersianDate.csv(millis)
 
-    companion object {
-        const val DB_NAME = "afghanjama.db"
-    }
 }

@@ -1693,3 +1693,83 @@ fun checkWorkSummary(): List<CheckResult> {
 
     return s.results
 }
+
+// =====================================================================
+// 19) بازیابیِ پشتیبان — نباید همان داده‌ای را که نجات می‌دهد نابود کند
+// =====================================================================
+
+/**
+ * سنجشِ قاعدهٔ پذیرشِ فایلِ پشتیبان.
+ *
+ * چرا این مهم‌ترین بررسیِ این بخش است: `fallbackToDestructiveMigration`
+ * روشن است. اگر فایلِ خراب یا ساخته‌شده با نسخهٔ جلوترِ اپ جایگزینِ
+ * دیتابیسِ زنده شود، Room در اجرای بعدی نمی‌تواند بازش کند و **کلِ دادهٔ
+ * کارگاه را بی هیچ پیامی پاک می‌کند**. یعنی خودِ بازیابی — ویژگی‌ای که
+ * برای نجاتِ داده ساخته شده — می‌تواند نابودش کند.
+ *
+ * [verdict] همان تابعِ `BackupArchive.verdict` است و [labelOf] نامِ
+ * نتیجه، تا این بررسی به هیچ کلاسِ اندرویدی وابسته نشود.
+ */
+fun checkRestoreVerdict(
+    verdict: (Boolean, Boolean, Int, Int) -> Any,
+    labelOf: (Any) -> String,
+    appVersion: Int
+): List<CheckResult> {
+    val s = CheckSink("پذیرشِ پشتیبان")
+
+    fun v(openable: Boolean, integrity: Boolean, fileVersion: Int) =
+        labelOf(verdict(openable, integrity, fileVersion, appVersion))
+
+    // ---- پشتیبانِ سالمِ همین نسخه ----
+    s.eq("پشتیبانِ سالمِ همین نسخه پذیرفته می‌شود", "OK", v(true, true, appVersion))
+
+    // ---- نسخهٔ عقب‌تر بی‌خطر است: مهاجرت‌ها بالا می‌آورندش ----
+    s.eq("پشتیبانِ نسخهٔ قبل پذیرفته می‌شود", "OK", v(true, true, appVersion - 1))
+    s.eq("پشتیبانِ خیلی قدیمی هم پذیرفته می‌شود", "OK", v(true, true, 19))
+
+    // ---- نسخهٔ جلوتر باید رد شود، وگرنه Room همه‌چیز را پاک می‌کند ----
+    s.eq("پشتیبانِ نسخهٔ جلوتر رد می‌شود", "TOO_NEW", v(true, true, appVersion + 1))
+    s.eq("پشتیبانِ خیلی جلوتر هم رد می‌شود", "TOO_NEW", v(true, true, appVersion + 40))
+
+    // ---- خراب ----
+    s.eq("فایلی که باز نمی‌شود رد می‌شود", "CORRUPT", v(false, false, appVersion))
+    s.eq("فایلی که باز می‌شود ولی سالم نیست رد می‌شود", "CORRUPT", v(true, false, appVersion))
+    // نسخهٔ صفر یعنی Room هیچ‌وقت رویش ننشسته — دیتابیسِ ما نیست
+    s.eq("دیتابیسِ بی‌نسخه رد می‌شود", "CORRUPT", v(true, true, 0))
+    s.eq("نسخهٔ منفی رد می‌شود", "CORRUPT", v(true, true, -3))
+
+    // ---- خرابی بر نسخه مقدم است ----
+    // فایلی که هم خراب است و هم جلوتر، باید «خراب» گزارش شود؛ پیامِ
+    // «اپ را به‌روز کنید» برای فایلِ خراب گمراه‌کننده است
+    s.eq(
+        "فایلِ خرابِ جلوتر «خراب» شمرده می‌شود، نه «جلوتر»",
+        "CORRUPT",
+        v(false, false, appVersion + 5)
+    )
+
+    // ---- هیچ نسخهٔ قابلِ قبولی نباید رد شود و برعکس ----
+    run {
+        var wrongAccept = 0
+        var wrongReject = 0
+        for (fileVersion in -5..(appVersion + 20)) {
+            val got = v(true, true, fileVersion)
+            val shouldAccept = fileVersion in 1..appVersion
+            if (shouldAccept && got != "OK") wrongReject++
+            if (!shouldAccept && got == "OK") wrongAccept++
+        }
+        s.eq("هیچ پشتیبانِ قابلِ بازیابی رد نمی‌شود", 0, wrongReject)
+        s.eq("هیچ پشتیبانِ خطرناکی پذیرفته نمی‌شود", 0, wrongAccept)
+    }
+
+    // ---- فایلِ خراب در هیچ نسخه‌ای پذیرفته نمی‌شود ----
+    run {
+        var accepted = 0
+        for (fileVersion in 0..(appVersion + 5)) {
+            if (v(false, true, fileVersion) == "OK") accepted++
+            if (v(true, false, fileVersion) == "OK") accepted++
+        }
+        s.eq("فایلِ خراب در هیچ نسخه‌ای پذیرفته نمی‌شود", 0, accepted)
+    }
+
+    return s.results
+}

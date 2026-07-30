@@ -118,7 +118,7 @@ import com.afghanjama.data.entities.WorkCost
         SyncRequest::class,
         OrderPhoto::class
     ],
-    version = 56,
+    version = DB_VERSION,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -168,6 +168,16 @@ val ALL_MIGRATIONS = arrayOf(
 )
 
 const val DB_NAME = "afghanjama.db"
+
+/**
+ * نسخهٔ اسکیمای دیتابیس — همان عددی که به Room داده می‌شود.
+ *
+ * بیرون از حاشیه‌نویسی هم لازم است: بازیابی باید بتواند نسخهٔ فایلِ
+ * پشتیبان را با آن بسنجد و پشتیبانِ **جلوتر** را رد کند. اگر رد نشود،
+ * Room آن را باز نمی‌کند و `fallbackToDestructiveMigration` کلِ داده را
+ * پاک می‌کند — بی هیچ پیامی.
+ */
+const val DB_VERSION = 56
 
 /**
  * ساخت متمرکز دیتابیس. همهٔ نقاط (اپ و Workerها) باید از این استفاده

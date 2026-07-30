@@ -1,6 +1,7 @@
 package com.afghanjama
 
 import com.afghanjama.data.CashPolicy
+import com.afghanjama.data.DB_VERSION
 import com.afghanjama.data.ResetPlan
 import com.afghanjama.pdf.Paper
 import com.afghanjama.pdf.columnWidths
@@ -23,6 +24,7 @@ import com.afghanjama.selftest.checkOrderCycle
 import com.afghanjama.selftest.checkPaperGeometry
 import com.afghanjama.selftest.checkSalaryAdvance
 import com.afghanjama.selftest.checkResetPlan
+import com.afghanjama.selftest.checkRestoreVerdict
 import com.afghanjama.selftest.checkShortage
 import com.afghanjama.selftest.checkWorkSummary
 import com.afghanjama.selftest.checkWorkerName
@@ -62,6 +64,13 @@ class SelfTestJvmTest {
         addAll(checkSalaryAdvance())
         addAll(checkWorkerName { it.bareWorkerName() })
         addAll(checkWorkSummary())
+        addAll(
+            checkRestoreVerdict(
+                verdict = { o, i, fv, av -> BackupArchive.verdict(o, i, fv, av) },
+                labelOf = { (it as BackupArchive.Verdict).name },
+                appVersion = DB_VERSION
+            )
+        )
         addAll(
             checkCashFlow(
                 internalMoveCategory = CashPolicy.INTERNAL_MOVE,
