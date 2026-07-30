@@ -59,7 +59,17 @@ android {
 }
 
 dependencies {
-    val room = "2.6.1"
+    /*
+     * Room باید با نسخهٔ Kotlin هم‌قدم بماند.
+     *
+     * Room 2.6.1 نسخهٔ kotlinx-metadata را در خودش بسته‌بندی کرده و آن
+     * نسخه متادیتای Kotlin را فقط تا 2.0 می‌فهمد. با Kotlin 2.1 که
+     * متادیتای 2.1.0 تولید می‌کند، پردازشگرِ Room همان اولِ ساخت با
+     * «maximum supported version is 2.0.0» می‌ایستد.
+     *
+     * پس هر بار که Kotlin بالا می‌رود، این هم باید برود.
+     */
+    val room = "2.7.1"
     val nav = "2.8.9"
     val datastore = "1.1.1"
     val lifecycle = "2.8.7"
