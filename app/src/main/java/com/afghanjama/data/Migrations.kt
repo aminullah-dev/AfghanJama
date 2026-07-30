@@ -645,6 +645,17 @@ val MIGRATION_47_48 = object : Migration(47, 48) {
 }
 
 /**
+ * دستهٔ طرح — پوشهٔ انبارِ محصول. فقط یک ستونِ افزودنی با پیش‌فرضِ خالی،
+ * پس طرح‌های ثبت‌شده دست نمی‌خورند و انبار همان‌طور که بود کار می‌کند
+ * (همه زیرِ «دسته‌بندی‌نشده» تا کاربر خودش دسته بدهد).
+ */
+val MIGRATION_56_57 = object : Migration(56, 57) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `design_items` ADD COLUMN `category` TEXT NOT NULL DEFAULT ''")
+    }
+}
+
+/**
  * برچسب‌زدنِ انتقال‌های داخلیِ **قبلی** — هیچ ستون یا جدولی عوض نمی‌شود،
  * فقط `category` سطرهایی پر می‌شود که از قبل خالی مانده بود.
  *

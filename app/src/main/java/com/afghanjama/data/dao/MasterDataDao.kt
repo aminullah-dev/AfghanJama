@@ -90,6 +90,17 @@ interface MasterDataDao {
     @Query("UPDATE design_items SET code = :code WHERE title = :title")
     suspend fun setDesignCodeByTitle(title: String, code: String)
 
+    /** دستهٔ طرح — پوشهٔ انبارِ محصول. خالی یعنی «دسته‌بندی‌نشده». */
+    @Query("UPDATE design_items SET category = :category WHERE id = :id")
+    suspend fun setDesignCategory(id: Long, category: String)
+
+    /** همهٔ دسته‌های به‌کاررفته، برای پیشنهاد دادن به کاربر. */
+    @Query(
+        "SELECT DISTINCT category FROM design_items " +
+            "WHERE category <> '' ORDER BY category"
+    )
+    fun observeDesignCategories(): Flow<List<String>>
+
     @Query("DELETE FROM design_items WHERE id = :id")
     suspend fun deleteDesign(id: Long)
 

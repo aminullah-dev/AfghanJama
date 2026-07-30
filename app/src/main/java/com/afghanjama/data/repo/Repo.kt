@@ -41,6 +41,7 @@ import com.afghanjama.data.entities.TailorWage
 import com.afghanjama.data.entities.Transaction
 import com.afghanjama.data.entities.WorkCost
 import com.afghanjama.data.ResetPlan
+import com.afghanjama.data.StockFolders
 import com.afghanjama.prefs.SalePrefs
 import com.afghanjama.ui.format.bareWorkerName
 import com.afghanjama.util.CurrentUser
@@ -2092,6 +2093,25 @@ class Repo(private val db: AppDatabase) {
                 db.masterDataDao().setDesignCodeByTitle(item.title, item.code.trim())
         }
     }
+
+    /**
+     * دستهٔ یک طرح — همان پوشه‌ای که کالاهایش در انبارِ محصول می‌نشینند.
+     * خالی یعنی «دسته‌بندی‌نشده».
+     */
+    suspend fun setDesignCategory(id: Long, category: String) {
+        db.masterDataDao().setDesignCategory(id, category.trim())
+        audit("دستهٔ طرح", "#$id → ${category.trim().ifBlank { "بی‌دسته" }}")
+    }
+
+    /** دسته‌های به‌کاررفته، برای پیشنهاد دادن هنگامِ دسته‌بندیِ طرح. */
+    fun observeDesignCategories(): Flow<List<String>> =
+        db.masterDataDao().observeDesignCategories()
+
+    /** نقشهٔ «نامِ طرح → دسته» برای پوشه‌بندیِ انبار. */
+    fun observeDesignCategoryMap(): Flow<Map<String, String>> =
+        db.masterDataDao().observeDesignItems().map { list ->
+            StockFolders.categoryMap(list.map { it.title to it.category })
+        }
 
     fun observeStaff(): Flow<List<com.afghanjama.data.entities.Staff>> =
         db.masterDataDao().observeStaff()

@@ -164,7 +164,8 @@ val ALL_MIGRATIONS = arrayOf(
     MIGRATION_43_44, MIGRATION_44_45, MIGRATION_45_46, MIGRATION_46_47,
     MIGRATION_47_48, MIGRATION_48_49, MIGRATION_49_50,
     MIGRATION_50_51, MIGRATION_51_52, MIGRATION_52_53,
-    MIGRATION_53_54, MIGRATION_54_55, MIGRATION_55_56
+    MIGRATION_53_54, MIGRATION_54_55, MIGRATION_55_56,
+    MIGRATION_56_57
 )
 
 const val DB_NAME = "afghanjama.db"
@@ -177,7 +178,7 @@ const val DB_NAME = "afghanjama.db"
  * Room آن را باز نمی‌کند و `fallbackToDestructiveMigration` کلِ داده را
  * پاک می‌کند — بی هیچ پیامی.
  */
-const val DB_VERSION = 56
+const val DB_VERSION = 57
 
 /**
  * ساخت متمرکز دیتابیس. همهٔ نقاط (اپ و Workerها) باید از این استفاده

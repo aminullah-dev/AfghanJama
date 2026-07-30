@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -72,6 +73,39 @@ class NewSaleViewModel(private val repo: Repo) : ViewModel() {
     val busy = Busy()
 
     fun addLine() = _ui.update { it.copy(lines = it.lines + DraftLine(key = nextKey++)) }
+
+    /**
+     * افزودنِ یک کالای انبار به فاکتورِ در دست — نقطهٔ ورود از صفحهٔ انبار.
+     *
+     * اگر همان کالا از قبل در فاکتور باشد فقط تعدادش یکی زیاد می‌شود، پس
+     * دو بار زدن روی یک کالا ردیفِ تکراری نمی‌سازد. وگرنه در اولین ردیفِ
+     * خالی می‌نشیند و اگر خالی نبود ردیفِ تازه ساخته می‌شود — تا فاکتورِ
+     * نصفه‌کارهٔ کاربر خراب نشود.
+     */
+    fun addItem(item: FinishedStock) = _ui.update { u ->
+        val existing = u.lines.firstOrNull { it.item?.id == item.id }
+        if (existing != null) {
+            val next = ((existing.qtyText.toIntOrNull() ?: 0) + 1).coerceAtMost(item.qty)
+            return@update u.copy(
+                lines = u.lines.map {
+                    if (it.key == existing.key) it.copy(qtyText = next.toString()) else it
+                }
+            )
+        }
+        val empty = u.lines.firstOrNull { it.item == null }
+        if (empty != null) {
+            u.copy(
+                lines = u.lines.map { if (it.key == empty.key) it.copy(item = item) else it }
+            )
+        } else {
+            u.copy(lines = u.lines + DraftLine(key = nextKey++, item = item))
+        }
+    }
+
+    /** تعدادِ قلم‌های انتخاب‌شده — برای نشانِ کوچکِ روی دکمهٔ انبار. */
+    val pickedCount: StateFlow<Int> = _ui
+        .map { u -> u.lines.count { it.item != null } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     fun removeLine(key: Long) = _ui.update { u ->
         val left = u.lines.filterNot { it.key == key }

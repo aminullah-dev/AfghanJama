@@ -23,7 +23,10 @@ import com.afghanjama.selftest.checkPaperGeometry
 import com.afghanjama.selftest.checkSalaryAdvance
 import com.afghanjama.selftest.checkResetPlan
 import com.afghanjama.selftest.checkRestoreVerdict
+import com.afghanjama.selftest.FolderRow
+import com.afghanjama.selftest.FolderSummary
 import com.afghanjama.selftest.checkShortage
+import com.afghanjama.selftest.checkStockFolders
 import com.afghanjama.selftest.checkWorkSummary
 import com.afghanjama.selftest.checkWorkerName
 import com.afghanjama.selftest.checkStockValuation
@@ -32,6 +35,7 @@ import com.afghanjama.selftest.PaperSpec
 import com.afghanjama.data.CashPolicy
 import com.afghanjama.data.DB_VERSION
 import com.afghanjama.data.ResetPlan
+import com.afghanjama.data.StockFolders
 import com.afghanjama.pdf.Paper
 import com.afghanjama.util.BackupArchive
 import com.afghanjama.pdf.columnWidths
@@ -87,6 +91,22 @@ class SelfTestViewModel(private val repo: Repo) : ViewModel() {
                 addAll(checkSalaryAdvance())
                 addAll(checkWorkerName { it.bareWorkerName() })
                 addAll(checkWorkSummary())
+                addAll(
+                    checkStockFolders(
+                        uncategorised = StockFolders.UNCATEGORISED,
+                        folderOf = { n, m -> StockFolders.folderOf(n, m) },
+                        folders = { rows, m ->
+                            StockFolders.folders(
+                                rows.map { StockFolders.StockRow(it.name, it.size, it.qty) }, m
+                            ).map { FolderSummary(it.name, it.designs, it.totalQty) }
+                        },
+                        itemsOf = { folder, rows, m ->
+                            StockFolders.itemsOf(
+                                folder, rows.map { StockFolders.StockRow(it.name, it.size, it.qty) }, m
+                            ).map { FolderRow(it.name, it.size, it.qty) }
+                        }
+                    )
+                )
                 addAll(
                     checkRestoreVerdict(
                         verdict = { o, i, fv, av -> BackupArchive.verdict(o, i, fv, av) },

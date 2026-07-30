@@ -1773,3 +1773,107 @@ fun checkRestoreVerdict(
 
     return s.results
 }
+
+// =====================================================================
+// 20) پوشه‌بندیِ انبارِ محصول — کالا باید سرِ جایش بنشیند
+// =====================================================================
+
+/** یک ردیفِ انبار برای سنجشِ پوشه‌بندی. */
+data class FolderRow(val name: String, val size: String, val qty: Int)
+
+/** یک پوشه و خلاصه‌اش. */
+data class FolderSummary(val name: String, val designs: Int, val totalQty: Int)
+
+/**
+ * پوشه‌بندیِ انبار: دسته → طرح → سایز.
+ *
+ * دسته از **طرح** می‌آید نه از خودِ کالا، پس محصولی که از نظارت وارد
+ * انبار می‌شود بی هیچ کارِ دستی سرِ جایش می‌نشیند. این بررسی همان قاعده
+ * را می‌سنجد، به‌ویژه حالت‌هایی که کالا می‌تواند گم شود: طرحِ بی‌دسته،
+ * نامِ با فاصلهٔ اضافه، و طرحی که در کاتالوگ نیست.
+ */
+fun checkStockFolders(
+    uncategorised: String,
+    folderOf: (String, Map<String, String>) -> String,
+    folders: (List<FolderRow>, Map<String, String>) -> List<FolderSummary>,
+    itemsOf: (String, List<FolderRow>, Map<String, String>) -> List<FolderRow>
+): List<CheckResult> {
+    val s = CheckSink("پوشه‌بندی انبار")
+
+    val cat = mapOf(
+        "پیراهن مردانه" to "پیراهن",
+        "پیراهن زنانه" to "پیراهن",
+        "کت اداری" to "کت",
+        "طرحِ بی‌دسته" to ""
+    )
+
+    // ---- دستهٔ هر کالا ----
+    s.eq("طرحِ دسته‌دار سرِ پوشهٔ خودش می‌رود", "پیراهن", folderOf("پیراهن مردانه", cat))
+    s.eq("طرحِ بی‌دسته به «دسته‌بندی‌نشده» می‌رود", uncategorised, folderOf("طرحِ بی‌دسته", cat))
+    // مهم‌ترین حالت: طرحی که هیچ‌وقت در کاتالوگ ثبت نشده — کالا نباید گم شود
+    s.eq("طرحِ ناشناس هم جایی دارد", uncategorised, folderOf("چیزی که ثبت نشده", cat))
+    s.eq("فاصلهٔ اضافه پوشه را عوض نمی‌کند", "کت", folderOf("  کت اداری  ", cat))
+    s.eq("نامِ خالی هم جایی دارد", uncategorised, folderOf("", cat))
+
+    // ---- فهرستِ پوشه‌ها ----
+    val rows = listOf(
+        FolderRow("پیراهن مردانه", "L", 5),
+        FolderRow("پیراهن مردانه", "M", 3),
+        FolderRow("پیراهن زنانه", "S", 7),
+        FolderRow("کت اداری", "L", 2),
+        FolderRow("طرحِ بی‌دسته", "", 4),
+        FolderRow("چیزی که ثبت نشده", "XL", 1)
+    )
+    val fs = folders(rows, cat)
+
+    s.eq("سه پوشه ساخته می‌شود", 3, fs.size)
+    s.eq("پوشهٔ پیراهن دو طرح دارد", 2, fs.firstOrNull { it.name == "پیراهن" }?.designs ?: 0)
+    s.eq("جمعِ موجودیِ پیراهن", 15, fs.firstOrNull { it.name == "پیراهن" }?.totalQty ?: 0)
+    s.eq("پوشهٔ کت یک طرح دارد", 1, fs.firstOrNull { it.name == "کت" }?.designs ?: 0)
+    // طرحِ بی‌دسته و طرحِ ناشناس هر دو در یک پوشه جمع می‌شوند
+    s.eq(
+        "دسته‌بندی‌نشده هر دو طرحِ بی‌جا را دارد",
+        2,
+        fs.firstOrNull { it.name == uncategorised }?.designs ?: 0
+    )
+    s.eq("دسته‌بندی‌نشده آخر می‌آید", uncategorised, fs.last().name)
+    s.eq("پوشه‌های واقعی الفبایی‌اند", listOf("پیراهن", "کت"), fs.dropLast(1).map { it.name })
+
+    // ---- هیچ کالایی نباید گم شود ----
+    s.eq("جمعِ موجودیِ پوشه‌ها با جمعِ انبار می‌خوانَد", rows.sumOf { it.qty }, fs.sumOf { it.totalQty })
+    s.eq(
+        "جمعِ کالاهای همهٔ پوشه‌ها با کلِ انبار می‌خوانَد",
+        rows.size,
+        fs.sumOf { f -> itemsOf(f.name, rows, cat).size }
+    )
+
+    // ---- محتوای یک پوشه ----
+    run {
+        val inside = itemsOf("پیراهن", rows, cat)
+        s.eq("پوشهٔ پیراهن سه ردیف دارد", 3, inside.size)
+        s.eq(
+            "ردیف‌ها بر اساسِ طرح و بعد سایز مرتب‌اند",
+            listOf("پیراهن زنانه" to "S", "پیراهن مردانه" to "L", "پیراهن مردانه" to "M"),
+            inside.map { it.name to it.size }
+        )
+        s.isTrue(
+            "هیچ کالای پوشهٔ دیگری داخلش نیست",
+            inside.none { it.name == "کت اداری" },
+            "کالای پوشهٔ دیگر داخلِ پیراهن دیده شد"
+        )
+    }
+
+    // ---- انبارِ خالی ----
+    s.eq("انبارِ خالی هیچ پوشه‌ای نمی‌سازد", 0, folders(emptyList(), cat).size)
+    s.eq("پوشهٔ خالی محتوایی ندارد", 0, itemsOf("پیراهن", emptyList(), cat).size)
+
+    // ---- بی هیچ دسته‌ای، همه‌چیز باید در یک پوشه بمانَد (حالتِ امروز) ----
+    run {
+        val fsNone = folders(rows, emptyMap())
+        s.eq("بی کاتالوگِ دسته، یک پوشه می‌مانَد", 1, fsNone.size)
+        s.eq("و آن پوشه «دسته‌بندی‌نشده» است", uncategorised, fsNone.first().name)
+        s.eq("و هیچ کالایی گم نمی‌شود", rows.sumOf { it.qty }, fsNone.sumOf { it.totalQty })
+    }
+
+    return s.results
+}
