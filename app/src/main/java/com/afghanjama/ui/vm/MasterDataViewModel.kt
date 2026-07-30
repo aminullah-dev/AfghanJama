@@ -81,6 +81,18 @@ class MasterDataViewModel(private val repo: Repo) : ViewModel() {
     }
 
     /** ثبت طرح با کدِ اختصاصیِ کاربر؛ کدِ خالی = تولید خودکار. */
+    /** دسته‌های به‌کاررفته — برای پیشنهاد دادن هنگامِ دسته‌بندیِ طرح. */
+    val designCategories: StateFlow<List<String>> =
+        repo.observeDesignCategories()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * دستهٔ یک طرح — همان پوشهٔ انبارِ محصول. خالی یعنی «دسته‌بندی‌نشده».
+     */
+    fun setDesignCategory(id: Long, category: String) = viewModelScope.launch {
+        repo.setDesignCategory(id, category)
+    }
+
     fun addDesign(title: String, code: String = "") = viewModelScope.launch {
         repo.addDesign(DesignItem(id = 0L, title = title.trim(), code = code.trim()))
     }

@@ -16,6 +16,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -62,9 +65,16 @@ import com.afghanjama.ui.vm.FinishedSaleViewModel
 @Composable
 fun FinishedWarehouseScreen(
     vm: FinishedSaleViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    /** رفتن به صفحهٔ فاکتورِ چندقلمی. */
+    onOpenInvoice: () -> Unit = {},
+    /** افزودنِ یک کالا به فاکتورِ در دست، بی ترکِ این صفحه. */
+    onAddToInvoice: (FinishedStock) -> Unit = {},
+    /** چند قلم تا حالا در فاکتورِ در دست هست. */
+    invoiceCount: Int = 0
 ) {
     val items by vm.items.collectAsState()
+    val folders by vm.folders.collectAsState()
     val sales by vm.recentSales.collectAsState()
     val ui by vm.ui.collectAsState()
     val wallet by vm.wallet.collectAsState()
@@ -73,6 +83,16 @@ fun FinishedWarehouseScreen(
 
     var sellTarget by remember { mutableStateOf<FinishedStock?>(null) }
     var returnTarget by remember { mutableStateOf<FinishedSale?>(null) }
+
+    // پوشهٔ بازِ فعلی — null یعنی فهرستِ پوشه‌ها. مثلِ فایل‌منیجر: یک طبقه
+    // پایین می‌رویم و با دکمهٔ برگشت بالا می‌آییم.
+    var openFolder by remember { mutableStateOf<String?>(null) }
+    // اگر پوشهٔ باز خالی شد (آخرین کالایش فروخته شد) خودش بسته می‌شود،
+    // وگرنه کاربر در صفحه‌ای خالی گیر می‌کرد.
+    LaunchedEffect(folders, openFolder) {
+        if (openFolder != null && folders.none { it.name == openFolder }) openFolder = null
+    }
+    val shown = openFolder?.let { vm.itemsOf(it) } ?: emptyList()
 
     // ---------- دیالوگ فروش جزئی ----------
     sellTarget?.let { item ->
@@ -341,10 +361,98 @@ fun FinishedWarehouseScreen(
                     )
                 }
             } else {
+                // ---------- دکمهٔ فاکتور فروش ----------
                 item {
-                    Text("موجودی انبار محصول", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Button(
+                        onClick = onOpenInvoice,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.ReceiptLong, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            if (invoiceCount > 0)
+                                "ادامهٔ فاکتور فروش (${invoiceCount.fa()} قلم)"
+                            else "ایجاد فاکتور فروش"
+                        )
+                    }
                 }
-                items(items, key = { it.id }) { item ->
+                item {
+                    Text(
+                        "برای فروشِ چند کالا به یک مشتری، فاکتور بسازید و از هر پوشه " +
+                            "هرچه خواستید داخلش بریزید. دکمهٔ «فروش» کنارِ هر کالا برای " +
+                            "فروشِ همان یک قلم است.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                // ---------- مسیرِ پوشه ----------
+                item {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            openFolder?.let { "موجودی انبار ‹ $it" } ?: "موجودی انبار محصول",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        if (openFolder != null) {
+                            TextButton(onClick = { openFolder = null }) {
+                                Text("↩ همهٔ پوشه‌ها")
+                            }
+                        }
+                    }
+                }
+
+                // ---------- فهرستِ پوشه‌ها ----------
+                if (openFolder == null) {
+                    items(folders, key = { it.name }) { folder ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                        ) {
+                            Row(
+                                Modifier.fillMaxWidth().padding(14.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.Folder,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(Modifier.width(10.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(folder.name, fontWeight = FontWeight.SemiBold)
+                                    Text(
+                                        "${folder.designs.fa()} طرح • ${folder.totalQty.fa()} عدد",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                TextButton(onClick = { openFolder = folder.name }) {
+                                    Text("باز کردن")
+                                }
+                            }
+                        }
+                    }
+                    item {
+                        Text(
+                            "پوشه‌ها از «دستهٔ طرح» در اطلاعات پایه ساخته می‌شوند. هر " +
+                                "محصولی که از نظارت تأیید شود خودکار سرِ پوشهٔ طرحش " +
+                                "می‌نشیند؛ طرحِ بی‌دسته زیرِ «دسته‌بندی‌نشده» می‌مانَد.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // ---------- کالاهای پوشهٔ باز ----------
+                items(if (openFolder == null) emptyList() else shown, key = { it.id }) { item ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -377,10 +485,17 @@ fun FinishedWarehouseScreen(
                                     else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            Button(onClick = { sellTarget = item }) {
-                                Icon(Icons.Default.Sell, contentDescription = null)
-                                Spacer(Modifier.width(8.dp))
-                                Text("فروش")
+                            Column(horizontalAlignment = Alignment.End) {
+                                Button(onClick = { sellTarget = item }) {
+                                    Icon(Icons.Default.Sell, contentDescription = null)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("فروش")
+                                }
+                                TextButton(onClick = { onAddToInvoice(item) }) {
+                                    Icon(Icons.Default.Add, contentDescription = null)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("به فاکتور")
+                                }
                             }
                         }
                     }

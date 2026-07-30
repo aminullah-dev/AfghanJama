@@ -4,11 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.afghanjama.data.entities.FinishedSale
 import com.afghanjama.data.entities.FinishedStock
+import com.afghanjama.data.StockFolders
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.prefs.SalePrefs
 import com.afghanjama.ui.format.fa
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -34,6 +36,33 @@ class FinishedSaleViewModel(private val repo: Repo) : ViewModel() {
     val recentSales: StateFlow<List<FinishedSale>> =
         repo.observeFinishedSales()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * نقشهٔ «نامِ طرح → دسته» — پوشهٔ هر کالای انبار از همین می‌آید.
+     *
+     * محصولی که از نظارت وارد انبار می‌شود نامِ طرحش را با خودش دارد، پس
+     * بی هیچ کارِ دستی سرِ پوشهٔ درستش می‌نشیند.
+     */
+    private val categoryMap: StateFlow<Map<String, String>> =
+        repo.observeDesignCategoryMap()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    /** پوشه‌های انبار با تعدادِ طرح و جمعِ موجودیِ هرکدام. */
+    val folders: StateFlow<List<StockFolders.Folder>> =
+        combine(items, categoryMap) { list, cat ->
+            StockFolders.folders(list.map { it.toFolderRow() }, cat)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** کالاهای یک پوشه — مرتب بر اساسِ طرح و بعد سایز. */
+    fun itemsOf(folder: String): List<FinishedStock> {
+        val cat = categoryMap.value
+        return items.value
+            .filter { StockFolders.folderOf(it.name, cat) == folder }
+            .sortedWith(compareBy({ it.name.trim() }, { it.size.trim() }))
+    }
+
+    private fun FinishedStock.toFolderRow() =
+        StockFolders.StockRow(name = name, size = size, qty = qty)
 
     /** موجودیِ صندوق و بانک — برای انتخابِ محلِ پس‌دادنِ پولِ مرجوعی. */
     val wallet: StateFlow<Long> =

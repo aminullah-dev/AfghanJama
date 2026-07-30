@@ -1,10 +1,14 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@file:OptIn(
+    androidx.compose.material3.ExperimentalMaterial3Api::class,
+    androidx.compose.foundation.layout.ExperimentalLayoutApi::class
+)
 
 package com.afghanjama.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,6 +24,9 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -43,6 +50,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -62,6 +70,7 @@ fun MasterDataScreen(
     val tailors by vm.tailors.collectAsState()
     val inspectors by vm.inspectors.collectAsState()
     val designs by vm.designs.collectAsState()
+    val designCategories by vm.designCategories.collectAsState()
     val customers by vm.customers.collectAsState()
     val workCosts by vm.workCosts.collectAsState()
     val staff by vm.staff.collectAsState()
@@ -143,15 +152,11 @@ fun MasterDataScreen(
                         onAdd = { code, name -> vm.addInspector(code, name, null) }
                     )
 
-                    5 -> TwoFieldListEditor(
-                        title = "طرح‌های دوخت — کدِ اختصاصیِ کارگاه را خودتان وارد کنید",
-                        hint1 = "نام طرح (مثلاً یقه دیپلمات)",
-                        hint2 = "کد اختصاصی طرح (مثلاً DIP-12)",
-                        items = designs.map { d ->
-                            (if (d.code.isNotBlank()) "[${d.code}] " else "") + d.title
-                        },
-                        // ثبتِ دوبارهٔ همان نام با کدِ جدید = اصلاحِ کدِ طرح
-                        onAdd = { title, code -> vm.addDesign(title, code) }
+                    5 -> DesignEditor(
+                        items = designs,
+                        categories = designCategories,
+                        onAdd = { title, code -> vm.addDesign(title, code) },
+                        onSetCategory = { id, cat -> vm.setDesignCategory(id, cat) }
                     )
 
                     6 -> TwoFieldListEditor(
@@ -451,6 +456,150 @@ private fun TwoFieldListEditor(
                 )
                 HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
             }
+        }
+    }
+}
+
+/**
+ * طرح‌های دوخت با **دستهٔ** هرکدام — دسته همان پوشهٔ انبارِ محصول است.
+ *
+ * دسته روی طرح می‌نشیند نه روی کالای انبار، چون محصولی که از نظارت وارد
+ * انبار می‌شود نامِ طرحش را با خودش دارد و از همین‌جا می‌فهمد سرِ کدام
+ * پوشه برود — بی اینکه کسی دستی جابه‌جایش کند.
+ */
+@Composable
+private fun DesignEditor(
+    items: List<DesignItem>,
+    categories: List<String>,
+    onAdd: (String, String) -> Unit,
+    onSetCategory: (Long, String) -> Unit
+) {
+    var title by remember { mutableStateOf("") }
+    var code by remember { mutableStateOf("") }
+    var editing by remember { mutableStateOf<DesignItem?>(null) }
+
+    // ---------- دیالوگِ دسته ----------
+    editing?.let { d ->
+        var cat by remember(d.id) { mutableStateOf(d.category) }
+        AlertDialog(
+            onDismissRequest = { editing = null },
+            title = { Text("دستهٔ «${d.title}»") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "دسته همان پوشه‌ای است که کالاهای این طرح در انبارِ محصول " +
+                            "داخلش می‌نشینند. خالی بگذارید تا زیرِ «دسته‌بندی‌نشده» بمانَد.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = cat,
+                        onValueChange = { cat = it },
+                        placeholder = { Text("مثلاً پیراهن، کت، چادری") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (categories.isNotEmpty()) {
+                        Text(
+                            "دسته‌های موجود:",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            categories.forEach { c ->
+                                FilterChip(
+                                    selected = cat.trim() == c,
+                                    onClick = { cat = c },
+                                    label = { Text(c) }
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onSetCategory(d.id, cat.trim())
+                    editing = null
+                }) { Text("ذخیره") }
+            },
+            dismissButton = {
+                TextButton(onClick = { editing = null }) { Text("انصراف") }
+            }
+        )
+    }
+
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        Text(
+            "طرح‌های دوخت — کد و دستهٔ هر طرح",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.secondary
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = title,
+            onValueChange = { title = it },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("نام طرح (مثلاً یقه دیپلمات)") },
+            singleLine = true,
+            shape = MaterialTheme.shapes.medium
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = code,
+            onValueChange = { code = it },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("کد اختصاصی طرح (مثلاً DIP-12)") },
+            singleLine = true,
+            shape = MaterialTheme.shapes.medium
+        )
+        Spacer(Modifier.height(10.dp))
+        Button(
+            onClick = {
+                val t = title.trim()
+                if (t.isNotBlank()) {
+                    // ثبتِ دوبارهٔ همان نام با کدِ جدید = اصلاحِ کدِ طرح
+                    onAdd(t, code.trim())
+                    title = ""
+                    code = ""
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.medium
+        ) { Text("افزودن / اصلاحِ طرح") }
+
+        Spacer(Modifier.height(12.dp))
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            items(items, key = { it.id }) { d ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                (if (d.code.isNotBlank()) "[${d.code}] " else "") + d.title,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                "پوشه: " + d.category.ifBlank { "دسته‌بندی‌نشده" },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (d.category.isBlank())
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                else MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        TextButton(onClick = { editing = d }) { Text("دسته") }
+                    }
+                }
+            }
+            item { Spacer(Modifier.height(40.dp)) }
         }
     }
 }

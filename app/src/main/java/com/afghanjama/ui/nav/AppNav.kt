@@ -327,9 +327,15 @@ fun AppNav(
             }
 
             composable(Routes.FINISHED_SALES) {
+                // شمارندهٔ فاکتورِ در دست از همان ViewModelِ فاکتور می‌آید، پس
+                // کالاهایی که اینجا انتخاب می‌شوند همان‌جا پیدا می‌شوند.
+                val invoiceCount by newSaleVm.pickedCount.collectAsState()
                 FinishedWarehouseScreen(
                     vm = finishedSaleVm,
-                    onBack = { navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    onOpenInvoice = { navController.navigate(Routes.NEW_SALE) },
+                    onAddToInvoice = { newSaleVm.addItem(it) },
+                    invoiceCount = invoiceCount
                 )
             }
 
