@@ -1,4 +1,5 @@
 // app/build.gradle.kts
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -36,40 +37,6 @@ android {
      *
      * نسخهٔ release هیچ‌کدام را ندارد.
      */
-    /*
-     * کلیدِ امضا از فایلی خوانده می‌شود که در .gitignore است و هرگز به
-     * GitHub نمی‌رود — نه در مخزن و نه در Secrets.
-     *
-     * اگر می‌خواهید از خطِ فرمان بسازید، کنارِ همین فایل یک
-     * `keystore.properties` بگذارید:
-     *
-     *     storeFile=/masir/be/afghanjama.jks
-     *     storePassword=…
-     *     keyAlias=afghanjama
-     *     keyPassword=…
-     *
-     * ولی راهِ ساده‌تر Android Studio است:
-     *     Build → Generate Signed App Bundle / APK
-     * که خودش این تنظیمات را می‌پرسد و لازم نیست رمز جایی نوشته شود.
-     * راهنمای کامل در DELIVERY.md.
-     */
-    val keystoreProps = rootProject.file("keystore.properties")
-    signingConfigs {
-        create("release") {
-            if (keystoreProps.exists()) {
-                val props = java.util.Properties()
-                keystoreProps.inputStream().use { props.load(it) }
-                val store = props.getProperty("storeFile")
-                if (!store.isNullOrBlank() && file(store).exists()) {
-                    storeFile = file(store)
-                    storePassword = props.getProperty("storePassword")
-                    keyAlias = props.getProperty("keyAlias")
-                    keyPassword = props.getProperty("keyPassword")
-                }
-            }
-        }
-    }
-
     buildTypes {
         release {
             /*
@@ -85,11 +52,18 @@ android {
             isShrinkResources = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
 
-            // بی کلید، APK امضانشده ساخته می‌شود و ساخت نمی‌شکند —
-            // ولی روی گوشی نصب نمی‌شود. Android Studio خودش امضا می‌کند.
-            if (keystoreProps.exists()) {
-                signingConfig = signingConfigs.getByName("release")
-            }
+            /*
+             * اینجا عمداً هیچ signingConfig تعریف نشده.
+             *
+             * امضا در Android Studio انجام می‌شود:
+             *     Build → Generate Signed App Bundle / APK…
+             * که خودش کلید و رمز را می‌پرسد. یعنی هیچ رمزی در هیچ فایلی
+             * نوشته نمی‌شود و هیچ چیزِ حساسی نمی‌تواند به گیت برود.
+             *
+             * `./gradlew assembleRelease` از خطِ فرمان APK **امضانشده**
+             * می‌دهد — برای اطمینان از کامپایل شدن خوب است، ولی روی گوشی
+             * نصب نمی‌شود. راهنمای تحویل در DELIVERY.md.
+             */
         }
     }
 
