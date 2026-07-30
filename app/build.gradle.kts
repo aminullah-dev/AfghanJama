@@ -25,6 +25,54 @@ android {
         compose = true
     }
 
+    /*
+     * تا امروز هیچ buildType تعریف نشده بود، پس تنها خروجیِ اپ نسخهٔ
+     * **دیباگ** بود. برای اپی که کلِ دفترِ مالیِ کارگاه را نگه می‌دارد
+     * این مشکل است:
+     *   - debuggable است؛ هرکس با یک کابل USB می‌تواند دیباگر وصل کند و
+     *     دیتابیس را بخواند یا عوض کند.
+     *   - با کلیدِ دیباگ امضا می‌شود که کلیدی همگانی است؛ یعنی هر کسی
+     *     می‌تواند «آپدیت» بسازد و روی اپِ کارگاه بنشاند.
+     *
+     * نسخهٔ release هیچ‌کدام را ندارد.
+     */
+    signingConfigs {
+        create("release") {
+            // کلید هرگز در مخزن نمی‌نشیند. از متغیرهای محیطی خوانده
+            // می‌شود تا صاحبِ اپ کلیدِ خودش را داشته باشد.
+            val store = System.getenv("KEYSTORE_FILE")
+            if (!store.isNullOrBlank() && file(store).exists()) {
+                storeFile = file(store)
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            /*
+             * عمداً خاموش است.
+             *
+             * R8 با Room، Compose، zxing و biometric که همه بازتاب
+             * (reflection) دارند می‌تواند در **زمانِ اجرا** چیزی را
+             * بشکند، نه هنگامِ ساخت. روشن کردنش بدونِ آزمونِ واقعی روی
+             * گوشی یعنی تحویلِ اپی که شاید سرِ مشتری کرش کند.
+             * وقتی روشن شود، باید قاعده‌های نگه‌داری هم نوشته و آزموده شوند.
+             */
+            isMinifyEnabled = false
+            isShrinkResources = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+
+            // اگر کلید تنظیم نشده باشد، APK امضانشده ساخته می‌شود و
+            // ساخت نمی‌شکند — ولی روی گوشی نصب نمی‌شود تا امضا شود.
+            if (System.getenv("KEYSTORE_FILE").isNullOrBlank().not()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

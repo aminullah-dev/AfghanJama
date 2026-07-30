@@ -8,8 +8,20 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
+    <!--
+        allowBackup پیش‌فرضِ اندروید true است؛ یعنی با `adb backup` روی یک
+        گوشیِ بازشده می‌شود کلِ دیتابیس — دفترِ مالی، بدهیِ مشتری‌ها،
+        حقوقِ کارکنان — را بیرون کشید. برای این اپ بسته شد.
+
+        قابلیتی از دست نمی‌رود: اپ پشتیبان‌گیریِ خودش را دارد (زیپ با
+        عکس‌ها، دستی و خودکار) که کاربر آگاهانه می‌گیرد و جایش را
+        خودش انتخاب می‌کند.
+    -->
     <application
         android:name=".App"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:label="AfghanJama"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"

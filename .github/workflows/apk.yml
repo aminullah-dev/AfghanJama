@@ -77,6 +77,24 @@ jobs:
       - name: Build
         run: ./gradlew --no-daemon assembleDebug
 
+      # نسخهٔ تحویل: نه debuggable است و نه با کلیدِ همگانیِ دیباگ امضا
+      # می‌شود. اگر کلیدِ صاحبِ اپ در Secrets باشد امضا می‌شود، وگرنه
+      # APK امضانشده ساخته می‌شود تا ساخت نشکند (نصب لازمِ امضاست).
+      - name: ساختِ APK تحویل (release)
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.jks"
+            export KEYSTORE_FILE="$RUNNER_TEMP/release.jks"
+            echo "کلید پیدا شد — APK امضا می‌شود."
+          else
+            echo "::warning::کلیدِ امضا تنظیم نشده؛ APK امضانشده ساخته شد و روی گوشی نصب نمی‌شود."
+          fi
+          ./gradlew --no-daemon assembleRelease
+
       - name: نامِ فایل با شمارهٔ کامیت
         id: name
         run: echo "tag=$(date +%Y%m%d-%H%M)-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
@@ -85,6 +103,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: afghanjama-${{ steps.name.outputs.tag }}
-          path: app/build/outputs/apk/debug/*.apk
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 30
