@@ -257,7 +257,13 @@ class Repo(private val db: AppDatabase) {
                 note = note.trim()
             )
         )
-        if (!order.materialsConsumed) {
+        // وضعیتِ مصرفِ مواد از **دیتابیس** خوانده می‌شود، نه از شیءِ ورودی.
+        // دو ضربهٔ سریع روی «ثبت برش» هر دو یک نسخهٔ کهنه در دست دارند که
+        // `materialsConsumed = false` است، پس هر دو مواد را کسر می‌کردند و
+        // هر دو سند می‌زدند: انبار دو بار خالی، «کار در جریان» دو برابر.
+        val alreadyConsumed =
+            db.orderDao().getById(order.id)?.materialsConsumed ?: order.materialsConsumed
+        if (!alreadyConsumed) {
             // ارزشِ واقعیِ برداشته‌شده جمع می‌شود، نه برآوردِ ثبتِ سفارش.
             // این دو با هر خریدِ تازه از هم فاصله می‌گیرند، چون میانگینِ
             // وزنیِ انبار عوض می‌شود ولی `fabricPrice` همان عددِ روزِ ثبت

@@ -41,7 +41,16 @@ class CuttingViewModel(private val repo: Repo) : ViewModel() {
             .map { rows -> rows.groupBy { it.orderId } }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
-    /** ثبت رکورد برش (مسئول/تعداد/ضایعات) و انتقال به «برش تمام». */
+    /** جلوی ثبتِ دوباره با دو ضربهٔ سریع را می‌گیرد. */
+    val busy = Busy()
+
+    /**
+     * ثبت رکورد برش (مسئول/تعداد/ضایعات) و انتقال به «برش تمام».
+     *
+     * برش موادِ واقعیِ انبار را کم می‌کند، پس دو ضربهٔ سریع اینجا گران
+     * تمام می‌شود. `completeCutting` هم خودش وضعیتِ مصرف را از دیتابیس
+     * می‌خواند تا حتی اگر این نگهبان دور زده شد، مواد دو بار کسر نشود.
+     */
     fun markCutDone(
         orderId: UUID,
         cutter: String,
@@ -49,8 +58,10 @@ class CuttingViewModel(private val repo: Repo) : ViewModel() {
         waste: String,
         note: String
     ) = viewModelScope.launch {
-        val o = repo.getOrder(orderId) ?: return@launch
-        repo.completeCutting(o, cutter, pieces.coerceAtLeast(0), waste, note)
+        busy.once {
+            val o = repo.getOrder(orderId) ?: return@once
+            repo.completeCutting(o, cutter, pieces.coerceAtLeast(0), waste, note)
+        }
     }
 
     /** برگشت به انبار (اصلاح اشتباه). */
