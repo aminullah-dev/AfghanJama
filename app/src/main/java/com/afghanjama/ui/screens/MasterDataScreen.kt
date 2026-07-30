@@ -5,6 +5,7 @@
 
 package com.afghanjama.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -55,6 +56,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.afghanjama.data.entities.DesignItem
 import com.afghanjama.data.entities.WorkCost
 import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.vm.MasterDataViewModel
