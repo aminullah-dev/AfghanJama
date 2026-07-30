@@ -77,23 +77,14 @@ jobs:
       - name: Build
         run: ./gradlew --no-daemon assembleDebug
 
-      # نسخهٔ تحویل: نه debuggable است و نه با کلیدِ همگانیِ دیباگ امضا
-      # می‌شود. اگر کلیدِ صاحبِ اپ در Secrets باشد امضا می‌شود، وگرنه
-      # APK امضانشده ساخته می‌شود تا ساخت نشکند (نصب لازمِ امضاست).
-      - name: ساختِ APK تحویل (release)
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: |
-          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
-            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.jks"
-            export KEYSTORE_FILE="$RUNNER_TEMP/release.jks"
-            echo "کلید پیدا شد — APK امضا می‌شود."
-          else
-            echo "::warning::کلیدِ امضا تنظیم نشده؛ APK امضانشده ساخته شد و روی گوشی نصب نمی‌شود."
-          fi
-          ./gradlew --no-daemon assembleRelease
+      # نسخهٔ release اینجا فقط **ساخته** می‌شود تا مطمئن شویم کامپایل
+      # می‌شود؛ امضا نمی‌شود و اینجا هیچ کلیدی وجود ندارد.
+      #
+      # کلیدِ امضا عمداً به GitHub نمی‌آید — نه در مخزن و نه در Secrets.
+      # نسخهٔ نصبیِ کارفرما در Android Studio روی کامپیوترِ خودتان ساخته
+      # و امضا می‌شود. راهش در DELIVERY.md است.
+      - name: ساختِ release (فقط بررسیِ کامپایل، بی‌امضا)
+        run: ./gradlew --no-daemon assembleRelease
 
       - name: نامِ فایل با شمارهٔ کامیت
         id: name
@@ -103,8 +94,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: afghanjama-${{ steps.name.outputs.tag }}
-          path: |
-            app/build/outputs/apk/debug/*.apk
-            app/build/outputs/apk/release/*.apk
+          # فقط دیباگ بارگذاری می‌شود: برای آزمایشِ خودتان.
+          # نسخهٔ release اینجا بی‌امضاست و روی گوشی نصب نمی‌شود، پس
+          # گذاشتنش فقط اشتباه‌انداز بود. نسخهٔ نصبی از Android Studio.
+          path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 30

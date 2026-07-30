@@ -36,16 +36,36 @@ android {
      *
      * نسخهٔ release هیچ‌کدام را ندارد.
      */
+    /*
+     * کلیدِ امضا از فایلی خوانده می‌شود که در .gitignore است و هرگز به
+     * GitHub نمی‌رود — نه در مخزن و نه در Secrets.
+     *
+     * اگر می‌خواهید از خطِ فرمان بسازید، کنارِ همین فایل یک
+     * `keystore.properties` بگذارید:
+     *
+     *     storeFile=/masir/be/afghanjama.jks
+     *     storePassword=…
+     *     keyAlias=afghanjama
+     *     keyPassword=…
+     *
+     * ولی راهِ ساده‌تر Android Studio است:
+     *     Build → Generate Signed App Bundle / APK
+     * که خودش این تنظیمات را می‌پرسد و لازم نیست رمز جایی نوشته شود.
+     * راهنمای کامل در DELIVERY.md.
+     */
+    val keystoreProps = rootProject.file("keystore.properties")
     signingConfigs {
         create("release") {
-            // کلید هرگز در مخزن نمی‌نشیند. از متغیرهای محیطی خوانده
-            // می‌شود تا صاحبِ اپ کلیدِ خودش را داشته باشد.
-            val store = System.getenv("KEYSTORE_FILE")
-            if (!store.isNullOrBlank() && file(store).exists()) {
-                storeFile = file(store)
-                storePassword = System.getenv("KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("KEY_ALIAS")
-                keyPassword = System.getenv("KEY_PASSWORD")
+            if (keystoreProps.exists()) {
+                val props = java.util.Properties()
+                keystoreProps.inputStream().use { props.load(it) }
+                val store = props.getProperty("storeFile")
+                if (!store.isNullOrBlank() && file(store).exists()) {
+                    storeFile = file(store)
+                    storePassword = props.getProperty("storePassword")
+                    keyAlias = props.getProperty("keyAlias")
+                    keyPassword = props.getProperty("keyPassword")
+                }
             }
         }
     }
@@ -65,9 +85,9 @@ android {
             isShrinkResources = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
 
-            // اگر کلید تنظیم نشده باشد، APK امضانشده ساخته می‌شود و
-            // ساخت نمی‌شکند — ولی روی گوشی نصب نمی‌شود تا امضا شود.
-            if (System.getenv("KEYSTORE_FILE").isNullOrBlank().not()) {
+            // بی کلید، APK امضانشده ساخته می‌شود و ساخت نمی‌شکند —
+            // ولی روی گوشی نصب نمی‌شود. Android Studio خودش امضا می‌کند.
+            if (keystoreProps.exists()) {
                 signingConfig = signingConfigs.getByName("release")
             }
         }
