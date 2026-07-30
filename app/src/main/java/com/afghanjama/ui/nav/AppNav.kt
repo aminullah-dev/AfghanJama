@@ -1,6 +1,8 @@
 // app/src/main/java/com/afghanjama/ui/nav/AppNav.kt
 package com.afghanjama.ui.nav
 
+import android.app.Activity
+import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Checkroom
 import androidx.compose.material.icons.filled.ContentCut
@@ -12,15 +14,21 @@ import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.Warehouse
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -219,6 +227,63 @@ fun AppNav(
         currentRoute != null &&
         currentRoute != Routes.LOGIN &&
         currentRoute != Routes.POST_LOGIN
+
+    /*
+     * دکمهٔ برگشتِ گوشی: از هر صفحه‌ای یک‌راست به داشبورد.
+     *
+     * پیش از این، برگشت راهِ رفته را یکی‌یکی عقب می‌آمد؛ کاربری که چند
+     * صفحه جلو رفته بود باید ده بار می‌زد تا به خانه برسد — حسِ اینکه ده
+     * اپ باز است.
+     *
+     * برگشت غیرفعال **نشد**. روی گوشی‌های امروزی برگشت با اشارهٔ انگشت
+     * انجام می‌شود و اصلی‌ترین راهِ حرکت است؛ اگر کار نکند کاربر فکر
+     * می‌کند اپ هنگ کرده. به‌جایش رفتارش ساده و پیش‌بینی‌پذیر شد:
+     *
+     *   دکمهٔ گوشی  → داشبورد
+     *   فلشِ داخلِ صفحه → یک قدم عقب (مثل قبل)
+     *
+     * روی خودِ داشبورد می‌پرسد «خروج از برنامه؟» تا با یک لمسِ اتفاقی
+     * وسطِ کار از اپ بیرون نیفتد.
+     */
+    var askExit by remember { mutableStateOf(false) }
+    // نقشِ دوخت و نظارت از صفحهٔ خودشان شروع می‌کنند، نه از خانه؛ برای
+    // آنها هم همان صفحه «داشبورد» است و برگشت باید خروج را بپرسد.
+    val onDashboard = currentRoute == Routes.HOME ||
+        currentRoute == Routes.POST_LOGIN ||
+        currentRoute == start
+
+    if (authUi.isLoggedIn && currentRoute != null && currentRoute != Routes.LOGIN) {
+        BackHandler {
+            if (onDashboard) {
+                askExit = true
+            } else if (!navController.popBackStack(Routes.HOME, inclusive = false)) {
+                // اگر داشبورد در پشته نبود (مثلاً نقشی که از جای دیگری
+                // شروع می‌کند) خودش باز می‌شود و پشته پاک می‌ماند.
+                navController.navigate(Routes.HOME) {
+                    popUpTo(navController.graph.findStartDestination().id) { inclusive = false }
+                    launchSingleTop = true
+                }
+            }
+        }
+    }
+
+    if (askExit) {
+        val activity = LocalContext.current as? Activity
+        AlertDialog(
+            onDismissRequest = { askExit = false },
+            title = { Text("خروج از برنامه؟") },
+            text = { Text("کارِ ثبت‌نشده‌ای اگر دارید، اول ذخیره‌اش کنید.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    askExit = false
+                    activity?.finish()
+                }) { Text("خروج") }
+            },
+            dismissButton = {
+                TextButton(onClick = { askExit = false }) { Text("ماندن") }
+            }
+        )
+    }
 
     Scaffold(
         bottomBar = {
