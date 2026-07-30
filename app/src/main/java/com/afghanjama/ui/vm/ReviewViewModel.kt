@@ -26,13 +26,24 @@ class ReviewViewModel(
         repo.observeInspectors()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** جلوی ثبتِ دوباره با دو ضربهٔ سریع را می‌گیرد. */
+    val busy = Busy()
+
     /**
-     * تایید نهایی: ناظر ثبت می‌شود + وضعیت به SALES
+     * تأیید نهایی: ناظر ثبت و کالا وارد انبار محصول می‌شود.
+     *
+     * دو لایه محافظت: این نگهبان جلوی دو ضربهٔ سریع را می‌گیرد، و خودِ
+     * `approveQc` هم سفارشی را که از مرحلهٔ نظارت رد شده دوباره تأیید
+     * نمی‌کند. اولی برای رابط است و دومی قاعده — چون هر مسیرِ دیگری هم که
+     * روزی به اینجا برسد باید همان کنترل را داشته باشد.
      */
-    fun approve(orderId: UUID, inspectorLabel: String, note: String = "") = viewModelScope.launch {
-        val o = repo.getOrder(orderId) ?: return@launch
-        repo.approveQc(o, inspectorLabel, note)
-    }
+    fun approve(orderId: UUID, inspectorLabel: String, note: String = "") =
+        viewModelScope.launch {
+            busy.once {
+                val o = repo.getOrder(orderId) ?: return@once
+                repo.approveQc(o, inspectorLabel, note)
+            }
+        }
 
     /**
      * خیاطانِ سفارشی که همین حالا در دیالوگِ برگشت باز است. وقتی بیش از

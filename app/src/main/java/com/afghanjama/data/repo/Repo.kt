@@ -176,7 +176,16 @@ class Repo(private val db: AppDatabase) {
      * تصمیمِ فروش (مشتری/قیمت/تخفیف) در انبار محصول توسط بخش فروش گرفته
      * می‌شود — نظارت فقط کیفیت را تأیید می‌کند.
      */
-    suspend fun approveQc(order: Order, inspector: String, note: String) {
+    /**
+     * @return false اگر سفارش در مرحلهٔ نظارت نباشد؛ هیچ چیزی ثبت نمی‌شود.
+     *
+     * بی این کنترل، دو ضربهٔ سریع روی «تأیید» دو بار کالا را وارد انبار
+     * می‌کرد: موجودیِ محصول دو برابر، «کار در جریان» به اندازهٔ بهای
+     * تمام‌شده منفی، و حسابِ مشتری دو بار بستانکار. تپِ دوم وضعیتِ کهنه را
+     * می‌دید، پس حتی متوجه نمی‌شد کالا از قبل وارد انبار شده.
+     */
+    suspend fun approveQc(order: Order, inspector: String, note: String): Boolean {
+        if (order.status != OrderStatus.REVIEW.name) return false
         db.qcRecordDao().insert(
             QcRecord(
                 orderId = order.id.toString(),
@@ -193,6 +202,7 @@ class Repo(private val db: AppDatabase) {
             )
         )
         audit("تأیید نظارت", "${order.orderCode} — $inspector")
+        return true
     }
 
     /**
@@ -383,6 +393,24 @@ class Repo(private val db: AppDatabase) {
                 )
             )
         }
+        // دستمزدِ دوخت هم هنگامِ تحویلِ خیاط بدهکارِ «کار در جریان» شده بود
+        // و با حذفِ سفارش باید از آن بیرون بیاید، وگرنه همان‌جا بادکرده
+        // می‌مانَد.
+        //
+        // برخلافِ خرج‌کار، بدهیِ خیاط **برنمی‌گردد**: او واقعاً کار کرده و
+        // کارمزدش را باید گرفت؛ سطرش در `tailor_wages` هم دست‌نخورده
+        // می‌مانَد تا در تسویه بیاید. پس مبلغ زیانِ سفارشِ لغوشده است و به
+        // هزینه‌ها می‌رود، نه به بستانکارِ خیاط.
+        if (order.sewingCost > 0) {
+            postJournal(
+                "دستمزدِ دوختِ سفارشِ حذف‌شده ${order.orderCode}",
+                "ORDER_DELETE", order.orderCode,
+                listOf(
+                    jl(Accounts.EXPENSES, debit = order.sewingCost),
+                    jl(Accounts.WIP, credit = order.sewingCost)
+                )
+            )
+        }
         // بدهیِ مشتری بابتِ این سفارش (SALE_BILLING هنگام ثبت) خنثی می‌شود
         // تا با حذفِ سفارش، ماندهٔ مشتری در دفتر کل متورم نماند.
         if (order.customerName.isNotBlank() && order.agreedPrice > 0) {
@@ -429,6 +457,23 @@ class Repo(private val db: AppDatabase) {
         } else {
             db.orderDao().update(order.copy(assignedTailor = label))
         }
+    }
+
+    /**
+     * برگشتِ سفارش از «آمادهٔ دوخت» به «برش» (اصلاح اشتباه).
+     *
+     * @return false اگر تحویلی به خیاط ثبت شده باشد؛ چیزی عوض نمی‌شود.
+     *
+     * تا امروز این شرط فقط در صفحهٔ دوخت بود (دکمه وقتی تحویلی هست نشان
+     * داده نمی‌شد). ولی قاعده‌ای که در صفحه زندگی می‌کند با صفحهٔ تازه یا
+     * مسیرِ همگام‌سازی دور زده می‌شود، و آن‌وقت سفارشی که دستمزدش ثبت شده
+     * می‌تواند به انبار برگردد و حذف شود.
+     */
+    suspend fun sendOrderBackToCutting(order: Order): Boolean {
+        val handouts = db.sewingAssignmentDao().listForOrder(order.id.toString())
+        if (handouts.isNotEmpty()) return false
+        changeOrderStatus(order, OrderStatus.CUTTING.name)
+        return true
     }
 
     /** لغو یک تحویل (اصلاح اشتباه) — فقط تا وقتی دوخت تمام نشده. */

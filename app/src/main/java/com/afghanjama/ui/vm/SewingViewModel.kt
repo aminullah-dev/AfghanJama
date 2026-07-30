@@ -102,10 +102,13 @@ class SewingViewModel(
         repo.cancelAssignment(assignmentId)
     }
 
-    /** برگشت سفارش از آماده‌دوخت به برش (فقط وقتی هیچ تحویلی ثبت نشده). */
+    /**
+     * برگشت سفارش از آماده‌دوخت به برش (فقط وقتی هیچ تحویلی ثبت نشده).
+     * خودِ شرط در `Repo` است، نه اینجا و نه در صفحه.
+     */
     fun backToCutting(orderId: UUID) = viewModelScope.launch {
         val o = repo.getOrder(orderId) ?: return@launch
-        repo.changeOrderStatus(o, OrderStatus.CUTTING.name)
+        repo.sendOrderBackToCutting(o)
     }
 
     /**

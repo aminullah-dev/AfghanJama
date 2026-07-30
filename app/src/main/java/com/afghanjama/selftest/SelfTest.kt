@@ -982,7 +982,8 @@ data class CycleInput(
 
 /** ماندهٔ حساب‌ها پس از یک چرخهٔ کامل. کلید: نامِ حساب. */
 fun runOrderCycle(input: CycleInput, deletedAfterCutting: Boolean = false,
-                  returnedValue: Long = 0L): Map<String, Long> {
+                  returnedValue: Long = 0L,
+                  sewnBeforeDelete: Boolean = false): Map<String, Long> {
     val acc = mutableMapOf<String, Long>()
     fun post(lines: List<Triple<String, Long, Long>>) {
         val d = lines.sumOf { it.second }
@@ -1007,6 +1008,11 @@ fun runOrderCycle(input: CycleInput, deletedAfterCutting: Boolean = false,
     if (gap < 0) post(listOf(Triple("EXPENSES", -gap, 0L), Triple("WIP", 0L, -gap)))
 
     if (deletedAfterCutting) {
+        // اگر پیش از حذف دوخته شده بود، دستمزدش هم داخلِ «کار در جریان»
+        // رفته و باید از آنجا بیرون بیاید
+        if (sewnBeforeDelete && input.wage > 0) {
+            post(listOf(Triple("WIP", input.wage, 0L), Triple("WAGES_PAYABLE", 0L, input.wage)))
+        }
         val back = input.fabricPrice
         val g = back - returnedValue
         post(
@@ -1026,6 +1032,16 @@ fun runOrderCycle(input: CycleInput, deletedAfterCutting: Boolean = false,
                 listOf(
                     Triple("PAYABLE", input.workCost, 0L),
                     Triple("WIP", 0L, input.workCost)
+                )
+            )
+        }
+        // دستمزدِ دوخت هم از «کار در جریان» بیرون می‌آید — ولی بدهیِ خیاط
+        // برنمی‌گردد، چون او واقعاً کار کرده. پس زیانِ سفارشِ لغوشده است.
+        if (sewnBeforeDelete && input.wage > 0) {
+            post(
+                listOf(
+                    Triple("EXPENSES", input.wage, 0L),
+                    Triple("WIP", 0L, input.wage)
                 )
             )
         }
@@ -1093,6 +1109,23 @@ fun checkOrderCycle(): List<CheckResult> {
         s.eq("هیچ سندِ ناترازی در این حذف نبود", null, r["__UNBALANCED__"])
     }
 
+    // ---- حذفِ سفارشی که دوخته شده بود ----
+    // امروز از رابط نمی‌شود چنین سفارشی را حذف کرد، ولی آن محافظت یک شرطِ
+    // صفحه بود نه یک قاعده؛ حالا هم قاعده هست و هم سندِ برگشتش.
+    run {
+        val r = runOrderCycle(
+            CycleInput(fabricPrice = 4_000, takenValue = 4_000, workCost = 600, wage = 3_500),
+            deletedAfterCutting = true, returnedValue = 4_000, sewnBeforeDelete = true
+        )
+        s.eq("حذفِ سفارشِ دوخته‌شده «کار در جریان» را صفر می‌کند", 0L, r["WIP"] ?: 0L)
+        s.eq(
+            "بدهیِ خیاط با حذفِ سفارش برنمی‌گردد — کار انجام شده",
+            -3_500L, r["WAGES_PAYABLE"] ?: 0L
+        )
+        s.eq("دستمزدِ سفارشِ لغوشده زیان است", 3_500L, r["EXPENSES"] ?: 0L)
+        s.eq("هیچ سندِ ناترازی در این حذف نبود", null, r["__UNBALANCED__"])
+    }
+
     // ---- صدها حالتِ تصادفی ----
     run {
         var seed = 314159L
@@ -1110,7 +1143,12 @@ fun checkOrderCycle(): List<CheckResult> {
                 wage = if (rnd(4) == 0) 0L else rnd(5_000).toLong()
             )
             val deleted = rnd(4) == 0
-            val r = runOrderCycle(input, deleted, if (deleted) rnd(20_000).toLong() else 0L)
+            val sewn = deleted && rnd(2) == 0
+            val r = runOrderCycle(
+                input, deleted,
+                if (deleted) rnd(20_000).toLong() else 0L,
+                sewnBeforeDelete = sewn
+            )
             // هر دو راه — تکمیل یا حذف — باید «کار در جریان» را به صفر
             // برگردانند. هیچ حالتی نمانده که مبلغی داخلش جا بماند.
             if ((r["WIP"] ?: 0L) != 0L) brokenWip++
