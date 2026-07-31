@@ -34,6 +34,27 @@ for per in (0, 1):
 for per in (0, 1, 12, 100):
     check(line(3, 400, per)["total"] == 1200, f"per={per}: مبلغ عوض شد")
 
+# ---- نامِ انبارِ پارچه: خط تیره رنگ نیست ----
+DASHES = ["—", "-", "–", " ", "", "ندارد", "بدون رنگ", "نامشخص"]
+def fabric_name(ty, color):
+    out = []
+    for s in (ty.strip(), color.strip()):
+        if not s or all(c in "-–—_.،, " for c in s) or s in ("ندارد", "بدون رنگ", "نامشخص"):
+            continue
+        out.append(s)
+    return " ".join(out)
+
+for d in DASHES:
+    got = fabric_name("مخمل سرخ", d)
+    check(got == "مخمل سرخ", f"رنگِ «{d}» نباید به نام بچسبد، شد «{got}»")
+check(fabric_name("مخمل", "سرخ") == "مخمل سرخ", "رنگِ واقعی باید بچسبد")
+check(fabric_name(" کتان ", " آبی ") == "کتان آبی", "فاصلهٔ اضافه باید پاک شود")
+
+repo_src = (ROOT / "data/repo/Repo.kt").read_text(encoding="utf-8")
+check("isPlaceholderDash" in repo_src, "فیلترِ خط تیره در Repo نیست")
+check("return 0L" in repo_src.split("val cur = exact")[0][-800:],
+      "برداشتِ ناموفق باید بی‌ساختنِ ردیفِ شبح برگردد")
+
 src = (ROOT / "ui/vm/ProcurementViewModel.kt").read_text(encoding="utf-8")
 check("val stockUnit" in src and "val stockQty" in src, "stockUnit/stockQty نیست")
 check("perPack > 1" in src, "شرطِ بسته‌بندی نیست")

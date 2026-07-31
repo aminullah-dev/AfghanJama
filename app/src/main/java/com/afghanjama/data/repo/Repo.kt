@@ -1200,7 +1200,24 @@ class Repo(private val db: AppDatabase) {
      * دیگر انبار جدا ندارد و مثل هر مادهٔ دیگر در انبار عمومی است.
      */
     fun fabricMaterialName(type: String, color: String): String =
-        listOf(type.trim(), color.trim()).filter { it.isNotEmpty() }.joinToString(" ")
+        listOf(type, color).map { it.trim() }
+            .filter { it.isNotEmpty() && !it.isPlaceholderDash() }
+            .joinToString(" ")
+
+    /**
+     * «—» و «-» و «ندارد» جای خالی‌اند، نه رنگ.
+     *
+     * صفحه‌ها وقتی رنگی انتخاب نشده یک خط تیره نشان می‌دهند. آن خط تیره
+     * تا امروز به نامِ انبار می‌چسبید و «مخمل سرخ —» می‌ساخت که با
+     * «مخمل سرخ»ِ خریداری‌شده یکی نبود — پس برداشت به ردیفِ دیگری
+     * می‌خورد و موجودی هرگز کم نمی‌شد.
+     */
+    private fun String.isPlaceholderDash(): Boolean {
+        val s = trim()
+        return s.isEmpty() ||
+            s.all { it in "-–—_.،, " } ||
+            s == "ندارد" || s == "بدون رنگ" || s == "نامشخص"
+    }
 
     // =========================
     // Material Stock (انبار عمومی مواد خام)
@@ -1277,6 +1294,16 @@ class Repo(private val db: AppDatabase) {
                 .firstOrNull { it.name.trim() == name.trim() && it.amount > 0.0 }
         } else {
             null
+        }
+        // برداشت از قلمی که در انبار نیست، نباید ردیفِ **صفرِ تازه** بسازد.
+        // همین کار بود که «مخمل سرخ —» را کنارِ «مخمل سرخ» می‌نشاند و
+        // انبار را شلوغ می‌کرد، بی آنکه چیزی واقعاً کم شود.
+        if (exact == null && byNameOnly == null && delta < 0) {
+            audit(
+                "برداشت از انبار انجام نشد",
+                "«${name.trim()}» با واحد «${unit.trim()}» در انبار نیست — $reason $note"
+            )
+            return 0L
         }
         val cur = exact
             ?: byNameOnly
