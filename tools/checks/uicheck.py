@@ -45,6 +45,16 @@ for f in files:
             continue
         owner_of[simple].add(path)
 
+    # نمادهایی که هیچ‌جا ایمپورت نشده‌اند ولی با **مسیرِ کامل** استفاده
+    # می‌شوند هم شناخته می‌شوند. GridItemSpan همین‌طور بود: دو جای پروژه
+    # با مسیرِ کامل صدایش می‌زدند، پس در هیچ خطِ import نبود و این بررسی
+    # نمی‌شناختش — بعد جای سومی با نامِ کوتاه نوشته شد و کامپایل شکست.
+    for m in re.finditer(
+        r"(?<![\w.])((?:androidx|kotlinx|java|org|com\.google)(?:\.[a-z0-9_]+)+\.([A-Z]\w*))",
+        open(f).read()
+    ):
+        owner_of[m.group(2)].add(m.group(1))
+
 # نامی که دو مسیرِ مختلف دارد مبهم است — کنار گذاشته می‌شود تا هشدارِ
 # نادرست ندهیم (مثلاً Card در material و material3)
 AMBIGUOUS = {s for s, paths in owner_of.items() if len(paths) > 1}
@@ -92,9 +102,14 @@ for f in files:
             continue
         if sym in imported or sym in local:
             continue
+        # «مسیرِ کامل جایی در فایل هست» دلیلِ بی‌نیازی نیست.
+        #
+        # `used` نامِ کوتاه را فقط وقتی می‌شمارد که پیش از آن نقطه نباشد،
+        # پس استفادهٔ کاملاً باکیفیت اصلاً به اینجا نمی‌رسد. اگر رسیده،
+        # یعنی جایی در همین فایل نامِ کوتاه هم نوشته شده و ایمپورت لازم
+        # است — دقیقاً حالتِ GridItemSpan که دو جا با مسیرِ کامل بود و
+        # جای سوم کوتاه، و این قاعده پنهانش کرد.
         path = next(iter(owner_of[sym]))
-        if path in raw:
-            continue
         problems.append((f.replace(SRC + "/", ""), sym, path))
 
 if problems:
