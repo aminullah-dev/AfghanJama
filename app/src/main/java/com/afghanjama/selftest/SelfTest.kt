@@ -2111,3 +2111,69 @@ fun checkMargin(
 
     return s.results
 }
+
+// =====================================================================
+// 23) کارتِ حسابِ مشتری — ماندهٔ روی برگه باید با دفتر یکی باشد
+// =====================================================================
+
+data class StRow(val debit: Long, val credit: Long)
+
+/**
+ * ریاضیِ کارتِ حساب.
+ *
+ * برگه‌ای که دستِ مشتری می‌رود نباید عددی جز آنچه در دفتر هست بگوید.
+ * ماندهٔ سطربه‌سطر هم باید در پایان دقیقاً به ماندهٔ کل برسد، وگرنه
+ * مشتری با انگشت جمع می‌زند و به عددِ دیگری می‌رسد.
+ */
+fun checkStatement(
+    totals: (List<StRow>) -> Triple<Long, Long, Long>,
+    runningBalances: (List<StRow>) -> List<Long>
+): List<CheckResult> {
+    val s = CheckSink("کارت حساب مشتری")
+
+    val rows = listOf(
+        StRow(debit = 1_000, credit = 0),     // فروش
+        StRow(debit = 0, credit = 400),       // پرداخت
+        StRow(debit = 2_500, credit = 0),     // فروش
+        StRow(debit = 0, credit = 1_100)      // پرداخت
+    )
+    val (debit, credit, balance) = totals(rows)
+
+    s.eq("جمعِ بدهکار", 3_500L, debit)
+    s.eq("جمعِ پرداختی", 1_500L, credit)
+    s.eq("مانده = بدهکار − پرداختی", 2_000L, balance)
+
+    // ---- ماندهٔ سطربه‌سطر ----
+    run {
+        val running = runningBalances(rows)
+        s.eq("برای هر سطر یک مانده", rows.size, running.size)
+        s.eq("ماندهٔ سطرها درست جلو می‌رود", listOf(1_000L, 600L, 3_100L, 2_000L), running)
+        s.eq(
+            "و آخرین مانده همان ماندهٔ کل است",
+            balance,
+            running.lastOrNull() ?: 0L
+        )
+    }
+
+    // ---- مشتریِ بستانکار ----
+    run {
+        val paidMore = listOf(StRow(debit = 500, credit = 0), StRow(debit = 0, credit = 800))
+        val (_, _, b) = totals(paidMore)
+        s.eq("پرداختِ بیشتر یعنی ماندهٔ منفی", -300L, b)
+    }
+
+    // ---- حساب‌های ساده ----
+    run {
+        val (d, c, b) = totals(emptyList())
+        s.eq("حسابِ خالی: بدهکارِ صفر", 0L, d)
+        s.eq("حسابِ خالی: پرداختیِ صفر", 0L, c)
+        s.eq("حسابِ خالی: ماندهٔ صفر", 0L, b)
+        s.eq("و هیچ سطری هم ندارد", 0, runningBalances(emptyList()).size)
+    }
+    run {
+        val settled = listOf(StRow(debit = 900, credit = 0), StRow(debit = 0, credit = 900))
+        s.eq("حسابِ تسویه‌شده ماندهٔ صفر دارد", 0L, totals(settled).third)
+    }
+
+    return s.results
+}

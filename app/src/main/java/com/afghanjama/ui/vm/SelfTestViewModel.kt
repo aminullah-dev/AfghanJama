@@ -32,7 +32,9 @@ import com.afghanjama.selftest.FcOut
 import com.afghanjama.selftest.checkStockFolders
 import com.afghanjama.selftest.MgInvoice
 import com.afghanjama.selftest.MgLine
+import com.afghanjama.selftest.StRow
 import com.afghanjama.selftest.checkMargin
+import com.afghanjama.selftest.checkStatement
 import com.afghanjama.selftest.checkStockForecast
 import com.afghanjama.selftest.checkWorkSummary
 import com.afghanjama.selftest.checkWorkerName
@@ -44,6 +46,8 @@ import com.afghanjama.data.DB_VERSION
 import com.afghanjama.data.ResetPlan
 import com.afghanjama.data.StockFolders
 import com.afghanjama.data.Margin
+import com.afghanjama.pdf.StatementData
+import com.afghanjama.pdf.StatementRow
 import com.afghanjama.data.StockForecast
 import com.afghanjama.pdf.Paper
 import com.afghanjama.util.BackupArchive
@@ -100,6 +104,18 @@ class SelfTestViewModel(private val repo: Repo) : ViewModel() {
                 addAll(checkSalaryAdvance())
                 addAll(checkWorkerName { it.bareWorkerName() })
                 addAll(checkWorkSummary())
+                addAll(
+                    checkStatement(
+                        totals = { rows ->
+                            val d = StatementData("x", rows = rows.map { StatementRow("", "", it.debit, it.credit) })
+                            Triple(d.totalDebit, d.totalCredit, d.balance)
+                        },
+                        runningBalances = { rows ->
+                            var acc = 0L
+                            rows.map { acc += it.debit - it.credit; acc }
+                        }
+                    )
+                )
                 addAll(
                     checkMargin(
                         line = { c, p, q ->

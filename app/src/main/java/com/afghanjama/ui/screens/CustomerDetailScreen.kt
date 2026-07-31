@@ -25,6 +25,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -40,6 +41,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import com.afghanjama.util.ShareUtil
+import com.afghanjama.pdf.StatementPdf
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -61,6 +69,9 @@ fun CustomerDetailScreen(
     LaunchedEffect(customerId) { vm.open(customerId) }
 
     val s by vm.summary.collectAsState()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var sharing by remember { mutableStateOf(false) }
     val measurements by vm.measurements.collectAsState()
 
     var showMeasure by remember { mutableStateOf(false) }
@@ -124,6 +135,34 @@ fun CustomerDetailScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "برگشت")
+                    }
+                },
+                actions = {
+                    // کارتِ حساب برای فرستادن — تا پیگیریِ بدهی شفاهی نمانَد.
+                    // فقط وقتی معنا دارد که گردشی ثبت شده باشد.
+                    val name = s.customer?.name.orEmpty()
+                    if (name.isNotBlank()) {
+                        IconButton(
+                            enabled = !sharing,
+                            onClick = {
+                                sharing = true
+                                scope.launch {
+                                    val data = vm.statementData(name)
+                                    val file = withContext(Dispatchers.IO) {
+                                        StatementPdf.create(
+                                            context, data,
+                                            fileName = "hesab-${name.trim()}.pdf"
+                                        )
+                                    }
+                                    ShareUtil.shareFile(
+                                        context, file, "application/pdf", "فرستادن کارت حساب"
+                                    )
+                                    sharing = false
+                                }
+                            }
+                        ) {
+                            Icon(Icons.Default.Share, contentDescription = "فرستادن کارت حساب")
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)

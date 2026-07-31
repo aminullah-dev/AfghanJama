@@ -6,8 +6,12 @@ import com.afghanjama.data.entities.Customer
 import com.afghanjama.data.entities.CustomerMeasurement
 import com.afghanjama.data.entities.CustomerPayment
 import com.afghanjama.data.entities.Order
+import com.afghanjama.pdf.StatementData
+import com.afghanjama.pdf.StatementRow
+import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.data.repo.Repo
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -33,6 +37,43 @@ class CustomerDetailViewModel(private val repo: Repo) : ViewModel() {
     private val customerId = MutableStateFlow<Long?>(null)
 
     fun open(id: Long) { customerId.value = id }
+
+    /**
+     * کارتِ حسابِ مشتری برای فرستادن.
+     *
+     * دفترِ مشتری در اپ بود ولی چیزی برای فرستادن نداشت و پیگیریِ بدهی
+     * شفاهی انجام می‌شد. همان سطرهای دفتر اینجا به یک برگه تبدیل می‌شوند.
+     */
+    suspend fun statementData(name: String): StatementData {
+        val entries = repo.observeLedgerEntries("CUSTOMER", name.trim()).first()
+        val customer = repo.customerByName(name)
+        return StatementData(
+            customerName = name.trim(),
+            customerPhone = customer?.phone.orEmpty(),
+            rows = entries
+                .sortedBy { it.at }
+                .map { e ->
+                    StatementRow(
+                        date = PersianDate.short(e.at),
+                        title = listOf(ledgerLabel(e.refType), e.refId, e.note)
+                            .filter { it.isNotBlank() }
+                            .joinToString(" • "),
+                        debit = e.debit,
+                        credit = e.credit
+                    )
+                }
+        )
+    }
+
+    /** برچسبِ خواندنیِ نوعِ سند — کدِ خام به دستِ مشتری نمی‌رود. */
+    private fun ledgerLabel(refType: String): String = when (refType) {
+        "CUSTOMER_SALE", "SALE" -> "فروش"
+        "CUSTOMER_PAYMENT", "PAYMENT" -> "پرداخت"
+        "CUSTOMER_PREPAY", "PREPAY" -> "بیعانه"
+        "CUSTOMER_RETURN", "RETURN" -> "برگشت از فروش"
+        "MANUAL" -> "ثبت دستی"
+        else -> refType
+    }
 
     val measurements: StateFlow<List<CustomerMeasurement>> =
         customerId.filterNotNull()
