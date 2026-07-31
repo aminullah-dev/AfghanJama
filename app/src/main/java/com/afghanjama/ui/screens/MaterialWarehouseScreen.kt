@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -15,6 +16,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -115,7 +117,28 @@ fun MaterialWarehouseScreen(
                     editTarget = null
                 }) { Text("ذخیره") }
             },
-            dismissButton = { TextButton(onClick = { editTarget = null }) { Text("لغو") } }
+            dismissButton = {
+                Row {
+                    // حذف فقط برای ردیفِ خالی — ردیفی که موجودی دارد ارزش
+                    // هم دارد و حذفِ مستقیمش حسابِ مواد را از انبار جدا
+                    // می‌کرد. برای آن ردیف اول باید ضایعات ثبت شود.
+                    if (item.amount <= 0.0) {
+                        TextButton(onClick = {
+                            vm.deleteRow(item)
+                            editTarget = null
+                        }) {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text("حذف", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                    TextButton(onClick = { editTarget = null }) { Text("لغو") }
+                }
+            }
         )
     }
 

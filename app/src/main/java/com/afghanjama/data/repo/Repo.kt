@@ -1233,6 +1233,27 @@ class Repo(private val db: AppDatabase) {
     fun observeStockMovements(): Flow<List<StockMovement>> =
         db.stockMovementDao().observeRecent()
 
+    /**
+     * حذفِ ردیفِ انبار — فقط وقتی **خالی** باشد.
+     *
+     * ردیفی که موجودی دارد ارزش هم دارد، و آن ارزش در حسابِ «موجودی
+     * مواد» نشسته است. حذفِ مستقیمش یعنی جنس از انبار می‌پرد ولی حساب
+     * سرِ جایش می‌مانَد و برای همیشه از واقعیت جدا می‌شود — همان انحرافی
+     * که یک بار در همین پروژه پیدا شد و اصلاحش کارِ کمی نبود.
+     *
+     * پس اول باید با «ضایعات» یا «اصلاح موجودی» صفر شود؛ آن مسیر سندِ
+     * حسابداری‌اش را هم می‌زند. بعد این حذف فقط ردیفِ خالی را برمی‌دارد.
+     *
+     * @return true اگر حذف شد.
+     */
+    suspend fun deleteMaterialStockIfEmpty(item: MaterialStock): Boolean {
+        val cur = db.materialStockDao().find(item.name.trim(), item.unit.trim()) ?: return true
+        if (cur.amount > 0.0) return false
+        db.materialStockDao().deleteById(cur.id)
+        audit("حذف ردیف انبار", "${cur.name} (${cur.unit})")
+        return true
+    }
+
     suspend fun getMaterialStock(name: String, unit: String): MaterialStock? =
         db.materialStockDao().find(name.trim(), unit.trim())
 

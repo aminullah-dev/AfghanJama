@@ -48,6 +48,23 @@ class WarehouseViewModel(private val repo: Repo) : ViewModel() {
         _ui.update { it.copy(message = "ضایعاتِ «${item.name}» ثبت شد.", isError = false) }
     }
 
+    /**
+     * حذفِ ردیفِ خالی — برای ردیف‌های شبحی که با ۰ متر ساخته شده بودند.
+     * ردیفی که موجودی دارد حذف نمی‌شود؛ اول باید ضایعاتش ثبت شود تا
+     * سندِ حسابداری‌اش هم بخورد.
+     */
+    fun deleteRow(item: MaterialStock) = viewModelScope.launch {
+        val ok = repo.deleteMaterialStockIfEmpty(item)
+        _ui.update {
+            if (ok) it.copy(message = "ردیف «${item.name}» حذف شد.", isError = false)
+            else it.copy(
+                message = "«${item.name}» هنوز ${item.amount} ${item.unit} موجودی دارد. " +
+                    "اول با «ضایعات» صفرش کنید تا سندش هم ثبت شود.",
+                isError = true
+            )
+        }
+    }
+
     fun setMinLevel(item: MaterialStock, minLevel: Double) = viewModelScope.launch {
         repo.setMaterialMinLevel(item.name, item.unit, minLevel)
         _ui.update { it.copy(message = "حد هشدار «${item.name}» ثبت شد.", isError = false) }
