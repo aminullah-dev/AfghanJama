@@ -30,6 +30,9 @@ import com.afghanjama.selftest.FcDraw
 import com.afghanjama.selftest.FcItem
 import com.afghanjama.selftest.FcOut
 import com.afghanjama.selftest.checkStockFolders
+import com.afghanjama.selftest.MgInvoice
+import com.afghanjama.selftest.MgLine
+import com.afghanjama.selftest.checkMargin
 import com.afghanjama.selftest.checkStockForecast
 import com.afghanjama.selftest.checkWorkSummary
 import com.afghanjama.selftest.checkWorkerName
@@ -40,6 +43,7 @@ import com.afghanjama.data.CashPolicy
 import com.afghanjama.data.DB_VERSION
 import com.afghanjama.data.ResetPlan
 import com.afghanjama.data.StockFolders
+import com.afghanjama.data.Margin
 import com.afghanjama.data.StockForecast
 import com.afghanjama.pdf.Paper
 import com.afghanjama.util.BackupArchive
@@ -96,6 +100,21 @@ class SelfTestViewModel(private val repo: Repo) : ViewModel() {
                 addAll(checkSalaryAdvance())
                 addAll(checkWorkerName { it.bareWorkerName() })
                 addAll(checkWorkSummary())
+                addAll(
+                    checkMargin(
+                        line = { c, p, q ->
+                            val l = Margin.Line(c, p, q)
+                            MgLine(l.profit, l.percent, l.losing, l.unknownCost)
+                        },
+                        invoice = { rows, disc ->
+                            val inv = Margin.Invoice(rows.map { Margin.Line(it.first, it.second, it.third) }, disc)
+                            MgInvoice(
+                                inv.costTotal, inv.revenue, inv.profit,
+                                inv.percent, inv.losing, inv.hasUnknownCost
+                            )
+                        }
+                    )
+                )
                 addAll(
                     checkStockForecast(
                         warnDays = StockForecast.WARN_DAYS,

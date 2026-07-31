@@ -56,6 +56,7 @@ import com.afghanjama.data.entities.FinishedStock
 import com.afghanjama.ui.components.AppScreen
 import com.afghanjama.ui.components.BusyButton
 import com.afghanjama.ui.format.PersianDate
+import com.afghanjama.data.Margin
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.format.fa
@@ -254,6 +255,37 @@ fun NewSaleScreen(
                 ) {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         TotalRow("جمع کل", ui.subtotal, bold = true)
+
+                        // سودِ کلِ فاکتور، پیش از ثبت. اگر فاکتور روی‌هم
+                        // زیان‌ده باشد باید همین‌جا دیده شود، نه در گزارشِ
+                        // آخرِ ماه.
+                        run {
+                            val inv = Margin.Invoice(
+                                lines = ui.lines.filter { it.ready }.map { l ->
+                                    Margin.Line(
+                                        cost = l.item?.avgCost ?: 0L,
+                                        price = l.unitPrice,
+                                        qty = l.qty
+                                    )
+                                }
+                            )
+                            if (inv.lines.isNotEmpty()) {
+                                Text(
+                                    buildString {
+                                        if (inv.losing) append("زیانِ فاکتور: ") else append("سودِ فاکتور: ")
+                                        append(inv.profit.afn())
+                                        inv.percent?.let { append(" (${it.fa()}٪)") }
+                                        if (inv.hasUnknownCost) {
+                                            append(" — بهای بعضی ردیف‌ها ثبت نشده، پس کامل نیست")
+                                        }
+                                    },
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (inv.losing) MaterialTheme.colorScheme.error
+                                    else MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
 
                         if (ui.prepay > 0) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -479,6 +511,36 @@ private fun LineCard(
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary
                 )
+            }
+
+            // سود همان لحظه‌ای که قیمت زده می‌شود. بهای تمام‌شده را اپ از
+            // قبل دقیق می‌داند (پارچه + خرج‌کار + دستمزد)، ولی تا امروز
+            // هیچ‌جا کنارِ قیمت گذاشته نمی‌شد و فروشِ زیرِ بها ماه‌ها بعد
+            // معلوم می‌گردید.
+            line.item?.let { it2 ->
+                val m = Margin.Line(cost = it2.avgCost, price = line.unitPrice, qty = line.qty)
+                if (line.unitPrice > 0) {
+                    Text(
+                        when {
+                            m.unknownCost ->
+                                "بهای تمام‌شدهٔ این کالا ثبت نشده — سود معلوم نیست"
+                            m.losing ->
+                                "زیان! بهای تمام‌شده ${it2.avgCost.afn()} هر عدد — " +
+                                    "${m.profit.afn()} (${m.percent?.fa().orEmpty()}٪)"
+                            else ->
+                                "بهای تمام‌شده ${it2.avgCost.afn()} هر عدد — " +
+                                    "سود ${m.profit.afn()}" +
+                                    (m.percent?.let { pc -> " (${pc.fa()}٪)" } ?: "")
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = if (m.losing) FontWeight.Bold else FontWeight.Normal,
+                        color = when {
+                            m.losing -> MaterialTheme.colorScheme.error
+                            m.unknownCost -> MaterialTheme.colorScheme.onSurfaceVariant
+                            else -> MaterialTheme.colorScheme.primary
+                        }
+                    )
+                }
             }
         }
     }

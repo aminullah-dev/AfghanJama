@@ -1991,3 +1991,123 @@ fun checkStockForecast(
 
     return s.results
 }
+
+// =====================================================================
+// 22) سودِ فروش — عددِ ساختگی ندهد و زیانِ پنهان نگذارد
+// =====================================================================
+
+data class MgLine(
+    val profit: Long,
+    val percent: Int?,
+    val losing: Boolean,
+    val unknownCost: Boolean
+)
+
+data class MgInvoice(
+    val costTotal: Long,
+    val revenue: Long,
+    val profit: Long,
+    val percent: Int?,
+    val losing: Boolean,
+    val hasUnknownCost: Boolean
+)
+
+/**
+ * سودِ هر ردیف و هر فاکتور.
+ *
+ * دو خطر سنجیده می‌شود، چون هر دو پول از جیبِ کارگاه می‌برند: زیانِ
+ * پنهان (فروش زیرِ بهای تمام‌شده که کسی نمی‌بیند) و عددِ ساختگی (وقتی
+ * بهای تمام‌شده ثبت نشده و اپ درصدی از خودش درمی‌آورد).
+ */
+fun checkMargin(
+    line: (Long, Long, Int) -> MgLine,
+    invoice: (List<Triple<Long, Long, Int>>, Long) -> MgInvoice
+): List<CheckResult> {
+    val s = CheckSink("سود فروش")
+
+    // ---- ردیفِ ساده ----
+    run {
+        val r = line(100L, 120L, 3)
+        s.eq("سودِ ۳ عدد با ۲۰ ؋ سودِ هرکدام", 60L, r.profit)
+        s.eq("درصد نسبت به بهای تمام‌شده", 20, r.percent)
+        s.isTrue("این فروش زیان نیست", !r.losing, "فروشِ سودده زیان شمرده شد")
+    }
+
+    // ---- فروش زیرِ بهای تمام‌شده ----
+    run {
+        val r = line(100L, 80L, 2)
+        s.eq("زیانِ ۲ عدد با ۲۰ ؋ ضررِ هرکدام", -40L, r.profit)
+        s.eq("درصدِ منفی", -20, r.percent)
+        s.isTrue("زیان علامت می‌خورد", r.losing, "فروشِ زیرِ بها زیان شمرده نشد")
+    }
+
+    // ---- بهای تمام‌شدهٔ ناموجود ----
+    run {
+        val r = line(0L, 500L, 1)
+        s.eq("بی بهای تمام‌شده درصد داده نمی‌شود", null, r.percent)
+        s.isTrue("و علامتِ نامعلوم می‌خورد", r.unknownCost, "بهای صفر نامعلوم شمرده نشد")
+        s.isTrue(
+            "و زیان هم شمرده نمی‌شود",
+            !r.losing,
+            "بهای نامعلوم به‌غلط زیان شمرده شد"
+        )
+    }
+
+    // ---- فروش دقیقاً سرِ بهای تمام‌شده ----
+    run {
+        val r = line(100L, 100L, 1)
+        s.eq("سودِ صفر", 0L, r.profit)
+        s.eq("درصدِ صفر", 0, r.percent)
+        s.isTrue("سرِ بها زیان نیست", !r.losing, "فروشِ سربه‌سر زیان شمرده شد")
+    }
+
+    // ---- فاکتور ----
+    run {
+        val inv = invoice(
+            listOf(
+                Triple(100L, 150L, 2),   // سود ۱۰۰
+                Triple(200L, 250L, 1)    // سود ۵۰
+            ),
+            0L
+        )
+        s.eq("بهای تمام‌شدهٔ فاکتور", 400L, inv.costTotal)
+        s.eq("فروشِ فاکتور", 550L, inv.revenue)
+        s.eq("سودِ فاکتور", 150L, inv.profit)
+        s.isTrue("فاکتورِ سودده زیان نیست", !inv.losing, "فاکتورِ سودده زیان شمرده شد")
+        s.isTrue("بهای همه معلوم است", !inv.hasUnknownCost, "بهای معلوم نامعلوم شمرده شد")
+    }
+
+    // ---- تخفیف از سود کم می‌شود، نه از بها ----
+    run {
+        val inv = invoice(listOf(Triple(100L, 150L, 2)), 60L)
+        s.eq("تخفیف بهای تمام‌شده را عوض نمی‌کند", 200L, inv.costTotal)
+        s.eq("تخفیف از فروش کم می‌شود", 240L, inv.revenue)
+        s.eq("پس سود همان‌قدر کم می‌شود", 40L, inv.profit)
+    }
+
+    // ---- تخفیفی که فاکتور را زیان‌ده می‌کند ----
+    run {
+        val inv = invoice(listOf(Triple(100L, 120L, 2)), 80L)
+        s.eq("سودِ منفی", -40L, inv.profit)
+        s.isTrue("و فاکتور زیان علامت می‌خورد", inv.losing, "تخفیفِ زیاد زیان نشان نداد")
+    }
+
+    // ---- یک ردیفِ بی‌بها کلِ فاکتور را مشکوک می‌کند ----
+    run {
+        val inv = invoice(listOf(Triple(100L, 150L, 1), Triple(0L, 300L, 1)), 0L)
+        s.isTrue(
+            "فاکتور می‌گوید بهایش کامل نیست",
+            inv.hasUnknownCost,
+            "ردیفِ بی‌بها در جمع پنهان ماند"
+        )
+    }
+
+    // ---- فاکتورِ خالی ----
+    run {
+        val inv = invoice(emptyList(), 0L)
+        s.eq("فاکتورِ خالی سودِ صفر دارد", 0L, inv.profit)
+        s.eq("و درصد ندارد", null, inv.percent)
+    }
+
+    return s.results
+}
