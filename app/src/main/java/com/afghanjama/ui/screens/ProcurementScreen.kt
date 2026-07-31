@@ -46,6 +46,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import com.afghanjama.data.entities.PaymentSource
 import com.afghanjama.ui.format.afn
+import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.format.toPersianDigits
 import com.afghanjama.ui.vm.ProcurementViewModel
 
@@ -122,6 +123,30 @@ fun ProcurementScreen(
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth()
                         )
+                        // دکمه و زیپ و نخ بسته‌ای خریده می‌شوند ولی عددی
+                        // مصرف؛ با پر کردنِ این خانه انبار عددی نگه داشته
+                        // می‌شود تا برداشتِ روزانه با واحدِ درست حساب شود.
+                        OutlinedTextField(
+                            value = ui.perPack,
+                            onValueChange = vm::setPerPack,
+                            label = { Text("داخلِ هر بسته چند عدد است؟ (اختیاری)") },
+                            placeholder = { Text("مثلاً ۱۰۰") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        run {
+                            val per = ui.perPack.toIntOrNull() ?: 0
+                            val n = ui.qty.toDoubleOrNull() ?: 0.0
+                            if (per > 1 && n > 0) {
+                                Text(
+                                    "وارد انبار می‌شود: ${(n * per).toLong().fa()} عدد " +
+                                        "(${n.toLong().fa()} ${ui.unit.ifBlank { "بسته" }} × ${per.fa()})",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
                         Button(onClick = vm::addLine, modifier = Modifier.fillMaxWidth()) {
                             Icon(Icons.Default.Add, contentDescription = null)
                             Spacer(Modifier.width(8.dp))

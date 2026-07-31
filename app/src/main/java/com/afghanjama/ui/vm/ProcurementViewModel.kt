@@ -19,9 +19,22 @@ data class MaterialLine(
     val name: String,
     val unit: String,
     val qty: Double,
-    val unitPrice: Long
+    val unitPrice: Long,
+    /** چند عدد داخلِ هر بسته؛ ۰ یا ۱ یعنی بسته‌بندی نیست. */
+    val perPack: Int = 0
 ) {
     val total: Long get() = (qty * unitPrice).toLong()
+
+    val packed: Boolean get() = perPack > 1
+
+    /**
+     * آنچه واقعاً وارد انبار می‌شود.
+     *
+     * بسته واحدِ خرید است، نه واحدِ مصرف: ۵ بستهٔ ۱۰۰تایی دکمه یعنی ۵۰۰
+     * عدد در انبار، چون برداشتِ روزانه عددی است نه بسته‌ای.
+     */
+    val stockUnit: String get() = if (packed) "عدد" else unit
+    val stockQty: Double get() = if (packed) qty * perPack else qty
 }
 
 data class ProcurementUi(
@@ -30,6 +43,8 @@ data class ProcurementUi(
     val unit: String = "",
     val qty: String = "",
     val unitPrice: String = "",
+    /** خالی یا ۱ یعنی این قلم بسته‌بندی ندارد. */
+    val perPack: String = "",
 
     // ---- اقلام افزوده‌شده ----
     val items: List<MaterialLine> = emptyList(),
@@ -61,6 +76,7 @@ class ProcurementViewModel(private val repo: Repo) : ViewModel() {
     fun setUnit(v: String) = _ui.update { it.copy(unit = v, message = null, isError = false) }
     fun setQty(v: String) = _ui.update { it.copy(qty = v.decimalOnly(), message = null, isError = false) }
     fun setUnitPrice(v: String) = _ui.update { it.copy(unitPrice = v.digitsOnly(), message = null, isError = false) }
+    fun setPerPack(v: String) = _ui.update { it.copy(perPack = v.digitsOnly(), message = null, isError = false) }
 
     fun setSupplier(v: String) = _ui.update { it.copy(supplier = v, message = null, isError = false) }
     fun setNote(v: String) = _ui.update { it.copy(note = v, message = null, isError = false) }
@@ -71,7 +87,10 @@ class ProcurementViewModel(private val repo: Repo) : ViewModel() {
         val qty = s.qty.toDoubleOrNull() ?: return null
         if (qty <= 0.0) return null
         val price = s.unitPrice.toLongOrNull()?.coerceAtLeast(0) ?: 0L
-        return MaterialLine(s.name.trim(), s.unit.trim(), qty, price)
+        return MaterialLine(
+            s.name.trim(), s.unit.trim(), qty, price,
+            perPack = s.perPack.toIntOrNull() ?: 0
+        )
     }
 
     /** قلمِ فعلی را به فاکتور اضافه و ویرایشگر را پاک می‌کند. */
@@ -83,7 +102,7 @@ class ProcurementViewModel(private val repo: Repo) : ViewModel() {
         _ui.update {
             it.copy(
                 items = it.items + line,
-                name = "", unit = "", qty = "", unitPrice = "",
+                name = "", unit = "", qty = "", unitPrice = "", perPack = "",
                 message = null, isError = false
             )
         }
@@ -130,7 +149,8 @@ class ProcurementViewModel(private val repo: Repo) : ViewModel() {
                 unit = it.unit,
                 qty = it.qty,
                 unitPrice = it.unitPrice,
-                total = it.total
+                total = it.total,
+                perPack = it.perPack
             )
         }
         // کنترلِ موجودی یک‌جا انجام می‌شود — داخلِ خودِ ثبت — تا صفحهٔ خرید و

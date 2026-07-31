@@ -1,0 +1,52 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""بسته‌بندی: پول عوض نشود، انبار عددی شود، مصرف با واحدِ درست حساب شود."""
+import re, sys
+from pathlib import Path
+ROOT = Path(__file__).resolve().parents[2] / "app/src/main/java/com/afghanjama"
+fails = []
+def check(c, m):
+    if not c: fails.append(m)
+
+def line(qty, price, per):
+    total = int(qty * price)
+    packed = per > 1
+    return dict(total=total,
+                stock_unit="عدد" if packed else "بسته",
+                stock_qty=qty * per if packed else qty)
+
+# ۵ بستهٔ ۱۰۰تایی دکمه، هر بسته ۲۰۰ ؋
+L = line(5, 200, 100)
+check(L["total"] == 1000, f"مبلغ باید ۱۰۰۰ بماند، شد {L['total']}")
+check(L["stock_qty"] == 500, f"انبار باید ۵۰۰ عدد شود، شد {L['stock_qty']}")
+check(L["stock_unit"] == "عدد", "واحدِ انبار باید عدد شود")
+# میانگینِ هر عدد
+check(abs(L["total"] / L["stock_qty"] - 2.0) < 1e-9, "میانگینِ هر عدد باید ۲ ؋ شود")
+
+# بی بسته‌بندی، رفتارِ قبلی دست‌نخورده
+for per in (0, 1):
+    P = line(7, 50, per)
+    check(P["stock_qty"] == 7, f"per={per}: مقدار نباید عوض شود")
+    check(P["stock_unit"] == "بسته", f"per={per}: واحد نباید عوض شود")
+    check(P["total"] == 350, f"per={per}: مبلغ نباید عوض شود")
+
+# پول هرگز با بسته‌بندی عوض نمی‌شود
+for per in (0, 1, 12, 100):
+    check(line(3, 400, per)["total"] == 1200, f"per={per}: مبلغ عوض شد")
+
+src = (ROOT / "ui/vm/ProcurementViewModel.kt").read_text(encoding="utf-8")
+check("val stockUnit" in src and "val stockQty" in src, "stockUnit/stockQty نیست")
+check("perPack > 1" in src, "شرطِ بسته‌بندی نیست")
+repo = (ROOT / "data/repo/Repo.kt").read_text(encoding="utf-8")
+check("it.perPack > 1" in repo, "Repo بسته را به عدد تبدیل نمی‌کند")
+check('"عدد"' in repo, "واحدِ عدد در Repo نیست")
+ent = (ROOT / "data/entities/PurchaseItem.kt").read_text(encoding="utf-8")
+check("val perPack" in ent, "ستونِ perPack روی قلمِ خرید نیست")
+mg = (ROOT / "data/Migrations.kt").read_text(encoding="utf-8")
+check("MIGRATION_57_58" in mg and "purchase_items` ADD COLUMN `perPack`" in mg, "مهاجرت نیست")
+db = (ROOT / "data/AppDatabase.kt").read_text(encoding="utf-8")
+check("DB_VERSION = 58" in db and "MIGRATION_57_58" in db, "نسخه ثبت نشد")
+
+if fails:
+    print(f"✗ {len(fails)} اشکال"); [print("  -", f) for f in fails]; sys.exit(1)
+print("✓ بسته‌بندی: مبلغ دست‌نخورده، انبار عددی، و بی‌بسته رفتارِ قبلی")

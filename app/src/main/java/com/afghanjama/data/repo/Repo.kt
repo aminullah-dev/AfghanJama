@@ -1334,7 +1334,19 @@ class Repo(private val db: AppDatabase) {
         }
         db.procurementDao().insertInvoice(invoice)
         db.procurementDao().insertItems(items)
-        items.forEach { addMaterialPurchase(it.name, it.unit, it.qty, it.total) }
+        // بسته واحدِ **خرید** است، نه واحدِ مصرف. اگر تعدادِ داخلِ بسته
+        // داده شده باشد، انبار عددی نگه داشته می‌شود تا برداشتِ روزانه با
+        // همان چیزی حساب شود که واقعاً مصرف می‌گردد. مبلغ عوض نمی‌شود، پس
+        // میانگینِ هر عدد خودش از تقسیمِ کلِ مبلغ بر تعدادِ کل درمی‌آید.
+        items.forEach {
+            val packed = it.perPack > 1
+            addMaterialPurchase(
+                name = it.name,
+                unit = if (packed) "عدد" else it.unit,
+                amount = if (packed) it.qty * it.perPack else it.qty,
+                totalPrice = it.total
+            )
+        }
         if (invoice.total > 0) {
             when (invoice.paySource) {
                 // نسیه: پول کم نمی‌شود؛ به‌عنوان بدهی فروشنده ثبت می‌شود
