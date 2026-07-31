@@ -274,8 +274,19 @@ class Repo(private val db: AppDatabase) {
             db.orderFabricDao().listForOrder(order.id.toString())
                 .filter { it.source == "MATERIAL" || it.source == "STOCK" }
                 .forEach { f ->
+                    /*
+                     * نامِ انبار باید دقیقاً همانی باشد که هنگامِ خرید
+                     * ساخته شده، وگرنه برداشت به ردیفِ دیگری می‌خورد و
+                     * موجودی هرگز کم نمی‌شود.
+                     *
+                     * منبعِ STOCK پارچه است و نامش «نوع + رنگ». منبعِ
+                     * MATERIAL یک مادهٔ عمومی است و نامش همان نوع؛ ولی اگر
+                     * رنگ هم داشته باشد یعنی در واقع پارچه است، پس همان
+                     * قاعدهٔ پارچه برایش به کار می‌رود.
+                     */
                     val matName =
-                        if (f.source == "STOCK") fabricMaterialName(f.fabricType, f.fabricColor)
+                        if (f.source == "STOCK" || f.fabricColor.isNotBlank())
+                            fabricMaterialName(f.fabricType, f.fabricColor)
                         else f.fabricType
                     takenValue += changeMaterialStock(
                         matName, f.fabricUnit, -f.amount,
@@ -1248,13 +1259,38 @@ class Repo(private val db: AppDatabase) {
     ): Long {
         if (delta == 0.0) return 0L
         val now = System.currentTimeMillis()
-        val cur = db.materialStockDao().find(name.trim(), unit.trim())
+
+        /*
+         * قلم با واحدِ دقیق پیدا نشد؟ با همان نام و هر واحدِ دیگری بگرد.
+         *
+         * انبار با کلیدِ «نام + واحد» نگه داشته می‌شود. اگر پارچه با «متر»
+         * خریده شده باشد ولی سفارش واحدش را «یارد» یا خالی بگذارد، جست‌وجو
+         * خطا می‌خورد و — بدتر از آن — یک ردیفِ صفرِ تازه ساخته می‌شد و
+         * برداشت **بی‌صدا** هیچ اثری نمی‌گذاشت. موجودیِ اصلی دست‌نخورده
+         * می‌ماند و کاربر هیچ خطایی نمی‌دید.
+         *
+         * حالا اول واحدِ دقیق، بعد همان نام با هر واحدی که موجودی دارد.
+         */
+        val exact = db.materialStockDao().find(name.trim(), unit.trim())
+        val cur = exact
+            ?: if (delta < 0) {
+                db.materialStockDao().observeAll().first()
+                    .firstOrNull { it.name.trim() == name.trim() && it.amount > 0.0 }
+            } else null
             ?: MaterialStock(name = name.trim(), unit = unit.trim(), amount = 0.0, updatedAt = now)
         val newAmount = (cur.amount + delta).coerceAtLeast(0.0)
         // آنچه واقعاً جابه‌جا شد؛ با سقفِ صفر می‌تواند کمتر از delta باشد
         val movedAmount = newAmount - cur.amount
         db.materialStockDao().upsert(cur.copy(amount = newAmount, updatedAt = now))
-        logMovement(name, unit, delta, reason, note)
+        logMovement(cur.name, cur.unit, delta, reason, note)
+
+        // برداشتی که به جایی نخورد باید دیده شود، نه اینکه بی‌صدا رد شود.
+        if (delta < 0 && movedAmount == 0.0) {
+            audit(
+                "برداشت از انبار انجام نشد",
+                "«${name.trim()}» با واحد «${unit.trim()}» موجودی نداشت — $reason $note"
+            )
+        }
         if (reason == "اصلاح") audit("اصلاح دستی موجودی", "$name: $delta $unit")
         return kotlin.math.abs(movedAmount * cur.avgPrice).toLong()
     }
