@@ -2391,9 +2391,19 @@ class Repo(private val db: AppDatabase) {
         db.finishedStockDao().observeAll().first()
             .map { it.photoFile }.filter { it.isNotBlank() }.toSet()
 
-    /** شناسهٔ کالای انبار برای چاپِ ستونِ «کد» روی فاکتور. */
-    suspend fun finishedStockIdFor(name: String, size: String): Long? =
-        db.finishedStockDao().find(name, size)?.id
+    /**
+     * کدِ اختصاصیِ طرح — همان که در «اطلاعات پایه» وارد می‌شود (مثل DIP-12).
+     *
+     * روی فاکتوری که دستِ مشتری می‌رود باید همین بیاید، نه شمارهٔ ردیفِ
+     * دیتابیس: آن عدد بیرون از اپ هیچ معنایی ندارد، روی گوشیِ دیگر عددِ
+     * دیگری می‌شود و با پاک کردنِ داده از نو شروع می‌شود. مشتری که برای
+     * سفارشِ دوباره زنگ می‌زند باید کدی بگوید که کارگاه بشناسد.
+     *
+     * اگر طرح ثبت نشده یا کد ندارد، خالی می‌مانَد — کدِ ساختگی روی فاکتور
+     * بدتر از نداشتنِ کد است.
+     */
+    suspend fun designCodeFor(designTitle: String): String =
+        db.masterDataDao().designCodeByTitle(designTitle.trim()).orEmpty().trim()
 
     /** مشتری بر اساسِ نام — برای بلوکِ «خریدار» روی فاکتور. */
     suspend fun customerByName(name: String): Customer? {

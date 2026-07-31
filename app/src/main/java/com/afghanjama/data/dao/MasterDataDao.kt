@@ -91,6 +91,10 @@ interface MasterDataDao {
     suspend fun setDesignCodeByTitle(title: String, code: String)
 
     /** دستهٔ طرح — پوشهٔ انبارِ محصول. خالی یعنی «دسته‌بندی‌نشده». */
+    /** کدِ اختصاصیِ طرح از روی نامش — برای چاپ روی فاکتور. */
+    @Query("SELECT code FROM design_items WHERE TRIM(title) = TRIM(:title) LIMIT 1")
+    suspend fun designCodeByTitle(title: String): String?
+
     @Query("UPDATE design_items SET category = :category WHERE id = :id")
     suspend fun setDesignCategory(id: Long, category: String)
 

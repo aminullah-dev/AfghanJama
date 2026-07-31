@@ -69,10 +69,12 @@ object DocumentRenderer {
         val lines = when (doc.type) {
             "SALE" -> saleRows.map {
                 InvoiceLine(
-                    // کدِ واقعیِ کالا در انبار. اگر ردیفِ انبار حذف شده
-                    // باشد خالی می‌ماند — کدِ ساختگی روی فاکتوری که دستِ
-                    // مشتری می‌رود بدتر از نداشتنِ کد است.
-                    code = repo.finishedStockIdFor(it.productName, it.size)?.fa().orEmpty(),
+                    // کدِ اختصاصیِ طرح، همان که در «اطلاعات پایه» وارد
+                    // می‌شود (مثل DIP-12). پیش از این شمارهٔ ردیفِ دیتابیس
+                    // چاپ می‌شد که بیرون از اپ هیچ معنایی نداشت.
+                    // اگر طرح کد ندارد خالی می‌ماند — کدِ ساختگی روی
+                    // فاکتوری که دستِ مشتری می‌رود بدتر از نداشتنِ کد است.
+                    code = repo.designCodeFor(it.productName),
                     name = listOf(it.productName, it.size).filter { s -> s.isNotBlank() }
                         .joinToString(" • "),
                     qty = it.qty.toDouble(),
