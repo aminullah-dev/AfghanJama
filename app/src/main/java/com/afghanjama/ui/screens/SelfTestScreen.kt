@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
@@ -160,7 +160,11 @@ fun SelfTestScreen(
                         modifier = Modifier.padding(top = 6.dp)
                     )
                 }
-                items(rows, key = { "${it.group}-${it.name}" }) { r -> ResultRow(r) }
+                // کلید از شمارهٔ ردیف می‌آید، نه از نامش.
+                // با نام، دو بررسیِ هم‌نام کلیدِ تکراری می‌ساختند و
+                // LazyColumn کلِ اپ را می‌انداخت — صفحه‌ای که کارش گزارشِ
+                // خرابی است، خودش نباید خرابی بسازد.
+                itemsIndexed(rows) { i, r -> ResultRow(r) }
             }
 
             item { Spacer(Modifier.height(40.dp)) }
