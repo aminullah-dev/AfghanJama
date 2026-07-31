@@ -210,6 +210,17 @@ class Repo(private val db: AppDatabase) {
      * خیاطانی که روی یک سفارش کار کرده‌اند — برای اینکه ناظر هنگامِ برگشت
      * بتواند بگوید کارِ کدام‌شان برگشت خورده.
      */
+    /**
+     * چند عدد از یک سفارش واقعاً دوخته و تحویل شده.
+     *
+     * پایهٔ نگهبانِ «ارسال به نظارت»: تا وقتی این عدد به تعدادِ سفارش
+     * نرسیده، فرستادنش به نظارت جنسِ خیالی وارد انبار می‌کند.
+     */
+    suspend fun sewnQtyOfOrder(orderId: String): Int =
+        db.sewingAssignmentDao().listForOrder(orderId)
+            .filter { it.status == "DONE" }
+            .sumOf { it.qty }
+
     suspend fun tailorsOfOrder(orderId: String): List<String> =
         db.sewingAssignmentDao().listForOrder(orderId)
             .map { it.tailorLabel.trim() }

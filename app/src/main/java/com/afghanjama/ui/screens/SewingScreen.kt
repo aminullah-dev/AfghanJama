@@ -78,6 +78,7 @@ fun SewingScreen(
     val handouts by vm.handouts.collectAsState()
     val measurementsByOrder by vm.measurementsByOrder.collectAsState(initial = emptyMap())
     val inProgress by vm.inProgress.collectAsState()
+    val sewMessage by vm.message.collectAsState()
     val tailors by vm.tailors.collectAsState()
     val allAssignments by vm.allAssignments.collectAsState()
     val pendingWages by vm.pendingWages.collectAsState()
@@ -137,6 +138,25 @@ fun SewingScreen(
                     }
                 }
             } else {
+                // پیامِ نگهبانِ «ارسال به نظارت» — وگرنه کاربر دکمه را
+                // می‌زند و هیچ اتفاقی نمی‌افتد و دلیلش را نمی‌فهمد.
+                sewMessage?.let { msg ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Row(
+                            Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(msg, modifier = Modifier.weight(1f))
+                            TextButton(onClick = { vm.clearMessage() }) { Text("باشه") }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
                 if (inProgress.isEmpty()) {
                     EmptyCard("موردی در حال دوخت نیست.", "پس از تحویل به خیاط، اینجا نمایش داده می‌شود.")
                 } else {
@@ -169,6 +189,11 @@ fun SewingScreen(
                                 )
                             }
                             item(key = "review-$code") {
+                                // برچسب دیگر «هرچه آماده است» نیست: تا
+                                // اصلاحِ جریانِ جزئی، نظارت کلِ سفارش را
+                                // وارد انبار می‌کند و ارسالِ نیمه‌کاره
+                                // جنسِ خیالی می‌سازد. نگهبانِ واقعی در
+                                // ViewModel است؛ این فقط همان را می‌گوید.
                                 Button(
                                     onClick = {
                                         // orderId روی سپردنِ کار متن است،
@@ -181,7 +206,7 @@ fun SewingScreen(
                                     },
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Text("ارسال $code به نظارت (هرچه آماده است)")
+                                    Text("ارسال $code به نظارت (پس از دوختِ همه)")
                                 }
                             }
                         }
