@@ -66,6 +66,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.format.PersianDate
+import com.afghanjama.data.StockForecast
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.elapsedHm
 import com.afghanjama.ui.format.fa
@@ -120,6 +121,7 @@ fun HomeDashboardScreen(
     onGoSelfTest: () -> Unit
 ) {
     val s by vm.summary.collectAsState()
+    val runningOut by vm.runningOut.collectAsState()
     val insideNow by vm.insideNow.collectAsState()
     val action by actionVm.ui.collectAsState()
 
@@ -406,6 +408,52 @@ fun HomeDashboardScreen(
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.error,
                             fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+
+        // ---------- موادی که دارند تمام می‌شوند ----------
+        // «حدِ هشدار» یک عددِ ثابت است و نمی‌داند پارچه‌ای که هفته‌ای ده متر
+        // می‌رود با پارچه‌ای که ماهی یک بار مصرف می‌شود فرق دارد. اینجا از
+        // سرعتِ مصرفِ واقعی گفته می‌شود چند روز دیگر وقت هست.
+        if (runningOut.isNotEmpty()) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    )
+                ) {
+                    Column(
+                        Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            "مواد رو به اتمام",
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        runningOut.forEach { f ->
+                            Text(
+                                buildString {
+                                    append("• ${f.name}: ")
+                                    append("${f.amount.toLong().fa()} ${f.unit} مانده")
+                                    if (f.daysLeft != null) {
+                                        append(" — حدود ${f.daysLeft.fa()} روز دیگر تمام می‌شود")
+                                    } else {
+                                        append(" — زیرِ حدِ هشدار")
+                                    }
+                                },
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                        Text(
+                            "بر اساسِ مصرفِ ${StockForecast.WINDOW_DAYS.fa()} روزِ گذشته",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer
                         )
                     }
                 }

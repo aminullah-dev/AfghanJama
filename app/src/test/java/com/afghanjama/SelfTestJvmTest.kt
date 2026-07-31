@@ -4,6 +4,7 @@ import com.afghanjama.data.CashPolicy
 import com.afghanjama.data.DB_VERSION
 import com.afghanjama.data.ResetPlan
 import com.afghanjama.data.StockFolders
+import com.afghanjama.data.StockForecast
 import com.afghanjama.pdf.Paper
 import com.afghanjama.pdf.columnWidths
 import com.afghanjama.pdf.invoiceColumns
@@ -29,7 +30,11 @@ import com.afghanjama.selftest.checkRestoreVerdict
 import com.afghanjama.selftest.FolderRow
 import com.afghanjama.selftest.FolderSummary
 import com.afghanjama.selftest.checkShortage
+import com.afghanjama.selftest.FcDraw
+import com.afghanjama.selftest.FcItem
+import com.afghanjama.selftest.FcOut
 import com.afghanjama.selftest.checkStockFolders
+import com.afghanjama.selftest.checkStockForecast
 import com.afghanjama.selftest.checkWorkSummary
 import com.afghanjama.selftest.checkWorkerName
 import com.afghanjama.selftest.checkStockValuation
@@ -68,6 +73,25 @@ class SelfTestJvmTest {
         addAll(checkSalaryAdvance())
         addAll(checkWorkerName { it.bareWorkerName() })
         addAll(checkWorkSummary())
+        addAll(
+            checkStockForecast(
+                warnDays = StockForecast.WARN_DAYS,
+                forecast = { items, draws, w ->
+                    StockForecast.forecast(
+                        items.map { StockForecast.Item(it.name, it.unit, it.amount, it.minLevel) },
+                        draws.map { StockForecast.Draw(it.name, it.unit, it.qty, it.atDay) },
+                        w
+                    ).map { FcOut(it.name, it.perDay, it.daysLeft, it.belowMin, it.urgent) }
+                },
+                needsAttention = { list ->
+                    StockForecast.needsAttention(
+                        list.map {
+                            StockForecast.Forecast(it.name, "", 0.0, it.perDay, it.daysLeft, it.belowMin)
+                        }
+                    ).map { FcOut(it.name, it.perDay, it.daysLeft, it.belowMin, it.urgent) }
+                }
+            )
+        )
         addAll(
             checkStockFolders(
                 uncategorised = StockFolders.UNCATEGORISED,

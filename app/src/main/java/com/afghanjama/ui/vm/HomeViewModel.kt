@@ -3,6 +3,7 @@ package com.afghanjama.ui.vm
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.afghanjama.data.entities.OrderStatus
+import com.afghanjama.data.StockForecast
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.ui.format.STAGE_WARN_DAYS
 import com.afghanjama.ui.format.stageDays
@@ -75,6 +76,41 @@ class HomeViewModel(repo: Repo) : ViewModel() {
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeSummary())
 
     /** بازه‌های بازِ حضور (کارمندانِ داخل کارگاه) برای ساعتِ شیفتِ داشبورد. */
+    /**
+     * موادی که دارند تمام می‌شوند — از رویِ سرعتِ مصرفِ واقعی، نه یک عددِ ثابت.
+     *
+     * کاردکس از اول همهٔ خروج‌ها را ثبت می‌کرده و کسی از آن چیزی نمی‌ساخت.
+     * در خیاطی تمام شدنِ پارچه وسطِ سفارش یعنی خطِ تولید می‌خوابد، پس این
+     * هشدار باید پیش از خوابیدنِ کار برسد.
+     */
+    val runningOut: StateFlow<List<StockForecast.Forecast>> = run {
+        val windowMs = StockForecast.WINDOW_DAYS * 24L * 60L * 60L * 1000L
+        val since = System.currentTimeMillis() - windowMs
+        combine(
+            repo.observeMaterialStock(),
+            repo.observeStockMovementsSince(since)
+        ) { stock, moves ->
+            val draws = moves
+                // فقط خروجِ واقعی؛ اصلاحِ دستی و برگشت نرخِ مصرف نیستند
+                .filter { it.delta < 0 && it.reason != "اصلاح" }
+                .map { m ->
+                    StockForecast.Draw(
+                        name = m.name,
+                        unit = m.unit,
+                        qty = -m.delta,
+                        atDay = ((System.currentTimeMillis() - m.createdAt) / 86_400_000L)
+                            .toInt().coerceAtLeast(0)
+                    )
+                }
+            StockForecast.needsAttention(
+                StockForecast.forecast(
+                    stock.map { StockForecast.Item(it.name, it.unit, it.amount, it.minLevel) },
+                    draws
+                )
+            ).take(5)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    }
+
     val insideNow: StateFlow<List<com.afghanjama.data.entities.AttendanceRecord>> =
         repo.observeAttendance()
             .map { list -> list.filter { it.checkOut == null } }

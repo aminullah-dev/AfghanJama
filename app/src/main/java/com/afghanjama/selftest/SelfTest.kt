@@ -1883,3 +1883,111 @@ fun checkStockFolders(
 
     return s.results
 }
+
+// =====================================================================
+// 21) پیش‌بینیِ کم‌آوردنِ مواد — نه دیر هشدار بدهد، نه الکی
+// =====================================================================
+
+data class FcItem(val name: String, val unit: String, val amount: Double, val minLevel: Double = 0.0)
+data class FcDraw(val name: String, val unit: String, val qty: Double, val atDay: Int)
+data class FcOut(
+    val name: String,
+    val perDay: Double,
+    val daysLeft: Int?,
+    val belowMin: Boolean,
+    val urgent: Boolean
+)
+
+/**
+ * هشدارِ کمبود از رویِ سرعتِ مصرفِ واقعی.
+ *
+ * مهم‌ترین چیزی که سنجیده می‌شود این است که هشدار **نه دیر برسد و نه
+ * الکی**: قلمی که تند مصرف می‌شود باید زودتر از قلمی که کند می‌رود بالا
+ * بیاید، و قلمی که اصلاً مصرف ندارد نباید کسی را بترساند.
+ */
+fun checkStockForecast(
+    warnDays: Int,
+    forecast: (List<FcItem>, List<FcDraw>, Int) -> List<FcOut>,
+    needsAttention: (List<FcOut>) -> List<FcOut>
+): List<CheckResult> {
+    val s = CheckSink("پیش‌بینی کمبود مواد")
+
+    val items = listOf(
+        FcItem("مخمل سرخ", "متر", 100.0),      // ۱۰ در روز → ۱۰ روز
+        FcItem("کتان", "متر", 300.0),          // ۱ در روز  → ۳۰۰ روز
+        FcItem("زیپ", "عدد", 40.0),            // بی‌مصرف
+        FcItem("دکمه", "بسته", 2.0, minLevel = 5.0)
+    )
+    val draws = listOf(
+        FcDraw("مخمل سرخ", "متر", 200.0, atDay = 5),
+        FcDraw("کتان", "متر", 20.0, atDay = 3),
+        FcDraw("دکمه", "بسته", 1.0, atDay = 1)
+    )
+    val out = forecast(items, draws, 20).associateBy { it.name }
+
+    // ---- نرخ و روزهای باقی‌مانده ----
+    s.eq("نرخِ مصرفِ روزانه از پنجره درمی‌آید", 10.0, out["مخمل سرخ"]?.perDay)
+    s.eq("۱۰۰ متر با ۱۰ در روز یعنی ۱۰ روز", 10, out["مخمل سرخ"]?.daysLeft)
+    s.eq("۳۰۰ متر با ۱ در روز یعنی ۳۰۰ روز", 300, out["کتان"]?.daysLeft)
+
+    // ---- قلمِ بی‌مصرف حدس زده نمی‌شود ----
+    s.eq("بی مصرف، پیش‌بینی داده نمی‌شود", null, out["زیپ"]?.daysLeft)
+    s.isTrue(
+        "قلمِ بی‌مصرف فوری شمرده نمی‌شود",
+        out["زیپ"]?.urgent == false,
+        "زیپ بی آنکه مصرفی داشته باشد فوری شد"
+    )
+
+    // ---- حدِ هشدار ----
+    s.isTrue(
+        "پایین‌تر از حدِ هشدار، فوری است",
+        out["دکمه"]?.belowMin == true && out["دکمه"]?.urgent == true,
+        "دکمه زیرِ حدِ هشدار بود ولی فوری نشد"
+    )
+
+    // ---- چه چیزی بالا می‌آید و به چه ترتیب ----
+    run {
+        val urgent = needsAttention(forecast(items, draws, 20))
+        s.isTrue(
+            "کتان با ۳۰۰ روز هشدار نمی‌دهد",
+            urgent.none { it.name == "کتان" },
+            "کتانِ فراوان در فهرستِ هشدار آمد"
+        )
+        s.isTrue(
+            "مخملِ ۱۰روزه هشدار می‌دهد",
+            urgent.any { it.name == "مخمل سرخ" },
+            "مخمل با ۱۰ روز باقی‌مانده هشدار نداد"
+        )
+        s.isTrue(
+            "فوری‌ترین اول می‌آید",
+            urgent.isNotEmpty() && urgent.first().name == "مخمل سرخ",
+            "ترتیب بر اساسِ فوریت نیست: " + urgent.joinToString { it.name }
+        )
+    }
+
+    // ---- پنجره باید واقعاً اثر بگذارد ----
+    run {
+        // همان ۲۰۰ متر در پنجرهٔ دوبرابر یعنی نرخِ نصف و عمرِ دوبرابر
+        val wide = forecast(items, draws, 40).associateBy { it.name }
+        s.eq("پنجرهٔ دوبرابر، نرخِ نصف", 5.0, wide["مخمل سرخ"]?.perDay)
+        s.eq("پس عمرِ باقی‌مانده دوبرابر", 20, wide["مخمل سرخ"]?.daysLeft)
+    }
+
+    // ---- مصرفِ بیرونِ پنجره شمرده نمی‌شود ----
+    run {
+        val old = listOf(FcDraw("مخمل سرخ", "متر", 200.0, atDay = 99))
+        val r = forecast(items, old, 20).associateBy { it.name }
+        s.eq("مصرفِ قدیمی در نرخ نمی‌آید", 0.0, r["مخمل سرخ"]?.perDay)
+        s.eq("و پیش‌بینی‌ای هم داده نمی‌شود", null, r["مخمل سرخ"]?.daysLeft)
+    }
+
+    // ---- حالت‌های لبه ----
+    s.eq("انبارِ خالی فهرستِ خالی می‌دهد", 0, forecast(emptyList(), draws, 20).size)
+    run {
+        val zero = forecast(listOf(FcItem("تمام‌شده", "متر", 0.0)), draws, 20).first()
+        s.eq("قلمِ صفر پیش‌بینی ندارد", null, zero.daysLeft)
+    }
+    s.isTrue("آستانهٔ هشدار مثبت است", warnDays > 0, "warnDays = $warnDays")
+
+    return s.results
+}
