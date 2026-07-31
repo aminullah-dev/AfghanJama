@@ -57,6 +57,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.afghanjama.data.entities.DesignItem
+import com.afghanjama.data.entities.FabricSeasons
 import com.afghanjama.data.entities.WorkCost
 import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.vm.MasterDataViewModel
@@ -117,11 +118,17 @@ fun MasterDataScreen(
 
             Box(Modifier.weight(1f)) {
                 when (tab) {
-                    0 -> SimpleListEditor(
-                        title = "فهرست انواع پارچه",
-                        hint = "مثلاً: کتان، برزنت، لینن…",
-                        items = types.map { it.title },
-                        onAdd = { vm.addFabricType(it) }
+                    0 -> TwoFieldListEditor(
+                        title = "انواع پارچه — فصلِ مناسبش را هم بدهید",
+                        hint1 = "نام پارچه (مثلاً کتان، برزنت، لینن…)",
+                        hint2 = "فصل: " + FabricSeasons.ALL.joinToString("، ") + " (اختیاری)",
+                        items = types.map { ty ->
+                            ty.title + if (ty.season.isNotBlank()) "  •  ${ty.season}" else ""
+                        },
+                        // فصل ویژگیِ خودِ پارچه است، نه هر خرید: کتان همیشه
+                        // تابستانی می‌مانَد. یک بار اینجا داده می‌شود و در
+                        // صفحهٔ خرید فقط دیده می‌شود.
+                        onAdd = { title, season -> vm.addFabricType(title, season) }
                     )
 
                     1 -> SimpleListEditor(

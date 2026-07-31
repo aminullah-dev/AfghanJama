@@ -60,8 +60,8 @@ class MasterDataViewModel(private val repo: Repo) : ViewModel() {
         repo.addStaff(name, role)
     }
 
-    fun addFabricType(title: String) = viewModelScope.launch {
-        repo.addFabricType(FabricType(id = 0L, title = title.trim()))
+    fun addFabricType(title: String, season: String = "") = viewModelScope.launch {
+        repo.addFabricType(FabricType(id = 0L, title = title.trim(), season = season.trim()))
     }
 
     fun addFabricColor(title: String, hex: String? = null) = viewModelScope.launch {

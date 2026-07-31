@@ -658,6 +658,13 @@ val MIGRATION_47_48 = object : Migration(47, 48) {
  * ستونِ افزودنی با پیش‌فرضِ ۰ (یعنی بسته‌بندی نیست)، پس خریدهای ثبت‌شده
  * دست نمی‌خورند.
  */
+/** فصلِ مناسبِ هر نوع پارچه. ستونِ افزودنی با پیش‌فرضِ خالی. */
+val MIGRATION_58_59 = object : Migration(58, 59) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `fabric_types` ADD COLUMN `season` TEXT NOT NULL DEFAULT ''")
+    }
+}
+
 val MIGRATION_57_58 = object : Migration(57, 58) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE `purchase_items` ADD COLUMN `perPack` INTEGER NOT NULL DEFAULT 0")

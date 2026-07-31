@@ -6,11 +6,15 @@ import com.afghanjama.data.CodeGen
 import com.afghanjama.data.entities.PaymentSource
 import com.afghanjama.data.entities.PurchaseInvoice
 import com.afghanjama.data.entities.PurchaseItem
+import com.afghanjama.data.entities.FabricColor
+import com.afghanjama.data.entities.FabricType
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.ui.format.decimalOnly
 import com.afghanjama.ui.format.digitsOnly
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -69,6 +73,50 @@ class ProcurementViewModel(private val repo: Repo) : ViewModel() {
 
     private val _ui = MutableStateFlow(ProcurementUi())
     val ui: StateFlow<ProcurementUi> = _ui
+
+    /**
+     * نوع و رنگِ پارچه از «اطلاعات پایه» می‌آیند.
+     *
+     * پارچه انبارِ جدا ندارد و مثل هر مادهٔ دیگر در انبار عمومی می‌نشیند؛
+     * نامش از «نوع + رنگ» ساخته می‌شود. این کادر فقط ورودی را مرتب
+     * می‌کند تا یک پارچه با دو املای متفاوت دو ردیفِ انبار نسازد.
+     */
+    val fabricTypes: StateFlow<List<FabricType>> =
+        repo.observeFabricTypes()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val fabricColors: StateFlow<List<FabricColor>> =
+        repo.observeFabricColors()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** نامِ انبارِ پارچه — همان قاعده‌ای که بقیهٔ اپ استفاده می‌کند. */
+    fun fabricName(type: String, color: String): String = repo.fabricMaterialName(type, color)
+
+    /**
+     * افزودنِ پارچه به فاکتور. جای جداگانه‌ای در انبار نمی‌گیرد — فقط
+     * نامش قاعده‌مند ساخته می‌شود.
+     */
+    fun addFabricLine(type: String, color: String, unit: String, qty: String, price: String) {
+        val name = fabricName(type, color)
+        val n = qty.toDoubleOrNull() ?: 0.0
+        if (name.isBlank() || unit.isBlank() || n <= 0.0) {
+            _ui.update {
+                it.copy(message = "برای افزودن پارچه: نوع، واحد و مقدار را کامل کنید.", isError = true)
+            }
+            return
+        }
+        _ui.update {
+            it.copy(
+                items = it.items + MaterialLine(
+                    name = name,
+                    unit = unit.trim(),
+                    qty = n,
+                    unitPrice = price.toLongOrNull()?.coerceAtLeast(0) ?: 0L
+                ),
+                message = null, isError = false
+            )
+        }
+    }
 
     private fun clear() = _ui.update { it.copy(message = null, isError = false) }
 

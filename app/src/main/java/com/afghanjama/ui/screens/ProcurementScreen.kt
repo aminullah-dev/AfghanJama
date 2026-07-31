@@ -30,6 +30,10 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -45,6 +49,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import com.afghanjama.data.entities.PaymentSource
+import com.afghanjama.data.entities.FabricUnits
+import com.afghanjama.ui.format.decimalOnly
+import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.format.toPersianDigits
@@ -59,6 +66,13 @@ fun ProcurementScreen(
     onBack: () -> Unit
 ) {
     val ui by vm.ui.collectAsState()
+    val fabricTypes by vm.fabricTypes.collectAsState()
+    val fabricColors by vm.fabricColors.collectAsState()
+    var fabType by remember { mutableStateOf("") }
+    var fabColor by remember { mutableStateOf("") }
+    var fabUnit by remember { mutableStateOf(FabricUnits.ALL.first()) }
+    var fabQty by remember { mutableStateOf("") }
+    var fabPrice by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -151,6 +165,96 @@ fun ProcurementScreen(
                             Icon(Icons.Default.Add, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
                             Text("افزودن به فاکتور")
+                        }
+                    }
+                }
+            }
+
+            // ---------- پارچه ----------
+            // پارچه انبارِ جدا ندارد و مثل هر مادهٔ دیگر در انبار عمومی
+            // می‌نشیند؛ این کادر فقط ورودی را قاعده‌مند می‌کند تا یک پارچه
+            // با دو املای متفاوت دو ردیفِ انبار نسازد.
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                ) {
+                    Column(
+                        Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text("پارچه", fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "نوع و رنگ از «اطلاعات پایه» می‌آیند. فصل ویژگیِ خودِ " +
+                                "پارچه است و همان‌جا تعیین می‌شود.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        FabricPicker(
+                            label = "نوع پارچه",
+                            value = fabType,
+                            options = fabricTypes.map { ty ->
+                                ty.title + if (ty.season.isNotBlank()) "  •  ${ty.season}" else ""
+                            },
+                            values = fabricTypes.map { it.title },
+                            emptyHint = "هنوز نوعی ثبت نشده — در «اطلاعات پایه» اضافه کنید",
+                            onPick = { fabType = it }
+                        )
+                        FabricPicker(
+                            label = "رنگ",
+                            value = fabColor,
+                            options = fabricColors.map { it.title },
+                            values = fabricColors.map { it.title },
+                            emptyHint = "هنوز رنگی ثبت نشده — در «اطلاعات پایه» اضافه کنید",
+                            onPick = { fabColor = it }
+                        )
+                        FabricPicker(
+                            label = "واحد",
+                            value = fabUnit,
+                            options = FabricUnits.ALL,
+                            values = FabricUnits.ALL,
+                            emptyHint = "",
+                            onPick = { fabUnit = it }
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = fabQty,
+                                onValueChange = { fabQty = it.decimalOnly() },
+                                label = { Text("مقدار") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f)
+                            )
+                            OutlinedTextField(
+                                value = fabPrice,
+                                onValueChange = { fabPrice = it.digitsOnly() },
+                                label = { Text("قیمت هر واحد (؋)") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        if (fabType.isNotBlank()) {
+                            Text(
+                                "در انبار با نامِ «${vm.fabricName(fabType, fabColor)}» ثبت می‌شود",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        Button(
+                            onClick = {
+                                vm.addFabricLine(fabType, fabColor, fabUnit, fabQty, fabPrice)
+                                fabQty = ""
+                                fabPrice = ""
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("افزودن پارچه به فاکتور")
                         }
                     }
                 }
@@ -299,4 +403,53 @@ private fun PaySourceChip(
         onClick = { onPick(value) },
         label = { Text(label) }
     )
+}
+
+/**
+ * انتخابگرِ کشویی.
+ *
+ * [options] چیزی است که کاربر می‌بیند (مثلاً «کتان • تابستان») و [values]
+ * آن چیزی که ذخیره می‌شود (مثلاً «کتان») — وگرنه فصل چسبیده به نام وارد
+ * انبار می‌شد و یک پارچه دو ردیف می‌ساخت.
+ */
+@Composable
+private fun FabricPicker(
+    label: String,
+    value: String,
+    options: List<String>,
+    values: List<String>,
+    emptyHint: String,
+    onPick: (String) -> Unit
+) {
+    var open by remember { mutableStateOf(false) }
+    Column {
+        OutlinedButton(
+            onClick = { if (options.isNotEmpty()) open = true },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                if (value.isBlank()) "$label — انتخاب کنید" else "$label: $value",
+                modifier = Modifier.weight(1f)
+            )
+            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+        }
+        if (options.isEmpty() && emptyHint.isNotBlank()) {
+            Text(
+                emptyHint,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            options.forEachIndexed { i, shown ->
+                DropdownMenuItem(
+                    text = { Text(shown) },
+                    onClick = {
+                        onPick(values.getOrElse(i) { shown })
+                        open = false
+                    }
+                )
+            }
+        }
+    }
 }

@@ -45,7 +45,10 @@ check("val perPack" in ent, "ستونِ perPack روی قلمِ خرید نیس�
 mg = (ROOT / "data/Migrations.kt").read_text(encoding="utf-8")
 check("MIGRATION_57_58" in mg and "purchase_items` ADD COLUMN `perPack`" in mg, "مهاجرت نیست")
 db = (ROOT / "data/AppDatabase.kt").read_text(encoding="utf-8")
-check("DB_VERSION = 58" in db and "MIGRATION_57_58" in db, "نسخه ثبت نشد")
+# نسخه از خودِ کد خوانده می‌شود، وگرنه با هر مهاجرتِ تازه می‌شکست
+ver = int(re.search(r"const val DB_VERSION = (\d+)", db).group(1))
+check(ver >= 58, f"DB_VERSION باید دستِ‌کم ۵۸ باشد، {ver} است")
+check("MIGRATION_57_58" in db, "مهاجرتِ ۵۷→۵۸ ثبت نشد")
 
 if fails:
     print(f"✗ {len(fails)} اشکال"); [print("  -", f) for f in fails]; sys.exit(1)
