@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -65,6 +66,29 @@ class NewSaleViewModel(private val repo: Repo) : ViewModel() {
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val _ui = MutableStateFlow(NewSaleUi())
+    /**
+     * مشتریانِ ثبت‌شده — برای انتخاب به‌جای تایپِ دوباره.
+     *
+     * نامی که دستی تایپ می‌شود هم مجاز می‌مانَد: پیشخوان همیشه مشتریِ
+     * گذری دارد و نباید مجبور شود اول در «اطلاعات پایه» ثبتش کند.
+     */
+    val customers: StateFlow<List<String>> =
+        repo.observeCustomers()
+            .map { list -> list.map { it.name }.filter { it.isNotBlank() }.sorted() }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * آیا نامِ نوشته‌شده مشتریِ تازه‌ای است؟
+     *
+     * تا فروشنده بداند دارد مشتریِ جدید می‌سازد یا روی حسابِ مشتریِ قبلی
+     * می‌نویسد — که وقتی دو نفر نامِ نزدیک دارند مهم است.
+     */
+    val customerIsNew: StateFlow<Boolean> =
+        combine(_ui, customers) { u, list ->
+            val typed = u.customer.trim()
+            typed.isNotBlank() && list.none { it.trim().equals(typed, ignoreCase = true) }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     val ui: StateFlow<NewSaleUi> = _ui.asStateFlow()
 
     private var nextKey = 2L

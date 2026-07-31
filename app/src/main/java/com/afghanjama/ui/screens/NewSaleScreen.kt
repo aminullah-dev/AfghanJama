@@ -14,12 +14,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.filled.PersonSearch
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
@@ -79,6 +81,67 @@ fun NewSaleScreen(
     // کدام ردیف منتظرِ انتخابِ کالاست
     var pickerFor by remember { mutableStateOf<Long?>(null) }
 
+    val customers by vm.customers.collectAsState()
+    val customerIsNew by vm.customerIsNew.collectAsState()
+    var showCustomerPicker by remember { mutableStateOf(false) }
+
+    // ---------- انتخابِ خریدار از مشتریانِ ثبت‌شده ----------
+    if (showCustomerPicker) {
+        var search by remember { mutableStateOf("") }
+        val shown = remember(search, customers) {
+            val q = search.trim()
+            if (q.isBlank()) customers
+            else customers.filter { it.contains(q, ignoreCase = true) }
+        }
+        AlertDialog(
+            onDismissRequest = { showCustomerPicker = false },
+            title = { Text("انتخاب خریدار") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = search,
+                        onValueChange = { search = it },
+                        label = { Text("جست‌وجوی نام") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (customers.isEmpty()) {
+                        Text(
+                            "هنوز مشتری‌ای در «اطلاعات پایه» ثبت نشده. " +
+                                "می‌توانید نام را همین‌جا مستقیم بنویسید.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else if (shown.isEmpty()) {
+                        Text(
+                            "مشتری‌ای با این نام پیدا نشد. " +
+                                "اگر خریدارِ تازه است، نامش را در کادرِ خریدار بنویسید.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    LazyColumn(
+                        modifier = Modifier.heightIn(max = 320.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        items(shown, key = { it }) { name ->
+                            TextButton(
+                                onClick = {
+                                    vm.setCustomer(name)
+                                    showCustomerPicker = false
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text(name, modifier = Modifier.fillMaxWidth()) }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showCustomerPicker = false }) { Text("بستن") }
+            }
+        )
+    }
+
     pickerFor?.let { key ->
         ItemPickerDialog(
             stock = stock,
@@ -120,8 +183,31 @@ fun NewSaleScreen(
                     value = ui.customer,
                     editable = true,
                     onValueChange = vm::setCustomer,
-                    hint = if (ui.prepay > 0) "بیعانهٔ نزدِ ما: ${ui.prepay.afn()}" else null
+                    hint = when {
+                        ui.prepay > 0 -> "بیعانهٔ نزدِ ما: ${ui.prepay.afn()}"
+                        // فروشنده باید بداند دارد مشتریِ تازه می‌سازد یا روی
+                        // حسابِ مشتریِ قبلی می‌نویسد — وقتی دو نفر نامِ نزدیک
+                        // دارند همین یک خط جلوی اشتباه را می‌گیرد.
+                        customerIsNew -> "خریدار جدید — با ثبتِ فاکتور ساخته می‌شود"
+                        ui.customer.isNotBlank() -> "مشتریِ ثبت‌شده"
+                        else -> null
+                    }
                 )
+            }
+            item {
+                // نامِ دستی هم مجاز می‌مانَد: پیشخوان مشتریِ گذری دارد و
+                // نباید مجبور شود اول در «اطلاعات پایه» ثبتش کند.
+                OutlinedButton(
+                    onClick = { showCustomerPicker = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.PersonSearch, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        if (customers.isEmpty()) "هنوز مشتری‌ای ثبت نشده"
+                        else "انتخاب از مشتریانِ ثبت‌شده (${customers.size.fa()})"
+                    )
+                }
             }
             item {
                 PartyRow(label = "فروشنده", value = "افغان جامه", editable = false)
