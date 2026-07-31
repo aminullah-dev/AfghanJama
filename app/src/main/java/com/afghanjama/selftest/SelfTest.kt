@@ -36,9 +36,15 @@ class CheckSink(private val group: String) {
     }
 
     /** ادعای برابری با پیامِ خودکار. */
+    /**
+     * [note] توضیحِ **قبولی** است، نه شکست — همه‌جا چیزی مثل «هر دو ۱۱۵۲ ؋»
+     * یا «۲۱۶ حالت آزموده شد» نوشته شده. تا امروز روی شکست هم چسبانده
+     * می‌شد و پیام بی‌معنا می‌شد: «انتظار: ۱۱۵۲ — دیده شد: ۱۱۸۹ (هر دو
+     * ۱۱۵۲ ؋)». حالا فقط وقتی قبول شد دیده می‌شود.
+     */
     fun eq(name: String, expected: Any?, actual: Any?, note: String = "") {
         if (expected == actual) pass(name, if (note.isBlank()) "= $actual" else note)
-        else fail(name, "انتظار: $expected — دیده شد: $actual" + if (note.isBlank()) "" else " ($note)")
+        else fail(name, "انتظار: $expected — دیده شد: $actual")
     }
 
     fun isTrue(name: String, condition: Boolean, failDetail: String, passDetail: String = "") {
