@@ -2177,3 +2177,291 @@ fun checkStatement(
 
     return s.results
 }
+
+// =====================================================================
+// 24) جریانِ جزئیِ سفارش — هر عدد که دوخته شد جلو می‌رود
+// =====================================================================
+
+/** یک تحویلِ دوخته‌شده، همان‌طور که `PartialFlow.Sewn` توصیفش می‌کند. */
+data class PfSewn(val qty: Int, val unitWage: Long, val doneAt: Long)
+
+/**
+ * سفارش در جریانِ جزئی — همان حالتی که `Repo` روی سفارش نگه می‌دارد،
+ * به‌اضافهٔ انبار محصول و «کار در جریان» تا بشود نتیجه را دید.
+ *
+ * ریاضی اینجا دوباره نوشته نمی‌شود: `readyToSend` و `depositValue`
+ * تزریق می‌شوند، پس همان کدی سنجیده می‌شود که اپ اجرا می‌کند.
+ */
+class PartialRun(
+    val qty: Int,
+    val fixedCost: Long,
+    private val readyToSend: (Int, Int, Int, Int) -> Int,
+    private val depositValue: (Int, Int, Int, Long, Long, List<PfSewn>, Long) -> Long
+) {
+    var inReview = 0; private set
+    var stored = 0; private set
+    var storedCost = 0L; private set
+    var sewnCost = 0L; private set
+    var status = "SEWING"; private set
+
+    /** انبار محصول: تعداد و ارزشِ همین طرح. */
+    var stockQty = 0; private set
+    var stockValue = 0L; private set
+
+    /** «کار در جریان» — باید در پایان دقیقاً به صفر برگردد. */
+    var wip = fixedCost; private set
+
+    private val sewn = mutableListOf<PfSewn>()
+    private var clock = 0L
+
+    /** خیاط [n] عدد تحویل داد؛ دستمزدش همان‌جا وارد «کار در جریان» می‌شود. */
+    fun sew(n: Int, unitWage: Long) {
+        sewn += PfSewn(n, unitWage, clock++)
+        val wage = n * unitWage
+        sewnCost += wage
+        wip += wage
+    }
+
+    /**
+     * دستمزدی که به سفارش می‌خورد بی‌آنکه عددِ تازه‌ای بسازد — اصلاحِ کارِ
+     * برگشتی یا کارمزدی که دیر ثبت شده.
+     *
+     * روی سفارشِ بسته اثری ندارد، چون در اپ هم نمی‌تواند داشته باشد:
+     * آخرین دسته وقتی می‌رود که همهٔ تحویل‌ها بسته شده باشند، پس دستمزدی
+     * نمی‌مانَد که بعداً برسد.
+     */
+    fun reworkWage(amount: Long) {
+        if (status == "STORED" || amount <= 0) return
+        sewnCost += amount
+        wip += amount
+    }
+
+    /**
+     * دکمهٔ «ارسال به نظارت». @return false وقتی چیزِ تازه‌ای نبود.
+     *
+     * سفارشی که همین حالا دستِ ناظر است دوباره فرستاده نمی‌شود — همان
+     * شرطی که `Repo.sendOrderToReview` روی وضعیت می‌گذارد.
+     */
+    fun send(): Boolean {
+        if (status != "SEWING") return false
+        val newly = readyToSend(qty, sewn.sumOf { it.qty }, inReview, stored)
+        if (newly <= 0) return false
+        inReview += newly
+        status = "REVIEW"
+        return true
+    }
+
+    /** تأییدِ ناظر: همان تعدادِ دستِ ناظر وارد انبار می‌شود. */
+    fun approve(): Int {
+        if (status != "REVIEW") return 0
+        val batch = minOf(inReview, qty - stored)
+        if (batch <= 0) return 0
+        val value = depositValue(qty, stored, batch, fixedCost, sewnCost, sewn.toList(), storedCost)
+        stockQty += batch
+        stockValue += value
+        wip -= value
+        stored += batch
+        storedCost += value
+        inReview = 0
+        status = if (stored >= qty) "STORED" else "SEWING"
+        return batch
+    }
+
+    /** برگشت برای اصلاح: عددها به دوخت برمی‌گردند، انبار دست‌نخورده. */
+    fun reject() {
+        inReview = 0
+        status = "SEWING"
+    }
+}
+
+/**
+ * جریانِ عادیِ کارگاه، نه حالتِ استثنایی: نانوا هر نان که پخت تحویل
+ * می‌دهد در حالی که در تنور هنوز نانِ نیم‌پخته هست.
+ *
+ * سه راهِ خراب‌شدنش که این بررسی می‌گیرد:
+ *  - تأییدِ نظارت کلِ `qty` را وارد انبار کند، نه آنچه واقعاً دوخته شده
+ *  - جمعِ بهای دسته‌ها با کلِ بهای سفارش نخوانَد و «کار در جریان» صفر نشود
+ *  - زدنِ دوبارهٔ دکمه همان عددها را دوباره بفرستد
+ */
+fun checkPartialReview(
+    readyToSend: (qty: Int, sewn: Int, inReview: Int, stored: Int) -> Int,
+    depositValue: (
+        qty: Int, stored: Int, batch: Int,
+        fixedCost: Long, sewnCost: Long, batches: List<PfSewn>, storedCost: Long
+    ) -> Long
+): List<CheckResult> {
+    val s = CheckSink("جریان جزئی سفارش")
+
+    fun order(qty: Int, fixedCost: Long) = PartialRun(qty, fixedCost, readyToSend, depositValue)
+
+    // ---- سفارشِ ۱۰تایی که تکه‌تکه تمام می‌شود ----
+    // پارچه و خرج‌کار ۱۰۰۰، دستمزد ۱۰۰ برای هر عدد → بهای هر عدد ۲۰۰
+    run {
+        val o = order(qty = 10, fixedCost = 1_000)
+
+        o.sew(3, 100)
+        s.isTrue("۳ عددِ دوخته‌شده به نظارت می‌رود", o.send(), "ارسالِ جزئی رد شد")
+        s.eq("تأیید همان ۳ عدد را وارد انبار می‌کند", 3, o.approve())
+        s.eq("انبار ۳ عدد گرفت، نه ۱۰ عدد", 3, o.stockQty)
+        s.eq("بهای ۳ عدد به نسبتِ همان ۳ عدد است", 600L, o.stockValue)
+        s.eq("سفارش بسته نشد و به دوخت برگشت", "SEWING", o.status)
+        s.eq("۷ عدد هنوز در دوخت مانده", 7, o.qty - o.stored)
+
+        o.sew(2, 100)
+        s.isTrue("۲ عددِ بعدی هم می‌رود", o.send(), "دستهٔ دوم رد شد")
+        s.eq("و ۲ عدد وارد انبار می‌شود", 2, o.approve())
+        s.eq("جمعِ انبار ۵ عدد شد", 5, o.stockQty)
+        s.eq("بهای ۵ عدد هم به نسبتِ خودش خواند", 1_000L, o.stockValue)
+        s.eq("باقی ۵ عدد است", 5, o.qty - o.stored)
+        s.eq("سفارش هنوز باز است", "SEWING", o.status)
+
+        o.sew(5, 100)
+        s.isTrue("۵ عددِ آخر می‌رود", o.send(), "دستهٔ آخر رد شد")
+        s.eq("و ۵ عدد وارد انبار می‌شود", 5, o.approve())
+        s.eq("جمعِ ارسال‌های جزئی دقیقاً کلِ سفارش شد", 10, o.stockQty)
+        s.eq("جمعِ بها هم دقیقاً کلِ بهای سفارش شد", 2_000L, o.stockValue)
+        s.eq("حالا سفارش بسته می‌شود", "STORED", o.status)
+        s.eq("«کار در جریان» پس از آخرین دسته صفر شد", 0L, o.wip)
+    }
+
+    // ---- زدنِ دوبارهٔ دکمه وقتی چیزِ تازه‌ای دوخته نشده ----
+    run {
+        val o = order(qty = 10, fixedCost = 1_000)
+        o.sew(4, 100)
+        o.send()
+        s.isTrue("ارسالِ دوباره بی‌چیزِ تازه اثری ندارد", !o.send(), "همان عددها دوباره فرستاده شد")
+        s.eq("و تعدادِ دستِ نظارت همان ۴ ماند", 4, o.inReview)
+        // خودِ شمارش هم جدا سنجیده می‌شود، نه فقط شرطِ وضعیت: اگر روزی
+        // مسیرِ دیگری بدونِ آن شرط به اینجا برسد، باید همین صفر را بگیرد.
+        s.eq("شمارش هم چیزِ تازه‌ای نمی‌بیند", 0, readyToSend(10, 4, 4, 0))
+        s.eq("و عددهای رفته را دوباره نمی‌شمارد", 0, readyToSend(10, 4, 0, 4))
+        o.approve()
+        s.eq("انبار فقط همان ۴ عدد گرفت", 4, o.stockQty)
+        s.isTrue("تأییدِ دوباره چیزی وارد انبار نمی‌کند", o.approve() == 0, "دسته دو بار وارد شد")
+        s.eq("و موجودی همان ۴ عدد ماند", 4, o.stockQty)
+    }
+
+    // ---- سفارشی که یکجا کامل می‌شود: مثلِ امروز ----
+    run {
+        val o = order(qty = 6, fixedCost = 3_000)
+        o.sew(6, 250)
+        s.isTrue("سفارشِ یکجا هم می‌رود", o.send(), "سفارشِ کاملِ یکجا رد شد")
+        s.eq("همهٔ ۶ عدد یکجا وارد انبار می‌شود", 6, o.approve())
+        s.eq("با کلِ بهای سفارش", 4_500L, o.stockValue)
+        s.eq("و همان‌جا بسته می‌شود", "STORED", o.status)
+        s.eq("«کار در جریان» صفر", 0L, o.wip)
+    }
+
+    // ---- برگشت از نظارت: عددها به دوخت برمی‌گردند، نه به انبار ----
+    run {
+        val o = order(qty = 8, fixedCost = 800)
+        o.sew(5, 100)
+        o.send()
+        o.reject()
+        s.eq("برگشت چیزی وارد انبار نکرد", 0, o.stockQty)
+        s.eq("و تعدادِ دستِ نظارت صفر شد", 0, o.inReview)
+        s.isTrue("پس از اصلاح همان ۵ عدد دوباره می‌رود", o.send(), "کارِ برگشتی راه نیفتاد")
+        s.eq("و همان ۵ عدد وارد انبار می‌شود، نه بیشتر", 5, o.approve())
+    }
+
+    // ---- خیاطانِ گران و ارزان: بهای هر دسته مالِ خودش ----
+    // اگر دستمزد سرشکن شود، دستهٔ خیاطِ ارزان بهای گران می‌گیرد.
+    run {
+        val o = order(qty = 4, fixedCost = 400)
+        o.sew(2, 500)     // خیاطِ گران
+        o.send(); o.approve()
+        s.eq("دستهٔ خیاطِ گران بهای خودش را برد", 1_200L, o.stockValue)
+        o.sew(2, 100)     // خیاطِ ارزان
+        o.send(); o.approve()
+        s.eq("و جمع در پایان کلِ بها شد", 1_600L, o.stockValue)
+        s.eq("«کار در جریان» با دو نرخِ متفاوت هم صفر شد", 0L, o.wip)
+    }
+
+    // ---- دسته‌ای که وسطِ بازرسیِ دستهٔ قبل تمام می‌شود ----
+    // هر دسته باید دستمزدِ عددهای **خودش** را ببرد. اگر دستمزدِ سفارش
+    // سرشکن شود، دستهٔ خیاطِ گران با بهای خیاطِ ارزان وارد انبار می‌شود و
+    // سودِ فروشِ آن دسته دروغ می‌شود.
+    run {
+        val o = order(qty = 4, fixedCost = 400)
+        o.sew(2, 500)                 // خیاطِ گران، رفت به نظارت
+        o.send()
+        o.sew(2, 100)                 // خیاطِ ارزان، همان موقع تمام کرد
+        s.eq("ناظر دستهٔ زیرِ دستش را تأیید می‌کند", 2, o.approve())
+        s.eq("و بهای همان دسته را می‌برد، نه سهمِ سرشکن", 1_200L, o.stockValue)
+        o.send()
+        o.approve()
+        s.eq("جمع پس از دو دستهٔ هم‌زمان درست شد", 1_600L, o.stockValue)
+        s.eq("«کار در جریان» با دو دستهٔ هم‌زمان صفر شد", 0L, o.wip)
+    }
+
+    // ---- دستمزدی که بعد از رفتنِ دسته‌های اول می‌رسد ----
+    // اصلاحِ کارِ برگشتی دستمزدِ تازه‌ای وارد «کار در جریان» می‌کند که به
+    // هیچ عددِ تازه‌ای وصل نیست. تنها چیزی که بیرونش می‌آورد، جمع‌کردنِ
+    // ته‌مانده در آخرین دسته است.
+    run {
+        val o = order(qty = 5, fixedCost = 500)
+        o.sew(3, 100)
+        o.send()
+        o.approve()
+        o.sew(2, 100)
+        o.reworkWage(150)             // اصلاحِ کارِ برگشتی
+        o.send()
+        s.eq("دستهٔ آخر همان ۲ عدد است", 2, o.approve())
+        s.eq("دستمزدِ دیررس تعدادِ انبار را بالا نبرد", 5, o.stockQty)
+        s.eq("و در بهای انبار نشست", 1_150L, o.stockValue)
+        s.eq("دستمزدِ دیررس در «کار در جریان» جا نماند", 0L, o.wip)
+    }
+
+    // ---- ته‌ماندهٔ تقسیم: بهایی که بر تعداد بخش‌پذیر نیست ----
+    run {
+        val o = order(qty = 3, fixedCost = 1_000)
+        o.sew(1, 0); o.send(); o.approve()
+        o.sew(1, 0); o.send(); o.approve()
+        o.sew(1, 0); o.send(); o.approve()
+        s.eq("۱۰۰۰ بر ۳ عدد پخش شد بی‌آنکه افغانی‌ای گم شود", 1_000L, o.stockValue)
+        s.eq("و «کار در جریان» به صفر برگشت", 0L, o.wip)
+    }
+
+    // ---- صدها حالتِ تصادفی ----
+    run {
+        var seed = 271828L
+        fun rnd(bound: Int): Int {
+            seed = seed * 6364136223846793005L + 1442695040888963407L
+            return (((seed ushr 33).toInt() % bound) + bound) % bound
+        }
+        var brokenWip = 0
+        var wrongQty = 0
+        var overflow = 0
+        repeat(600) {
+            val qty = rnd(30) + 1
+            val o = order(qty, rnd(50_000).toLong())
+            var left = qty
+            while (left > 0) {
+                val n = minOf(left, rnd(5) + 1)
+                o.sew(n, rnd(400).toLong())
+                left -= n
+                // گاهی می‌فرستد، گاهی صبر می‌کند — هر دو باید درست باشند
+                if (rnd(3) != 0) {
+                    o.send()
+                    if (rnd(6) == 0) {
+                        o.reject()
+                        // اصلاحِ کارِ برگشتی: دستمزدِ تازه بی‌عددِ تازه
+                        o.reworkWage(rnd(400).toLong())
+                    } else {
+                        o.approve()
+                    }
+                }
+            }
+            o.send()
+            o.approve()
+            if (o.wip != 0L) brokenWip++
+            if (o.stockQty != qty) wrongQty++
+            if (o.stockQty > qty) overflow++
+        }
+        s.eq("۶۰۰ سفارشِ تصادفی: انبار دقیقاً به تعدادِ سفارش رسید", 0, wrongQty)
+        s.eq("۶۰۰ سفارشِ تصادفی: هیچ‌وقت بیش از سفارش وارد انبار نشد", 0, overflow)
+        s.eq("۶۰۰ سفارشِ تصادفی: «کار در جریان» همیشه صفر شد", 0, brokenWip)
+    }
+
+    return s.results
+}

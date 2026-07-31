@@ -19,6 +19,7 @@ import com.afghanjama.selftest.checkCashFlow
 import com.afghanjama.selftest.checkInvoiceTotals
 import com.afghanjama.selftest.checkDiscountMath
 import com.afghanjama.selftest.checkOrderCycle
+import com.afghanjama.selftest.checkPartialReview
 import com.afghanjama.selftest.checkPaperGeometry
 import com.afghanjama.selftest.checkSalaryAdvance
 import com.afghanjama.selftest.checkResetPlan
@@ -43,6 +44,7 @@ import com.afghanjama.selftest.checkTailorAttribution
 import com.afghanjama.selftest.PaperSpec
 import com.afghanjama.data.CashPolicy
 import com.afghanjama.data.DB_VERSION
+import com.afghanjama.data.PartialFlow
 import com.afghanjama.data.ResetPlan
 import com.afghanjama.data.StockFolders
 import com.afghanjama.data.Margin
@@ -101,6 +103,26 @@ class SelfTestViewModel(private val repo: Repo) : ViewModel() {
                 addAll(checkShortage())
                 addAll(checkDiscountMath())
                 addAll(checkOrderCycle())
+                addAll(
+                    checkPartialReview(
+                        readyToSend = { qty, sewn, inReview, stored ->
+                            PartialFlow.readyToSend(qty, sewn, inReview, stored)
+                        },
+                        depositValue = { qty, stored, batch, fixed, sewnCost, batches, storedCost ->
+                            PartialFlow.depositValue(
+                                qty = qty,
+                                stored = stored,
+                                batch = batch,
+                                fixedCost = fixed,
+                                sewnCost = sewnCost,
+                                batches = batches.map {
+                                    PartialFlow.Sewn(it.qty, it.unitWage, it.doneAt)
+                                },
+                                storedCost = storedCost
+                            )
+                        }
+                    )
+                )
                 addAll(checkSalaryAdvance())
                 addAll(checkWorkerName { it.bareWorkerName() })
                 addAll(checkWorkSummary())

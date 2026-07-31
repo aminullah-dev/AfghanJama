@@ -242,14 +242,26 @@ fun ReviewScreen(
                                         overflow = TextOverflow.Ellipsis
                                     )
                                     Text(
-                                        text = "${o.orderCode} • تعداد: ${o.qty}",
+                                        text = "${o.orderCode} • کلِ سفارش: ${o.qty}",
                                         style = MaterialTheme.typography.labelMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
+                                // عددی که تأیید واردِ انبار می‌کند همین است،
+                                // نه کلِ سفارش. ناظر باید پیش از زدنِ دکمه
+                                // ببیند چند عدد جلویش است.
                                 Text(
-                                    text = "دوخته شده: ${o.doneSewCount}/${o.qty}",
+                                    text = "این ارسال: ${o.reviewQty.fa()} عدد",
                                     fontWeight = FontWeight.SemiBold
+                                )
+                            }
+
+                            if (o.storedQty > 0) {
+                                Text(
+                                    text = "از این سفارش ${o.storedQty.fa()} عدد از قبل وارد " +
+                                        "انبار شده؛ باقی هنوز در دوخت است.",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
 
@@ -347,11 +359,12 @@ private fun inspectorBrief(orders: List<Order>): String = buildString {
     orders.forEach { o ->
         val days = stageDays(o.stageChangedAt, o.createdAt)
         appendLine(
-            "• ${o.designTitle.ifBlank { o.orderCode }} — ${o.qty.fa()} عدد" +
+            "• ${o.designTitle.ifBlank { o.orderCode }} — ${o.reviewQty.fa()} عدد" +
+                (if (o.reviewQty < o.qty) " از ${o.qty.fa()}" else "") +
                 " • ${o.orderCode} • ${days.fa()} روز در انتظار" +
                 (if (days >= STAGE_WARN_DAYS) " ⚠️" else "")
         )
     }
     appendLine("──────────────")
-    appendLine("⏰ یادآوری: نتیجهٔ هر بررسی (تأیید یا برگشت برای اصلاح) را همان روز ثبت کنید؛ کارِ تأییدشده خودکار وارد انبار محصول می‌شود.")
+    appendLine("⏰ یادآوری: نتیجهٔ هر بررسی (تأیید یا برگشت برای اصلاح) را همان روز ثبت کنید؛ همان تعدادی که تأیید شود خودکار وارد انبار محصول می‌شود و باقیِ سفارش در دوخت می‌مانَد.")
 }

@@ -360,6 +360,16 @@ fun OrderDetailScreen(
                             else -> o.fabricUnit
                         }
                         DetailRow("تعداد", "${o.qty} عدد")
+                        // تعدادِ سفارش یک عددِ ثابت است، ولی کار جاری است:
+                        // بخشی در انبار، بخشی دستِ ناظر، بخشی هنوز در دوخت.
+                        // تا وقتی این‌ها نوشته نشود، «تعداد: ۲۰» می‌گوید
+                        // بیست عدد آماده است در حالی که شاید شش عدد باشد.
+                        if (o.storedQty in 1 until o.qty) {
+                            DetailRow("وارد انبار شده", "${o.storedQty} از ${o.qty} عدد")
+                        }
+                        if (o.reviewQty > 0) {
+                            DetailRow("دستِ نظارت", "${o.reviewQty} عدد")
+                        }
                         DetailRow("پارچه", "${o.fabricType} • ${o.fabricColor} • ${o.fabricAmount} $unitFa")
                         DetailRow(
                             "منبع",

@@ -659,6 +659,29 @@ val MIGRATION_47_48 = object : Migration(47, 48) {
  * دست نمی‌خورند.
  */
 /** فصلِ مناسبِ هر نوع پارچه. ستونِ افزودنی با پیش‌فرضِ خالی. */
+/**
+ * تعدادِ جاریِ سفارش: چند عدد دستِ نظارت، چند عدد در انبار، و چه مبلغی
+ * از «کار در جریان» بیرون رفته.
+ *
+ * سفارش‌های موجود باید همان‌جا که هستند معنا پیدا کنند، وگرنه اولین
+ * تأییدِ نظارت پس از آپدیت صفر عدد وارد انبار می‌کند:
+ *  - سفارشِ در نظارت با قاعدهٔ قبلی یکجا فرستاده شده، پس همه‌اش دستِ ناظر است
+ *  - سفارشِ در انبار یا تحویل‌شده همه‌اش رفته و بهایش هم رفته
+ */
+val MIGRATION_59_60 = object : Migration(59, 60) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `orders` ADD COLUMN `reviewQty` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `orders` ADD COLUMN `storedQty` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `orders` ADD COLUMN `storedCost` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("UPDATE orders SET reviewQty = qty WHERE status = 'REVIEW'")
+        db.execSQL(
+            "UPDATE orders SET storedQty = qty, " +
+                "storedCost = fabricPrice + workCost + sewingCost " +
+                "WHERE status IN ('STORED', 'SENT')"
+        )
+    }
+}
+
 val MIGRATION_58_59 = object : Migration(58, 59) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE `fabric_types` ADD COLUMN `season` TEXT NOT NULL DEFAULT ''")

@@ -2,6 +2,7 @@ package com.afghanjama
 
 import com.afghanjama.data.CashPolicy
 import com.afghanjama.data.DB_VERSION
+import com.afghanjama.data.PartialFlow
 import com.afghanjama.data.ResetPlan
 import com.afghanjama.data.StockFolders
 import com.afghanjama.data.Margin
@@ -26,6 +27,7 @@ import com.afghanjama.selftest.checkJalali
 import com.afghanjama.selftest.checkMoneySplit
 import com.afghanjama.selftest.checkMultiLineInvoice
 import com.afghanjama.selftest.checkOrderCycle
+import com.afghanjama.selftest.checkPartialReview
 import com.afghanjama.selftest.checkPaperGeometry
 import com.afghanjama.selftest.checkSalaryAdvance
 import com.afghanjama.selftest.checkResetPlan
@@ -77,6 +79,26 @@ class SelfTestJvmTest {
         addAll(checkShortage())
         addAll(checkDiscountMath())
         addAll(checkOrderCycle())
+        addAll(
+            checkPartialReview(
+                readyToSend = { qty, sewn, inReview, stored ->
+                    PartialFlow.readyToSend(qty, sewn, inReview, stored)
+                },
+                depositValue = { qty, stored, batch, fixed, sewnCost, batches, storedCost ->
+                    PartialFlow.depositValue(
+                        qty = qty,
+                        stored = stored,
+                        batch = batch,
+                        fixedCost = fixed,
+                        sewnCost = sewnCost,
+                        batches = batches.map {
+                            PartialFlow.Sewn(it.qty, it.unitWage, it.doneAt)
+                        },
+                        storedCost = storedCost
+                    )
+                }
+            )
+        )
         addAll(checkResetPlan(ResetPlan.CLEAR, ResetPlan.KEEP))
         addAll(checkSalaryAdvance())
         addAll(checkWorkerName { it.bareWorkerName() })

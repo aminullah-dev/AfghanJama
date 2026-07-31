@@ -2,6 +2,7 @@ package com.afghanjama.data.repo
 
 import com.afghanjama.data.AppDatabase
 import com.afghanjama.data.CashPolicy
+import com.afghanjama.data.PartialFlow
 import com.afghanjama.data.entities.AttendanceRecord
 import com.afghanjama.data.entities.Customer
 import com.afghanjama.data.dao.NamedMeasurement
@@ -173,36 +174,93 @@ class Repo(private val db: AppDatabase) {
         db.qcRecordDao().observeAll()
 
     /**
-     * تأیید کیفیت: رکورد QC ثبت و سفارش مستقیم واردِ انبار محصول می‌شود.
-     * تصمیمِ فروش (مشتری/قیمت/تخفیف) در انبار محصول توسط بخش فروش گرفته
-     * می‌شود — نظارت فقط کیفیت را تأیید می‌کند.
+     * تأیید کیفیت: رکورد QC ثبت و **همان تعدادی که دستِ ناظر بود** واردِ
+     * انبار محصول می‌شود — نه کلِ سفارش. تصمیمِ فروش (مشتری/قیمت/تخفیف)
+     * در انبار محصول توسط بخش فروش گرفته می‌شود؛ نظارت فقط کیفیت را
+     * تأیید می‌کند.
+     *
+     * اگر باقیِ سفارش هنوز در دوخت باشد، سفارش به «دوخت» برمی‌گردد و
+     * منتظرِ دستهٔ بعدی می‌ماند. فقط وقتی همهٔ عددها از این مسیر گذشتند
+     * سفارش بسته می‌شود.
      */
     /**
-     * @return false اگر سفارش در مرحلهٔ نظارت نباشد؛ هیچ چیزی ثبت نمی‌شود.
+     * @return false اگر سفارش در مرحلهٔ نظارت نباشد یا چیزی دستِ ناظر
+     * نباشد؛ هیچ چیزی ثبت نمی‌شود.
      *
-     * بی این کنترل، دو ضربهٔ سریع روی «تأیید» دو بار کالا را وارد انبار
+     * وضعیت و تعداد از **دیتابیس** خوانده می‌شوند، نه از شیءِ ورودی. بی
+     * این کنترل، دو ضربهٔ سریع روی «تأیید» دو بار کالا را وارد انبار
      * می‌کرد: موجودیِ محصول دو برابر، «کار در جریان» به اندازهٔ بهای
      * تمام‌شده منفی، و حسابِ مشتری دو بار بستانکار. تپِ دوم وضعیتِ کهنه را
      * می‌دید، پس حتی متوجه نمی‌شد کالا از قبل وارد انبار شده.
      */
     suspend fun approveQc(order: Order, inspector: String, note: String): Boolean {
-        if (order.status != OrderStatus.REVIEW.name) return false
+        val fresh = db.orderDao().getById(order.id) ?: return false
+        if (fresh.status != OrderStatus.REVIEW.name) return false
+        // سقفِ باقی‌ماندهٔ سفارش هم اعمال می‌شود: سفارش هرگز بیش از عددِ
+        // خودش کالا وارد انبار نمی‌کند، حتی اگر شمارشِ نظارت خراب شده باشد.
+        val batch = minOf(fresh.reviewQty, fresh.qty - fresh.storedQty)
+        if (batch <= 0) return false
         db.qcRecordDao().insert(
             QcRecord(
-                orderId = order.id.toString(),
-                orderCode = order.orderCode,
+                orderId = fresh.id.toString(),
+                orderCode = fresh.orderCode,
                 inspector = inspector.trim(),
                 result = "APPROVED",
                 note = note.trim()
             )
         )
-        depositOrderToFinished(
-            order.copy(
-                assignedInspector = inspector.trim().ifBlank { order.assignedInspector },
+        depositBatchToFinished(
+            fresh.copy(
+                assignedInspector = inspector.trim().ifBlank { fresh.assignedInspector },
                 reviewed = true
-            )
+            ),
+            batch
         )
-        audit("تأیید نظارت", "${order.orderCode} — $inspector")
+        audit("تأیید نظارت", "${fresh.orderCode} — $inspector — ${batch} عدد")
+        return true
+    }
+
+    /**
+     * فرستادنِ آنچه تا این لحظه دوخته شده به نظارت — هر تعداد که باشد.
+     *
+     * @return پیغام برای کاربر، یا null اگر انجام شد.
+     *
+     * سفارش از دیتابیس تازه خوانده می‌شود چون شمارش بر خودِ سفارش تکیه
+     * دارد و شیءِ کهنه همان عددها را دوباره می‌فرستد.
+     */
+    suspend fun sendOrderToReview(order: Order): String? {
+        val fresh = db.orderDao().getById(order.id) ?: return "این سفارش پیدا نشد."
+        if (fresh.status != OrderStatus.CUT_DONE.name && fresh.status != OrderStatus.SEWING.name)
+            return "این سفارش در مرحلهٔ دوخت نیست."
+        if (!markReadyForReview(fresh)) {
+            val waiting = fresh.reviewQty
+            return if (waiting > 0)
+                "چیزِ تازه‌ای دوخته نشده؛ ${waiting} عدد از قبل دستِ نظارت است."
+            else
+                "هنوز عددی دوخته نشده که به نظارت برود."
+        }
+        return null
+    }
+
+    /**
+     * عددهای تازه‌دوخته‌شده را به نظارت می‌سپارد و سفارش را به مرحلهٔ
+     * نظارت می‌برد. @return false وقتی چیزِ تازه‌ای نیست.
+     *
+     * هم دکمهٔ صفحهٔ دوخت از اینجا می‌گذرد و هم تکمیلِ خودکارِ آخرین
+     * تحویل — یک قاعده، دو در.
+     */
+    private suspend fun markReadyForReview(order: Order): Boolean {
+        val newly = PartialFlow.readyToSend(
+            qty = order.qty,
+            sewn = sewnQtyOfOrder(order.id.toString()),
+            inReview = order.reviewQty,
+            stored = order.storedQty
+        )
+        if (newly <= 0) return false
+        changeOrderStatus(order, OrderStatus.REVIEW.name) {
+            it.copy(reviewQty = it.reviewQty + newly)
+        }
+        audit("ارسال به نظارت", "${order.orderCode} — ${newly} عدد")
         return true
     }
 
@@ -213,13 +271,19 @@ class Repo(private val db: AppDatabase) {
     /**
      * چند عدد از یک سفارش واقعاً دوخته و تحویل شده.
      *
-     * پایهٔ نگهبانِ «ارسال به نظارت»: تا وقتی این عدد به تعدادِ سفارش
-     * نرسیده، فرستادنش به نظارت جنسِ خیالی وارد انبار می‌کند.
+     * پایهٔ خودِ جریان است، نه یک نگهبان: هر بار که سفارش به نظارت
+     * می‌رود، تفاوتِ این عدد با آنچه قبلاً رفته همان دستهٔ تازه است.
      */
     suspend fun sewnQtyOfOrder(orderId: String): Int =
         db.sewingAssignmentDao().listForOrder(orderId)
             .filter { it.status == "DONE" }
             .sumOf { it.qty }
+
+    /** تحویل‌های دوخته‌شدهٔ یک سفارش، برای تقسیمِ دستمزد بینِ دسته‌ها. */
+    private suspend fun sewnBatchesOfOrder(orderId: String): List<PartialFlow.Sewn> =
+        db.sewingAssignmentDao().listForOrder(orderId)
+            .filter { it.status == "DONE" }
+            .map { PartialFlow.Sewn(it.qty, it.unitWage, it.doneAt ?: it.createdAt) }
 
     suspend fun tailorsOfOrder(orderId: String): List<String> =
         db.sewingAssignmentDao().listForOrder(orderId)
@@ -231,6 +295,10 @@ class Repo(private val db: AppDatabase) {
      * برگشت برای اصلاح: مشکل ثبت و سفارش به مرحلهٔ دوخت برمی‌گردد.
      * [tailor] اختیاری است؛ اگر ناظر بگوید کارِ کدام خیاط برگشت خورده،
      * همان‌جا ثبت می‌شود تا کارنامه لازم نباشد حدس بزند.
+     *
+     * عددهایی که دستِ ناظر بودند به دوخت برمی‌گردند (`reviewQty` صفر
+     * می‌شود). چون تحویل‌هایشان همچنان «دوخته‌شده» ثبت است، پس از اصلاح
+     * با همان دکمه دوباره به نظارت می‌روند.
      */
     suspend fun rejectQc(order: Order, inspector: String, problem: String, tailor: String = "") {
         db.qcRecordDao().insert(
@@ -244,7 +312,11 @@ class Repo(private val db: AppDatabase) {
             )
         )
         changeOrderStatus(order, OrderStatus.SEWING.name) {
-            it.copy(assignedInspector = inspector.trim().ifBlank { it.assignedInspector }, reviewed = false)
+            it.copy(
+                assignedInspector = inspector.trim().ifBlank { it.assignedInspector },
+                reviewed = false,
+                reviewQty = 0
+            )
         }
         audit(
             "رد نظارت (برگشت به دوخت)",
@@ -468,17 +540,26 @@ class Repo(private val db: AppDatabase) {
      * کل سفارش برسد، وضعیت سفارش به «دوخت» می‌رود.
      */
     suspend fun handoutToTailor(order: Order, tailorLabel: String, qty: Int, unitWage: Long) {
+        // بیش از باقی‌ماندهٔ سفارش سپرده نمی‌شود. صفحه هم همین را می‌گوید،
+        // ولی قاعده‌ای که فقط در صفحه زندگی کند با صفحهٔ تازه یا مسیرِ
+        // همگام‌سازی دور زده می‌شود — و آن‌وقت «دوخته‌شده» از تعدادِ سفارش
+        // جلو می‌زند و عددی وارد انبار می‌شود که هرگز بریده نشده.
+        val alreadyHanded = db.sewingAssignmentDao().listForOrder(order.id.toString())
+            .sumOf { it.qty }
+        val room = (order.qty - alreadyHanded).coerceAtLeast(0)
+        val give = qty.coerceIn(0, room)
+        if (give <= 0) return
         db.sewingAssignmentDao().insert(
             SewingAssignment(
                 orderId = order.id.toString(),
                 orderCode = order.orderCode,
                 tailorLabel = tailorLabel,
-                qty = qty,
+                qty = give,
                 unitWage = unitWage,
                 status = "SEWING"
             )
         )
-        audit("تحویل به خیاط", "${order.orderCode} → $tailorLabel (${qty} عدد)")
+        audit("تحویل به خیاط", "${order.orderCode} → $tailorLabel (${give} عدد)")
         val handed = db.sewingAssignmentDao().listForOrder(order.id.toString()).sumOf { it.qty }
         val label = summarizeTailors(order.id.toString())
         if (handed >= order.qty && order.status == "CUT_DONE") {
@@ -578,7 +659,9 @@ class Repo(private val db: AppDatabase) {
         val handed = all.sumOf { it.qty }
         val allDone = all.isNotEmpty() && all.all { it.status == "DONE" }
         if (allDone && handed >= order.qty && order.status == "SEWING") {
-            changeOrderStatus(order, "REVIEW")
+            // آخرین تحویل که بسته شد، باقی‌ماندهٔ نرفته خودش به نظارت
+            // می‌رود — نه کلِ سفارش، چون شاید بخشی‌اش از قبل رفته باشد.
+            markReadyForReview(order)
         }
     }
 
@@ -1673,31 +1756,62 @@ class Repo(private val db: AppDatabase) {
     }
 
     /**
-     * تحویل یک سفارشِ آمادهٔ فروش به انبار محصول نهایی:
-     * تعداد سفارش با بهای تمام‌شدهٔ هر عدد وارد انبار می‌شود و وضعیت
-     * سفارش به STORED (بایگانی تولید) تغییر می‌کند.
+     * ورودِ [batch] عدد از یک سفارش به انبار محصول نهایی — نه کلِ سفارش.
+     *
+     * این همان جایی است که «۱۰ عدد برش خورد، ۵ تا دوخته شد، ۱۰ تا وارد
+     * انبار شد» اتفاق می‌افتاد. حالا فقط همان عددهایی وارد می‌شوند که
+     * نظارت را گذرانده‌اند، با سهمِ بهای خودشان.
+     *
+     * سفارش تنها وقتی به STORED (بایگانیِ تولید) می‌رود که همهٔ عددهایش
+     * از این مسیر گذشته باشند؛ وگرنه به «دوخت» برمی‌گردد و منتظرِ دستهٔ
+     * بعدی می‌ماند.
      */
-    suspend fun depositOrderToFinished(order: Order) {
-        val totalCost = order.fabricPrice + order.workCost + order.sewingCost
+    suspend fun depositBatchToFinished(order: Order, batch: Int) {
+        if (batch <= 0) return
+        val batchValue = PartialFlow.depositValue(
+            qty = order.qty,
+            stored = order.storedQty,
+            batch = batch,
+            fixedCost = order.fabricPrice + order.workCost,
+            sewnCost = order.sewingCost,
+            batches = sewnBatchesOfOrder(order.id.toString()),
+            storedCost = order.storedCost
+        )
         // مبلغِ کامل می‌رود، نه میانگینِ گردشده — همان عددی که ژورنال بدهکار می‌کند
-        addFinishedStock(order.designTitle, order.size, order.qty, totalCost)
-        changeOrderStatus(order, OrderStatus.STORED.name)
+        addFinishedStock(order.designTitle, order.size, batch, batchValue)
+
+        val stored = order.storedQty + batch
+        val complete = stored >= order.qty
+        changeOrderStatus(
+            order,
+            if (complete) OrderStatus.STORED.name else OrderStatus.SEWING.name
+        ) {
+            it.copy(
+                storedQty = stored,
+                storedCost = it.storedCost + batchValue,
+                reviewQty = 0
+            )
+        }
         // ژورنال: بهای تمام‌شده از «کار در جریان» به «موجودی محصول» می‌رود؛
         // اگر برگشتی از فروش باشد (SENT)، از «بهای تمام‌شدهٔ فروش» برمی‌گردد.
-        if (totalCost > 0) {
+        if (batchValue > 0) {
             val from = if (order.status == OrderStatus.SENT.name) Accounts.COGS else Accounts.WIP
             postJournal(
                 "ورود به انبار محصول ${order.orderCode}", "TO_FINISHED", order.orderCode,
                 listOf(
-                    jl(Accounts.FINISHED, debit = totalCost),
-                    jl(from, credit = totalCost)
+                    jl(Accounts.FINISHED, debit = batchValue),
+                    jl(from, credit = batchValue)
                 )
             )
         }
         // سفارش تبدیل به موجودیِ بی‌نامِ انبار شد؛ بدهیِ ازپیش‌ثبت‌شدهٔ مشتری
         // (SALE_BILLING هنگام ثبت سفارش) خنثی می‌شود — فروشِ واقعی هنگام
         // فروش از انبار محصول حساب و صورت‌حساب می‌شود.
-        if (order.customerName.isNotBlank() && order.agreedPrice > 0) {
+        //
+        // فقط یک بار، وقتی سفارش کامل شد: بدهی برای کلِ سفارش ثبت شده بود،
+        // پس خنثی‌کردنش هم یک‌جاست، وگرنه هر دستهٔ جزئی یک بار کاملش را
+        // بستانکار می‌کند و حسابِ مشتری چند برابر می‌شود.
+        if (complete && order.customerName.isNotBlank() && order.agreedPrice > 0) {
             postLedger(
                 "CUSTOMER", order.customerName, 0, order.agreedPrice,
                 "SALE_TO_STOCK", order.orderCode, "انتقال به انبار محصول"

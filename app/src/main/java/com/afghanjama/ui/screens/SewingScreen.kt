@@ -45,6 +45,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -82,6 +83,16 @@ fun SewingScreen(
     val tailors by vm.tailors.collectAsState()
     val allAssignments by vm.allAssignments.collectAsState()
     val pendingWages by vm.pendingWages.collectAsState()
+    val goReview by vm.goReview.collectAsState()
+
+    // فقط وقتی چیزی واقعاً به نظارت رفت. اگر بی‌قیدوشرط جابه‌جا شویم،
+    // کاربر پیامِ دلیلِ نرفتن را — که در همین تب نوشته می‌شود — نمی‌بیند.
+    LaunchedEffect(goReview) {
+        if (goReview) {
+            vm.consumeGoReview()
+            onGoReview()
+        }
+    }
 
     var tab by rememberSaveable { mutableStateOf(0) }
     val tabs = listOf("تحویل به خیاط", "در حال دوخت")
@@ -138,8 +149,9 @@ fun SewingScreen(
                     }
                 }
             } else {
-                // پیامِ نگهبانِ «ارسال به نظارت» — وگرنه کاربر دکمه را
-                // می‌زند و هیچ اتفاقی نمی‌افتد و دلیلش را نمی‌فهمد.
+                // وقتی ارسال انجام نشد (چیزِ تازه‌ای دوخته نشده) دلیلش
+                // همین‌جا نوشته می‌شود — وگرنه کاربر دکمه را می‌زند و هیچ
+                // اتفاقی نمی‌افتد و نمی‌فهمد چرا.
                 sewMessage?.let { msg ->
                     Card(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -189,11 +201,10 @@ fun SewingScreen(
                                 )
                             }
                             item(key = "review-$code") {
-                                // برچسب دیگر «هرچه آماده است» نیست: تا
-                                // اصلاحِ جریانِ جزئی، نظارت کلِ سفارش را
-                                // وارد انبار می‌کند و ارسالِ نیمه‌کاره
-                                // جنسِ خیالی می‌سازد. نگهبانِ واقعی در
-                                // ViewModel است؛ این فقط همان را می‌گوید.
+                                // «هرچه آماده است» یعنی همان: هر عدد که
+                                // دوخته شد جلو می‌رود و باقی در دوخت
+                                // می‌ماند. تعداد را `Repo` می‌شمارد؛ صفحه
+                                // فقط دکمه را نشان می‌دهد.
                                 Button(
                                     onClick = {
                                         // orderId روی سپردنِ کار متن است،
@@ -202,11 +213,10 @@ fun SewingScreen(
                                             runCatching { UUID.fromString(a2.orderId) }
                                                 .getOrNull()?.let { vm.sendToReview(it) }
                                         }
-                                        onGoReview()
                                     },
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Text("ارسال $code به نظارت (پس از دوختِ همه)")
+                                    Text("ارسال $code به نظارت (هرچه آماده است)")
                                 }
                             }
                         }

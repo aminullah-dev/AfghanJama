@@ -114,36 +114,34 @@ class SewingViewModel(
     }
 
     /**
-     * ارسال سفارش به نظارت در هر لحظه — بدون نیاز به تکمیل همه تحویل‌ها.
-     * (هرچه آماده است جلو می‌رود؛ تحویل‌های در حال دوخت همچنان قابل تکمیل‌اند.)
-     */
-    /**
-     * فرستادنِ سفارش به نظارت — فقط وقتی **همهٔ** عددهایش دوخته شده باشد.
+     * فرستادنِ هرچه تا این لحظه دوخته شده به نظارت — یک عدد، دو عدد، هر
+     * چند تا که آماده است. باقی در دوخت می‌مانَد و بعداً با همین دکمه
+     * جلو می‌رود.
      *
-     * چرا این شرط: تأییدِ نظارت کلِ `order.qty` را وارد انبار محصول
-     * می‌کند. تا وقتی آن اصلاح نشده، ارسالِ جزئی جنسِ خیالی می‌سازد —
-     * ۱۰ عدد برش می‌خورد، خیاط ۵ تا می‌دوزد، ولی ۱۰ عدد وارد انبار
-     * می‌شود و ۵ تایش وجود ندارد. بعد همان ۵ تای خیالی فروخته می‌شود.
-     *
-     * پس تا اصلاحِ کاملِ جریانِ جزئی، این در تنگ‌ترین حالتش بسته می‌مانَد.
-     * شرحِ کامل در docs/KNOWN-ISSUE-partial-review.md.
+     * تعداد را `Repo` می‌شمارد نه اینجا: قاعده‌ای که در ViewModel زندگی
+     * کند با هر صفحهٔ تازه یا مسیرِ همگام‌سازی دور زده می‌شود.
      */
     fun sendToReview(orderId: UUID) = viewModelScope.launch {
         val o = repo.getOrder(orderId) ?: return@launch
-        if (o.status != OrderStatus.CUT_DONE.name && o.status != OrderStatus.SEWING.name) return@launch
-
-        val sewn = repo.sewnQtyOfOrder(orderId.toString())
-        if (sewn < o.qty) {
-            _message.value = "هنوز همهٔ عددها دوخته نشده: ${sewn} از ${o.qty}. " +
-                "تا دوختِ باقی صبر کنید — وگرنه تعدادِ نادوخته هم وارد انبار می‌شود."
-            return@launch
-        }
-        repo.changeOrderStatus(o, OrderStatus.REVIEW.name)
+        val problem = repo.sendOrderToReview(o)
+        _message.value = problem
+        if (problem == null) _goReview.value = true
     }
 
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
     fun clearMessage() { _message.value = null }
+
+    /**
+     * ارسال انجام شد، صفحه می‌تواند به نظارت برود.
+     *
+     * تا امروز صفحه بی‌قیدوشرط جابه‌جا می‌شد؛ وقتی ارسال انجام نمی‌شد،
+     * کاربر در صفحهٔ نظارت می‌ماند و پیامِ دلیل را — که در تبِ دوخت
+     * نوشته می‌شد — هرگز نمی‌دید.
+     */
+    private val _goReview = MutableStateFlow(false)
+    val goReview: StateFlow<Boolean> = _goReview.asStateFlow()
+    fun consumeGoReview() { _goReview.value = false }
 
     /** چند عدد از این سفارش واقعاً دوخته و تحویل شده. */
     fun sewnQty(orderCode: String, assigns: List<SewingAssignment>): Int =
