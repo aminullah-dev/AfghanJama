@@ -41,13 +41,25 @@ for f in files:
                          open(f).read(), re.M):
         path = m.group(1)
         simple = path.split(".")[-1]
-        if simple == "*" or not simple[:1].isupper():
-            continue                       # فقط کلاس/شیء، نه تابعِ الحاقی
+        if simple == "*":
+            continue
         owner_of[simple].add(path)
 
 # نامی که دو مسیرِ مختلف دارد مبهم است — کنار گذاشته می‌شود تا هشدارِ
 # نادرست ندهیم (مثلاً Card در material و material3)
 AMBIGUOUS = {s for s, paths in owner_of.items() if len(paths) > 1}
+
+# نامِ با حرفِ کوچک را نمی‌شود آزادانه سنجید: `update` در DAO متدِ Room
+# است و `cancel` چیزِ دیگری — هر دو هشدارِ نادرست می‌دادند. پس فقط همان
+# توابعِ Compose که واقعاً جا می‌مانند سنجیده می‌شوند. نبودشان ده‌ها خطای
+# کامپایل می‌سازد، همان که یک بار در ProcurementScreen پیش آمد.
+WATCHED_LOWER = {
+    "remember", "rememberSaveable", "rememberCoroutineScope",
+    "rememberNavController", "rememberScrollState", "rememberLazyListState",
+    "mutableStateOf", "mutableIntStateOf", "mutableLongStateOf",
+    "mutableStateListOf", "derivedStateOf", "produceState",
+    "collectAsState", "collectAsStateWithLifecycle",
+}
 
 problems = []
 for f in files:
@@ -68,7 +80,13 @@ for f in files:
         r"\b(?:class|object|interface|enum class|data class|annotation class)\s+([A-Za-z_]\w*)",
         code))
 
+    # نامِ با حرفِ بزرگ هرجا، و نامِ با حرفِ کوچک فقط وقتی مثلِ تابع صدا
+    # زده می‌شود یا واگذارندهٔ `by` است. توابعِ کوچکِ Compose مثل remember
+    # و mutableStateOf همین‌طورند و تا امروز از قلم می‌افتادند — همان
+    # چیزی که ۱۶ خطای ProcurementScreen را ساخت.
     used = set(re.findall(r"(?<![.\w])([A-Z][A-Za-z0-9_]*)\b", code))
+    lower_used = set(re.findall(r"(?<![.\w])([a-z]\w*)\s*[({]", code))
+    used |= (lower_used & WATCHED_LOWER)
     for sym in used:
         if sym in AMBIGUOUS or sym not in owner_of:
             continue

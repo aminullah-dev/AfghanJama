@@ -1272,11 +1272,14 @@ class Repo(private val db: AppDatabase) {
          * حالا اول واحدِ دقیق، بعد همان نام با هر واحدی که موجودی دارد.
          */
         val exact = db.materialStockDao().find(name.trim(), unit.trim())
+        val byNameOnly = if (exact == null && delta < 0) {
+            db.materialStockDao().observeAll().first()
+                .firstOrNull { it.name.trim() == name.trim() && it.amount > 0.0 }
+        } else {
+            null
+        }
         val cur = exact
-            ?: if (delta < 0) {
-                db.materialStockDao().observeAll().first()
-                    .firstOrNull { it.name.trim() == name.trim() && it.amount > 0.0 }
-            } else null
+            ?: byNameOnly
             ?: MaterialStock(name = name.trim(), unit = unit.trim(), amount = 0.0, updatedAt = now)
         val newAmount = (cur.amount + delta).coerceAtLeast(0.0)
         // آنچه واقعاً جابه‌جا شد؛ با سقفِ صفر می‌تواند کمتر از delta باشد
