@@ -59,6 +59,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.afghanjama.data.entities.Order
+import java.util.UUID
 import com.afghanjama.data.entities.SewingAssignment
 import com.afghanjama.ui.components.MeasurementsBlock
 import com.afghanjama.ui.format.PersianDate
@@ -129,11 +130,7 @@ fun SewingScreen(
                                 measurements = measurementsByOrder[h.order.orderCode].orEmpty(),
                                 onHandout = { label, qty, wage -> vm.handout(h.order.id, label, qty, wage) },
                                 onCancelAssignment = { vm.cancelAssignment(it) },
-                                onBackToCutting = { vm.backToCutting(h.order.id) },
-                                onSendToReview = {
-                                    vm.sendToReview(h.order.id)
-                                    onGoReview()
-                                }
+                                onBackToCutting = { vm.backToCutting(h.order.id) }
                             )
                         }
                         item { Spacer(Modifier.height(40.dp)) }
@@ -147,8 +144,16 @@ fun SewingScreen(
                         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        items(inProgress, key = { it.id }) { a ->
-                            InProgressCard(
+                        // «ارسال به نظارت» جایی می‌آید که کارِ تمام‌شده
+                        // هست، نه جایی که کار به خیاط سپرده می‌شود. تبِ
+                        // اول کارِ **بیرون‌رفتنی** را نشان می‌دهد؛ فرستادنِ
+                        // کارِ آماده به نظارت قدمِ بعدِ همین تب است.
+                        //
+                        // یک بار برای هر سفارش، نه برای هر خیاط: نظارت
+                        // سفارش را تحویل می‌گیرد نه سهمِ یک خیاط را.
+                        inProgress.groupBy { it.orderCode }.forEach { (code, rows) ->
+                            items(rows, key = { it.id }) { a ->
+                                InProgressCard(
                                 assignment = a,
                                 measurements = measurementsByOrder[a.orderCode].orEmpty(),
                                 receiptText = handoverReceipt(
@@ -160,8 +165,25 @@ fun SewingScreen(
                                 onDone = { quality, delivered ->
                                     vm.completeAssignment(a.id, quality, delivered)
                                 },
-                                onCancel = { vm.cancelAssignment(a.id) }
-                            )
+                                    onCancel = { vm.cancelAssignment(a.id) }
+                                )
+                            }
+                            item(key = "review-$code") {
+                                Button(
+                                    onClick = {
+                                        // orderId روی سپردنِ کار متن است،
+                                        // ولی sendToReview شناسه می‌خواهد.
+                                        rows.firstOrNull()?.let { a2 ->
+                                            runCatching { UUID.fromString(a2.orderId) }
+                                                .getOrNull()?.let { vm.sendToReview(it) }
+                                        }
+                                        onGoReview()
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("ارسال $code به نظارت (هرچه آماده است)")
+                                }
+                            }
                         }
                         item { Spacer(Modifier.height(40.dp)) }
                     }
@@ -193,8 +215,7 @@ private fun HandoutCard(
     measurements: List<Pair<String, String>>,
     onHandout: (String, Int, Long) -> Unit,
     onCancelAssignment: (Long) -> Unit,
-    onBackToCutting: () -> Unit,
-    onSendToReview: () -> Unit
+    onBackToCutting: () -> Unit
 ) {
     val order = handout.order
     val unitWage = if (order.qty > 0) order.workCost / order.qty else order.workCost
@@ -330,16 +351,6 @@ private fun HandoutCard(
                 }
             }
 
-            // ارسال به نظارت در هر لحظه (بدون نیاز به تکمیل همه)
-            if (handout.assignments.isNotEmpty()) {
-                HorizontalDivider(thickness = 0.5.dp)
-                Button(
-                    onClick = onSendToReview,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("ارسال به نظارت (هرچه آماده است)")
-                }
-            }
         }
     }
 }
