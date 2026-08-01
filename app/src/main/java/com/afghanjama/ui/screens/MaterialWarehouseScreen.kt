@@ -83,7 +83,7 @@ fun MaterialWarehouseScreen(
                         onValueChange = { amountText = it.decimalOnly() },
                         label = { Text("موجودی فعلی") },
                         singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
@@ -91,7 +91,7 @@ fun MaterialWarehouseScreen(
                         onValueChange = { minText = it.decimalOnly() },
                         label = { Text("حد هشدار کمبود") },
                         singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
@@ -99,7 +99,7 @@ fun MaterialWarehouseScreen(
                         onValueChange = { wasteText = it.decimalOnly() },
                         label = { Text("ثبت ضایعات (خروج از موجودی)") },
                         singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.fillMaxWidth()
                     )
                 }

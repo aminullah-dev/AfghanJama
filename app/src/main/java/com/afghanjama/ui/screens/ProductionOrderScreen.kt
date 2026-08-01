@@ -339,7 +339,7 @@ fun ProductionOrderScreen(
                             onValueChange = vm::setAmount,
                             label = { Text("مقدار مصرف" + if (ui.pickedUnit.isNotBlank()) " (${ui.pickedUnit})" else "") },
                             singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             modifier = Modifier.fillMaxWidth()
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -314,7 +314,7 @@ fun ProcurementScreen(
                                 onValueChange = { fabQty = it.decimalOnly() },
                                 label = { Text("مقدار") },
                                 singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                 modifier = Modifier.weight(1f)
                             )
                             OutlinedTextField(
