@@ -49,6 +49,25 @@ object PartialFlow {
      * سفارش سرشکن شود، عددهایی که خیاطِ گران دوخته با بهای خیاطِ ارزان
      * وارد انبار می‌شوند و بهای تمام‌شدهٔ هر دسته دروغ می‌شود.
      */
+    /**
+     * از هر تحویل چند عدد هنوز جلو نرفته.
+     *
+     * [qtys] تعدادِ هر تحویل به ترتیبِ زمانِ تکمیل و [alreadyGone] عددهایی
+     * که از قبل دستِ نظارت‌اند یا در انبار. همان ترتیبِ FIFO که کارمزد هم
+     * از آن پیروی می‌کند، پس صفحه و پول یک داستان می‌گویند.
+     *
+     * برمی‌گرداند: باقی‌ماندهٔ هر تحویل، در همان ترتیبِ ورودی. صفر یعنی
+     * آن تحویل کاملاً جلو رفته و نباید در فهرستِ «آمادهٔ نظارت» دیده شود.
+     */
+    fun pendingPerBatch(qtys: List<Int>, alreadyGone: Int): List<Int> {
+        var left = alreadyGone.coerceAtLeast(0)
+        return qtys.map { q ->
+            val eaten = minOf(left, q.coerceAtLeast(0))
+            left -= eaten
+            (q - eaten).coerceAtLeast(0)
+        }
+    }
+
     fun wageOfFirst(batches: List<Sewn>, n: Int): Long {
         if (n <= 0) return 0L
         var left = n

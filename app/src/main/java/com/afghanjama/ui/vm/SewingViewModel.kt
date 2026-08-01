@@ -29,7 +29,8 @@ data class OrderHandout(
 /** یک سفارش با کارِ دوخته‌شده‌اش و تعدادی که آمادهٔ رفتن به نظارت است. */
 data class SewnGroup(
     val order: Order,
-    val done: List<SewingAssignment>,
+    /** فقط بخشی از هر تحویل که هنوز جلو نرفته: خیاط و تعدادِ باقی‌مانده. */
+    val pending: List<Pair<SewingAssignment, Int>>,
     val readyQty: Int
 )
 
@@ -81,17 +82,30 @@ class SewingViewModel(
     val sewnReady: StateFlow<List<SewnGroup>> =
         combine(cutDone, sewing, allAssignments) { cd, sw, assigns ->
             (cd + sw).mapNotNull { o ->
-                val mine = assigns.filter {
-                    it.orderId == o.id.toString() && it.status == "DONE"
-                }
+                // ترتیبِ زمانِ تکمیل — همان ترتیبی که کارمزد هم با آن
+                // حساب می‌شود، پس صفحه و پول یک داستان می‌گویند.
+                val mine = assigns
+                    .filter { it.orderId == o.id.toString() && it.status == "DONE" }
+                    .sortedBy { it.doneAt ?: it.createdAt }
                 if (mine.isEmpty()) return@mapNotNull null
+
                 val ready = PartialFlow.readyToSend(
                     qty = o.qty,
                     sewn = mine.sumOf { it.qty },
                     inReview = o.reviewQty,
                     stored = o.storedQty
                 )
-                if (ready <= 0) null else SewnGroup(o, mine, ready)
+                if (ready <= 0) return@mapNotNull null
+
+                // تحویلی که از قبل به نظارت رفته یا در انبار است نباید
+                // اینجا بماند، وگرنه کارتْ ۱۰ عدد نشان می‌دهد در حالی که
+                // دکمه می‌گوید ۵ — و کاربر نمی‌فهمد کدام درست است.
+                val rest = PartialFlow.pendingPerBatch(
+                    qtys = mine.map { it.qty },
+                    alreadyGone = o.reviewQty + o.storedQty
+                )
+                val pending = mine.zip(rest).filter { (_, n) -> n > 0 }
+                SewnGroup(o, pending, ready)
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 

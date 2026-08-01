@@ -292,6 +292,56 @@ for col in ("reviewQty", "storedQty", "storedCost"):
 
 vm = (ROOT / "ui/vm/SewingViewModel.kt").read_text(encoding="utf-8")
 check("sewn < o.qty" not in vm, "نگهبانِ موقتِ «پس از دوختِ همه» هنوز سرِ جایش است")
+# ---- فهرستِ «دوخته شده» فقط باقی‌مانده را نشان دهد ----
+# سناریوی واقعی: ۱۰ عدد، امین ۵ تا (رفته به نظارت و فروش)، حکیم ۵ تا.
+# کارت باید فقط حکیم را نشان دهد، نه هر دو را.
+def pending_per_batch(qtys, gone, *, show_all=False, drop_all=False):
+    if show_all:
+        return list(qtys)
+    left = max(0, gone)
+    out = []
+    for q in qtys:
+        eaten = 0 if drop_all else min(left, max(0, q))
+        left -= eaten
+        out.append(max(0, q - eaten))
+    return out
+
+def run_pending(**kw):
+    bad = []
+    def a(c, n):
+        if not c: bad.append(n)
+    # امین ۵ (رفته)، حکیم ۵ (مانده)
+    r = pending_per_batch([5, 5], gone=5, **kw)
+    a(r == [0, 5], f"باید [0,5] شود، شد {r}")
+    a(sum(1 for x in r if x > 0) == 1, "فقط یک خیاط باید بماند")
+    # تحویلی که نصفش رفته
+    a(pending_per_batch([7], gone=3, **kw) == [4], "تحویلِ نیمه‌رفته")
+    # هیچ‌چیز نرفته
+    a(pending_per_batch([5, 5], gone=0, **kw) == [5, 5], "هیچ‌چیز نرفته")
+    # همه رفته
+    a(pending_per_batch([5, 5], gone=10, **kw) == [0, 0], "همه رفته")
+    # بیش از موجود رفته (نباید منفی شود)
+    a(pending_per_batch([5], gone=99, **kw) == [0], "بیش از موجود")
+    # جمعِ باقی‌مانده همیشه = کل − رفته
+    for qtys, gone in ([[3, 4, 5], 6], [[2], 1], [[9, 1], 9]):
+        got = sum(pending_per_batch(qtys, gone, **kw))
+        want = max(0, sum(qtys) - gone)
+        a(got == want, f"جمعِ باقی‌مانده {got} شد نه {want}")
+    return bad
+
+check(not run_pending(), f"قاعدهٔ درست ادعا رد کرد: {run_pending()}")
+for label, kw in {
+    "همهٔ تحویل‌ها نشان داده شوند": dict(show_all=True),
+    "هیچ‌کدام کم نشوند": dict(drop_all=True),
+}.items():
+    check(len(run_pending(**kw)) > 0, f"نسخهٔ خرابِ «{label}» گرفته نشد")
+
+flow = (ROOT / "data/PartialFlow.kt").read_text(encoding="utf-8")
+check("pendingPerBatch" in flow, "pendingPerBatch در PartialFlow نیست")
+vm = (ROOT / "ui/vm/SewingViewModel.kt").read_text(encoding="utf-8")
+check("pendingPerBatch" in vm, "ViewModel باقی‌مانده را حساب نمی‌کند")
+check("sortedBy" in vm, "ترتیبِ زمانِ تکمیل رعایت نمی‌شود")
+
 screen = (ROOT / "ui/screens/SewingScreen.kt").read_text(encoding="utf-8")
 # برچسبِ مسدودکنندهٔ دورهٔ نگهبان نباید برگردد
 check("پس از دوختِ همه" not in screen, "برچسبِ مسدودکننده برگشته")
@@ -300,6 +350,7 @@ check("پس از دوختِ همه" not in screen, "برچسبِ مسدودکن�
 # چند عدد می‌رود.
 check("به نظارت" in screen, "دکمهٔ ارسال به نظارت نیست")
 check("readyQty" in screen, "تعدادِ آماده روی دکمه نوشته نمی‌شود")
+check("g.pending" in screen, "کارت باید فقط باقی‌مانده را نشان دهد")
 # تبِ «دوخته شده» جایی است که کارِ تمام‌شده دیده و فرستاده می‌شود
 check("دوخته شده" in screen, "تبِ «دوخته شده» نیست")
 check("sewnReady" in screen, "صفحه فهرستِ آمادهٔ نظارت را نمی‌خواند")

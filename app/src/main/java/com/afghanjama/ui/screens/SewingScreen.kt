@@ -275,17 +275,20 @@ fun SewingScreen(
                                     HorizontalDivider(thickness = 0.5.dp)
 
                                     // جزئیات: کدام خیاط، چند عدد، با چه کارمزدی
-                                    g.done.forEach { a ->
+                                    // فقط باقی‌ماندهٔ هر تحویل؛ آنچه از قبل
+                                    // به نظارت رفته اینجا نمی‌مانَد.
+                                    g.pending.forEach { (a, n) ->
                                         Row(
                                             Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween
                                         ) {
                                             Text(
-                                                "${a.tailorLabel} — ${a.qty.fa()} عدد",
+                                                "${a.tailorLabel} — ${n.fa()} عدد" +
+                                                    (if (n < a.qty) " (از ${a.qty.fa()})" else ""),
                                                 style = MaterialTheme.typography.labelMedium
                                             )
                                             Text(
-                                                "کارمزد: ${(a.unitWage * a.qty).afn()}",
+                                                "کارمزد: ${(a.unitWage * n).afn()}",
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
