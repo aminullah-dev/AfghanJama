@@ -163,6 +163,34 @@ class FinishedSaleViewModel(private val repo: Repo) : ViewModel() {
     }
 
     /**
+     * شمارشِ انبار: تعدادِ واقعیِ شمرده‌شده را می‌نشاند.
+     *
+     * برای عددهایی است که در انبار هستند ولی در واقعیت نیستند — مثلِ
+     * عددهای خیالی که پیش از اصلاحِ جریانِ جزئی وارد انبار می‌شدند.
+     * سندِ حسابداری‌اش را خودِ [Repo.adjustFinishedStock] می‌زند.
+     */
+    fun recount(item: FinishedStock, countedQty: Int, note: String = "") =
+        viewModelScope.launch {
+            busy.once {
+                val changed = repo.adjustFinishedStock(
+                    name = item.name,
+                    size = item.size,
+                    countedQty = countedQty,
+                    note = note
+                )
+                _ui.update {
+                    if (changed) it.copy(
+                        message = "موجودی «${item.name}» به ${countedQty} عدد اصلاح شد.",
+                        isError = false
+                    ) else it.copy(
+                        message = "چیزی برای اصلاح نبود — همین تعداد از قبل ثبت است.",
+                        isError = true
+                    )
+                }
+            }
+        }
+
+    /**
      * برگشت از فروش: کالا به انبار محصول برمی‌گردد و پولِ مشتری یا نقد
      * پس داده می‌شود یا به‌صورت بستانکاری روی حسابش می‌ماند.
      */

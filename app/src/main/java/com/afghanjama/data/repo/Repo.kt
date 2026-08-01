@@ -1873,6 +1873,91 @@ class Repo(private val db: AppDatabase) {
     }
 
     /**
+     * شمارشِ انبارِ محصول: تعدادِ واقعی را می‌نشاند، **با سندِ حسابداری**.
+     *
+     * تا امروز هیچ راهی نبود که یک ردیفِ انبارِ محصول اصلاح یا حذف شود.
+     * وقتی یک بار عددِ غلط وارد انبار شده بود (مثلِ همان «۱۰ عدد برش
+     * خورد، ۵ تا دوخته شد، ۱۰ تا وارد انبار شد») آن عددهای خیالی برای
+     * همیشه می‌ماندند: در فهرستِ فروش دیده می‌شدند، در «انبار محصول»
+     * داشبورد شمرده می‌شدند، و ارزششان در حسابِ ۱۰۵۰ می‌نشست.
+     *
+     * فقط کم کردنِ تعداد کافی نیست. ارزشِ آن عددها هنگامِ ورود بدهکارِ
+     * «موجودی محصول» شده؛ اگر تعداد برود و سند نه، دفتر و انبار برای
+     * همیشه از هم جدا می‌مانند — همان چیزی که خودآزمایی در بررسیِ
+     * «حسابِ موجودی محصول = ارزشِ واقعیِ انبار» می‌گیرد.
+     *
+     * پس کم‌شدن هزینه است (کسریِ شمارش) و زیادشدن هزینهٔ منفی — همان
+     * رسمی که [adjustMaterialStock] برای موادِ خام دارد.
+     *
+     * ارزش‌گذاری از [takeFromStock] می‌آید، پس وقتی ردیف به صفر می‌رسد
+     * هرچه در آن مانده یک‌جا خارج می‌شود و هیچ ته‌مانده‌ای در حساب جا
+     * نمی‌مانَد. ردیفِ صفرشده خودبه‌خود از فهرست ناپدید می‌شود چون
+     * `observeAvailable()` فقط ردیف‌های ناصفر را می‌دهد؛ ولی خودِ سطر
+     * پاک نمی‌شود تا تاریخچه‌اش بی‌صاحب نشود.
+     *
+     * @param countedQty تعدادی که واقعاً در انبار شمرده شده
+     * @return false اگر ردیف پیدا نشود یا چیزی برای اصلاح نباشد
+     */
+    suspend fun adjustFinishedStock(
+        name: String,
+        size: String,
+        countedQty: Int,
+        note: String = ""
+    ): Boolean {
+        val cur = db.finishedStockDao().find(name.trim(), size.trim()) ?: return false
+        val target = countedQty.coerceAtLeast(0)
+
+        val newValue: Long
+        if (target < cur.qty) {
+            // کسری: بهای عددهای رفته از همان قاعدهٔ فروش درمی‌آید
+            val (_, left) = takeFromStock(cur, cur.qty - target)
+            newValue = left
+        } else if (target > cur.qty) {
+            // اضافه پیدا شده: با آخرین میانگینِ معلوم ارزش می‌گیرد
+            newValue = cur.totalValue + (target - cur.qty) * cur.avgCost
+        } else {
+            // تعداد درست است ولی ممکن است ارزشِ ته‌مانده روی ردیفِ خالی
+            // جا مانده باشد؛ آن هم باید صفر شود وگرنه دفتر نمی‌خوانَد.
+            newValue = if (target == 0) 0L else cur.totalValue
+        }
+
+        val valueDelta = newValue - cur.totalValue
+        if (target == cur.qty && valueDelta == 0L) return false
+
+        val now = System.currentTimeMillis()
+        db.finishedStockDao().upsert(
+            cur.copy(
+                qty = target,
+                totalValue = newValue,
+                avgCost = if (target > 0) newValue / target else cur.avgCost,
+                updatedAt = now
+            )
+        )
+
+        val label = "شمارش انبار محصول — ${name.trim()}" +
+            if (size.isNotBlank()) " (${size.trim()})" else ""
+        if (valueDelta != 0L) {
+            postJournal(
+                label, "FINISHED_ADJUST", "",
+                if (valueDelta < 0) listOf(
+                    jl(Accounts.EXPENSES, debit = -valueDelta),
+                    jl(Accounts.FINISHED, credit = -valueDelta)
+                ) else listOf(
+                    jl(Accounts.FINISHED, debit = valueDelta),
+                    jl(Accounts.EXPENSES, credit = valueDelta)
+                )
+            )
+        }
+        audit(
+            "اصلاح موجودی محصول",
+            "${name.trim()}: از ${cur.qty} به $target عدد" +
+                (if (valueDelta != 0L) " — ${-valueDelta} ؋" else "") +
+                (if (note.isNotBlank()) " • ${note.trim()}" else "")
+        )
+        return true
+    }
+
+    /**
      * ورودِ [batch] عدد از یک سفارش به انبار محصول نهایی — نه کلِ سفارش.
      *
      * این همان جایی است که «۱۰ عدد برش خورد، ۵ تا دوخته شد، ۱۰ تا وارد

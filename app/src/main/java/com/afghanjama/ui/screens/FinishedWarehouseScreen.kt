@@ -19,6 +19,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -79,10 +80,12 @@ fun FinishedWarehouseScreen(
     val ui by vm.ui.collectAsState()
     val wallet by vm.wallet.collectAsState()
     val bank by vm.bank.collectAsState()
+    val busy by vm.busy.state.collectAsState()
     val context = LocalContext.current
 
     var sellTarget by remember { mutableStateOf<FinishedStock?>(null) }
     var returnTarget by remember { mutableStateOf<FinishedSale?>(null) }
+    var countTarget by remember { mutableStateOf<FinishedStock?>(null) }
 
     // پوشهٔ بازِ فعلی — null یعنی فهرستِ پوشه‌ها. مثلِ فایل‌منیجر: یک طبقه
     // پایین می‌رویم و با دکمهٔ برگشت بالا می‌آییم.
@@ -240,6 +243,78 @@ fun FinishedWarehouseScreen(
                 }) { Text("ثبت فروش") }
             },
             dismissButton = { TextButton(onClick = { sellTarget = null }) { Text("لغو") } }
+        )
+    }
+
+    // ---------- دیالوگ شمارش انبار ----------
+    //
+    // برای عددهایی که در انبار ثبت‌اند ولی در واقعیت نیستند. تا امروز
+    // هیچ راهی برای اصلاحشان نبود و برای همیشه در فهرستِ فروش می‌ماندند.
+    countTarget?.let { item ->
+        var countedText by remember(item.id) { mutableStateOf(item.qty.toString()) }
+        var note by remember(item.id) { mutableStateOf("") }
+        val counted = countedText.toIntOrNull()
+        val diff = (counted ?: item.qty) - item.qty
+        AlertDialog(
+            onDismissRequest = { countTarget = null },
+            title = { Text("شمارش «${item.name}»") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "در انبار ثبت است: ${item.qty.fa()} عدد" +
+                            (if (item.size.isNotBlank()) " • سایز ${item.size}" else "") +
+                            " • بهای هر عدد ${item.avgCost.afn()}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = countedText,
+                        onValueChange = { countedText = it.digitsOnly() },
+                        label = { Text("واقعاً چند عدد در انبار است؟") },
+                        singleLine = true,
+                        isError = counted == null,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = note,
+                        onValueChange = { note = it },
+                        label = { Text("توضیح (اختیاری)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (diff != 0 && counted != null) {
+                        Text(
+                            if (diff < 0)
+                                "${(-diff).fa()} عدد کم می‌شود — بهایش به هزینهٔ کسری می‌رود، " +
+                                    "پس دفتر و انبار با هم می‌خوانند."
+                            else
+                                "${diff.fa()} عدد اضافه می‌شود، با بهای هر عدد ${item.avgCost.afn()}.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (diff < 0) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    if (counted == 0) {
+                        Text(
+                            "با صفر شدن، این کالا از فهرستِ انبار برداشته می‌شود. " +
+                                "تاریخچهٔ فروش‌هایش سرِ جایش می‌مانَد.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = counted != null && diff != 0 && !busy,
+                    onClick = {
+                        vm.recount(item, counted ?: item.qty, note)
+                        countTarget = null
+                    }
+                ) { Text("ثبت شمارش") }
+            },
+            dismissButton = { TextButton(onClick = { countTarget = null }) { Text("لغو") } }
         )
     }
 
@@ -496,6 +571,13 @@ fun FinishedWarehouseScreen(
                                     Icon(Icons.Default.Add, contentDescription = null)
                                     Spacer(Modifier.width(4.dp))
                                     Text("به فاکتور")
+                                }
+                                // اصلاحِ تعداد — برای عددهایی که ثبت‌اند
+                                // ولی در انبار نیستند
+                                TextButton(onClick = { countTarget = item }) {
+                                    Icon(Icons.Default.Inventory2, contentDescription = null)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("شمارش")
                                 }
                             }
                         }
