@@ -80,6 +80,7 @@ fun SewingScreen(
     val measurementsByOrder by vm.measurementsByOrder.collectAsState(initial = emptyMap())
     val inProgress by vm.inProgress.collectAsState()
     val sewMessage by vm.message.collectAsState()
+    val sewnReady by vm.sewnReady.collectAsState()
     val tailors by vm.tailors.collectAsState()
     val allAssignments by vm.allAssignments.collectAsState()
     val pendingWages by vm.pendingWages.collectAsState()
@@ -95,7 +96,9 @@ fun SewingScreen(
     }
 
     var tab by rememberSaveable { mutableStateOf(0) }
-    val tabs = listOf("تحویل به خیاط", "در حال دوخت")
+    // ترتیبِ تب‌ها همان مسیرِ واقعیِ کار است:
+    // تحویل به خیاط ← در حال دوخت ← دوخته شده ← (نظارت)
+    val tabs = listOf("تحویل به خیاط", "در حال دوخت", "دوخته شده")
 
     Scaffold(
         topBar = {
