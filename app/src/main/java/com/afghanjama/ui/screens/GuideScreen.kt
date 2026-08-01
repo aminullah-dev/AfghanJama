@@ -21,6 +21,9 @@ import androidx.compose.material.icons.filled.Handshake
 import androidx.compose.material.icons.filled.EventAvailable
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.Print
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Science
+import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Group
@@ -175,6 +178,44 @@ fun GuideScreen(onBack: () -> Unit) {
                         "کسری یعنی «به این اندازه فروخته‌ایم که هنوز نداریم». با ورودِ بعدیِ همان کالا خودش تسویه می‌شود.",
                         "بهای تمام‌شده هم خودش اصلاح می‌شود؛ لازم نیست کاری بکنید.",
                         "اگر اپ را سخت‌گیر می‌خواهید: تنظیمات ← فروشِ بیشتر از موجودی را خاموش کنید."
+                    )
+                )
+            }
+
+            item {
+                GuideCard(
+                    icon = Icons.Default.Inventory2,
+                    title = "شمارش انبار محصول",
+                    lines = listOf(
+                        "عددی در انبار ثبت است ولی در واقعیت نیست؟ انبار محصول ← پوشه را باز کنید ← کنارِ کالا دکمهٔ «شمارش».",
+                        "تعدادی را که واقعاً شمرده‌اید بنویسید. صفر که بزنید، کالا از فهرست برداشته می‌شود؛ تاریخچهٔ فروش‌هایش می‌مانَد.",
+                        "فقط عدد عوض نمی‌شود — سندش هم زده می‌شود، پس دفتر و انبار باز هم با هم می‌خوانند.",
+                        "هر شمارش در «رویدادها» ثبت می‌شود: از چند به چند و با چه توضیحی."
+                    )
+                )
+            }
+
+            item {
+                GuideCard(
+                    icon = Icons.Default.Straighten,
+                    title = "عددِ کسری — دو و نیم متر",
+                    lines = listOf(
+                        "در کادرهای مقدار (مصرفِ پارچه، موجودی، حدِ هشدار، ضایعات، خرید و برگشتی) کیبورد نقطه دارد.",
+                        "«2.5» بنویسید. با کیبوردِ فارسی «۲٫۵» و «۲،۵» هم همان عدد را می‌دهند.",
+                        "کادرهای پول و تعدادِ لباس عمداً نقطه ندارند، چون نیم‌عدد لباس معنا ندارد."
+                    )
+                )
+            }
+
+            item {
+                GuideCard(
+                    icon = Icons.Default.Science,
+                    title = "خودآزمایی",
+                    lines = listOf(
+                        "تنظیمات ← خودآزمایی و سلامتِ داده.",
+                        "دفتر کل، موجودی انبار و صندوق‌ها را با هم تطبیق می‌دهد و می‌گوید کجا نمی‌خوانَد.",
+                        "فقط می‌خوانَد — هیچ چیزی را تغییر نمی‌دهد، پس هر وقت خواستید بی‌خطر است.",
+                        "بعد از هر به‌روزرسانی یک بار بزنید. چیزی قرمز شد، دکمهٔ اشتراکِ بالای صفحه متنش را می‌فرستد."
                     )
                 )
             }
