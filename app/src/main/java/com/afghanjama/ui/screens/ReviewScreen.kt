@@ -242,7 +242,7 @@ fun ReviewScreen(
                                         overflow = TextOverflow.Ellipsis
                                     )
                                     Text(
-                                        text = "${o.orderCode} • کلِ سفارش: ${o.qty}",
+                                        text = "${o.orderCode} • کلِ سفارش: ${o.qty.fa()}",
                                         style = MaterialTheme.typography.labelMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -257,9 +257,15 @@ fun ReviewScreen(
                             }
 
                             if (o.storedQty > 0) {
+                                // «باقی هنوز در دوخت است» همیشه درست نبود:
+                                // وقتی این دسته آخرین است، چیزی در دوخت
+                                // نمانده و آن جمله ناظر را گمراه می‌کرد.
+                                val stillSewing = o.qty - o.storedQty - o.reviewQty
                                 Text(
-                                    text = "از این سفارش ${o.storedQty.fa()} عدد از قبل وارد " +
-                                        "انبار شده؛ باقی هنوز در دوخت است.",
+                                    text = "از این سفارش ${o.storedQty.fa()} عدد از قبل وارد انبار شده" +
+                                        if (stillSewing > 0)
+                                            "؛ ${stillSewing.fa()} عدد هنوز در دوخت است."
+                                        else "؛ این آخرین دسته است و سفارش کامل می‌شود.",
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
