@@ -99,7 +99,8 @@ fun DeliveryQueueScreen(
                         colors = CardDefaults.cardColors(
                             containerColor = if (ui.isError) MaterialTheme.colorScheme.errorContainer
                             else MaterialTheme.colorScheme.primaryContainer
-                        )
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
                         Row(
                             Modifier.fillMaxWidth().padding(start = 12.dp),

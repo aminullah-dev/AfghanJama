@@ -180,7 +180,8 @@ fun CustomerDetailScreen(
                     colors = CardDefaults.cardColors(
                         containerColor = if (s.balance > 0) MaterialTheme.colorScheme.errorContainer
                         else MaterialTheme.colorScheme.primaryContainer
-                    )
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         s.customer?.phone?.takeIf { it.isNotBlank() }?.let {

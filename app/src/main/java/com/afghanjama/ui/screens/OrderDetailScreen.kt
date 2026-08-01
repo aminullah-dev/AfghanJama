@@ -519,7 +519,8 @@ fun OrderDetailScreen(
                         colors = CardDefaults.cardColors(
                             containerColor = if (ui.isError) MaterialTheme.colorScheme.errorContainer
                             else MaterialTheme.colorScheme.primaryContainer
-                        )
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
                         Text(
                             msg,
@@ -544,7 +545,8 @@ fun OrderDetailScreen(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.secondaryContainer
-                        )
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
                         Column(
                             Modifier.padding(14.dp),
@@ -590,7 +592,8 @@ fun OrderDetailScreen(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer
-                        )
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
                         Column(
                             Modifier.padding(14.dp),

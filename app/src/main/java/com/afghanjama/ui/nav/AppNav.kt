@@ -196,7 +196,6 @@ fun AppNav(
     breakVm: BreakTimeViewModel,
     linkVm: WorkshopLinkViewModel,
     boardVm: BoardViewModel,
-    /** موقتی — همراهِ صفحهٔ خودآزمایی حذف می‌شود. */
     selfTestVm: SelfTestViewModel,
     purchasePlanVm: PurchasePlanViewModel,
     myWorkVm: MyWorkViewModel,

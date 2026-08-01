@@ -235,7 +235,8 @@ fun PayrollScreen(
                         containerColor = if (ui.unpaidCount > 0)
                             MaterialTheme.colorScheme.tertiaryContainer
                         else MaterialTheme.colorScheme.primaryContainer
-                    )
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         val onColor = if (ui.unpaidCount > 0)

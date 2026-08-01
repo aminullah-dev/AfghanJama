@@ -200,7 +200,8 @@ fun MoneyMoveScreen(
                         colors = CardDefaults.cardColors(
                             containerColor = if (settling) MaterialTheme.colorScheme.primaryContainer
                             else MaterialTheme.colorScheme.tertiaryContainer
-                        )
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
                         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                             val onColor = if (settling) MaterialTheme.colorScheme.onPrimaryContainer

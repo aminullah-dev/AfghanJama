@@ -178,7 +178,8 @@ fun MaterialWarehouseScreen(
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Row(
                         Modifier.fillMaxWidth().padding(14.dp),
@@ -199,7 +200,8 @@ fun MaterialWarehouseScreen(
                         colors = CardDefaults.cardColors(
                             containerColor = if (ui.isError) MaterialTheme.colorScheme.errorContainer
                             else MaterialTheme.colorScheme.secondaryContainer
-                        )
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
                         Text(msg, modifier = Modifier.padding(12.dp))
                     }

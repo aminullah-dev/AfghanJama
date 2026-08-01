@@ -160,7 +160,8 @@ fun SewingScreen(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.errorContainer
-                        )
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
                         Row(
                             Modifier.padding(12.dp),
@@ -216,7 +217,8 @@ fun SewingScreen(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.errorContainer
-                        )
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
                         Row(
                             Modifier.padding(12.dp),

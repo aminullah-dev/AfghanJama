@@ -42,7 +42,7 @@ object Routes {
     const val WORKSHOP_LINK = "workshop_link"
     const val BOARD = "board"
 
-    /** موقتی — با حذفِ خودآزمایی این هم برداشته می‌شود. */
+    /** ورودی‌اش در تنظیمات است — «خودآزمایی و سلامتِ داده». */
     const val SELF_TEST = "self_test"
     const val SEARCH = "search"
     const val ORDER_DETAIL = "order_detail"

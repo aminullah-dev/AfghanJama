@@ -125,7 +125,6 @@ class MainActivity : FragmentActivity() {
                 val breakVm = remember { BreakTimeViewModel(repo) }
                 val linkVm = remember { WorkshopLinkViewModel(repo) }
                 val boardVm = remember { BoardViewModel(repo) }
-                // موقتی — همراهِ صفحهٔ خودآزمایی حذف می‌شود
                 val selfTestVm = remember { SelfTestViewModel(repo) }
                 val purchasePlanVm = remember { PurchasePlanViewModel(repo) }
                 val myWorkVm = remember { MyWorkViewModel(repo) }

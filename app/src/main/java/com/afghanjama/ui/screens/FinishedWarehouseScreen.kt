@@ -346,7 +346,8 @@ fun FinishedWarehouseScreen(
                         colors = CardDefaults.cardColors(
                             containerColor = if (ui.isError) MaterialTheme.colorScheme.errorContainer
                             else MaterialTheme.colorScheme.primaryContainer
-                        )
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) { Text(msg, modifier = Modifier.padding(12.dp)) }
                 }
             }
