@@ -293,7 +293,16 @@ for col in ("reviewQty", "storedQty", "storedCost"):
 vm = (ROOT / "ui/vm/SewingViewModel.kt").read_text(encoding="utf-8")
 check("sewn < o.qty" not in vm, "نگهبانِ موقتِ «پس از دوختِ همه» هنوز سرِ جایش است")
 screen = (ROOT / "ui/screens/SewingScreen.kt").read_text(encoding="utf-8")
-check("هرچه آماده است" in screen, "برچسبِ دکمه برنگشته")
+# برچسبِ مسدودکنندهٔ دورهٔ نگهبان نباید برگردد
+check("پس از دوختِ همه" not in screen, "برچسبِ مسدودکننده برگشته")
+# و دکمه باید تعدادِ آماده را بگوید، نه فقط وعدهٔ کلی — «ارسال N عدد به
+# نظارت» از «هرچه آماده است» صریح‌تر است چون کاربر پیش از زدن می‌داند
+# چند عدد می‌رود.
+check("به نظارت" in screen, "دکمهٔ ارسال به نظارت نیست")
+check("readyQty" in screen, "تعدادِ آماده روی دکمه نوشته نمی‌شود")
+# تبِ «دوخته شده» جایی است که کارِ تمام‌شده دیده و فرستاده می‌شود
+check("دوخته شده" in screen, "تبِ «دوخته شده» نیست")
+check("sewnReady" in screen, "صفحه فهرستِ آمادهٔ نظارت را نمی‌خواند")
 check("پس از دوختِ همه" not in screen, "برچسبِ نگهبان هنوز روی دکمه است")
 
 st = (ROOT / "selftest/SelfTest.kt").read_text(encoding="utf-8")

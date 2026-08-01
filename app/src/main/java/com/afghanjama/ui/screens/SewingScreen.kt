@@ -148,7 +148,7 @@ fun SewingScreen(
                         item { Spacer(Modifier.height(40.dp)) }
                     }
                 }
-            } else {
+            } else if (tab == 1) {
                 // وقتی ارسال انجام نشد (چیزِ تازه‌ای دوخته نشده) دلیلش
                 // همین‌جا نوشته می‌شود — وگرنه کاربر دکمه را می‌زند و هیچ
                 // اتفاقی نمی‌افتد و نمی‌فهمد چرا.
@@ -183,8 +183,7 @@ fun SewingScreen(
                         //
                         // یک بار برای هر سفارش، نه برای هر خیاط: نظارت
                         // سفارش را تحویل می‌گیرد نه سهمِ یک خیاط را.
-                        inProgress.groupBy { it.orderCode }.forEach { (code, rows) ->
-                            items(rows, key = { it.id }) { a ->
+                        items(inProgress, key = { it.id }) { a ->
                                 InProgressCard(
                                 assignment = a,
                                 measurements = measurementsByOrder[a.orderCode].orEmpty(),
@@ -200,23 +199,104 @@ fun SewingScreen(
                                     onCancel = { vm.cancelAssignment(a.id) }
                                 )
                             }
-                            item(key = "review-$code") {
-                                // «هرچه آماده است» یعنی همان: هر عدد که
-                                // دوخته شد جلو می‌رود و باقی در دوخت
-                                // می‌ماند. تعداد را `Repo` می‌شمارد؛ صفحه
-                                // فقط دکمه را نشان می‌دهد.
-                                Button(
-                                    onClick = {
-                                        // orderId روی سپردنِ کار متن است،
-                                        // ولی sendToReview شناسه می‌خواهد.
-                                        rows.firstOrNull()?.let { a2 ->
-                                            runCatching { UUID.fromString(a2.orderId) }
-                                                .getOrNull()?.let { vm.sendToReview(it) }
-                                        }
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
+                        item { Spacer(Modifier.height(40.dp)) }
+                    }
+                }
+            } else {
+                // ---------- دوخته شده ----------
+                // کارِ تمام‌شدهٔ خیاط تا امروز از «در حال دوخت» ناپدید
+                // می‌شد و هیچ‌جا دیده نمی‌شد. اینجا معلوم است کدام خیاط
+                // چند عدد تحویل داده، و همان‌ها — نه کلِ سفارش — به
+                // نظارت می‌روند.
+                sewMessage?.let { msg ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Row(
+                            Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(msg, modifier = Modifier.weight(1f))
+                            TextButton(onClick = { vm.clearMessage() }) { Text("باشه") }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+                if (sewnReady.isEmpty()) {
+                    EmptyCard(
+                        "چیزی آمادهٔ نظارت نیست.",
+                        "وقتی خیاط کارش را تحویل داد، همان‌جا اینجا می‌آید."
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(sewnReady, key = { it.order.id }) { g ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surface
+                                ),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                            ) {
+                                Column(
+                                    Modifier.padding(14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
-                                    Text("ارسال $code به نظارت (هرچه آماده است)")
+                                    Row(
+                                        Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            g.order.designTitle,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            "آمادهٔ نظارت: ${g.readyQty.fa()}",
+                                            color = MaterialTheme.colorScheme.primary,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                    Text(
+                                        "${g.order.orderCode} • کل: ${g.order.qty.fa()} عدد" +
+                                            (if (g.order.size.isNotBlank()) " • سایز ${g.order.size}" else ""),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+
+                                    HorizontalDivider(thickness = 0.5.dp)
+
+                                    // جزئیات: کدام خیاط، چند عدد، با چه کارمزدی
+                                    g.done.forEach { a ->
+                                        Row(
+                                            Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(
+                                                "${a.tailorLabel} — ${a.qty.fa()} عدد",
+                                                style = MaterialTheme.typography.labelMedium
+                                            )
+                                            Text(
+                                                "کارمزد: ${(a.unitWage * a.qty).afn()}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+
+                                    HorizontalDivider(thickness = 0.5.dp)
+
+                                    Button(
+                                        onClick = { vm.sendToReview(g.order.id) },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text("ارسال ${g.readyQty.fa()} عدد به نظارت")
+                                    }
                                 }
                             }
                         }
