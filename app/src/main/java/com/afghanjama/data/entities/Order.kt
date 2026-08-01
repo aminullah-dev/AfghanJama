@@ -31,6 +31,23 @@ data class Order(
     val fabricPrice: Long,
     val workCost: Long,
 
+    /**
+     * خرج‌کار از کجا پرداخت شد: WALLET / BANK / PROFIT / CREDIT.
+     *
+     * تا امروز خرج‌کار همیشه بدهی ثبت می‌شد و هیچ طرفِ حسابی نداشت، پس
+     * هرگز تسویه نمی‌شد و پول از صندوق بیرون نمی‌رفت. نتیجه: بهای
+     * تمام‌شده روی کاغذ درست بود ولی صندوق واقعیت را نشان نمی‌داد.
+     *
+     * CREDIT پیش‌فرض است تا سفارش‌های ثبت‌شده همان رفتارِ قبلی را داشته
+     * باشند؛ برای نسیه نامِ طرف هم لازم است تا بشود بعداً تسویه‌اش کرد.
+     */
+    @ColumnInfo(defaultValue = "CREDIT")
+    val workCostSource: String = "CREDIT",
+
+    /** طرفِ حسابِ خرج‌کار — برای نسیه لازم است، وگرنه بدهی بی‌صاحب می‌مانَد. */
+    @ColumnInfo(defaultValue = "")
+    val workCostPayee: String = "",
+
     // دستمزد دوختِ انباشته از تحویل‌های خیاط (بخشی از بهای تمام‌شده)
     @ColumnInfo(defaultValue = "0")
     val sewingCost: Long = 0,

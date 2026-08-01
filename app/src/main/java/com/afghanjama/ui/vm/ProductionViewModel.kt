@@ -49,6 +49,10 @@ data class ProductionUi(
     val dueDays: String = "",
     /** بیعانهٔ دریافتی هنگامِ ثبت (خالی = بدون بیعانه). */
     val deposit: String = "",
+    /** خرج‌کار از کجا پرداخت می‌شود: WALLET / BANK / PROFIT / CREDIT. */
+    val workCostSource: String = "WALLET",
+    /** طرفِ حسابِ خرج‌کارِ نسیه — بی آن، بدهی تسویه‌نشدنی می‌مانَد. */
+    val workCostPayee: String = "",
 
     // ویرایشگر ماده فعلی (انتخاب از انبار)
     val pickedName: String = "",
@@ -131,6 +135,12 @@ class ProductionViewModel(private val repo: Repo) : ViewModel() {
     fun setCustomerPhone(v: String) = _ui.update { it.copy(customerPhone = v, message = null, isError = false) }
     fun setAgreedPrice(v: String) = _ui.update { it.copy(agreedPrice = v.digitsOnly(), message = null, isError = false) }
     fun setDueDays(v: String) = _ui.update { it.copy(dueDays = v.digitsOnly(), message = null, isError = false) }
+    fun setWorkCostSource(v: String) =
+        _ui.update { it.copy(workCostSource = v.trim().uppercase(), message = null, isError = false) }
+
+    fun setWorkCostPayee(v: String) =
+        _ui.update { it.copy(workCostPayee = v, message = null, isError = false) }
+
     fun setDeposit(v: String) = _ui.update { it.copy(deposit = v.digitsOnly(), message = null, isError = false) }
 
     /** انتخاب یک ماده از انبار برای ویرایشگر فعلی. */
@@ -268,6 +278,8 @@ class ProductionViewModel(private val repo: Repo) : ViewModel() {
             fabricSource = "MATERIAL",
             fabricPrice = materialsCost,
             workCost = workCostTotal,
+            workCostSource = s.workCostSource,
+            workCostPayee = s.workCostPayee.trim(),
             agreedPrice = agreedPrice,
             customerName = s.customerName.trim(),
             customerPhone = s.customerPhone.trim(),
@@ -282,11 +294,41 @@ class ProductionViewModel(private val repo: Repo) : ViewModel() {
         // مواد اینجا کسر نمی‌شوند؛ کسرِ واقعی از انبار هنگام «برش» انجام
         // می‌شود. سفارش با فهرست موادش (BOM) و بهای تمام‌شدهٔ برآوردی ثبت
         // می‌گردد و وارد انبار سفارش‌ها می‌شود.
-        repo.createOrder(
+        if (workCostTotal > 0 &&
+            s.workCostSource.equals("CREDIT", true) &&
+            s.workCostPayee.isBlank()
+        ) {
+            _ui.update {
+                it.copy(
+                    message = "برای خرج‌کارِ نسیه، نامِ طرفِ حساب لازم است — " +
+                        "وگرنه بدهی بی‌صاحب می‌مانَد و هرگز تسویه نمی‌شود.",
+                    isError = true
+                )
+            }
+            return@launch
+        }
+
+        val saved = repo.createOrder(
             order,
             resolved,
             workLines.map { OrderWorkItem(orderId = "", title = it.title, price = it.price) }
         )
+        if (!saved) {
+            // خرج‌کارِ نقدی بیش از موجودیِ صندوق — هیچ چیز ثبت نشده
+            val box = when (s.workCostSource.uppercase()) {
+                "BANK" -> "بانک"
+                "PROFIT" -> "فایده"
+                else -> "کیف پول"
+            }
+            _ui.update {
+                it.copy(
+                    message = "موجودیِ $box برای خرج‌کارِ ${workCostTotal} ؋ کافی نیست. " +
+                        "مبلغ را کم کنید یا «نسیه» را انتخاب کنید.",
+                    isError = true
+                )
+            }
+            return@launch
+        }
 
         // بیعانه بعد از ثبتِ سفارش گرفته می‌شود تا بدهیِ مشتری اول ثبت
         // شده باشد و این دریافت آن را کم کند، نه اینکه طلبِ منفی بسازد.

@@ -28,6 +28,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -449,6 +450,56 @@ fun ProductionOrderScreen(
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.SemiBold
                                 )
+
+                                HorizontalDivider(thickness = 0.5.dp)
+
+                                // خرج‌کار پولِ واقعی است و باید از جایی برود.
+                                // تا امروز همیشه بدهیِ بی‌صاحب می‌شد که هرگز
+                                // تسویه نمی‌شد، پس صندوق واقعیت را نشان
+                                // نمی‌داد و بهای تمام‌شده فقط روی کاغذ درست بود.
+                                Text(
+                                    "خرج کار از کجا پرداخت می‌شود؟",
+                                    style = MaterialTheme.typography.labelLarge
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    listOf(
+                                        "WALLET" to "کیف پول",
+                                        "BANK" to "بانک",
+                                        "PROFIT" to "فایده",
+                                        "CREDIT" to "نسیه"
+                                    ).forEach { (code, label) ->
+                                        FilterChip(
+                                            selected = ui.workCostSource.equals(code, true),
+                                            onClick = { vm.setWorkCostSource(code) },
+                                            label = { Text(label) }
+                                        )
+                                    }
+                                }
+                                if (ui.workCostSource.equals("CREDIT", true)) {
+                                    OutlinedTextField(
+                                        value = ui.workCostPayee,
+                                        onValueChange = vm::setWorkCostPayee,
+                                        label = { Text("طرفِ حساب (لازم)") },
+                                        singleLine = true,
+                                        isError = ui.workCostPayee.isBlank(),
+                                        supportingText = {
+                                            Text("بی نام، بدهی بی‌صاحب می‌مانَد و هرگز تسویه نمی‌شود.")
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                } else {
+                                    Text(
+                                        "همین حالا از ${
+                                            when (ui.workCostSource.uppercase()) {
+                                                "BANK" -> "بانک"
+                                                "PROFIT" -> "فایده"
+                                                else -> "کیف پول"
+                                            }
+                                        } کم می‌شود و در بهای تمام‌شدهٔ سفارش می‌نشیند.",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
                     }

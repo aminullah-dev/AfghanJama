@@ -73,11 +73,20 @@ class Repo(private val db: AppDatabase) {
     suspend fun updateOrder(order: Order) =
         db.orderDao().update(order)
 
+    /**
+     * @return false اگر خرج‌کار نقدی باشد و صندوق کافی نباشد — و آن‌وقت
+     * **هیچ چیز ثبت نمی‌شود**. کنترل پیش از اولین نوشتن انجام می‌شود تا
+     * سفارشِ نیمه‌ثبت جا نمانَد؛ همان درسی که مسیرهای دیگرِ خروجِ نقد هم
+     * از آن پیروی می‌کنند.
+     */
     suspend fun createOrder(
         order: Order,
         fabrics: List<OrderFabric> = emptyList(),
         workItems: List<OrderWorkItem> = emptyList()
-    ) {
+    ): Boolean {
+        val src = order.workCostSource.trim().uppercase().ifBlank { "CREDIT" }
+        if (order.workCost > 0 && src != "CREDIT" && !hasFunds(src, order.workCost)) return false
+
         db.orderDao().insert(order)
         // پارچه‌های چندگانه سفارش (اگر داده شده باشد)
         if (fabrics.isNotEmpty()) {
@@ -104,13 +113,52 @@ class Repo(private val db: AppDatabase) {
         // منفی می‌ماند و «موجودی محصول» همان‌قدر بیش‌ازواقع می‌شود.
         // پرداختش بعداً از «پرداخت به فروشنده» تسویه می‌شود.
         if (order.workCost > 0) {
+            /*
+             * خرج‌کار یا همان لحظه پرداخت می‌شود یا بدهی می‌مانَد.
+             *
+             * تا امروز همیشه بدهی ثبت می‌شد و هیچ طرفِ حسابی نداشت، پس
+             * راهی برای تسویه‌اش نبود: PAYABLE فقط با settleSupplier کم
+             * می‌شود و آن نامِ فروشنده می‌خواهد. نتیجه این بود که بدهی
+             * برای همیشه می‌مانْد و پول هرگز از صندوق بیرون نمی‌رفت —
+             * بهای تمام‌شده روی کاغذ درست بود ولی صندوق واقعیت را نشان
+             * نمی‌داد.
+             *
+             * حالا اگر نقد باشد همان‌جا از صندوق کم می‌شود، و اگر نسیه
+             * باشد به نامِ طرفِ حساب ثبت می‌گردد تا بشود تسویه‌اش کرد.
+             */
+            val src = order.workCostSource.trim().uppercase().ifBlank { "CREDIT" }
+            val payee = order.workCostPayee.trim()
+            val cash = src != "CREDIT"
+
             postJournal(
                 "خرج‌کارِ سفارش ${order.orderCode}", "WORK_ITEMS", order.orderCode,
                 listOf(
                     jl(Accounts.WIP, debit = order.workCost),
-                    jl(Accounts.PAYABLE, credit = order.workCost)
+                    if (cash) jl(Accounts.box(src), credit = order.workCost)
+                    else jl(Accounts.PAYABLE, credit = order.workCost)
                 )
             )
+
+            if (cash) {
+                // صندوق هم باید واقعاً کم شود، نه فقط ژورنال
+                spend(
+                    source = src,
+                    amount = order.workCost,
+                    note = "خرج‌کارِ سفارش ${order.orderCode}",
+                    category = "خرج کار"
+                )
+            } else if (payee.isNotBlank()) {
+                // بدهیِ بی‌نام تسویه‌نشدنی است؛ با نام در دفترِ طرف می‌نشیند
+                postLedger(
+                    type = "SUPPLIER",
+                    name = payee,
+                    debit = 0,
+                    credit = order.workCost,
+                    refType = "WORK_ITEMS",
+                    refId = order.orderCode,
+                    note = "خرج‌کارِ سفارش ${order.orderCode}"
+                )
+            }
         }
         // بدهیِ مشتری بابتِ این سفارش → بدهکارِ حساب مشتری در دفتر کل
         // (پرداخت‌های او بستانکار می‌شوند؛ مانده = طلبِ ما از مشتری).
@@ -120,6 +168,7 @@ class Repo(private val db: AppDatabase) {
                 "SALE_BILLING", order.orderCode, "بدهی بابت سفارش"
             )
         }
+        return true
     }
 
     fun observeOrderFabrics(orderId: String): Flow<List<OrderFabric>> =
