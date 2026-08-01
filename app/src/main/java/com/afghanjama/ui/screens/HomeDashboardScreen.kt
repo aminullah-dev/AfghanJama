@@ -3,7 +3,6 @@
 package com.afghanjama.ui.screens
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -36,7 +35,6 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Monitor
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Payments
-import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material.icons.filled.Settings
@@ -60,12 +58,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import com.afghanjama.prefs.CompanyPrefs
+import com.afghanjama.ui.components.IconBadge
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.data.StockForecast
 import com.afghanjama.ui.format.afn
@@ -117,9 +117,7 @@ fun HomeDashboardScreen(
     onGoSettings: () -> Unit,
     onGoGuide: () -> Unit,
     onGoWorkshopLink: () -> Unit,
-    onGoBoard: () -> Unit,
-    /** موقتی — با حذفِ نوارِ خودآزمایی این پارامتر هم برداشته می‌شود. */
-    onGoSelfTest: () -> Unit
+    onGoBoard: () -> Unit
 ) {
     val s by vm.summary.collectAsState()
     val runningOut by vm.runningOut.collectAsState()
@@ -198,46 +196,41 @@ fun HomeDashboardScreen(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // ---------- موقتی: نوارِ خودآزمایی ----------
+        // ---------- سرصفحه ----------
         //
-        // بالای همه‌چیز و تمام‌عرض تا دیده شود، و با رنگی که عمداً جزوِ
-        // پالتِ اپ نیست تا فراموش نشود موقتی است. برای حذف: همین بلوک،
-        // پارامترِ onGoSelfTest، مسیرِ Routes.SELF_TEST و پوشهٔ selftest.
+        // اولین چیزی که چشم می‌بیند باید بگوید «کجا هستم و امروز چه
+        // روزی است»، نه یک دکمهٔ پول. تا دیروز سلام بعد از دکمه‌های
+        // پرداخت و بنرهای هشدار می‌آمد، یعنی وسطِ صفحه — جایی که هیچ
+        // سرصفحه‌ای نباید باشد.
         item(span = { fullSpan() }) {
-            Card(
-                onClick = onGoSelfTest,
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = SelfTestBannerColor),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            val ctx = LocalContext.current
+            val coName = remember { CompanyPrefs.name(ctx).ifBlank { "کارگاه خیاطی AfghanJama" } }
+            val hour = remember { java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY) }
+            val greeting = when {
+                hour < 12 -> "صبح بخیر"
+                hour < 17 -> "روز بخیر"
+                else -> "عصر بخیر"
+            }
+            Column(
+                Modifier.padding(top = 4.dp, bottom = 2.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                Row(
-                    Modifier.fillMaxWidth().padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Science,
-                        contentDescription = null,
-                        tint = Color.White
-                    )
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            "خودآزمایی اپ",
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Text(
-                            "حساب‌ها و دفتر را وارسی می‌کند • چیزی نمی‌نویسد • موقتی",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White.copy(alpha = 0.85f)
-                        )
-                    }
-                    Icon(
-                        Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                        contentDescription = null,
-                        tint = Color.White
-                    )
-                }
+                Text(
+                    "$greeting 👋",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    coName,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    PersianDate.long(System.currentTimeMillis()),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Medium
+                )
             }
         }
 
@@ -282,7 +275,9 @@ fun HomeDashboardScreen(
             item(span = { fullSpan() }) {
                 val urgent = action.urgent > 0
                 Card(
-                    modifier = Modifier.fillMaxWidth().clickable { onGoActionCenter() },
+                    onClick = onGoActionCenter,
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = if (urgent) MaterialTheme.colorScheme.errorContainer
                         else MaterialTheme.colorScheme.tertiaryContainer
@@ -332,7 +327,8 @@ fun HomeDashboardScreen(
                     colors = CardDefaults.cardColors(
                         containerColor = if (nearEnd) MaterialTheme.colorScheme.errorContainer
                         else MaterialTheme.colorScheme.secondaryContainer
-                    )
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(
@@ -354,42 +350,12 @@ fun HomeDashboardScreen(
             }
         }
 
-
-        item(span = { fullSpan() }) {
-            val ctx = LocalContext.current
-            val coName = remember { CompanyPrefs.name(ctx).ifBlank { "کارگاه خیاطی AfghanJama" } }
-            val hour = remember { java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY) }
-            val greeting = when {
-                hour < 12 -> "صبح بخیر"
-                hour < 17 -> "روز بخیر"
-                else -> "عصر بخیر"
-            }
-            Column {
-                Text(
-                    "$greeting 👋",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    coName,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    PersianDate.long(System.currentTimeMillis()),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-        }
-
         // ---------- کارت‌های خلاصه ----------
-        item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
+        item(span = { fullSpan() }) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
@@ -425,7 +391,8 @@ fun HomeDashboardScreen(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.errorContainer
-                    )
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Column(
                         Modifier.padding(14.dp),
@@ -470,8 +437,11 @@ fun HomeDashboardScreen(
         if (isManager && s.inProduction > 0) {
             item(span = { fullSpan() }) {
                 Card(
-                    modifier = Modifier.fillMaxWidth().clickable { onGoProduction() },
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    onClick = onGoProduction,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(
@@ -505,7 +475,7 @@ fun HomeDashboardScreen(
                         title,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(top = 4.dp)
+                        modifier = Modifier.padding(top = 10.dp, bottom = 2.dp)
                     )
                 }
                 items(list, key = { it.label }) { action -> ActionCard(action) }
@@ -530,8 +500,10 @@ private fun MoneyButton(
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier.clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = container)
+        onClick = onClick,
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = container),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             Modifier.fillMaxWidth().padding(14.dp),
@@ -552,35 +524,47 @@ private fun MoneyButton(
             Text(
                 sub,
                 style = MaterialTheme.typography.labelSmall,
-                color = onContainer
+                // زیرنویس نباید هم‌وزنِ عنوان باشد وگرنه هر دو با هم
+                // خوانده می‌شوند و هیچ‌کدام دیده نمی‌شود
+                color = onContainer.copy(alpha = 0.75f)
             )
         }
     }
 }
 
+/**
+ * خانهٔ یک بخش در شبکهٔ دسترسیِ سریع.
+ *
+ * آیکن داخلِ یک دایرهٔ کم‌رنگ می‌نشیند نه لخت روی سفید: با یک نگاه از
+ * دور هم بخش‌ها از هم جدا می‌شوند، و شبکهٔ چهارده‌خانه‌ای به‌جای یک
+ * توده، ریتم پیدا می‌کند.
+ */
 @Composable
 private fun ActionCard(action: HomeAction) {
     Card(
+        onClick = action.onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .height(96.dp)
-            .clickable(onClick = action.onClick),
+            .height(104.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(
-            Modifier.fillMaxSize().padding(12.dp),
+            Modifier.fillMaxSize().padding(10.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Icon(
-                action.icon,
-                contentDescription = action.label,
-                tint = MaterialTheme.colorScheme.primary
-            )
+            IconBadge(action.icon, contentDescription = null)
             Spacer(Modifier.height(8.dp))
-            Text(action.label, fontWeight = FontWeight.Medium)
+            Text(
+                action.label,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -593,10 +577,16 @@ private fun StatCard(title: String, value: String, sub: String) {
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(title, style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(
+                value,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
             Text(sub, style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }

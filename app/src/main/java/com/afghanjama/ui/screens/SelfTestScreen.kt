@@ -37,7 +37,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -231,6 +230,3 @@ private fun reportText(results: List<CheckResult>, ranAt: Long): String = buildS
         appendLine()
     }
 }
-
-/** رنگِ نوارِ دکمهٔ موقتِ داشبورد — عمداً زشت است تا فراموش نشود حذفش کنید. */
-internal val SelfTestBannerColor = Color(0xFF6D4C41)

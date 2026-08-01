@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
@@ -79,6 +80,7 @@ fun SettingsScreen(
     canBackup: Boolean,
     canResetData: Boolean,
     onGoMaster: () -> Unit,
+    onGoSelfTest: () -> Unit,
     onLoggedOut: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -582,6 +584,42 @@ fun SettingsScreen(
                         Icon(Icons.Default.Email, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
                         Text(SUPPORT_EMAIL)
+                    }
+                }
+            }
+
+            // ---------- خودآزمایی ----------
+            //
+            // تا دیروز این یک بنرِ قهوه‌ایِ تمام‌عرض بالای داشبورد بود، با
+            // برچسبِ «موقتی» روی خودش. برای اپی که به کارفرما تحویل می‌شود
+            // اولین چیزی که صبح می‌بیند نباید داربستِ ساخت باشد. خودِ
+            // قابلیت می‌مانَد — ابزارِ تشخیصِ کارآمدی است — ولی جایش
+            // کنارِ پشتیبان و ریست است، نه روی میزِ کار.
+            if (canResetData) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                ) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "خودآزمایی و سلامتِ داده",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            "دفتر کل، موجودی انبار و صندوق‌ها را با هم تطبیق می‌دهد و " +
+                                "می‌گوید کجا نمی‌خوانَد. فقط می‌خوانَد — هیچ چیزی را " +
+                                "تغییر نمی‌دهد، پس هر وقت خواستید بی‌خطر است.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        OutlinedButton(onClick = onGoSelfTest, modifier = Modifier.fillMaxWidth()) {
+                            Icon(Icons.Default.Science, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("اجرای خودآزمایی")
+                        }
                     }
                 }
             }

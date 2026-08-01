@@ -379,8 +379,7 @@ fun AppNav(
                     onGoSettings = { navController.navigate(Routes.SETTINGS) },
                     onGoGuide = { navController.navigate(Routes.GUIDE) },
                     onGoWorkshopLink = { navController.navigate(Routes.WORKSHOP_LINK) },
-                    onGoBoard = { navController.navigate(Routes.BOARD) },
-                    onGoSelfTest = { navController.navigate(Routes.SELF_TEST) }
+                    onGoBoard = { navController.navigate(Routes.BOARD) }
                 )
             }
 
@@ -426,7 +425,7 @@ fun AppNav(
                 )
             }
 
-            // موقتی — این بلوک را با دکمهٔ داشبورد یک‌جا حذف کنید
+            // ورودی‌اش در تنظیمات است — «خودآزمایی و سلامتِ داده»
             composable(Routes.SELF_TEST) {
                 SelfTestScreen(
                     vm = selfTestVm,
@@ -638,6 +637,7 @@ fun AppNav(
                     canBackup = Permissions.canBackup(authUi.role),
                     canResetData = Permissions.canResetData(authUi.role),
                     onGoMaster = { navController.navigate(Routes.MASTER) },
+                    onGoSelfTest = { navController.navigate(Routes.SELF_TEST) },
                     onLoggedOut = {
                         navController.navigate(Routes.LOGIN) {
                             popUpTo(0) { inclusive = true }
