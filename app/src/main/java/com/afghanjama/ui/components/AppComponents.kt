@@ -3,6 +3,8 @@
 package com.afghanjama.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,6 +32,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -116,6 +119,37 @@ fun AccentCard(
     onClick = onClick,
     content = content
 )
+
+/**
+ * آیکن داخلِ یک نشانِ گردِ کم‌رنگ.
+ *
+ * آیکنِ تنها روی سطحِ سفید شناور به نظر می‌رسد و وزنی ندارد؛ یک دایرهٔ
+ * ملایمِ پشتش هم جایش را تعریف می‌کند و هم رنگِ اصلیِ اپ را در کلِ
+ * صفحه تکرار می‌کند بی‌آنکه پررنگ شود.
+ */
+@Composable
+fun IconBadge(
+    icon: ImageVector,
+    contentDescription: String? = null,
+    tint: Color = MaterialTheme.colorScheme.primary,
+    container: Color = MaterialTheme.colorScheme.primaryContainer,
+    size: androidx.compose.ui.unit.Dp = 40.dp
+) {
+    Box(
+        Modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(container),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            icon,
+            contentDescription = contentDescription,
+            tint = tint,
+            modifier = Modifier.size(size * 0.5f)
+        )
+    }
+}
 
 /** عنوانِ یک بخش در صفحه. */
 @Composable

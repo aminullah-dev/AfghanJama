@@ -3,7 +3,6 @@
 package com.afghanjama.ui.screens
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -126,7 +125,8 @@ fun CustomersScreen(
             }
             items(filtered, key = { it.customer.id }) { row ->
                 Card(
-                    modifier = Modifier.fillMaxWidth().clickable { onOpenCustomer(row.customer.id) },
+                    onClick = { onOpenCustomer(row.customer.id) },
+                    modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
