@@ -27,6 +27,10 @@ interface LedgerDao {
     @Insert
     suspend fun insertEntry(entry: LedgerEntry)
 
+    /** جمعِ بستانکارِ دفترِ طرفِ حساب برای یک نوعِ سند. */
+    @Query("SELECT COALESCE(SUM(credit), 0) FROM ledger_entries WHERE refType = :refType")
+    suspend fun creditByRef(refType: String): Long
+
     @Query("SELECT * FROM parties ORDER BY type, name")
     fun observeParties(): Flow<List<Party>>
 

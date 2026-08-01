@@ -1094,6 +1094,49 @@ class Repo(private val db: AppDatabase) {
      * نامی که هر بار از نو نوشته می‌شود، با یک حرفِ متفاوت یک طرفِ حسابِ
      * جدا می‌سازد و بدهیِ یک نفر بین دو نام تکه می‌شود.
      */
+    /**
+     * بدهیِ خرج‌کارِ بی‌صاحب — باقی‌ماندهٔ پیش از اصلاح.
+     *
+     * تا پیش از این، خرج‌کار در ژورنال بدهی می‌شد ولی در دفترِ طرفِ حساب
+     * چیزی ثبت نمی‌شد. پس آن بدهی نه معلوم بود به که، نه راهی برای
+     * تسویه داشت. تفاضلِ این دو سمت همان مبلغِ بی‌صاحب است.
+     *
+     * سندهای تازه هر دو سمت را می‌زنند، پس در این تفاضل نمی‌آیند.
+     */
+    suspend fun orphanWorkCostPayable(): Long {
+        val inJournal = db.journalDao().creditOfAccountByRef(Accounts.PAYABLE, "WORK_ITEMS")
+        val inLedger = db.ledgerDao().creditByRef("WORK_ITEMS")
+        return (inJournal - inLedger).coerceAtLeast(0)
+    }
+
+    /**
+     * تسویهٔ بدهیِ خرج‌کارِ بی‌صاحب — یک‌بار، برای پاک کردنِ گذشته.
+     *
+     * این پول در واقعیت پرداخت شده بوده (دکمه و زیپ نسیه نمی‌مانَد)، ولی
+     * اپ هرگز از صندوق کمش نکرده. پس اینجا همان پرداختِ عقب‌افتاده ثبت
+     * می‌شود: بدهی صفر و صندوق به اندازهٔ واقعیت کم.
+     *
+     * @return false اگر چیزی برای تسویه نباشد یا صندوق کافی نباشد؛ در هر
+     * دو حال هیچ چیز ثبت نمی‌شود.
+     */
+    suspend fun settleOrphanWorkCost(paySource: String): Boolean {
+        val amount = orphanWorkCostPayable()
+        if (amount <= 0) return false
+        val src = paySource.trim().uppercase()
+        if (!hasFunds(src, amount)) return false
+
+        spend(src, amount, "تسویهٔ خرج‌کارِ ثبت‌شدهٔ پیشین", "خرج کار")
+        postJournal(
+            "تسویهٔ خرج‌کارِ پیشین", "WORK_ITEMS_SETTLE", "",
+            listOf(
+                jl(Accounts.PAYABLE, debit = amount),
+                jl(Accounts.box(src), credit = amount)
+            )
+        )
+        audit("تسویه خرج‌کار پیشین", "$amount ؋ از $src")
+        return true
+    }
+
     fun observeSuppliers(): Flow<List<Party>> =
         db.ledgerDao().observeParties().map { list -> list.filter { it.type == "SUPPLIER" } }
 

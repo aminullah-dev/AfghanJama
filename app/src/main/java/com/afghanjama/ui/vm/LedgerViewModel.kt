@@ -27,6 +27,38 @@ class LedgerViewModel(private val repo: Repo) : ViewModel() {
     fun clearMessage() { _message.value = null }
 
     /** ثبتِ دستیِ پرداخت (isPayment=true) یا دریافت روی حسابِ یک طرف. */
+    /**
+     * بدهیِ خرج‌کارِ بی‌صاحبِ باقی‌مانده از پیش از اصلاح.
+     *
+     * صفر یعنی چیزی برای پاک کردن نیست و کارتِ اصلاح اصلاً دیده نمی‌شود.
+     */
+    private val _orphanWorkCost = MutableStateFlow(0L)
+    val orphanWorkCost: StateFlow<Long> = _orphanWorkCost
+
+    init { refreshOrphan() }
+
+    fun refreshOrphan() = viewModelScope.launch {
+        _orphanWorkCost.value = repo.orphanWorkCostPayable()
+    }
+
+    /**
+     * ثبتِ پرداختِ عقب‌افتادهٔ خرج‌کارِ گذشته.
+     *
+     * این پول در واقعیت پرداخت شده بوده ولی اپ هرگز از صندوق کمش نکرده،
+     * پس صندوقِ اپ از صندوقِ واقعی بیشتر نشان می‌دهد. اینجا همان اختلاف
+     * جبران می‌شود.
+     */
+    fun settleOrphanWorkCost(paySource: String) = viewModelScope.launch {
+        val before = _orphanWorkCost.value
+        val ok = repo.settleOrphanWorkCost(paySource)
+        refreshOrphan()
+        _message.value = if (ok) {
+            "✅ ${before} ؋ بدهیِ خرج‌کارِ پیشین تسویه شد و از صندوق کم گردید."
+        } else {
+            "تسویه انجام نشد — یا چیزی نمانده یا موجودیِ صندوق کافی نیست."
+        }
+    }
+
     fun recordManual(type: String, name: String, amount: Long, isPayment: Boolean, note: String) =
         viewModelScope.launch {
             val ok = repo.recordManualLedger(type, name, amount, isPayment, "WALLET", note)

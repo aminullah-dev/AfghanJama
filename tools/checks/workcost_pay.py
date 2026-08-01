@@ -70,6 +70,38 @@ check("MIGRATION_60_61" in mig, "مهاجرتِ ۶۰→۶۱ نیست")
 vm = (ROOT / "ui/vm/ProductionViewModel.kt").read_text(encoding="utf-8")
 check("workCostPayee.isBlank()" in vm, "نسیه بی نامِ طرف رد نمی‌شود")
 
+# ---- تسویهٔ بدهیِ بی‌صاحبِ گذشته ----
+def orphan(journal_credit, ledger_credit):
+    return max(0, journal_credit - ledger_credit)
+
+# پیش از اصلاح: ژورنال بدهی داشت، دفترِ طرف چیزی نداشت
+check(orphan(1500, 0) == 1500, "بدهیِ قدیمی باید کامل شمرده شود")
+# پس از اصلاح: هر دو سمت زده می‌شوند، پس در تفاضل نمی‌آید
+check(orphan(1500, 1500) == 0, "بدهیِ تازه نباید بی‌صاحب شمرده شود")
+# ترکیبِ قدیم و جدید
+check(orphan(2500, 1000) == 1500, "فقط بخشِ قدیمی باید بماند")
+# نقدیِ تازه اصلاً بدهی نمی‌سازد
+check(orphan(0, 0) == 0, "بی بدهی، چیزی برای تسویه نیست")
+# منفی نشود
+check(orphan(500, 900) == 0, "تفاضلِ منفی باید صفر شود")
+
+# تسویه: بدهی صفر و صندوق به همان اندازه کم
+def settle(amount, balance):
+    if amount <= 0 or amount > balance:
+        return (False, 0, 0)
+    return (True, -amount, -amount)      # (انجام شد, تغییرِ صندوق, تغییرِ بدهی)
+ok, cash, debt = settle(1500, 5000)
+check(ok and cash == -1500 and debt == -1500, "تسویه باید هر دو سمت را ببندد")
+check(settle(1500, 100)[0] is False, "تسویهٔ بیش از موجودی نباید انجام شود")
+check(settle(0, 5000)[0] is False, "بی بدهی، تسویه‌ای نیست")
+
+repo2 = (ROOT / "data/repo/Repo.kt").read_text(encoding="utf-8")
+check("orphanWorkCostPayable" in repo2, "شمارشِ بدهیِ بی‌صاحب نیست")
+check("settleOrphanWorkCost" in repo2, "تسویهٔ بدهیِ بی‌صاحب نیست")
+check("hasFunds(src, amount)" in repo2, "تسویه نگهبانِ موجودی ندارد")
+ledger_screen = (ROOT / "ui/screens/LedgerScreen.kt").read_text(encoding="utf-8")
+check("orphanWorkCost > 0" in ledger_screen, "کارتِ اصلاح فقط وقتی لازم است دیده نمی‌شود")
+
 if fails:
     print(f"✗ {len(fails)} اشکال"); [print("  -", f) for f in fails[:8]]; sys.exit(1)
 print("✓ خرج‌کار: نقدی صندوق را کم می‌کند، نسیه صاحب دارد، و صندوق منفی نمی‌شود")

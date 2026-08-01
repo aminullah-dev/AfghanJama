@@ -62,6 +62,19 @@ interface JournalDao {
     )
     suspend fun entryTotals(): List<EntryTotal>
 
+    /**
+     * جمعِ بستانکارِ یک حساب در سندهای یک نوعِ مشخص.
+     *
+     * برای شمردنِ بدهیِ خرج‌کارِ قدیمی به کار می‌رود: تا پیش از اصلاح،
+     * این بدهی‌ها هیچ طرفِ حسابی نداشتند و راهی برای تسویه‌شان نبود.
+     */
+    @Query(
+        "SELECT COALESCE(SUM(l.credit), 0) FROM journal_lines l " +
+            "JOIN journal_entries e ON e.id = l.entryId " +
+            "WHERE l.account = :account AND e.refType = :refType"
+    )
+    suspend fun creditOfAccountByRef(account: String, refType: String): Long
+
     @Query("SELECT * FROM journal_lines WHERE entryId = :entryId")
     suspend fun linesFor(entryId: Long): List<JournalLine>
 }

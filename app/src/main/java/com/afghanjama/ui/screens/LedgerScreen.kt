@@ -90,6 +90,7 @@ fun LedgerScreen(
     val balances by vm.balances.collectAsState()
     val entries by vm.entries.collectAsState()
     val message by vm.message.collectAsState()
+    val orphanWorkCost by vm.orphanWorkCost.collectAsState()
 
     var typeFilter by remember { mutableStateOf<String?>(null) }
     var selected by remember { mutableStateOf<PartyBalance?>(null) }
@@ -144,6 +145,52 @@ fun LedgerScreen(
                         fontWeight = FontWeight.SemiBold
                     )
                     Spacer(Modifier.height(8.dp))
+
+                    // ---------- بدهیِ خرج‌کارِ بی‌صاحبِ گذشته ----------
+                    // فقط تا وقتی دیده می‌شود که چیزی برای پاک کردن باشد؛
+                    // بعد از تسویه خودش ناپدید می‌شود.
+                    if (orphanWorkCost > 0) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer
+                            )
+                        ) {
+                            Column(
+                                Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    "بدهیِ خرج‌کارِ بی‌صاحب: ${orphanWorkCost.afn()}",
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                                Text(
+                                    "این خرج‌کارها پیش از اصلاحِ اپ ثبت شده‌اند: بدهی نوشته شد " +
+                                        "ولی هرگز از صندوق کم نشد و طرفِ حسابی هم نداشت. " +
+                                        "پس صندوقِ اپ از صندوقِ واقعیِ شما بیشتر نشان می‌دهد.\n\n" +
+                                        "اگر این پول را در واقعیت پرداخت کرده‌اید، از اینجا ثبتش " +
+                                        "کنید تا حساب با واقعیت بخوانَد. اگر هنوز بدهکارید، " +
+                                        "دست نزنید و از «ثبت دستی» به نامِ همان شخص بنویسید.",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    listOf(
+                                        "WALLET" to "از کیف پول",
+                                        "BANK" to "از بانک",
+                                        "PROFIT" to "از فایده"
+                                    ).forEach { (code, label) ->
+                                        TextButton(onClick = { vm.settleOrphanWorkCost(code) }) {
+                                            Text(label)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                    }
+
                     if (rows.isEmpty()) {
                         Text("سندی ثبت نشده.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     } else {
