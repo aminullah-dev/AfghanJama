@@ -1039,6 +1039,31 @@ class Repo(private val db: AppDatabase) {
     // Universal Ledger (دفتر کلِ یکپارچه)
     // =========================
 
+    /**
+     * تأمین‌کننده‌های ثبت‌شده — برای انتخاب به‌جای تایپِ دوباره.
+     *
+     * نامی که هر بار از نو نوشته می‌شود، با یک حرفِ متفاوت یک طرفِ حسابِ
+     * جدا می‌سازد و بدهیِ یک نفر بین دو نام تکه می‌شود.
+     */
+    fun observeSuppliers(): Flow<List<Party>> =
+        db.ledgerDao().observeParties().map { list -> list.filter { it.type == "SUPPLIER" } }
+
+    /**
+     * ثبتِ تأمین‌کنندهٔ دایمی. اگر از قبل باشد چیزی عوض نمی‌شود.
+     *
+     * فقط وقتی صدا زده می‌شود که کاربر گفته باشد این طرف دایمی است؛
+     * خریدِ یک‌بارهٔ سرِ کوچه نباید فهرست را شلوغ کند.
+     */
+    suspend fun rememberSupplier(name: String, phone: String = "") {
+        val n = name.trim()
+        if (n.isBlank()) return
+        val exists = db.ledgerDao().observeParties().first()
+            .any { it.type == "SUPPLIER" && it.name.trim().equals(n, ignoreCase = true) }
+        if (exists) return
+        db.ledgerDao().insertParty(Party(name = n, type = "SUPPLIER", phone = phone.trim()))
+        audit("ثبت تأمین‌کننده", n)
+    }
+
     fun observeParties(): Flow<List<Party>> =
         db.ledgerDao().observeParties()
 

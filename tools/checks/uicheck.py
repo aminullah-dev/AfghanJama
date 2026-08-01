@@ -69,6 +69,9 @@ WATCHED_LOWER = {
     "mutableStateOf", "mutableIntStateOf", "mutableLongStateOf",
     "mutableStateListOf", "derivedStateOf", "produceState",
     "collectAsState", "collectAsStateWithLifecycle",
+    # توابعِ Flow که در ViewModelها جا می‌مانند و همان کلاسِ خطا را
+    # می‌سازند — یک بار map و combine در ProcurementViewModel جا ماندند.
+    "combine", "stateIn", "asStateFlow", "flowOf", "distinctUntilChanged",
 }
 
 problems = []

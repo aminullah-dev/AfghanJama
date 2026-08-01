@@ -34,6 +34,8 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -76,6 +78,87 @@ fun ProcurementScreen(
     var fabUnit by remember { mutableStateOf(FabricUnits.ALL.first()) }
     var fabQty by remember { mutableStateOf("") }
     var fabPrice by remember { mutableStateOf("") }
+
+    val suppliers by vm.suppliers.collectAsState()
+    val supplierIsNew by vm.supplierIsNew.collectAsState()
+    var showSupplierPicker by remember { mutableStateOf(false) }
+    var askPermanent by remember { mutableStateOf(false) }
+
+    // ---------- انتخابِ تأمین‌کننده از ثبت‌شده‌ها ----------
+    if (showSupplierPicker) {
+        var search by remember { mutableStateOf("") }
+        val shown = remember(search, suppliers) {
+            val q = search.trim()
+            if (q.isBlank()) suppliers else suppliers.filter { it.contains(q, ignoreCase = true) }
+        }
+        AlertDialog(
+            onDismissRequest = { showSupplierPicker = false },
+            title = { Text("انتخاب تأمین‌کننده") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = search,
+                        onValueChange = { search = it },
+                        label = { Text("جست‌وجوی نام") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (suppliers.isEmpty()) {
+                        Text(
+                            "هنوز تأمین‌کننده‌ای ثبت نشده. نام را در کادر بنویسید؛ " +
+                                "هنگام ذخیره می‌پرسد دایمی است یا نه.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    LazyColumn(modifier = Modifier.heightIn(max = 320.dp)) {
+                        items(shown, key = { it }) { name ->
+                            TextButton(
+                                onClick = {
+                                    vm.setSupplier(name)
+                                    showSupplierPicker = false
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text(name, modifier = Modifier.fillMaxWidth()) }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showSupplierPicker = false }) { Text("بستن") }
+            }
+        )
+    }
+
+    // ---------- «این تأمین‌کننده دایمی است؟» ----------
+    // خریدِ یک‌بارهٔ سرِ کوچه نباید فهرست را شلوغ کند، پس ثبتِ دایمی
+    // خودکار انجام نمی‌شود. هر دو پاسخ خرید را ثبت می‌کنند؛ فرقشان فقط
+    // این است که نام برای دفعهٔ بعد می‌مانَد یا نه.
+    if (askPermanent) {
+        AlertDialog(
+            onDismissRequest = { askPermanent = false },
+            title = { Text("این تأمین‌کننده دایمی است؟") },
+            text = {
+                Text(
+                    "«${ui.supplier.trim()}» تازه است. اگر دایمی باشد در فهرست می‌مانَد و " +
+                        "دفعهٔ بعد فقط انتخابش می‌کنید."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.rememberSupplier()
+                    vm.completePurchase()
+                    askPermanent = false
+                }) { Text("بله، دایمی است") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    vm.completePurchase()
+                    askPermanent = false
+                }) { Text("خیر، یک‌باره") }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -325,15 +408,38 @@ fun ProcurementScreen(
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        val isCredit = ui.paymentSource.equals("CREDIT", true)
+                        // تأمین‌کننده برای هر خرید لازم است، نه فقط نسیه:
+                        // بی آن، فاکتور در دفتر طرفِ حساب ندارد و معلوم
+                        // نیست از که خریده‌ایم و برگشتِ جنس به حسابِ که
+                        // بنشیند.
                         OutlinedTextField(
                             value = ui.supplier,
                             onValueChange = vm::setSupplier,
-                            label = { Text(if (isCredit) "فروشنده (برای نسیه لازم است)" else "فروشنده / تأمین‌کننده (اختیاری)") },
+                            label = { Text("فروشنده / تأمین‌کننده (لازم)") },
                             singleLine = true,
-                            isError = isCredit && ui.supplier.isBlank(),
+                            isError = ui.supplier.isBlank(),
+                            supportingText = {
+                                when {
+                                    ui.supplier.isBlank() ->
+                                        Text("بی نامِ فروشنده، خرید در دفتر طرفِ حساب ندارد.")
+                                    supplierIsNew ->
+                                        Text("تأمین‌کنندهٔ جدید — هنگام ذخیره می‌پرسد دایمی است یا نه.")
+                                    else -> Text("تأمین‌کنندهٔ ثبت‌شده")
+                                }
+                            },
                             modifier = Modifier.fillMaxWidth()
                         )
+                        OutlinedButton(
+                            onClick = { showSupplierPicker = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.PersonSearch, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                if (suppliers.isEmpty()) "هنوز تأمین‌کننده‌ای ثبت نشده"
+                                else "انتخاب از تأمین‌کنندگان (${suppliers.size.fa()})"
+                            )
+                        }
                         OutlinedTextField(
                             value = ui.note,
                             onValueChange = vm::setNote,
@@ -382,7 +488,11 @@ fun ProcurementScreen(
             // ---------- اتمام خرید ----------
             item {
                 Button(
-                    onClick = vm::completePurchase,
+                    onClick = {
+                        // تأمین‌کنندهٔ تازه: اول پرسیده می‌شود دایمی است یا
+                        // نه. خریدِ یک‌بارهٔ سرِ کوچه نباید فهرست را شلوغ کند.
+                        if (supplierIsNew) askPermanent = true else vm.completePurchase()
+                    },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("اتمام خرید و ارسال به انبار")

@@ -14,6 +14,8 @@ import com.afghanjama.ui.format.digitsOnly
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -91,6 +93,29 @@ class ProcurementViewModel(private val repo: Repo) : ViewModel() {
 
     /** نامِ انبارِ پارچه — همان قاعده‌ای که بقیهٔ اپ استفاده می‌کند. */
     fun fabricName(type: String, color: String): String = repo.fabricMaterialName(type, color)
+
+    /** تأمین‌کننده‌های ثبت‌شده — برای انتخاب به‌جای تایپِ دوباره. */
+    val suppliers: StateFlow<List<String>> =
+        repo.observeSuppliers()
+            .map { list -> list.map { it.name }.filter { it.isNotBlank() }.sorted() }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** آیا نامِ نوشته‌شده تأمین‌کنندهٔ تازه‌ای است؟ */
+    val supplierIsNew: StateFlow<Boolean> =
+        combine(_ui, suppliers) { u, list ->
+            val typed = u.supplier.trim()
+            typed.isNotBlank() && list.none { it.trim().equals(typed, ignoreCase = true) }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    /**
+     * ثبتِ تأمین‌کننده به‌عنوان دایمی — پس از پاسخِ «بله» به پرسشِ ذخیره.
+     *
+     * خریدِ یک‌بارهٔ سرِ کوچه نباید فهرست را شلوغ کند، پس این کار خودکار
+     * انجام نمی‌شود و از کاربر پرسیده می‌شود.
+     */
+    fun rememberSupplier() = viewModelScope.launch {
+        repo.rememberSupplier(_ui.value.supplier)
+    }
 
     /**
      * افزودنِ پارچه به فاکتور. جای جداگانه‌ای در انبار نمی‌گیرد — فقط
@@ -177,9 +202,20 @@ class ProcurementViewModel(private val repo: Repo) : ViewModel() {
         val total = lines.sumOf { it.total }
         val src = s.paymentSource.trim().uppercase()
 
-        // خرید نسیه: نام فروشنده لازم است (برای دفتر حساب)
-        if (src == "CREDIT" && s.supplier.isBlank()) {
-            _ui.update { it.copy(message = "برای خرید نسیه، نام فروشنده را وارد کنید.", isError = true) }
+        /*
+         * نامِ تأمین‌کننده برای **هر** خرید لازم است، نه فقط نسیه.
+         *
+         * بی آن، فاکتور در دفتر طرفِ حساب ندارد: نمی‌شود فهمید از که
+         * خریده‌ایم، چقدر از او گرفته‌ایم و اگر جنس برگشت خورد به حسابِ
+         * که بنشیند. حسابِ خرید بی طرفِ حساب، حساب نیست.
+         */
+        if (s.supplier.isBlank()) {
+            _ui.update {
+                it.copy(
+                    message = "نامِ فروشنده / تأمین‌کننده را وارد کنید — بی آن، خرید در دفتر طرفِ حساب ندارد.",
+                    isError = true
+                )
+            }
             return@launch
         }
 
