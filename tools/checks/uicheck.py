@@ -74,6 +74,35 @@ WATCHED_LOWER = {
     "combine", "stateIn", "asStateFlow", "flowOf", "distinctUntilChanged",
 }
 
+# افزونه‌های Modifier همیشه بعد از نقطه می‌آیند (`Modifier.heightIn(...)`)
+# پس در سنجشِ عمومی که نامِ بی‌نقطه می‌خواهد دیده نمی‌شوند — heightIn
+# همین‌طور جا ماند و ساخت شکست. اینها جدا سنجیده می‌شوند.
+MODIFIER_EXT = {
+    "heightIn": "androidx.compose.foundation.layout.heightIn",
+    "widthIn": "androidx.compose.foundation.layout.widthIn",
+    "sizeIn": "androidx.compose.foundation.layout.sizeIn",
+    "imePadding": "androidx.compose.foundation.layout.imePadding",
+    "navigationBarsPadding": "androidx.compose.foundation.layout.navigationBarsPadding",
+    "statusBarsPadding": "androidx.compose.foundation.layout.statusBarsPadding",
+    "verticalScroll": "androidx.compose.foundation.verticalScroll",
+    "horizontalScroll": "androidx.compose.foundation.horizontalScroll",
+    "aspectRatio": "androidx.compose.foundation.layout.aspectRatio",
+    "wrapContentHeight": "androidx.compose.foundation.layout.wrapContentHeight",
+    "wrapContentWidth": "androidx.compose.foundation.layout.wrapContentWidth",
+}
+
+# آیکون‌ها الگوی خودشان را دارند: `Icons.Default.X` نامِ X را هرگز
+# بدونِ نقطه نشان نمی‌دهد، پس از سنجشِ عمومی بیرون می‌مانْد — و همین
+# باعث شد PersonSearch جا بماند و ساخت بشکند.
+ICON_SETS = {
+    "Default": "androidx.compose.material.icons.filled",
+    "Filled": "androidx.compose.material.icons.filled",
+    "Outlined": "androidx.compose.material.icons.outlined",
+    "Rounded": "androidx.compose.material.icons.rounded",
+    "Sharp": "androidx.compose.material.icons.sharp",
+    "TwoTone": "androidx.compose.material.icons.twotone",
+}
+
 problems = []
 for f in files:
     raw = open(f).read()
@@ -114,6 +143,37 @@ for f in files:
         # جای سوم کوتاه، و این قاعده پنهانش کرد.
         path = next(iter(owner_of[sym]))
         problems.append((f.replace(SRC + "/", ""), sym, path))
+
+# ---- افزونه‌های Modifier که بعد از نقطه صدا زده می‌شوند ----
+for f in files:
+    raw = open(f).read()
+    code = strip_code(raw)
+    for name, path in MODIFIER_EXT.items():
+        if not re.search(r"\.\s*" + name + r"\s*\(", code):
+            continue
+        if f"import {path}" in raw or path in raw:
+            continue
+        problems.append((f.replace(SRC + "/", ""), name, path))
+
+# ---- آیکون‌های استفاده‌شده ولی ایمپورت‌نشده ----
+for f in files:
+    raw = open(f).read()
+    if re.search(r"^import androidx\.compose\.material\.icons\.\*", raw, re.M):
+        continue
+    code = strip_code(raw)
+    for m in re.finditer(r"\bIcons\.AutoMirrored\.(\w+)\.(\w+)", code):
+        pkg = ICON_SETS.get(m.group(1))
+        if not pkg:
+            continue
+        want = pkg.replace("icons.", "icons.automirrored.")
+        if f"import {want}.{m.group(2)}" not in raw:
+            problems.append((f.replace(SRC + "/", ""), m.group(2), f"{want}.{m.group(2)}"))
+    for m in re.finditer(r"\bIcons\.(?!AutoMirrored)(\w+)\.(\w+)", code):
+        pkg = ICON_SETS.get(m.group(1))
+        if not pkg:
+            continue
+        if f"import {pkg}.{m.group(2)}" not in raw:
+            problems.append((f.replace(SRC + "/", ""), m.group(2), f"{pkg}.{m.group(2)}"))
 
 if problems:
     print(f"✗ {len(problems)} نمادِ ایمپورت‌نشده")
