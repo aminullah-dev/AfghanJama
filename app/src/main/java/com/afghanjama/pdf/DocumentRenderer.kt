@@ -149,7 +149,7 @@ object DocumentRenderer {
         doc: Document,
         title: String
     ): ReceiptData {
-        val workshop = CompanyPrefs.name(context).ifBlank { "افغان‌جامه" }
+        val workshop = CompanyPrefs.shopName(context)
         val outgoing = doc.type in OUTGOING
 
         // ماندهٔ حسابِ طرف بعد از این رسید — همان «طلب کلی» که در رسیدهای

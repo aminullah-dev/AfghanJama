@@ -2,6 +2,7 @@ package com.afghanjama.ui.vm
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.afghanjama.AppInfo
 import com.afghanjama.data.CashPolicy
 import com.afghanjama.data.dao.PartyBalance
 import com.afghanjama.data.entities.Accounts
@@ -269,7 +270,7 @@ class ReportsViewModel(private val repo: Repo) : ViewModel() {
                 fun row(vararg cells: String) =
                     w.appendLine(cells.joinToString(",") { "\"" + it.replace("\"", "\"\"") + "\"" })
 
-                row("گزارش‌های افغان‌جامه")
+                row("گزارش‌های ${AppInfo.NAME}")
                 row("بازه", r.label)
                 row("تاریخ خروجی", PersianDate.csv(System.currentTimeMillis()))
                 row("")

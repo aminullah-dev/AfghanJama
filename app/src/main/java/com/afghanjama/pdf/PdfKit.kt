@@ -12,13 +12,14 @@ import android.text.StaticLayout
 import android.text.TextDirectionHeuristics
 import android.text.TextPaint
 import androidx.core.content.res.ResourcesCompat
+import com.afghanjama.AppInfo
 import com.afghanjama.R
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.fa
 
 /**
- * زبانِ بصریِ مشترکِ همهٔ اسنادِ چاپیِ افغان‌جامه — فاکتور، رسید، سند و
+ * زبانِ بصریِ مشترکِ همهٔ اسنادِ چاپی — فاکتور، رسید، سند و
  * صورت‌های مالی. سربرگ، بدنه و پاصفحه از یک‌جا می‌آیند تا هر برگه‌ای که
  * از کارگاه بیرون می‌رود یک‌شکل و رسمی باشد.
  *
@@ -125,7 +126,7 @@ object PdfKit {
         docDate: Long = System.currentTimeMillis(),
         paper: Paper = Paper.A4
     ): Float {
-        val coName = CompanyPrefs.name(context).ifBlank { "افغان‌جامه" }
+        val coName = CompanyPrefs.shopName(context)
         val addr = CompanyPrefs.address(context)
         val phone = CompanyPrefs.phone(context)
         val meta = buildString {
@@ -189,7 +190,7 @@ object PdfKit {
         c.drawLine(paper.margin, top, paper.w - paper.margin, top,
             Paint().apply { color = LINE; strokeWidth = 0.8f })
 
-        val credit = note.ifBlank { "صادرشده با اپلیکیشن افغان‌جامه" }
+        val credit = note.ifBlank { "صادرشده با اپلیکیشن ${AppInfo.NAME}" }
 
         // روی رول صفحه‌شماری معنا ندارد و جا هم نیست
         if (paper.narrow) {
@@ -200,7 +201,7 @@ object PdfKit {
         val small = paint(8.5f, MUTED, f.regular)
         val phone = CompanyPrefs.phone(context)
         val right = buildString {
-            append(CompanyPrefs.name(context).ifBlank { "افغان‌جامه" })
+            append(CompanyPrefs.shopName(context))
             if (phone.isNotBlank()) append(" • $phone")
         }
         rtl(c, right, paper.margin, top + 8f, small, paper.contentW)

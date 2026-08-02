@@ -1,6 +1,7 @@
 package com.afghanjama.lan
 
 import android.content.Context
+import com.afghanjama.AppInfo
 import com.afghanjama.data.buildAppDatabase
 import com.afghanjama.data.entities.SyncRequest
 import kotlinx.coroutines.CoroutineScope
@@ -116,7 +117,7 @@ class LanServer(private val context: Context) {
         if (path == Lan.PATH_PING) {
             respond(client, 200, JSONObject().apply {
                 put("ok", true)
-                put("app", "AfghanJama")
+                put("app", AppInfo.NAME_LATIN)
                 put("protocol", Lan.PROTOCOL)
             })
             return

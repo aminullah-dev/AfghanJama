@@ -63,6 +63,7 @@ import com.afghanjama.data.entities.Order
 import java.util.UUID
 import com.afghanjama.data.entities.SewingAssignment
 import com.afghanjama.ui.components.MeasurementsBlock
+import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.digitsOnly
@@ -76,6 +77,7 @@ fun SewingScreen(
     onBack: () -> Unit,
     onGoReview: () -> Unit
 ) {
+    val shop = CompanyPrefs.shopName(LocalContext.current)
     val handouts by vm.handouts.collectAsState()
     val measurementsByOrder by vm.measurementsByOrder.collectAsState(initial = emptyMap())
     val inProgress by vm.inProgress.collectAsState()
@@ -192,7 +194,7 @@ fun SewingScreen(
                                 assignment = a,
                                 measurements = measurementsByOrder[a.orderCode].orEmpty(),
                                 receiptText = handoverReceipt(
-                                    a, allAssignments,
+                                    shop, a, allAssignments,
                                     pendingWages.filter { it.tailorLabel == a.tailorLabel }
                                         .sumOf { it.amount },
                                     measurementsByOrder[a.orderCode].orEmpty()
@@ -598,6 +600,7 @@ private fun tailorStars(history: List<SewingAssignment>): Pair<String, Int> {
  * تکمیل‌شده + امتیازِ کیفی + یادداشتِ حسابِ کارمزد + یادآوریِ نظارت.
  */
 private fun handoverReceipt(
+    shop: String,
     a: SewingAssignment,
     all: List<SewingAssignment>,
     pendingWageTotal: Long,
@@ -608,7 +611,7 @@ private fun handoverReceipt(
     val inHand = mine.filter { it.status == "SEWING" && it.id != a.id }
     val lastDone = mine.filter { it.status == "DONE" }.maxByOrNull { it.doneAt ?: 0L }
 
-    appendLine("🧵 رسید تحویل کار — AfghanJama")
+    appendLine("🧵 رسید تحویل کار — $shop")
     appendLine("خیاط: ${a.tailorLabel}")
     appendLine("تاریخ: ${PersianDate.short(System.currentTimeMillis())}")
     if (ratedCount > 0) appendLine("امتیاز کیفیت در کارگاه: $stars (از ${ratedCount.fa()} کار)")

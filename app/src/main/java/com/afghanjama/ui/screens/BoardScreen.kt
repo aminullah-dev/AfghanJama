@@ -35,6 +35,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.format.toPersianDigits
@@ -218,7 +219,7 @@ fun BoardScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("افغان جامه", color = BoardDim, fontSize = 12.sp)
+            Text(CompanyPrefs.shopName(LocalContext.current), color = BoardDim, fontSize = 12.sp)
             if (pages > 1) {
                 Text(
                     "صفحهٔ ${(page + 1).fa()} از ${pages.fa()}",

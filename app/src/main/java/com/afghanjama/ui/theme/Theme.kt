@@ -170,7 +170,7 @@ private val DarkColors = darkColorScheme(
 )
 
 @Composable
-fun AfghanJamaTheme(content: @Composable () -> Unit) {
+fun KhayatYarTheme(content: @Composable () -> Unit) {
     val dark = isSystemInDarkTheme()
     // چیدمان همیشه راست‌به‌چپ، مستقل از زبان دستگاه
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {

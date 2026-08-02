@@ -8,11 +8,12 @@ import android.os.Environment
 import android.provider.MediaStore
 import java.io.File
 import java.io.OutputStream
+import com.afghanjama.AppInfo
 
 /**
  * نوشتنِ فایل در جایی که با حذفِ اپ از بین نرود.
  *
- * اندروید ۱۰ به بالا: `Downloads/AfghanJama` از راهِ MediaStore، بدونِ
+ * اندروید ۱۰ به بالا: `Downloads/KhayatYar` از راهِ MediaStore، بدونِ
  * نیاز به هیچ مجوزی. قدیمی‌تر: پوشهٔ خارجیِ مخصوصِ اپ.
  *
  * از `AutoBackupWorker` بیرون کشیده شد تا پشتیبانِ ایمنیِ پیش از ریست هم
@@ -20,7 +21,7 @@ import java.io.OutputStream
  */
 object DownloadsWriter {
 
-    const val FOLDER = "AfghanJama"
+    const val FOLDER = AppInfo.NAME_LATIN
 
     /**
      * فایل را می‌سازد و [write] را روی جریانِ خروجی‌اش صدا می‌زند.

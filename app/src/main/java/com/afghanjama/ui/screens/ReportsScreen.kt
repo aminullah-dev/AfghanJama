@@ -59,6 +59,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.afghanjama.AppInfo
 import com.afghanjama.pdf.FinancialStatementsPdf
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
@@ -323,7 +324,7 @@ fun ReportsScreen(
                         Icon(Icons.Default.PictureAsPdf, contentDescription = "صورت‌های مالی PDF")
                     }
                     IconButton(onClick = {
-                        csvLauncher.launch("گزارش-افغان‌جامه.csv")
+                        csvLauncher.launch("گزارش-${AppInfo.NAME}.csv")
                     }) {
                         Icon(Icons.Default.TableChart, contentDescription = "خروجی اکسل")
                     }

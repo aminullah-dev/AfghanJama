@@ -47,6 +47,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.afghanjama.AppInfo
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.components.IconBadge
 import com.afghanjama.ui.format.digitsOnly
@@ -106,7 +107,7 @@ fun LoginScreen(
         Spacer(Modifier.height(14.dp))
 
         Text(
-            "AfghanJama",
+            AppInfo.NAME,
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold
         )

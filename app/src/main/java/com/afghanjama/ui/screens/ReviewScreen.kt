@@ -56,6 +56,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.afghanjama.data.entities.Order
+import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.STAGE_WARN_DAYS
 import com.afghanjama.ui.format.fa
@@ -172,7 +173,7 @@ fun ReviewScreen(
                         onClick = {
                             val intent = Intent(Intent.ACTION_SEND).apply {
                                 type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, inspectorBrief(orders))
+                                putExtra(Intent.EXTRA_TEXT, inspectorBrief(CompanyPrefs.shopName(context), orders))
                             }
                             context.startActivity(Intent.createChooser(intent, "اشتراک رسید ناظر"))
                         },
@@ -357,8 +358,8 @@ fun ReviewScreen(
  * رسیدِ ناظر: فهرستِ کارهایی که همین حالا منتظرِ بررسی‌اند + معطلی هر
  * کدام + یادآوریِ ثبتِ سریعِ نتیجه.
  */
-private fun inspectorBrief(orders: List<Order>): String = buildString {
-    appendLine("🛡 رسید ناظر — AfghanJama")
+private fun inspectorBrief(shop: String, orders: List<Order>): String = buildString {
+    appendLine("🛡 رسید ناظر — $shop")
     appendLine("تاریخ: ${PersianDate.short(System.currentTimeMillis())}")
     appendLine("کارهای منتظرِ بررسی: ${orders.size.fa()} مورد")
     appendLine("──────────────")

@@ -43,6 +43,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.OrderStatus
+import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.vm.OrderSearchViewModel
 
@@ -133,8 +134,8 @@ fun OrderSearchScreen(
     }
 }
 
-private fun receiptText(order: Order, stageLabel: String): String = buildString {
-    appendLine("🧵 رسید سفارش — AfghanJama")
+private fun receiptText(shop: String, order: Order, stageLabel: String): String = buildString {
+    appendLine("🧵 رسید سفارش — $shop")
     appendLine("──────────────")
     appendLine("کد سفارش: ${order.orderCode}")
     appendLine("کد کوتاه: ${order.shortCode}")
@@ -241,7 +242,7 @@ private fun SearchResultCard(order: Order, onClick: () -> Unit) {
                 onClick = {
                     val intent = Intent(Intent.ACTION_SEND).apply {
                         type = "text/plain"
-                        putExtra(Intent.EXTRA_TEXT, receiptText(order, stageLabel))
+                        putExtra(Intent.EXTRA_TEXT, receiptText(CompanyPrefs.shopName(context), order, stageLabel))
                     }
                     context.startActivity(Intent.createChooser(intent, "اشتراک رسید سفارش"))
                 },

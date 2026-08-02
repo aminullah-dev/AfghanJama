@@ -93,7 +93,7 @@ jobs:
       - name: بارگذاری APK
         uses: actions/upload-artifact@v4
         with:
-          name: afghanjama-${{ steps.name.outputs.tag }}
+          name: khayatyar-${{ steps.name.outputs.tag }}
           # فقط دیباگ بارگذاری می‌شود: برای آزمایشِ خودتان.
           # نسخهٔ release اینجا بی‌امضاست و روی گوشی نصب نمی‌شود، پس
           # گذاشتنش فقط اشتباه‌انداز بود. نسخهٔ نصبی از Android Studio.

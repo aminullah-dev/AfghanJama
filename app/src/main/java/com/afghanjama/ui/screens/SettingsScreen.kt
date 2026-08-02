@@ -53,6 +53,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.material3.Switch
+import com.afghanjama.AppInfo
 import com.afghanjama.prefs.SalePrefs
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -180,7 +181,7 @@ fun SettingsScreen(
                     )
                     Text(
                         "پیش از پاک‌کردن، یک پشتیبانِ کامل خودکار در " +
-                            "Downloads/AfghanJama نوشته می‌شود. اگر آن نوشته نشود، " +
+                            "Downloads/${AppInfo.NAME_LATIN} نوشته می‌شود. اگر آن نوشته نشود، " +
                             "هیچ چیزی پاک نمی‌شود.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -477,9 +478,9 @@ fun SettingsScreen(
                         val lastAuto = backupVm.lastAutoBackupTime(context)
                         Text(
                             if (lastAuto > 0)
-                                "🔄 بکاپ خودکار روزانه فعال است — آخرین بکاپ: ${PersianDate.shortWithTime(lastAuto)} (پوشه Downloads/AfghanJama)"
+                                "🔄 بکاپ خودکار روزانه فعال است — آخرین بکاپ: ${PersianDate.shortWithTime(lastAuto)} (پوشه Downloads/${AppInfo.NAME_LATIN})"
                             else
-                                "🔄 بکاپ خودکار روزانه فعال است — اولین بکاپ به‌زودی در Downloads/AfghanJama ذخیره می‌شود.",
+                                "🔄 بکاپ خودکار روزانه فعال است — اولین بکاپ به‌زودی در Downloads/${AppInfo.NAME_LATIN} ذخیره می‌شود.",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -572,7 +573,7 @@ fun SettingsScreen(
                             runCatching {
                                 val intent = Intent(Intent.ACTION_SENDTO).apply {
                                     data = Uri.parse("mailto:$SUPPORT_EMAIL")
-                                    putExtra(Intent.EXTRA_SUBJECT, "پشتیبانی اپ AfghanJama")
+                                    putExtra(Intent.EXTRA_SUBJECT, "پشتیبانی اپ ${AppInfo.NAME}")
                                 }
                                 context.startActivity(
                                     Intent.createChooser(intent, "ارسال ایمیل به پشتیبانی")

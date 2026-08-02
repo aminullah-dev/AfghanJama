@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.afghanjama.AppInfo
 import com.afghanjama.data.DB_NAME
 import com.afghanjama.data.DB_VERSION
 import com.afghanjama.data.repo.Repo
@@ -128,7 +129,7 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
 
             val format = BackupArchive.detect(head)
             if (format == BackupArchive.Format.UNKNOWN) {
-                error("این فایل پشتیبانِ افغان‌جامه نیست.")
+                error("این فایل پشتیبانِ ${AppInfo.NAME} نیست.")
             }
 
             var photos = 0

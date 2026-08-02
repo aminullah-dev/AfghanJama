@@ -204,7 +204,7 @@ fun HomeDashboardScreen(
         // سرصفحه‌ای نباید باشد.
         item(span = { fullSpan() }) {
             val ctx = LocalContext.current
-            val coName = remember { CompanyPrefs.name(ctx).ifBlank { "کارگاه خیاطی AfghanJama" } }
+            val coName = remember { CompanyPrefs.shopName(ctx) }
             val hour = remember { java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY) }
             val greeting = when {
                 hour < 12 -> "صبح بخیر"

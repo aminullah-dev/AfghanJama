@@ -40,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.afghanjama.AppInfo
 import com.afghanjama.selftest.CheckResult
 import com.afghanjama.selftest.CheckStatus
 import com.afghanjama.ui.components.AppScreen
@@ -213,7 +214,7 @@ private fun ResultRow(r: CheckResult) {
 /** متنِ قابلِ فرستادن — تا اگر چیزی رد شد بتوانید همان را بفرستید. */
 private fun reportText(results: List<CheckResult>, ranAt: Long): String = buildString {
     val failed = results.count { it.status == CheckStatus.FAIL }
-    appendLine("نتیجهٔ خودآزمایی AfghanJama")
+    appendLine("نتیجهٔ خودآزمایی ${AppInfo.NAME}")
     appendLine("تاریخ: ${PersianDate.shortWithTime(if (ranAt > 0) ranAt else System.currentTimeMillis())}")
     appendLine("قبول: ${results.count { it.status == CheckStatus.PASS }} • رد: $failed")
     appendLine("──────────────")

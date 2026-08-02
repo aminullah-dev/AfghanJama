@@ -50,14 +50,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.afghanjama.data.entities.Document
 import com.afghanjama.data.entities.docTypeLabel
+import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.components.SheetActions
 import com.afghanjama.ui.vm.DocumentsViewModel
 import com.afghanjama.util.QrGen
 
-private fun receiptText(d: Document): String = buildString {
-    appendLine("افغان‌جامه — ${docTypeLabel(d.type)}")
+private fun receiptText(shop: String, d: Document): String = buildString {
+    appendLine("$shop — ${docTypeLabel(d.type)}")
     appendLine("شماره: ${d.number}")
     appendLine("تاریخ: ${PersianDate.short(d.at)}")
     if (d.partyName.isNotBlank()) appendLine("طرف حساب: ${d.partyName}")
@@ -92,7 +93,8 @@ fun DocumentsScreen(
 
     // ---------- دیالوگ سند ----------
     selected?.let { d ->
-        val qr = remember(d.id) { QrGen.bitmap(receiptText(d)) }
+        val shop = CompanyPrefs.shopName(context)
+        val qr = remember(d.id, shop) { QrGen.bitmap(receiptText(shop, d)) }
         var paper by remember(d.id) { mutableStateOf(vm.paperFor(context, d)) }
         AlertDialog(
             onDismissRequest = { if (!working) selected = null },
@@ -101,7 +103,7 @@ fun DocumentsScreen(
                     val send = Intent(Intent.ACTION_SEND).apply {
                         type = "text/plain"
                         putExtra(Intent.EXTRA_SUBJECT, "سند ${d.number}")
-                        putExtra(Intent.EXTRA_TEXT, receiptText(d))
+                        putExtra(Intent.EXTRA_TEXT, receiptText(shop, d))
                     }
                     context.startActivity(Intent.createChooser(send, "اشتراک‌گذاری متن"))
                 }) {
@@ -123,7 +125,7 @@ fun DocumentsScreen(
                         )
                         Spacer(Modifier.height(8.dp))
                     }
-                    Text(receiptText(d), modifier = Modifier.fillMaxWidth())
+                    Text(receiptText(shop, d), modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(12.dp))
                     SheetActions(
                         paper = paper,

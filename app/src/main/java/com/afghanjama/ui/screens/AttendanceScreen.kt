@@ -52,6 +52,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
+import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.format.fa
@@ -291,7 +292,7 @@ fun AttendanceScreen(
                         Text("کارکرد ۳۰ روز اخیر", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         IconButton(onClick = {
                             val report = buildString {
-                                appendLine("📋 گزارش کارکرد ۳۰ روز اخیر — AfghanJama")
+                                appendLine("📋 گزارش کارکرد ۳۰ روز اخیر — ${CompanyPrefs.shopName(context)}")
                                 appendLine("تاریخ: ${PersianDate.short(System.currentTimeMillis())}")
                                 appendLine("──────────────")
                                 monthlyWork.forEach { w ->

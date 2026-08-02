@@ -56,6 +56,7 @@ import com.afghanjama.ui.components.MeasurementsBlock
 import com.afghanjama.ui.components.BusyButton
 import com.afghanjama.ui.components.OrderPhotoStrip
 import com.afghanjama.util.PhotoStore
+import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.digitsOnly
@@ -611,7 +612,7 @@ fun OrderDetailScreen(
                                         type = "text/plain"
                                         putExtra(
                                             android.content.Intent.EXTRA_TEXT,
-                                            deliveryReceipt(o, payments.sumOf { it.amount })
+                                            deliveryReceipt(CompanyPrefs.shopName(context), o, payments.sumOf { it.amount })
                                         )
                                     }
                                     context.startActivity(
@@ -972,10 +973,11 @@ private fun DetailRow(label: String, value: String) {
  * چقدر مانده. عمداً متنِ ساده است تا از هر پیام‌رسانی فرستاده شود.
  */
 private fun deliveryReceipt(
+    shop: String,
     o: com.afghanjama.data.entities.Order,
     paidTotal: Long
 ): String = buildString {
-    appendLine("🧾 رسید تحویل — AfghanJama")
+    appendLine("🧾 رسید تحویل — $shop")
     appendLine("تاریخ: ${PersianDate.short(System.currentTimeMillis())}")
     appendLine("مشتری: ${o.customerName}")
     appendLine("──────────────")

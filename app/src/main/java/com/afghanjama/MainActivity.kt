@@ -18,7 +18,7 @@ import com.afghanjama.data.repo.Repo
 import com.afghanjama.ui.nav.AppNav
 import com.afghanjama.ui.screens.PinLockScreen
 import com.afghanjama.util.AppLock
-import com.afghanjama.ui.theme.AfghanJamaTheme
+import com.afghanjama.ui.theme.KhayatYarTheme
 import com.afghanjama.ui.vm.ActionCenterViewModel
 import com.afghanjama.ui.vm.AttendanceViewModel
 import com.afghanjama.ui.vm.AuditViewModel
@@ -85,12 +85,12 @@ class MainActivity : FragmentActivity() {
         val repo = Repo(db)
 
         setContent {
-            AfghanJamaTheme {
+            KhayatYarTheme {
                 // قفل اپ: اگر رمز تنظیم شده باشد، اول باید باز شود
                 var unlocked by remember { mutableStateOf(!AppLock.isPinSet(applicationContext)) }
                 if (!unlocked) {
                     PinLockScreen(onUnlock = { unlocked = true })
-                    return@AfghanJamaTheme
+                    return@KhayatYarTheme
                 }
 
                 val authVm = remember { AuthViewModel(application) }

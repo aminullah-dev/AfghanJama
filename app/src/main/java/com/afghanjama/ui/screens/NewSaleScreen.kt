@@ -51,7 +51,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.data.entities.FinishedStock
 import com.afghanjama.ui.components.AppScreen
 import com.afghanjama.ui.components.BusyButton
@@ -211,7 +213,11 @@ fun NewSaleScreen(
                 }
             }
             item {
-                PartyRow(label = "فروشنده", value = "افغان جامه", editable = false)
+                PartyRow(
+                    label = "فروشنده",
+                    value = CompanyPrefs.shopName(LocalContext.current),
+                    editable = false
+                )
             }
 
             // ---------------- بدنه: ردیف‌های کالا ----------------
