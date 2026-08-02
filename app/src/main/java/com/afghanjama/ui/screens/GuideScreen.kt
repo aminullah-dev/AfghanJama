@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Straighten
+import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Group
@@ -178,6 +179,19 @@ fun GuideScreen(onBack: () -> Unit) {
                         "کسری یعنی «به این اندازه فروخته‌ایم که هنوز نداریم». با ورودِ بعدیِ همان کالا خودش تسویه می‌شود.",
                         "بهای تمام‌شده هم خودش اصلاح می‌شود؛ لازم نیست کاری بکنید.",
                         "اگر اپ را سخت‌گیر می‌خواهید: تنظیمات ← فروشِ بیشتر از موجودی را خاموش کنید."
+                    )
+                )
+            }
+
+            item {
+                GuideCard(
+                    icon = Icons.Default.Storefront,
+                    title = "پروفایل کارگاه",
+                    lines = listOf(
+                        "تنظیمات ← پروفایل کارگاه: نام، لوگو، تلفن و آدرس.",
+                        "همین نام و لوگو روی سرصفحهٔ فاکتور، رسیدهای اشتراکی و تابلوی کارگاه می‌نشیند.",
+                        "تا وقتی نامی ثبت نکنید، همه‌جا «کارگاه خیاطی» نوشته می‌شود.",
+                        "لوگو را از گالری انتخاب کنید؛ از وسط مربع می‌شود، پس عکسِ کشیده هم بدشکل نمی‌شود."
                     )
                 )
             }

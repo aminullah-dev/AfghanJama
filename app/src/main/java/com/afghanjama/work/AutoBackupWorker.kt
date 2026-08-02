@@ -3,6 +3,7 @@ package com.afghanjama.work
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.afghanjama.AppInfo
 import com.afghanjama.data.buildAppDatabase
 import com.afghanjama.util.DownloadsWriter
 import java.text.SimpleDateFormat
@@ -60,7 +61,7 @@ class AutoBackupWorker(
         const val PREFS = "backup_prefs"
         const val KEY_LAST = "last_auto_backup"
         private const val DB_NAME = "afghanjama.db"
-        private const val PREFIX = "afghanjama-auto-"
+        private val PREFIX = "${AppInfo.NAME_LATIN}-auto-"
         private const val KEEP = 7
     }
 }

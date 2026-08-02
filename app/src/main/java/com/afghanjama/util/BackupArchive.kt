@@ -145,6 +145,14 @@ object BackupArchive {
             zip.putNextEntry(ZipEntry(ENTRY_META))
             zip.write(
                 buildString {
+                    // این سطر عمداً با تغییرِ نامِ اپ عوض نشد.
+                    //
+                    // یک نشانهٔ ثابتِ قالب است، نه متنی که کسی ببیند: در
+                    // پشتیبان‌هایی که همین حالا دستِ کارگاه‌هاست نوشته
+                    // شده. اگر روزی بخواهیم پیش از بازیابی اعتبارش را
+                    // بسنجیم، باید همین رشته باشد وگرنه فایل‌های قدیمی
+                    // رد می‌شوند. (امروز اصلاً خوانده نمی‌شود؛ تشخیصِ
+                    // قالب از بایت‌های جادوییِ ZIP/SQLite می‌آید.)
                     appendLine("afghanjama-backup")
                     appendLine("at=${System.currentTimeMillis()}")
                     appendLine("photos=$photos")

@@ -4,7 +4,9 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Bitmap
 import android.graphics.Path
+import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.text.Layout
@@ -15,6 +17,7 @@ import androidx.core.content.res.ResourcesCompat
 import com.afghanjama.AppInfo
 import com.afghanjama.R
 import com.afghanjama.prefs.CompanyPrefs
+import com.afghanjama.util.PhotoStore
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.fa
 
@@ -72,8 +75,73 @@ object PdfKit {
     }
 
     // ==================================================
-    // لوگو: سوزن و نخ — نشانِ کارگاه خیاطی، کاملاً برداری
+    // نشانِ سربرگ
     // ==================================================
+
+    /**
+     * لوگوی کارگاه، یک بار خوانده و نگه داشته می‌شود.
+     *
+     * `drawHeader` برای **هر صفحه** صدا زده می‌شود؛ بدونِ این حافظه،
+     * یک صورتحسابِ بیست‌صفحه‌ای بیست بار همان فایل را از دیسک می‌خواند
+     * و رمزگشایی می‌کند. یک تصویرِ کوچک است، پس نگه داشتنش ارزان‌تر از
+     * خواندنِ دوباره است. با عوض شدنِ نامِ فایل خودش تازه می‌شود.
+     */
+    private var logoName: String? = null
+    private var logoBitmap: Bitmap? = null
+
+    private fun shopLogo(context: Context): Bitmap? {
+        val name = CompanyPrefs.logo(context)
+        if (name.isBlank()) {
+            logoName = ""; logoBitmap = null
+            return null
+        }
+        if (name != logoName) {
+            logoName = name
+            logoBitmap = PhotoStore
+                .file(context, name)
+                .takeIf { it.exists() }
+                ?.let { PhotoStore.decode(it, 240) }
+        }
+        return logoBitmap
+    }
+
+    /**
+     * نشانِ بالای سربرگ: اگر کارگاه لوگو ثبت کرده باشد همان، وگرنه
+     * سوزن و نخِ برداری.
+     *
+     * لوگوی کاربر در همان مربعِ گردگوشه می‌نشیند و از وسط بریده می‌شود
+     * (center-crop)، پس عکسِ کشیده یا خوابیده هم بدشکل نمی‌شود.
+     */
+    fun drawBrand(
+        c: Canvas,
+        context: Context,
+        left: Float,
+        top: Float,
+        size: Float,
+        badge: Int = Color.WHITE,
+        mark: Int = BRAND
+    ) {
+        val bmp = shopLogo(context)
+        if (bmp == null) {
+            drawLogo(c, left, top, size, badge, mark)
+            return
+        }
+        val r = size * 0.26f
+        val box = RectF(left, top, left + size, top + size)
+        c.drawRoundRect(box, r, r, fill(badge))
+        c.save()
+        c.clipPath(Path().apply { addRoundRect(box, r, r, Path.Direction.CW) })
+        // مربعِ وسطِ عکس را برمی‌داریم تا نسبتِ ابعاد به هم نریزد
+        val side = minOf(bmp.width, bmp.height)
+        val src = Rect(
+            (bmp.width - side) / 2, (bmp.height - side) / 2,
+            (bmp.width + side) / 2, (bmp.height + side) / 2
+        )
+        c.drawBitmap(bmp, src, box, Paint().apply { isFilterBitmap = true })
+        c.restore()
+    }
+
+    /** نشانِ پیش‌فرض: سوزن و نخ، کاملاً برداری. */
     fun drawLogo(
         c: Canvas,
         left: Float,
@@ -137,7 +205,7 @@ object PdfKit {
         // رولِ حرارتی سیاه‌وسفید است و زمینهٔ پررنگ فقط جوهر/حرارت هدر
         // می‌دهد؛ آنجا سربرگ ساده و بی‌زمینه چاپ می‌شود.
         if (paper.narrow) {
-            drawLogo(c, (paper.w - 26f) / 2f, 6f, 26f, badge = Color.WHITE, mark = INK)
+            drawBrand(c, context, (paper.w - 26f) / 2f, 6f, 26f, badge = Color.WHITE, mark = INK)
             var y = 36f
             y += rtlCenter(c, coName, paper.margin, y, paint(11f, INK, f.bold), paper.contentW)
             val sub = listOf(phone, addr).filter { it.isNotBlank() }.joinToString(" • ")
@@ -159,7 +227,7 @@ object PdfKit {
         c.drawRect(0f, h - 4f, paper.w.toFloat(), h, fill(BRAND_DEEP))
 
         val logoSize = 44f
-        drawLogo(c, paper.w - paper.margin - logoSize, 20f, logoSize)
+        drawBrand(c, context, paper.w - paper.margin - logoSize, 20f, logoSize)
 
         val nameW = paper.contentW - logoSize.toInt() - 14
         rtl(c, coName, paper.margin, 24f, paint(17f, Color.WHITE, f.bold), nameW)

@@ -8,6 +8,7 @@ import com.afghanjama.AppInfo
 import com.afghanjama.data.DB_NAME
 import com.afghanjama.data.DB_VERSION
 import com.afghanjama.data.repo.Repo
+import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.util.BackupArchive
 import com.afghanjama.util.PhotoStore
 import com.afghanjama.ui.format.fa
@@ -76,7 +77,7 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
             val dbFile = context.getDatabasePath(DB_NAME)
             val out = java.io.File(
                 ShareUtil.sharedDir(context),
-                "afghanjama-backup.ajb"
+                "${AppInfo.NAME_LATIN}-backup.ajb"
             )
             out.outputStream().use {
                 BackupArchive.write(dbFile, PhotoStore.dir(context), it)
@@ -276,7 +277,7 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
                     val stamp = SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())
 
                     val saved = DownloadsWriter.write(
-                        context, "afghanjama-pish-az-reset-$stamp.ajb"
+                        context, "${AppInfo.NAME_LATIN}-pish-az-reset-$stamp.ajb"
                     ) { out -> BackupArchive.write(dbFile, PhotoStore.dir(context), out) }
 
                     if (!saved) {
@@ -287,8 +288,20 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
                     }
 
                     val cleared = repo.resetOperationalData()
-                    // عکس‌ها صاحبشان را از دست داده‌اند؛ پوشه یک‌جا پاک می‌شود
-                    runCatching { PhotoStore.dir(context).listFiles()?.forEach { it.delete() } }
+                    // عکس‌ها صاحبشان را از دست داده‌اند؛ پوشه پاک می‌شود —
+                    // جز لوگوی کارگاه.
+                    //
+                    // ریست «کارها و حساب‌ها» را پاک می‌کند، نه هویتِ کارگاه
+                    // را؛ نام و تلفن و آدرس هم می‌مانند چون در تنظیمات
+                    // نشسته‌اند نه در دیتابیس. لوگو هم از همان جنس است.
+                    // بدونِ این استثنا، فایل پاک می‌شد ولی نامش در تنظیمات
+                    // می‌ماند و به فایلی اشاره می‌کرد که دیگر نبود.
+                    val keep = CompanyPrefs.logo(context)
+                    runCatching {
+                        PhotoStore.dir(context).listFiles()?.forEach {
+                            if (it.name != keep) it.delete()
+                        }
+                    }
                     cleared
                 }
             }

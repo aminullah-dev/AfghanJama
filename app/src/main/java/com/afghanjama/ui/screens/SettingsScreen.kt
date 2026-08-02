@@ -63,6 +63,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.afghanjama.prefs.CompanyPrefs
+import com.afghanjama.ui.components.SinglePhotoPicker
+import com.afghanjama.util.PhotoStore
 import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.util.AppLock
@@ -271,12 +273,18 @@ fun SettingsScreen(
                 }
             }
 
-            // اطلاعات کارگاه روی رسیدها/PDF — فقط مدیر
+            // ---------- پروفایلِ کارگاه ----------
+            //
+            // این کارت هویتِ کسب‌وکار است، نه هویتِ برنامه. هرچه اینجا
+            // نوشته شود روی سرصفحهٔ فاکتور، رسیدهای اشتراکی و تابلوی
+            // کارگاه می‌نشیند. تا وقتی نامی ثبت نشده، همه‌جا عنوانِ
+            // خنثای «کارگاه خیاطی» دیده می‌شود.
             if (canManageMaster) {
                 val ctx = LocalContext.current
                 var coName by remember { mutableStateOf(CompanyPrefs.name(ctx)) }
                 var coPhone by remember { mutableStateOf(CompanyPrefs.phone(ctx)) }
                 var coAddr by remember { mutableStateOf(CompanyPrefs.address(ctx)) }
+                var coLogo by remember { mutableStateOf(CompanyPrefs.logo(ctx)) }
                 var coSaved by remember { mutableStateOf(false) }
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -284,12 +292,58 @@ fun SettingsScreen(
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(
-                            "اطلاعات کارگاه (روی رسید و PDF)",
+                            "پروفایل کارگاه",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold
                         )
+                        Text(
+                            "نام و لوگویی که اینجا ثبت می‌کنید روی فاکتور، رسید و " +
+                                "تابلوی کارگاه دیده می‌شود.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        // لوگو کنارِ نام، مثلِ سربرگِ کاغذ
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            SinglePhotoPicker(
+                                fileName = coLogo,
+                                canEdit = true,
+                                label = "لوگو",
+                                onPicked = { name ->
+                                    // لوگوی قبلی نباید در حافظه جا بمانَد
+                                    val old = coLogo
+                                    CompanyPrefs.saveLogo(ctx, name)
+                                    coLogo = name
+                                    if (old.isNotBlank()) PhotoStore.delete(ctx, old)
+                                },
+                                onCleared = {
+                                    val old = coLogo
+                                    CompanyPrefs.saveLogo(ctx, "")
+                                    coLogo = ""
+                                    if (old.isNotBlank()) PhotoStore.delete(ctx, old)
+                                }
+                            )
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    coName.ifBlank { CompanyPrefs.DEFAULT_SHOP },
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    if (coLogo.isBlank())
+                                        "لوگو ندارید — روی مربع بزنید تا از گالری انتخاب شود."
+                                    else "لوگو روی اسنادِ چاپی هم می‌نشیند.",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
                         OutlinedTextField(
                             value = coName,
                             onValueChange = { coName = it; coSaved = false },
@@ -502,7 +556,7 @@ fun SettingsScreen(
                         }
 
                         OutlinedButton(
-                            onClick = { backupLauncher.launch("afghanjama-backup-${stamp()}.ajb") },
+                            onClick = { backupLauncher.launch("${AppInfo.NAME_LATIN}-backup-${stamp()}.ajb") },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Icon(Icons.Default.CloudUpload, contentDescription = null)
