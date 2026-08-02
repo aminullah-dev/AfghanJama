@@ -80,6 +80,7 @@ fun SewingScreen(
     val shop = CompanyPrefs.shopName(LocalContext.current)
     val handouts by vm.handouts.collectAsState()
     val measurementsByOrder by vm.measurementsByOrder.collectAsState(initial = emptyMap())
+    val designCodeByOrder by vm.designCodeByOrder.collectAsState()
     val inProgress by vm.inProgress.collectAsState()
     val sewMessage by vm.message.collectAsState()
     val sewnReady by vm.sewnReady.collectAsState()
@@ -143,6 +144,7 @@ fun SewingScreen(
                         items(handouts, key = { it.order.id }) { h ->
                             HandoutCard(
                                 handout = h,
+                                designCode = designCodeByOrder[h.order.orderCode].orEmpty(),
                                 tailorLabels = tailors.map { "[${it.code}] ${it.name}" },
                                 measurements = measurementsByOrder[h.order.orderCode].orEmpty(),
                                 onHandout = { label, qty, wage -> vm.handout(h.order.id, label, qty, wage) },
@@ -192,9 +194,12 @@ fun SewingScreen(
                         items(inProgress, key = { it.id }) { a ->
                                 InProgressCard(
                                 assignment = a,
+                                designCode = designCodeByOrder[a.orderCode].orEmpty(),
                                 measurements = measurementsByOrder[a.orderCode].orEmpty(),
                                 receiptText = handoverReceipt(
-                                    shop, a, allAssignments,
+                                    shop,
+                                    designCodeByOrder[a.orderCode].orEmpty(),
+                                    a, allAssignments,
                                     pendingWages.filter { it.tailorLabel == a.tailorLabel }
                                         .sumOf { it.amount },
                                     measurementsByOrder[a.orderCode].orEmpty()
@@ -269,11 +274,11 @@ fun SewingScreen(
                                             fontWeight = FontWeight.SemiBold
                                         )
                                     }
-                                    Text(
-                                        "${g.order.orderCode} • کل: ${g.order.qty.fa()} عدد" +
-                                            (if (g.order.size.isNotBlank()) " • سایز ${g.order.size}" else ""),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    OrderCodeLine(
+                                        designCode = designCodeByOrder[g.order.orderCode].orEmpty(),
+                                        orderCode = g.order.orderCode,
+                                        trailing = "کل: ${g.order.qty.fa()} عدد" +
+                                            (if (g.order.size.isNotBlank()) " • سایز ${g.order.size}" else "")
                                     )
 
                                     HorizontalDivider(thickness = 0.5.dp)
@@ -336,6 +341,7 @@ private fun EmptyCard(title: String, subtitle: String) {
 @Composable
 private fun HandoutCard(
     handout: OrderHandout,
+    designCode: String,
     tailorLabels: List<String>,
     measurements: List<Pair<String, String>>,
     onHandout: (String, Int, Long) -> Unit,
@@ -360,7 +366,11 @@ private fun HandoutCard(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column(Modifier.weight(1f)) {
                     Text(order.designTitle, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text("${order.orderCode} • کل: ${order.qty} عدد", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    OrderCodeLine(
+                        designCode = designCode,
+                        orderCode = order.orderCode,
+                        trailing = "کل: ${order.qty.fa()} عدد"
+                    )
                 }
                 Text(
                     "باقی: ${handout.remaining}",
@@ -480,9 +490,50 @@ private fun HandoutCard(
     }
 }
 
+/**
+ * شناسهٔ سفارش روی کارتِ خیاط: کدِ طرح جلو، کدِ اپ عقب.
+ *
+ * دو کد اینجا هست و هم‌وزن نیستند. کارگاه طرح را با کدِ خودش می‌شناسد
+ * (DIP-12)؛ کدی که اپ می‌سازد (AJ-2026-000001) یکتاست و برای اسکن و
+ * جست‌وجو لازم است، ولی چشمِ خیاط هر روز دنبالِ آن نیست. پس کدِ طرح با
+ * وزنِ عادی می‌آید و کدِ اپ کم‌رنگ زیرش می‌نشیند — هست، ولی جلو نمی‌زند.
+ *
+ * اگر طرح کدی نداشته باشد، کدِ اپ خودش می‌آید بالا و پررنگ می‌شود؛
+ * وگرنه کارت بی هیچ نشانه‌ای می‌مانْد.
+ */
+@Composable
+private fun OrderCodeLine(
+    designCode: String,
+    orderCode: String,
+    trailing: String
+) {
+    if (designCode.isBlank()) {
+        Text(
+            "$orderCode • $trailing",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        return
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+        Text(
+            "$designCode • $trailing",
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            orderCode,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+        )
+    }
+}
+
 @Composable
 private fun InProgressCard(
     assignment: SewingAssignment,
+    designCode: String,
     measurements: List<Pair<String, String>>,
     receiptText: String,
     onDone: (String, Int) -> Unit,
@@ -540,7 +591,11 @@ private fun InProgressCard(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column(Modifier.weight(1f)) {
                     Text(assignment.tailorLabel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text("${assignment.orderCode} • ${assignment.qty} عدد", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    OrderCodeLine(
+                        designCode = designCode,
+                        orderCode = assignment.orderCode,
+                        trailing = "${assignment.qty.fa()} عدد"
+                    )
                 }
                 Text(assignment.totalWage.afn(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
             }
@@ -601,6 +656,7 @@ private fun tailorStars(history: List<SewingAssignment>): Pair<String, Int> {
  */
 private fun handoverReceipt(
     shop: String,
+    designCode: String,
     a: SewingAssignment,
     all: List<SewingAssignment>,
     pendingWageTotal: Long,
@@ -617,7 +673,8 @@ private fun handoverReceipt(
     if (ratedCount > 0) appendLine("امتیاز کیفیت در کارگاه: $stars (از ${ratedCount.fa()} کار)")
     appendLine("──────────────")
     appendLine("✅ این کار به شما تحویل شد:")
-    appendLine("• ${a.orderCode} — ${a.qty.fa()} عدد • کارمزد فی‌عدد ${a.unitWage.afn()} • جمع ${a.totalWage.afn()}")
+    val tag = if (designCode.isNotBlank()) "$designCode (${a.orderCode})" else a.orderCode
+    appendLine("• $tag — ${a.qty.fa()} عدد • کارمزد فی‌عدد ${a.unitWage.afn()} • جمع ${a.totalWage.afn()}")
     if (measurements.isNotEmpty()) {
         appendLine("📏 اندازه‌ها:")
         measurements.forEach { (label, value) -> appendLine("   • $label: $value") }
