@@ -34,6 +34,14 @@ data class MyWorkUi(
  */
 class MyWorkViewModel(private val repo: Repo) : ViewModel() {
 
+    /**
+     * کدِ طرحِ هر سفارش (DIP-12) — کلید: کدِ سفارش.
+     * تعریفش یک‌جا در `Repo` است تا صفحه‌ها از هم جدا نیفتند.
+     */
+    val designCodeByOrder: StateFlow<Map<String, String>> =
+        repo.observeDesignCodeByOrder()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
     private val _label = MutableStateFlow("")
 
     /** برچسبِ کارگرِ این دستگاه را از تنظیمات می‌گیرد. */

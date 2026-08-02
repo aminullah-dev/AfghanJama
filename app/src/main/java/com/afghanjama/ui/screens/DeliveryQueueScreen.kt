@@ -39,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import com.afghanjama.ui.components.OrderCodeLine
 import com.afghanjama.prefs.SalePrefs
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -66,6 +67,7 @@ fun DeliveryQueueScreen(
     onBack: () -> Unit
 ) {
     val ui by vm.ui.collectAsState()
+    val designCodeByOrder by vm.designCodeByOrder.collectAsState()
     val prepays by vm.prepayOf.collectAsState()
     val context = LocalContext.current
 
@@ -183,12 +185,12 @@ fun DeliveryQueueScreen(
                             )
                         }
 
-                        Text(
-                            "${o.orderCode} • آماده از ${PersianDate.short(
+                        OrderCodeLine(
+                            designCode = designCodeByOrder[o.orderCode].orEmpty(),
+                            orderCode = o.orderCode,
+                            trailing = "آماده از ${PersianDate.short(
                                 if (o.stageChangedAt > 0) o.stageChangedAt else o.createdAt
-                            )}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )}"
                         )
 
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

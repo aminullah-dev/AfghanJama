@@ -42,6 +42,14 @@ data class WorkshopLinkUi(
  */
 class WorkshopLinkViewModel(private val repo: Repo) : ViewModel() {
 
+    /**
+     * کدِ طرحِ هر سفارش (DIP-12) — کلید: کدِ سفارش.
+     * تعریفش یک‌جا در `Repo` است تا صفحه‌ها از هم جدا نیفتند.
+     */
+    val designCodeByOrder: StateFlow<Map<String, String>> =
+        repo.observeDesignCodeByOrder()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
     private var server: LanServer? = null
 
     private val _ui = MutableStateFlow(WorkshopLinkUi())

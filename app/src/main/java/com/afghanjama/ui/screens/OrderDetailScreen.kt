@@ -49,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.afghanjama.ui.components.OrderCodeLine
 import com.afghanjama.data.entities.FabricUnit
 import com.afghanjama.data.entities.OrderStatus
 import com.afghanjama.ui.components.DeliverDialog
@@ -102,6 +103,7 @@ fun OrderDetailScreen(
     }
 
     val order by vm.order.collectAsState()
+    val designCodeByOrder by vm.designCodeByOrder.collectAsState()
     val logs by vm.stageLogs.collectAsState()
     val payments by vm.payments.collectAsState()
     val fabrics by vm.fabrics.collectAsState()
@@ -347,10 +349,9 @@ fun OrderDetailScreen(
                                 color = MaterialTheme.colorScheme.primary
                             )
                         }
-                        Text(
-                            "${o.orderCode} • ${o.shortCode}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        OrderCodeLine(
+                            designCode = designCodeByOrder[o.orderCode].orEmpty(),
+                            orderCode = "${o.orderCode} • ${o.shortCode}"
                         )
 
                         HorizontalDivider(thickness = 0.5.dp)

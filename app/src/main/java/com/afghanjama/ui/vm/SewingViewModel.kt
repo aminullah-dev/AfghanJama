@@ -134,26 +134,10 @@ class SewingViewModel(
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
-    /**
-     * کدِ اختصاصیِ طرحِ هر سفارش (مثلِ DIP-12)، کلید: کدِ سفارش.
-     *
-     * کدی که اپ می‌سازد (AJ-2026-000001) برای خودِ اپ است — یکتاست و
-     * اسکن می‌شود. ولی کارگاه طرح را با کدِ خودش می‌شناسد؛ همان که در
-     * اطلاعات پایه ثبت شده. روی کارتِ خیاط باید این یکی جلو باشد.
-     *
-     * خالی برمی‌گردد اگر طرح کدی نداشته باشد — آن وقت صفحه به کدِ خودِ
-     * سفارش برمی‌گردد تا کارت بی‌نشانه نمانَد.
-     */
+    /** کدِ طرحِ هر سفارش — تعریفِ مشترک در Repo. */
     val designCodeByOrder: StateFlow<Map<String, String>> =
-        combine(
-            repo.observeAllOrders(),
-            repo.observeDesignItems()
-        ) { orders, designs ->
-            val byTitle = designs
-                .filter { it.code.isNotBlank() }
-                .associate { it.title.trim() to it.code.trim() }
-            orders.associate { o -> o.orderCode to byTitle[o.designTitle.trim()].orEmpty() }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+        repo.observeDesignCodeByOrder()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     /** تحویل بخشی از سفارش به یک خیاط با تعداد و کارمزد فی‌عدد. */
     fun handout(orderId: UUID, tailorLabel: String, qty: Int, unitWage: Long) = viewModelScope.launch {

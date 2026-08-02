@@ -63,6 +63,7 @@ import com.afghanjama.data.entities.Order
 import java.util.UUID
 import com.afghanjama.data.entities.SewingAssignment
 import com.afghanjama.ui.components.MeasurementsBlock
+import com.afghanjama.ui.components.OrderCodeLine
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
@@ -487,46 +488,6 @@ private fun HandoutCard(
             }
 
         }
-    }
-}
-
-/**
- * شناسهٔ سفارش روی کارتِ خیاط: کدِ طرح جلو، کدِ اپ عقب.
- *
- * دو کد اینجا هست و هم‌وزن نیستند. کارگاه طرح را با کدِ خودش می‌شناسد
- * (DIP-12)؛ کدی که اپ می‌سازد (AJ-2026-000001) یکتاست و برای اسکن و
- * جست‌وجو لازم است، ولی چشمِ خیاط هر روز دنبالِ آن نیست. پس کدِ طرح با
- * وزنِ عادی می‌آید و کدِ اپ کم‌رنگ زیرش می‌نشیند — هست، ولی جلو نمی‌زند.
- *
- * اگر طرح کدی نداشته باشد، کدِ اپ خودش می‌آید بالا و پررنگ می‌شود؛
- * وگرنه کارت بی هیچ نشانه‌ای می‌مانْد.
- */
-@Composable
-private fun OrderCodeLine(
-    designCode: String,
-    orderCode: String,
-    trailing: String
-) {
-    if (designCode.isBlank()) {
-        Text(
-            "$orderCode • $trailing",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        return
-    }
-    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-        Text(
-            "$designCode • $trailing",
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            orderCode,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
-        )
     }
 }
 

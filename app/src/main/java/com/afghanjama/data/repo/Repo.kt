@@ -64,6 +64,33 @@ class Repo(private val db: AppDatabase) {
     fun observeAllOrders(): Flow<List<Order>> =
         db.orderDao().observeAll()
 
+    /**
+     * کدِ اختصاصیِ طرحِ هر سفارش (مثلِ DIP-12)، کلید: کدِ سفارش.
+     *
+     * دو کد در اپ هست و کارِ متفاوتی می‌کنند:
+     *
+     * - `orderCode` (AJ-2026-000001) را خودِ اپ می‌سازد. یکتاست، اسکن
+     *   می‌شود و مبنای پیگیری است.
+     * - کدِ طرح را کارگاه در اطلاعات پایه ثبت کرده و طرح را با همان
+     *   می‌شناسد.
+     *
+     * روی هر صفحه‌ای که کار را به کاربر نشان می‌دهد باید کدِ طرح جلو
+     * باشد. این نگاشت یک‌جا اینجاست تا ده ViewModel هرکدام برای خودشان
+     * یک نسخه نسازند و فردا از هم جدا نیفتند.
+     *
+     * پیوند از راهِ **نامِ طرح** است، چون سفارش نامِ طرح را نگه می‌دارد نه
+     * شناسه‌اش. اگر نامِ طرح در اطلاعات پایه عوض شود پیوند قطع می‌شود و
+     * مقدار خالی برمی‌گردد — که صفحه‌ها آن را به «فقط کدِ سفارش» ترجمه
+     * می‌کنند، نه به کارتِ بی‌نشانه.
+     */
+    fun observeDesignCodeByOrder(): Flow<Map<String, String>> =
+        combine(observeAllOrders(), observeDesignItems()) { orders, designs ->
+            val byTitle = designs
+                .filter { it.code.isNotBlank() }
+                .associate { it.title.trim() to it.code.trim() }
+            orders.associate { o -> o.orderCode to byTitle[o.designTitle.trim()].orEmpty() }
+        }
+
     suspend fun getOrder(id: UUID): Order? =
         db.orderDao().getById(id)
 

@@ -35,6 +35,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.afghanjama.ui.components.OrderCodeLine
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.fa
@@ -71,6 +72,7 @@ fun BoardScreen(
 ) {
     val context = LocalContext.current
     val ui by vm.ui.collectAsState()
+    val designCodeByOrder by vm.designCodeByOrder.collectAsState()
     val view = LocalView.current
 
     LaunchedEffect(Unit) { vm.start(context) }
@@ -205,7 +207,9 @@ fun BoardScreen(
                         ui.rows
                             .drop(p * ROWS_PER_PAGE)
                             .take(ROWS_PER_PAGE)
-                            .forEach { BoardRowView(it) }
+                            .forEach {
+                                BoardRowView(it, designCodeByOrder[it.orderCode].orEmpty())
+                            }
                     }
                 }
             }
@@ -249,7 +253,7 @@ private fun androidx.compose.foundation.layout.RowScope.HeaderCell(
 }
 
 @Composable
-private fun BoardRowView(row: BoardRow) {
+private fun BoardRowView(row: BoardRow, designCode: String) {
     val color = when {
         row.late -> BoardLate
         row.warn -> BoardWarn
@@ -270,8 +274,14 @@ private fun BoardRowView(row: BoardRow) {
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(3f)
         )
+        // تابلو یک جدولِ ستون‌ثابت است که از فاصلهٔ چند متری خوانده
+        // می‌شود؛ دو خطِ روی هم مثلِ بقیهٔ صفحه‌ها اینجا ستون‌ها را به هم
+        // می‌ریزد و از دور ناخوانا می‌شود. پس یک کد بیشتر جا نمی‌شود:
+        // کدِ طرح اگر هست، وگرنه کدِ اپ. نامِ طرح که ستونِ بعدی است.
         Text(
-            row.orderCode.toPersianDigits(),
+            row.orderCode.toPersianDigits().let {
+                if (designCode.isNotBlank()) designCode.toPersianDigits() else it
+            },
             color = BoardDim,
             fontSize = 16.sp,
             maxLines = 1,

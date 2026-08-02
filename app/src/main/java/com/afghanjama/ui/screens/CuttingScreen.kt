@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
+import com.afghanjama.ui.components.OrderCodeLine
 import com.afghanjama.data.entities.Order
 import com.afghanjama.ui.components.MeasurementsBlock
 import com.afghanjama.ui.components.OrderPhotoStrip
@@ -72,6 +73,7 @@ fun CuttingScreen(
     onGoSewing: () -> Unit
 ) {
     val orders by vm.ordersCutting.collectAsState(initial = emptyList())
+    val designCodeByOrder by vm.designCodeByOrder.collectAsState()
     val cutters by vm.cutters.collectAsState(initial = emptyList())
     val measurements by vm.measurements.collectAsState(initial = emptyMap())
     val photos by vm.photos.collectAsState(initial = emptyMap())
@@ -347,10 +349,10 @@ fun CuttingScreen(
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
-                                Text(
-                                    text = "${o.orderCode} • تعداد: ${o.qty}",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                OrderCodeLine(
+                                    designCode = designCodeByOrder[o.orderCode].orEmpty(),
+                                    orderCode = o.orderCode,
+                                    trailing = "تعداد: ${o.qty.fa()}"
                                 )
                                 Text(
                                     text = "پارچه: ${o.fabricType} • رنگ: ${o.fabricColor} • سایز: ${o.size}",

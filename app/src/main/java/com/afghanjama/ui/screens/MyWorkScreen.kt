@@ -41,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.afghanjama.ui.components.OrderCodeLine
 import com.afghanjama.prefs.WorkerPrefs
 import com.afghanjama.ui.components.EmptyState
 import com.afghanjama.ui.format.PersianDate
@@ -61,6 +62,7 @@ fun MyWorkScreen(
 ) {
     val context = LocalContext.current
     val ui by vm.ui.collectAsState()
+    val designCodeByOrder by vm.designCodeByOrder.collectAsState()
     var pickerOpen by remember { mutableStateOf(false) }
     var myLabel by remember { mutableStateOf(WorkerPrefs.myLabel(context)) }
 
@@ -210,7 +212,11 @@ fun MyWorkScreen(
                             Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(a.orderCode, fontWeight = FontWeight.SemiBold)
+                            OrderCodeLine(
+                                designCode = designCodeByOrder[a.orderCode].orEmpty(),
+                                orderCode = a.orderCode,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
                             Text(
                                 "${a.qty.fa()} عدد",
                                 style = MaterialTheme.typography.bodyMedium,
@@ -247,9 +253,11 @@ fun MyWorkScreen(
                             Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(
-                                "${a.orderCode} — ${a.qty.fa()} عدد",
-                                style = MaterialTheme.typography.bodySmall
+                            OrderCodeLine(
+                                designCode = designCodeByOrder[a.orderCode].orEmpty(),
+                                orderCode = a.orderCode,
+                                trailing = "${a.qty.fa()} عدد",
+                                compact = true
                             )
                             Text(
                                 a.totalWage.afn(),

@@ -44,6 +44,7 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
+import com.afghanjama.ui.components.OrderCodeLine
 import com.afghanjama.util.ShareUtil
 import com.afghanjama.pdf.StatementPdf
 import androidx.compose.ui.platform.LocalContext
@@ -69,6 +70,7 @@ fun CustomerDetailScreen(
     LaunchedEffect(customerId) { vm.open(customerId) }
 
     val s by vm.summary.collectAsState()
+    val designCodeByOrder by vm.designCodeByOrder.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var sharing by remember { mutableStateOf(false) }
@@ -289,10 +291,10 @@ fun CustomerDetailScreen(
                                     fontWeight = FontWeight.SemiBold
                                 )
                             }
-                            Text(
-                                "${o.orderCode} • ${PersianDate.short(o.createdAt)}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            OrderCodeLine(
+                                designCode = designCodeByOrder[o.orderCode].orEmpty(),
+                                orderCode = o.orderCode,
+                                trailing = PersianDate.short(o.createdAt)
                             )
                             TextButton(onClick = { onOpenOrder(o.id.toString()) }) { Text("مشاهدهٔ سفارش") }
                         }

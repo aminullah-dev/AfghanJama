@@ -41,10 +41,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.afghanjama.ui.components.OrderCodeLine
 import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.OrderStatus
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.format.afn
+import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.vm.OrderSearchViewModel
 
 /** ترتیب مراحل تولید برای نمایش پیشرفت سفارش. */
@@ -66,6 +68,7 @@ fun OrderSearchScreen(
 ) {
     val query by vm.query.collectAsState()
     val results by vm.results.collectAsState()
+    val designCodeByOrder by vm.designCodeByOrder.collectAsState()
 
     Scaffold(
         topBar = {
@@ -124,7 +127,11 @@ fun OrderSearchScreen(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         items(results, key = { it.id }) { o ->
-                            SearchResultCard(o, onClick = { onOpenDetail(o) })
+                            SearchResultCard(
+                                o,
+                                designCode = designCodeByOrder[o.orderCode].orEmpty(),
+                                onClick = { onOpenDetail(o) }
+                            )
                         }
                         item { Spacer(Modifier.height(80.dp)) }
                     }
@@ -149,7 +156,7 @@ private fun receiptText(shop: String, order: Order, stageLabel: String): String 
 }
 
 @Composable
-private fun SearchResultCard(order: Order, onClick: () -> Unit) {
+private fun SearchResultCard(order: Order, designCode: String, onClick: () -> Unit) {
     val context = LocalContext.current
     val stageIndex = stageOrder.indexOfFirst { it.first == order.status }.coerceAtLeast(0)
     val stageLabel = stageOrder.getOrNull(stageIndex)?.second ?: order.status
@@ -175,10 +182,10 @@ private fun SearchResultCard(order: Order, onClick: () -> Unit) {
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Text(
-                        "${order.orderCode} • ${order.shortCode} • تعداد: ${order.qty}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    OrderCodeLine(
+                        designCode = designCode,
+                        orderCode = "${order.orderCode} • ${order.shortCode}",
+                        trailing = "تعداد: ${order.qty.fa()}"
                     )
                 }
                 Text(

@@ -51,9 +51,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.afghanjama.ui.components.OrderCodeLine
 import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.OrderStatus
 import com.afghanjama.ui.format.afn
+import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.vm.FinanceViewModel
 import com.afghanjama.ui.vm.InventoryViewModel
@@ -74,6 +76,7 @@ fun InventoryScreen(
     onBack: () -> Unit,
 ) {
     val orders by vm.ordersInStock.collectAsState(initial = emptyList())
+    val designCodeByOrder by vm.designCodeByOrder.collectAsState()
     val wallet by financeVm.walletBalance.collectAsState(initial = 0L)
     val profit by financeVm.profitBalance.collectAsState(initial = 0L)
     val uiState by vm.state.collectAsState()
@@ -267,6 +270,7 @@ fun InventoryScreen(
                     items(orders, key = { it.id }) { o ->
                         OrderCard(
                             order = o.copy(status = statusLabel(o.status)),
+                            designCode = designCodeByOrder[o.orderCode].orEmpty(),
                             canSend = canPurchase,
                             onSendToCutting = {
                                 vm.sendToCutting(o.id, o.designTitle)
@@ -336,6 +340,7 @@ private fun EmptyInventory(
 @Composable
 private fun OrderCard(
     order: Order,
+    designCode: String,
     canSend: Boolean,
     onSendToCutting: () -> Unit,
     onClick: () -> Unit
@@ -363,10 +368,10 @@ private fun OrderCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Text(
-                        text = "${order.orderCode} • تعداد: ${order.qty}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    OrderCodeLine(
+                        designCode = designCode,
+                        orderCode = order.orderCode,
+                        trailing = "تعداد: ${order.qty.fa()}"
                     )
                 }
                 Text(

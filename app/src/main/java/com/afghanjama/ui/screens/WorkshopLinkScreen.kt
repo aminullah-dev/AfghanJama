@@ -36,6 +36,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.afghanjama.ui.components.OrderCodeLine
 import com.afghanjama.data.entities.syncRequestLabel
 import com.afghanjama.prefs.DeviceMode
 import com.afghanjama.prefs.WorkerPrefs
@@ -62,6 +63,7 @@ fun WorkshopLinkScreen(
 ) {
     val context = LocalContext.current
     val ui by vm.ui.collectAsState()
+    val designCodeByOrder by vm.designCodeByOrder.collectAsState()
     val pending by vm.pending.collectAsState()
     val busy by vm.busy.state.collectAsState()
     val myLabel = remember { WorkerPrefs.myLabel(context) }
@@ -282,7 +284,12 @@ fun WorkshopLinkScreen(
                                     Modifier.padding(14.dp),
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Text("${w.orderCode} — ${w.qty.fa()} عدد", fontWeight = FontWeight.SemiBold)
+                                    OrderCodeLine(
+                                        designCode = designCodeByOrder[w.orderCode].orEmpty(),
+                                        orderCode = w.orderCode,
+                                        trailing = "${w.qty.fa()} عدد",
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
                                     Text(
                                         "کارمزد فی‌عدد ${w.unitWage.afn()} • از ${PersianDate.short(w.createdAt)}",
                                         style = MaterialTheme.typography.labelSmall,

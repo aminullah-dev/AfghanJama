@@ -55,6 +55,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.afghanjama.ui.components.OrderCodeLine
 import com.afghanjama.data.entities.Order
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.format.PersianDate
@@ -72,6 +73,7 @@ fun ReviewScreen(
 ) {
     val context = LocalContext.current
     val orders by vm.ordersInReview.collectAsState(initial = emptyList())
+    val designCodeByOrder by vm.designCodeByOrder.collectAsState()
     val inspectors by vm.inspectors.collectAsState(initial = emptyList())
 
     val pickMap = remember { mutableStateMapOf<UUID, String>() }
@@ -242,10 +244,10 @@ fun ReviewScreen(
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
-                                    Text(
-                                        text = "${o.orderCode} • کلِ سفارش: ${o.qty.fa()}",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    OrderCodeLine(
+                                        designCode = designCodeByOrder[o.orderCode].orEmpty(),
+                                        orderCode = o.orderCode,
+                                        trailing = "کلِ سفارش: ${o.qty.fa()}"
                                     )
                                 }
                                 // عددی که تأیید واردِ انبار می‌کند همین است،

@@ -174,6 +174,69 @@ fun SectionTitle(
     }
 }
 
+/**
+ * شناسهٔ یک سفارش: کدِ طرح جلو، کدی که اپ ساخته عقب.
+ *
+ * دو کد روی هر کارت هست و هم‌وزن نیستند. کارگاه طرح را با کدِ خودش
+ * می‌شناسد (DIP-12)؛ کدی که اپ می‌سازد (AJ-2026-000001) یکتاست و برای
+ * اسکن و پیگیری لازم است، ولی چشمِ کاربر هر روز دنبالِ آن نیست. پس کدِ
+ * طرح با وزنِ نیمه‌پررنگ می‌آید و کدِ اپ کم‌رنگ زیرش می‌نشیند.
+ *
+ * **همه‌جا یکی است.** این تصمیم اول فقط در مدیریت دوخت پیاده شد و
+ * ده صفحهٔ دیگر سرِ جای خودشان ماندند — یعنی یک اپ با دو زبانِ متفاوت.
+ * حالا هر صفحه‌ای که کاری را نشان می‌دهد از همین یکی می‌آید تا فردا
+ * دوباره از هم جدا نیفتند.
+ *
+ * اگر طرح کدی نداشته باشد، کدِ اپ خودش می‌آید بالا و پررنگ می‌شود؛
+ * وگرنه کارت بی هیچ نشانه‌ای می‌مانْد.
+ *
+ * @param trailing چیزی که بعد از کد می‌آید (تعداد، تاریخ، سایز…)
+ * @param compact یک‌خطی برای جاهای تنگ مثلِ تابلوی دیوار
+ */
+@Composable
+fun OrderCodeLine(
+    designCode: String,
+    orderCode: String,
+    trailing: String = "",
+    compact: Boolean = false,
+    color: Color = MaterialTheme.colorScheme.onSurfaceVariant
+) {
+    val tail = if (trailing.isBlank()) "" else " • $trailing"
+
+    if (designCode.isBlank()) {
+        Text(
+            orderCode + tail,
+            style = MaterialTheme.typography.labelMedium,
+            color = color
+        )
+        return
+    }
+
+    if (compact) {
+        Text(
+            "$designCode$tail",
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = color
+        )
+        return
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+        Text(
+            "$designCode$tail",
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = color
+        )
+        Text(
+            orderCode,
+            style = MaterialTheme.typography.labelSmall,
+            color = color.copy(alpha = 0.55f)
+        )
+    }
+}
+
 /** یک سطرِ «برچسب — مقدار». */
 @Composable
 fun InfoRow(

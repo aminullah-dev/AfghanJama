@@ -13,6 +13,14 @@ import kotlinx.coroutines.flow.stateIn
 /** جستجو و پیگیری سفارش با کد سفارش، کد کوتاه، نام مشتری یا طرح. */
 class OrderSearchViewModel(repo: Repo) : ViewModel() {
 
+    /**
+     * کدِ طرحِ هر سفارش (DIP-12) — کلید: کدِ سفارش.
+     * تعریفش یک‌جا در `Repo` است تا صفحه‌ها از هم جدا نیفتند.
+     */
+    val designCodeByOrder: StateFlow<Map<String, String>> =
+        repo.observeDesignCodeByOrder()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query
 
