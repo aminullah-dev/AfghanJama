@@ -335,8 +335,11 @@ fun SettingsScreen(
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Text(
+                                    // وقتی لوگو نیست، انتخابگر فقط یک دکمه
+                                    // نشان می‌دهد و هیچ مربعی روی صفحه نیست؛
+                                    // پس متن هم باید همان دکمه را نشان بدهد.
                                     if (coLogo.isBlank())
-                                        "لوگو ندارید — روی مربع بزنید تا از گالری انتخاب شود."
+                                        "لوگو ندارید — دکمهٔ «لوگو» را بزنید تا از گالری انتخاب شود."
                                     else "لوگو روی اسنادِ چاپی هم می‌نشیند.",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
