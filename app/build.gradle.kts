@@ -3,7 +3,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    id("org.jetbrains.kotlin.kapt")
+    id("com.google.devtools.ksp")
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
@@ -160,7 +160,7 @@ dependencies {
 
     // Room
     implementation("androidx.room:room-runtime:$room")
-    kapt("androidx.room:room-compiler:$room")
+    ksp("androidx.room:room-compiler:$room")
     implementation("androidx.room:room-ktx:$room")
 
     // Coroutines
