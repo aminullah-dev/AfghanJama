@@ -1,6 +1,8 @@
 package com.afghanjama.desktop.pdf
 
 import com.afghanjama.data.entities.CustomerPayment
+import com.afghanjama.data.entities.Document
+import com.afghanjama.data.entities.LedgerEntry
 import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.OrderFabric
 import com.afghanjama.data.entities.OrderWorkItem
@@ -8,7 +10,9 @@ import com.afghanjama.pdf.Paper
 import com.afghanjama.pdf.ReceiptData
 import com.afghanjama.pdf.ShopInfo
 import com.afghanjama.pdf.StatementData
+import com.afghanjama.pdf.documentSheet
 import com.afghanjama.pdf.invoiceSheets
+import com.afghanjama.pdf.partyStatementSheets
 import com.afghanjama.pdf.receiptSheet
 import com.afghanjama.pdf.statementSheets
 import java.io.File
@@ -63,4 +67,33 @@ object DesktopDocs {
         paper: Paper = Paper.A4,
         target: File = File(outputDir(), "کارت-حساب-${data.customerName}.pdf")
     ): File = engine.write(statementSheets(data, shop, measurer, paper), target)
+
+    /** صورت‌حسابِ یک طرفِ دفتر کل. */
+    fun partyStatement(
+        partyType: String,
+        partyName: String,
+        net: Long,
+        entries: List<LedgerEntry>,
+        shop: ShopInfo,
+        target: File = File(outputDir(), "صورتحساب-${safeName(partyName)}.pdf")
+    ): File = engine.write(
+        partyStatementSheets(partyType, partyName, net, entries, shop, measurer),
+        target
+    )
+
+    /** رسیدِ یک سندِ مالی. */
+    fun document(
+        d: Document,
+        shop: ShopInfo,
+        target: File = File(outputDir(), "${safeName(d.number)}.pdf")
+    ): File = engine.write(documentSheet(d, shop, measurer), target)
+
+    /**
+     * نامِ فایلِ بی‌خطر.
+     *
+     * نامِ مشتری مستقیم در نامِ فایل می‌نشیند و ویندوز این نویسه‌ها را
+     * نمی‌پذیرد؛ بدونِ این، ذخیره برای مشتری‌ای با «/» در نامش می‌شکند.
+     */
+    private fun safeName(raw: String): String =
+        raw.replace(Regex("[/\\\\:*?\"<>|]"), "_")
 }
