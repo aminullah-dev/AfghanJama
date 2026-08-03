@@ -38,6 +38,12 @@ NEEDS = {
 
 IMPORT = re.compile(r"^import\s+androidx\.compose\.([A-Za-z0-9_]+)")
 
+# خانوادهٔ lifecycle هم همین داستان را دارد: `ViewModel` از `:core`
+# می‌آید (آنجا `api` است و ترابری‌اش می‌کند) ولی `viewModel { }`ِ
+# Compose در بستهٔ جداست و باید در `:desktop` خواسته شود.
+LIFECYCLE = re.compile(r"^import\s+androidx\.lifecycle\.viewmodel\.compose\.")
+LIFECYCLE_DEP = "androidx.lifecycle:lifecycle-viewmodel-compose"
+
 if not BUILD.exists():
     print(f"✗ {BUILD.name} نیست — بررسی پوچ بود، مسیر را ببینید")
     sys.exit(1)
@@ -66,8 +72,11 @@ declared = {m.group(2) for ln in build_lines for m in DECLARE.finditer(ln)}
 # `material.icons` زیرِ خانوادهٔ `material` است ولی از بستهٔ
 # icons می‌آید؛ برای همین جدا نگاه می‌شود.
 used = {}
+needs_lifecycle = None
 for p in files:
     for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
+        if LIFECYCLE.match(line.strip()) and needs_lifecycle is None:
+            needs_lifecycle = (p.relative_to(DESKTOP_SRC), i)
         m = IMPORT.match(line.strip())
         if not m:
             continue
@@ -84,14 +93,21 @@ for fam, (f, i) in sorted(used.items()):
     if dep is None:
         # خانوادهٔ ناشناخته — نه در فهرستِ همراه، نه در فهرستِ شناخته‌شده.
         # بی‌صدا رد نمی‌شود؛ یا واقعاً وابستگی می‌خواهد یا فهرست کهنه است.
-        missing.append((fam, f, i, f"compose.{fam} (ناشناخته)"))
+        missing.append((f"androidx.compose.{fam}", f, i, f"compose.{fam} (ناشناخته)"))
     elif dep not in declared:
-        missing.append((fam, f, i, dep))
+        missing.append((f"androidx.compose.{fam}", f, i, dep))
+
+# وابستگی‌های مختصاتی (رشته‌ای) جدا سنجیده می‌شوند، چون `DECLARE`
+# فقط نام‌های DSL مثلِ `compose.material3` را می‌گیرد نه رشته را.
+if needs_lifecycle is not None:
+    f, i = needs_lifecycle
+    if not any(LIFECYCLE_DEP in ln for ln in build_lines):
+        missing.append(("androidx.lifecycle.viewmodel.compose", f, i, f'"{LIFECYCLE_DEP}:…"'))
 
 if missing:
     print(f"✗ {len(missing)} بستهٔ Compose در :desktop استفاده شده ولی خواسته نشده")
-    for fam, f, i, dep in missing:
-        print(f"  {f}:{i}  androidx.compose.{fam}  →  {dep}")
+    for name, f, i, dep in missing:
+        print(f"  {f}:{i}  {name}  →  {dep}")
     print(f"\n  `compose.desktop.currentOs` فقط {'، '.join(sorted(BUNDLED))} را می‌آورد.")
     print(f"  بقیه باید در {BUILD.name} صریح نوشته شوند.")
     sys.exit(1)

@@ -224,11 +224,16 @@ fun AttendanceScreen(
                         ) {
                             Column(Modifier.weight(1f)) {
                                 Text(e.name, fontWeight = FontWeight.SemiBold)
-                                val nearShiftEnd = e.isIn && e.since != null &&
-                                    (now - e.since) >= ShiftReminderWorker.WARN_AFTER_MS
+                                // در متغیرِ محلی گرفته می‌شود چون
+                                // `EmployeeAttendance` حالا در :core است و
+                                // کاتلین ویژگیِ عمومیِ ماژولِ دیگر را
+                                // smart-cast نمی‌کند.
+                                val since = e.since
+                                val nearShiftEnd = e.isIn && since != null &&
+                                    (now - since) >= ShiftReminderWorker.WARN_AFTER_MS
                                 Text(
-                                    if (e.isIn && e.since != null)
-                                        "داخل — از ${clock(e.since)} • ${elapsedHm(e.since, now)} ساعت"
+                                    if (e.isIn && since != null)
+                                        "داخل — از ${clock(since)} • ${elapsedHm(since, now)} ساعت"
                                     else "بیرون",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = when {

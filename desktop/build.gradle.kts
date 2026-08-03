@@ -31,6 +31,11 @@ dependencies {
     // «Unresolved reference» می‌شوند.
     implementation(compose.material3)
 
+    // `viewModel { }` برای Compose — همان تابعی که روی اندروید هم
+    // ViewModel را می‌سازد و در بازترکیب‌ها نگه می‌دارد. خودِ کلاسِ
+    // `ViewModel` از `:core` می‌آید (آنجا `api` است).
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+
     // Compose روی دسکتاپ روی حلقهٔ رویدادِ Swing می‌نشیند
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.8.1")
 }

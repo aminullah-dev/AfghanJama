@@ -15,7 +15,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,24 +31,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.lightColorScheme
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.ViewModelStoreOwner
+import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.afghanjama.AppInfo
 import com.afghanjama.selftest.CheckResult
 import com.afghanjama.selftest.CheckStatus
-import com.afghanjama.selftest.checkCustomerLedger
-import com.afghanjama.selftest.checkDiscountMath
-import com.afghanjama.selftest.checkInvoiceTotals
-import com.afghanjama.selftest.checkMoneySplit
-import com.afghanjama.selftest.checkMultiLineInvoice
-import com.afghanjama.selftest.checkOrderCycle
-import com.afghanjama.selftest.checkSalaryAdvance
-import com.afghanjama.selftest.checkShortage
-import com.afghanjama.selftest.checkStockValuation
-import com.afghanjama.selftest.checkTailorAttribution
-import com.afghanjama.selftest.checkWorkSummary
 import com.afghanjama.ui.format.PersianDate
+import com.afghanjama.ui.vm.SelfCheckViewModel
 
 // رنگ‌های خودِ اپ — همان‌هایی که در Theme.kt اندروید هستند
 private val Brand = Color(0xFF1F6E5C)
@@ -77,24 +74,20 @@ private val Vazirmatn: FontFamily = runCatching {
 }
 
 /**
- * بررسی‌هایی که به دفتر کاری ندارند و فقط ریاضیِ پول را می‌سنجند.
+ * جایی که ViewModelها زندگی می‌کنند.
  *
- * همین‌ها روی گوشی هم اجرا می‌شوند — کلمه به کلمه همان کد، از `:core`.
- * اگر اینجا سبز باشند، یعنی حسابداریِ کارگاه روی ویندوز همان جوابی را
- * می‌دهد که روی گوشی می‌دهد. اثباتِ اصلیِ این فاز همین است.
+ * روی اندروید این را خودِ اندروید می‌دهد (Activity یک
+ * `ViewModelStoreOwner` است). روی دسکتاپ چنین چیزی از آسمان نمی‌آید و
+ * باید صریح داده شود، وگرنه `viewModel { }` سرِ اجرا می‌ترکد.
+ *
+ * **چرا صریح و نه به امیدِ پیش‌فرضِ Compose Multiplatform:** CI فقط
+ * *کامپایل* می‌کند و اجرا نمی‌کند. اگر روی پیش‌فرضِ کتابخانه حساب
+ * می‌کردیم و آن پیش‌فرض نبود، ساخت سبز می‌ماند و برنامه روی پی‌سیِ
+ * کارگاه بالا نمی‌آمد — خرابی‌ای که هیچ بررسی‌ای اینجا نمی‌گرفت.
  */
-private fun runPureChecks(): List<CheckResult> =
-    checkMoneySplit() +
-        checkCustomerLedger() +
-        checkTailorAttribution() +
-        checkMultiLineInvoice() +
-        checkStockValuation() +
-        checkInvoiceTotals() +
-        checkShortage() +
-        checkDiscountMath() +
-        checkOrderCycle() +
-        checkSalaryAdvance() +
-        checkWorkSummary()
+private object DesktopViewModelStoreOwner : ViewModelStoreOwner {
+    override val viewModelStore = ViewModelStore()
+}
 
 fun main() = application {
     Window(
@@ -110,8 +103,11 @@ fun main() = application {
             )
         ) {
             // کلِ برنامه راست‌به‌چپ، مستقلِ از زبانِ ویندوز — همان
-            // کاری که AfghanJamaTheme روی اندروید می‌کند.
-            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+            // کاری که KhayatYarTheme روی اندروید می‌کند.
+            CompositionLocalProvider(
+                LocalLayoutDirection provides LayoutDirection.Rtl,
+                LocalViewModelStoreOwner provides DesktopViewModelStoreOwner
+            ) {
                 App()
             }
         }
@@ -120,9 +116,11 @@ fun main() = application {
 
 @Composable
 private fun App() {
-    val results = remember { runPureChecks() }
-    val failed = results.count { it.status == CheckStatus.FAIL }
-    val passed = results.count { it.status == CheckStatus.PASS }
+    // همان `viewModel { }`ِ اندروید، همان کلاسِ ViewModel، همان
+    // `viewModelScope`. تنها فرق این است که اینجا صاحبِ ViewModel را
+    // خودمان بالاتر گذاشته‌ایم.
+    val vm: SelfCheckViewModel = viewModel { SelfCheckViewModel() }
+    val ui by vm.ui.collectAsState()
 
     Column(
         Modifier.fillMaxSize().background(Bg).padding(28.dp),
@@ -130,7 +128,13 @@ private fun App() {
     ) {
         Header()
 
-        SummaryCard(passed = passed, failed = failed, total = results.size)
+        SummaryCard(
+            passed = ui.passed,
+            failed = ui.failed,
+            total = ui.results.size,
+            running = ui.running,
+            onRun = { vm.run() }
+        )
 
         Text(
             "این‌ها همان بررسی‌هایی‌اند که روی گوشی هم اجرا می‌شوند — " +
@@ -142,7 +146,7 @@ private fun App() {
             Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            results.groupBy { it.group }.forEach { (group, rows) ->
+            ui.results.groupBy { it.group }.forEach { (group, rows) ->
                 Text(
                     group,
                     fontFamily = Vazirmatn,
@@ -186,18 +190,31 @@ private fun Header() {
 }
 
 @Composable
-private fun SummaryCard(passed: Int, failed: Int, total: Int) {
+private fun SummaryCard(
+    passed: Int,
+    failed: Int,
+    total: Int,
+    running: Boolean,
+    onRun: () -> Unit
+) {
     val ok = failed == 0
-    Box(
+    Row(
         Modifier.fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
             .background(if (ok) BrandSoft else Color(0xFFF9DEDC))
-            .padding(18.dp)
+            .padding(18.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(
+            Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
             Text(
-                if (ok) "حسابداری روی ویندوز همان جوابِ گوشی را می‌دهد"
-                else "$failed مورد اینجا جوابِ دیگری داد",
+                when {
+                    running -> "در حالِ بررسی…"
+                    ok -> "حسابداری روی ویندوز همان جوابِ گوشی را می‌دهد"
+                    else -> "$failed مورد اینجا جوابِ دیگری داد"
+                },
                 fontFamily = Vazirmatn, fontWeight = FontWeight.Bold,
                 fontSize = 17.sp, color = if (ok) Brand else Bad
             )
@@ -206,6 +223,15 @@ private fun SummaryCard(passed: Int, failed: Int, total: Int) {
                 fontFamily = Vazirmatn, fontSize = 13.sp,
                 color = if (ok) Brand else Bad
             )
+        }
+        // دکمهٔ واقعی: `viewModelScope` را روی دسکتاپ به کار می‌اندازد.
+        // اگر کار کند، یعنی کوروتینِ ViewModel اینجا هم زنده است.
+        Button(
+            onClick = onRun,
+            enabled = !running,
+            colors = ButtonDefaults.buttonColors(containerColor = Brand)
+        ) {
+            Text("بررسیِ دوباره", fontFamily = Vazirmatn, fontSize = 13.sp)
         }
     }
 }

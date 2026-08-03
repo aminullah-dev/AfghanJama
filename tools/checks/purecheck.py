@@ -24,7 +24,34 @@ BANNED = ("import android.", "import androidx.")
 # خالصِ جاواست، نه کتابخانهٔ اندروید. جدولِ داده‌ها با همین‌ها توصیف
 # می‌شود و روی ویندوز هم همان توصیف کار می‌کند. موتورِ Room
 # (`room-runtime`) اینجا نیست و نباید بیاید.
-ALLOWED = ("import androidx.room.",)
+#
+# و `androidx.lifecycle.ViewModel` / `viewModelScope`.
+#
+# از نسخهٔ ۲.۸ این کتابخانه چندسکویی است و برای JVMِ رومیزی هم منتشر
+# می‌شود؛ Gradle برای هر مصرف‌کننده نسخهٔ درستش را برمی‌دارد. پس مثلِ
+# `room-common` اینجا مجاز است — ولی فقط همین دو نام، نه هر چیزی که
+# زیرِ `androidx.lifecycle` باشد.
+ALLOWED = (
+    "import androidx.room.",
+    "import androidx.lifecycle.ViewModel",
+    "import androidx.lifecycle.viewModelScope",
+)
+
+# ...و اینها زیرِ `androidx.lifecycle` هستند ولی اندروید می‌خواهند.
+#
+# `AndroidViewModel` یک `Application` می‌گیرد — یعنی مستقیم به اندروید
+# گره می‌خورد. اگر کسی به‌جای `ViewModel` این را بنویسد، مرز بی‌سروصدا
+# شکسته و بررسی باید همان‌جا بگیردش.
+LIFECYCLE_ANDROID = (
+    "import androidx.lifecycle.AndroidViewModel",
+    "import androidx.lifecycle.LiveData",
+    "import androidx.lifecycle.MutableLiveData",
+    "import androidx.lifecycle.LifecycleOwner",
+    "import androidx.lifecycle.LifecycleObserver",
+    "import androidx.lifecycle.ProcessLifecycleOwner",
+    "import androidx.lifecycle.asLiveData",
+    "import androidx.lifecycle.observe",
+)
 
 # ...ولی نه هر چیزی زیرِ androidx.room.
 #
@@ -48,6 +75,7 @@ for p in files:
         runtime = line.startswith(RUNTIME_ONLY) or line.rstrip() in (
             "import androidx.room.Room",
         )
+        runtime = runtime or line.startswith(LIFECYCLE_ANDROID)
         if runtime or (line.startswith(BANNED) and not line.startswith(ALLOWED)):
             bad.append((p.relative_to(CORE), i, line.strip()))
 
