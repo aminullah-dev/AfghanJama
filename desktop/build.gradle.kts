@@ -91,7 +91,15 @@ compose.desktop {
             targetFormats(TargetFormat.Msi, TargetFormat.Deb)
             packageName = "KhayatYar"
             packageVersion = "1.0.0"
-            description = "خیاط‌یار — دفترِ کارگاهِ خیاطی"
+            /*
+             * لاتین و بی نویسهٔ خاص، عمداً.
+             *
+             * `jpackage` این‌ها را در فراداده‌های خودِ فایلِ اجرایی
+             * ویندوز می‌نشاند و آن‌جا نویسه‌های غیرِ ASCII می‌توانند
+             * ساخت را بشکنند. نامی که کاربر می‌بیند از `AppInfo.NAME`
+             * می‌آید و فارسی است؛ این فقط فراداده است.
+             */
+            description = "KhayatYar - tailoring workshop ledger"
             vendor = "KhayatYar"
 
             /*

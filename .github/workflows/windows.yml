@@ -47,7 +47,18 @@ jobs:
         shell: bash
         run: ./gradlew --no-daemon :desktop:createDistributable
 
-      # سبزبودنِ مرحلهٔ بالا کافی نیست: اگر jpackage چیزی تولید نکند هم
+      # `jpackage` پیامِ خطایش را در فایل می‌نویسد نه روی صفحه، پس
+      # بدونِ این مرحله فقط «exit code 1» دیده می‌شود.
+      - name: چاپِ خطای jpackage وقتی شکست
+        if: failure()
+        shell: bash
+        run: |
+          for f in $(find desktop/build/compose/logs -name '*.txt' 2>/dev/null); do
+            echo "===== $f ====="
+            cat "$f"
+          done
+
+      # سبزبودنِ مرحلهٔ ساخت کافی نیست: اگر jpackage چیزی تولید نکند هم
       # ممکن است موفق گزارش دهد. اینجا وجودِ خودِ فایلِ اجرایی وارسی
       # می‌شود.
       - name: مطمئن شو exe واقعاً ساخته شد
