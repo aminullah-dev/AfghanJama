@@ -1,4 +1,3 @@
-// app/src/main/java/com/afghanjama/data/Converters.kt
 package com.afghanjama.data
 
 import androidx.room.TypeConverter

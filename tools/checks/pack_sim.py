@@ -70,8 +70,14 @@ check("val perPack" in ent, "ستونِ perPack روی قلمِ خرید نیس�
 mg = (ROOT / "data/Migrations.kt").read_text(encoding="utf-8")
 check("MIGRATION_57_58" in mg and "purchase_items` ADD COLUMN `perPack`" in mg, "مهاجرت نیست")
 db = (ROOT / "data/AppDatabase.kt").read_text(encoding="utf-8")
-# نسخه از خودِ کد خوانده می‌شود، وگرنه با هر مهاجرتِ تازه می‌شکست
-ver = int(re.search(r"const val DB_VERSION = (\d+)", db).group(1))
+# نسخه از خودِ کد خوانده می‌شود، وگرنه با هر مهاجرتِ تازه می‌شکست.
+# از وقتی ویندوز `@Database`ِ خودش را دارد، این ثابت به `:core` رفته تا
+# یک عدد بینِ هر دو مشترک باشد — پس از `DbSchema.kt` خوانده می‌شود.
+schema = (ROOT / "data/DbSchema.kt").read_text(encoding="utf-8")
+m = re.search(r"const val DB_VERSION = (\d+)", schema)
+if not m:
+    sys.exit("✗ DB_VERSION در DbSchema.kt پیدا نشد — مسیر عوض شده است")
+ver = int(m.group(1))
 check(ver >= 58, f"DB_VERSION باید دستِ‌کم ۵۸ باشد، {ver} است")
 check("MIGRATION_57_58" in db, "مهاجرتِ ۵۷→۵۸ ثبت نشد")
 

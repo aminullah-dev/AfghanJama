@@ -15,6 +15,9 @@ plugins {
     id("org.jetbrains.kotlin.jvm")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.compose")
+    // پردازشگرِ Room برای این ماژول هم باید اجرا شود؛ `@Database`ِ
+    // ویندوز اینجاست.
+    id("com.google.devtools.ksp")
 }
 
 dependencies {
@@ -38,6 +41,20 @@ dependencies {
 
     // Compose روی دسکتاپ روی حلقهٔ رویدادِ Swing می‌نشیند
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.8.1")
+
+    /*
+     * موتورِ Room برای ویندوز.
+     *
+     * `:core` فقط حاشیه‌نویسی‌ها را دارد (`room-common`) — یعنی
+     * **توصیفِ** جدول‌ها. موتور را هر سکو خودش می‌آورد: گوشی
+     * `room-runtime`ِ اندروید، و اینجا نسخهٔ JVM با درایورِ SQLiteِ
+     * همراه (`sqlite-bundled`) که کتابخانهٔ بومی را خودش می‌آورد و
+     * نیازی به SQLiteِ نصب‌شده روی ویندوز ندارد.
+     */
+    val room = "2.7.1"
+    implementation("androidx.room:room-runtime:$room")
+    implementation("androidx.sqlite:sqlite-bundled:2.5.1")
+    ksp("androidx.room:room-compiler:$room")
 }
 
 /*

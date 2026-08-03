@@ -1,11 +1,13 @@
-// app/src/main/java/com/afghanjama/data/AppDatabase.kt
-package com.afghanjama.data
+package com.afghanjama.desktop.data
 
-import android.content.Context
 import androidx.room.Database
-import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.useWriterConnection
+import androidx.sqlite.execSQL
+import com.afghanjama.data.Converters
+import com.afghanjama.data.DB_VERSION
+import com.afghanjama.data.Db
 import com.afghanjama.data.dao.AttendanceDao
 import com.afghanjama.data.dao.AuditDao
 import com.afghanjama.data.dao.BreakTimeDao
@@ -21,8 +23,6 @@ import com.afghanjama.data.dao.LedgerDao
 import com.afghanjama.data.dao.MasterDataDao
 import com.afghanjama.data.dao.MaterialStockDao
 import com.afghanjama.data.dao.OrderCounterDao
-import com.afghanjama.data.dao.StockMovementDao
-import com.afghanjama.data.dao.SupplierDao
 import com.afghanjama.data.dao.OrderDao
 import com.afghanjama.data.dao.OrderFabricDao
 import com.afghanjama.data.dao.OrderPhotoDao
@@ -32,6 +32,8 @@ import com.afghanjama.data.dao.ProcurementDao
 import com.afghanjama.data.dao.QcRecordDao
 import com.afghanjama.data.dao.SalaryDao
 import com.afghanjama.data.dao.SewingAssignmentDao
+import com.afghanjama.data.dao.StockMovementDao
+import com.afghanjama.data.dao.SupplierDao
 import com.afghanjama.data.dao.SyncRequestDao
 import com.afghanjama.data.dao.TailorWageDao
 import com.afghanjama.data.entities.AttendanceRecord
@@ -53,16 +55,16 @@ import com.afghanjama.data.entities.JournalEntry
 import com.afghanjama.data.entities.JournalLine
 import com.afghanjama.data.entities.LedgerEntry
 import com.afghanjama.data.entities.MaterialStock
-import com.afghanjama.data.entities.Party
 import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.OrderCounter
 import com.afghanjama.data.entities.OrderFabric
 import com.afghanjama.data.entities.OrderPhoto
 import com.afghanjama.data.entities.OrderStageLog
 import com.afghanjama.data.entities.OrderWorkItem
+import com.afghanjama.data.entities.Party
 import com.afghanjama.data.entities.PurchaseInvoice
-import com.afghanjama.data.entities.QcRecord
 import com.afghanjama.data.entities.PurchaseItem
+import com.afghanjama.data.entities.QcRecord
 import com.afghanjama.data.entities.SalaryPayment
 import com.afghanjama.data.entities.SewingAssignment
 import com.afghanjama.data.entities.SizeItem
@@ -74,7 +76,29 @@ import com.afghanjama.data.entities.Tailor
 import com.afghanjama.data.entities.TailorWage
 import com.afghanjama.data.entities.Transaction
 import com.afghanjama.data.entities.WorkCost
+import kotlinx.coroutines.runBlocking
 
+/**
+ * دفترِ کارگاه روی ویندوز.
+ *
+ * **چرا `@Database`ِ دوم و نه همان `AppDatabase`:** مهاجرت‌ها.
+ * `Migrations.kt` هزار خط است و هر ۴۲ مهاجرتش روی
+ * `SupportSQLiteDatabase` نوشته شده — API فقط-اندرویدیِ Room. بردنِ
+ * `@Database` به `:core` یعنی بازنویسیِ همهٔ آن‌ها با API درایورِ جدید؛
+ * یعنی دست بردن در کدی که دادهٔ واقعیِ کارگاه را ارتقا می‌دهد. آن ریسک
+ * ارزشش را نداشت.
+ *
+ * **پس چه چیزی مشترک است؟** همه چیزِ مهم: هر ۴۰ موجودیت، تبدیل‌گرها و
+ * عددِ نسخه از `:core` می‌آیند. یعنی **اسکیما از یک جا توصیف می‌شود** و
+ * فایلِ دیتابیس بینِ گوشی و پی‌سی قابلِ جابه‌جایی می‌ماند. آنچه دوتاست
+ * فقط اعلانِ `@Database` است، و بررسیِ `dbtwin` نمی‌گذارد آن دو از هم
+ * جدا بیفتند.
+ *
+ * **مهاجرت روی ویندوز هنوز نیست.** این دیتابیس تازه ساخته می‌شود، پس
+ * مستقیم روی نسخهٔ [DB_VERSION] می‌نشیند. اولین باری که اسکیما عوض شود،
+ * اینجا هم باید مهاجرت اضافه شود — وگرنه فایلِ قدیمیِ روی پی‌سی باز
+ * نمی‌شود.
+ */
 @Database(
     entities = [
         Order::class,
@@ -122,11 +146,7 @@ import com.afghanjama.data.entities.WorkCost
     exportSchema = false
 )
 @TypeConverters(Converters::class)
-/*
- * `Db` را پیاده می‌کند تا منطقِ کارگاه به موتورِ Room گره نخورد؛
- * توضیحِ کامل در Db.kt.
- */
-abstract class AppDatabase : RoomDatabase(), Db {
+abstract class DesktopDatabase : RoomDatabase(), Db {
     abstract override fun orderDao(): OrderDao
     abstract override fun orderCounterDao(): OrderCounterDao
     abstract override fun financeDao(): FinanceDao
@@ -157,92 +177,48 @@ abstract class AppDatabase : RoomDatabase(), Db {
     abstract override fun orderPhotoDao(): OrderPhotoDao
 
     // ------------------------------------------------------------
-    // پیاده‌سازیِ اندرویدیِ عملیاتِ سطحِ فایلِ `Db`.
+    // عملیاتِ سطحِ فایل — همان چهارتایی که `Db` نام می‌برد.
     //
-    // اینها تنها جایی‌اند که موتورِ Room لازم می‌شود. روی ویندوز همین
-    // چهار کار با موتورِ آنجا نوشته می‌شود و منطقِ کارگاه دست نمی‌خورد.
+    // روی اندروید اینها با `openHelper` انجام می‌شوند. اینجا موتور
+    // درایوری است، پس از راهِ اتصالِ نویسنده می‌روند.
     // ------------------------------------------------------------
 
     override fun checkpoint() {
-        openHelper.writableDatabase
-            .query("PRAGMA wal_checkpoint(FULL)")
-            .use { it.moveToFirst() }
-    }
-
-    override fun closeConnection() {
-        // Room پس از بستن، در اولین دسترسیِ بعدی خودش دوباره باز می‌کند.
-        if (isOpen) close()
-    }
-
-    override fun tableNames(): List<String> {
-        val names = mutableListOf<String>()
-        openHelper.writableDatabase.query(
-            "SELECT name FROM sqlite_master WHERE type='table' " +
-                "AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'android_metadata' " +
-                "AND name NOT LIKE 'room_master_table'"
-        ).use { c ->
-            while (c.moveToNext()) names += c.getString(0)
+        runBlocking {
+            useWriterConnection { it.execSQL("PRAGMA wal_checkpoint(TRUNCATE)") }
         }
-        return names
     }
 
-    override fun clearTables(tables: List<String>): Int {
+    override fun closeConnection() = close()
+
+    override fun tableNames(): List<String> = runBlocking {
+        useWriterConnection { conn ->
+            conn.usePrepared(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+            ) { stmt ->
+                buildList { while (stmt.step()) add(stmt.getText(0)) }
+            }
+        }
+    }
+
+    override fun clearTables(tables: List<String>): Int = runBlocking {
         var cleared = 0
-        // شکلِ Runnable عمداً صریح نوشته شده: `runInTransaction` دو نسخه
-        // دارد (Runnable و Callable) و لامبدای برهنه می‌تواند مبهم باشد.
-        runInTransaction(
-            Runnable {
-                val w = openHelper.writableDatabase
+        useWriterConnection { conn ->
+            conn.immediateTransaction {
                 tables.forEach { table ->
-                    w.execSQL("DELETE FROM `$table`")
+                    execSQL("DELETE FROM `$table`")
                     cleared++
                 }
                 // شمارنده‌های AUTOINCREMENT هم از اول شروع کنند، وگرنه
                 // شناسهٔ اولین سندِ تازه از وسطِ راه ادامه پیدا می‌کند.
-                // اگر جدولی AUTOINCREMENT نداشته باشد این جدول اصلاً
-                // وجود ندارد، پس شکستش بی‌اهمیت است.
                 runCatching {
-                    w.execSQL(
+                    execSQL(
                         "DELETE FROM sqlite_sequence WHERE name IN (" +
                             tables.joinToString(",") { "'$it'" } + ")"
                     )
                 }
             }
-        )
-        return cleared
+        }
+        cleared
     }
 }
-
-/** همهٔ Migrationها یک‌جا تا Workerها و اپ هرگز از هم جدا نیفتند. */
-val ALL_MIGRATIONS = arrayOf(
-    MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23,
-    MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27,
-    MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30, MIGRATION_30_31,
-    MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35,
-    MIGRATION_35_36, MIGRATION_36_37, MIGRATION_37_38, MIGRATION_38_39,
-    MIGRATION_39_40, MIGRATION_40_41, MIGRATION_41_42, MIGRATION_42_43,
-    MIGRATION_43_44, MIGRATION_44_45, MIGRATION_45_46, MIGRATION_46_47,
-    MIGRATION_47_48, MIGRATION_48_49, MIGRATION_49_50,
-    MIGRATION_50_51, MIGRATION_51_52, MIGRATION_52_53,
-    MIGRATION_53_54, MIGRATION_54_55, MIGRATION_55_56,
-    MIGRATION_56_57, MIGRATION_57_58, MIGRATION_58_59,
-    MIGRATION_59_60, MIGRATION_60_61
-)
-
-/*
- * `DB_NAME` و `DB_VERSION` به `:core` رفتند.
- *
- * از وقتی نسخهٔ ویندوز `@Database`ِ خودش را دارد، این عدد باید بینِ دو
- * سکو یکی باشد؛ وگرنه فایلی که از گوشی به پی‌سی می‌رود باز نمی‌شود.
- * بستهٔ هر دو یکی است (`com.afghanjama.data`)، پس هیچ ایمپورتی عوض نشد.
- */
-
-/**
- * ساخت متمرکز دیتابیس. همهٔ نقاط (اپ و Workerها) باید از این استفاده
- * کنند تا لیست Migration هرگز ناقص نماند (جلوگیری از پاک‌شدن ناخواستهٔ داده).
- */
-fun buildAppDatabase(context: Context): AppDatabase =
-    Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, DB_NAME)
-        .addMigrations(*ALL_MIGRATIONS)
-        .fallbackToDestructiveMigration()
-        .build()

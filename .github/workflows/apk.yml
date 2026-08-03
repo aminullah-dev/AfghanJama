@@ -81,6 +81,25 @@ jobs:
         # می‌فهمیم نه ماه‌ها بعد.
         run: ./gradlew --no-daemon :desktop:compileKotlin
 
+      # همان دامِ سمتِ اندروید، اینجا هم هست: اگر پردازشگرِ Room برای
+      # ماژولِ ویندوز اجرا نشود، کامپایل سبز می‌ماند و دیتابیس تازه سرِ
+      # اجرا روی پی‌سی باز نمی‌شود.
+      - name: مطمئن شو Room برای ویندوز هم کد ساخت
+        run: |
+          python3 - <<'PY'
+          import pathlib, sys
+          root = pathlib.Path('desktop/build/generated/ksp')
+          if not root.is_dir():
+              sys.exit('پوشهٔ خروجیِ KSP در :desktop نیست — پردازشگر اجرا نشده.')
+          impl = list(root.rglob('DesktopDatabase_Impl.*'))
+          daos = list(root.rglob('*Dao_Impl.*'))
+          print(f'{len(impl)} پیاده‌سازیِ دیتابیس، {len(daos)} پیاده‌سازیِ DAO')
+          if not impl:
+              sys.exit('DesktopDatabase_Impl ساخته نشده.')
+          if len(daos) < 28:
+              sys.exit(f'فقط {len(daos)} DAO ساخته شد، انتظار دستِ‌کم ۲۸.')
+          PY
+
       - name: Build
         run: ./gradlew --no-daemon assembleDebug
 
