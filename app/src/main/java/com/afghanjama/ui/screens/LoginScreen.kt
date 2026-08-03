@@ -48,6 +48,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.afghanjama.AppInfo
+import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.components.IconBadge
 import com.afghanjama.ui.format.digitsOnly
@@ -75,7 +76,9 @@ fun LoginScreen(
     var roleMenu by remember { mutableStateOf(false) }
 
     val ctx = LocalContext.current
-    val coName = remember { CompanyPrefs.name(ctx) }
+
+    val settings = LocalSettings.current
+    val coName = remember { CompanyPrefs.name(settings) }
 
     fun roleLabel(r: UserRole): String = when (r) {
         UserRole.MANAGER -> "مدیریت"

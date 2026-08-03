@@ -64,6 +64,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
+import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.components.IconBadge
 import com.afghanjama.ui.format.PersianDate
@@ -204,7 +205,8 @@ fun HomeDashboardScreen(
         // سرصفحه‌ای نباید باشد.
         item(span = { fullSpan() }) {
             val ctx = LocalContext.current
-            val coName = remember { CompanyPrefs.shopName(ctx) }
+            val settings = LocalSettings.current
+            val coName = remember { CompanyPrefs.shopName(settings) }
             val hour = remember { java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY) }
             val greeting = when {
                 hour < 12 -> "صبح بخیر"

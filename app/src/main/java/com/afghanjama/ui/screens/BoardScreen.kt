@@ -36,6 +36,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.afghanjama.ui.components.OrderCodeLine
+import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.fa
@@ -71,11 +72,12 @@ fun BoardScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val settings = LocalSettings.current
     val ui by vm.ui.collectAsState()
     val designCodeByOrder by vm.designCodeByOrder.collectAsState()
     val view = LocalView.current
 
-    LaunchedEffect(Unit) { vm.start(context) }
+    LaunchedEffect(Unit) { vm.start(settings) }
 
     // صفحه نباید خاموش شود — تابلوی خاموش تابلو نیست.
     DisposableEffect(Unit) {
@@ -223,7 +225,7 @@ fun BoardScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(CompanyPrefs.shopName(LocalContext.current), color = BoardDim, fontSize = 12.sp)
+            Text(CompanyPrefs.shopName(LocalSettings.current), color = BoardDim, fontSize = 12.sp)
             if (pages > 1) {
                 Text(
                     "صفحهٔ ${(page + 1).fa()} از ${pages.fa()}",

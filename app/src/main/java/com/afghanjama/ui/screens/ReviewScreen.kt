@@ -57,6 +57,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.afghanjama.ui.components.OrderCodeLine
 import com.afghanjama.data.entities.Order
+import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.STAGE_WARN_DAYS
@@ -72,6 +73,7 @@ fun ReviewScreen(
     onGoSewing: () -> Unit
 ) {
     val context = LocalContext.current
+    val settings = LocalSettings.current
     val orders by vm.ordersInReview.collectAsState(initial = emptyList())
     val designCodeByOrder by vm.designCodeByOrder.collectAsState()
     val inspectors by vm.inspectors.collectAsState(initial = emptyList())
@@ -175,7 +177,7 @@ fun ReviewScreen(
                         onClick = {
                             val intent = Intent(Intent.ACTION_SEND).apply {
                                 type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, inspectorBrief(CompanyPrefs.shopName(context), orders))
+                                putExtra(Intent.EXTRA_TEXT, inspectorBrief(CompanyPrefs.shopName(settings), orders))
                             }
                             context.startActivity(Intent.createChooser(intent, "اشتراک رسید ناظر"))
                         },

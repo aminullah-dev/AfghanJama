@@ -7,6 +7,7 @@ import androidx.work.WorkManager
 import com.afghanjama.data.buildAppDatabase
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.prefs.SalePrefs
+import com.afghanjama.prefs.settings
 import com.afghanjama.util.PhotoStore
 import com.afghanjama.work.AutoBackupWorker
 import com.afghanjama.work.BreakReminderWorker
@@ -59,7 +60,7 @@ class App : Application() {
         // تا خاموش‌بودنِ گوشی یا ری‌استارت چیزی را از بین نبرد.
         // سیاستِ فروش پیش از هر کارِ دیگری خوانده می‌شود، چون `Repo` به
         // Context دسترسی ندارد و از نسخهٔ حافظه‌ایِ همین می‌خواند.
-        SalePrefs.allowNegativeStock(this)
+        SalePrefs.allowNegativeStock(settings)
 
         CoroutineScope(Dispatchers.IO).launch {
             runCatching { BreakReminderWorker.rescheduleAll(this@App) }

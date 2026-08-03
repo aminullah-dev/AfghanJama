@@ -53,6 +53,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.data.entities.FinishedStock
 import com.afghanjama.ui.components.AppScreen
@@ -215,7 +216,7 @@ fun NewSaleScreen(
             item {
                 PartyRow(
                     label = "فروشنده",
-                    value = CompanyPrefs.shopName(LocalContext.current),
+                    value = CompanyPrefs.shopName(LocalSettings.current),
                     editable = false
                 )
             }

@@ -1,7 +1,5 @@
 package com.afghanjama.prefs
 
-import android.content.Context
-
 /**
  * کاغذی که کارگاه آخرین بار برای چاپ انتخاب کرده.
  *
@@ -14,13 +12,11 @@ object SheetPrefs {
     private const val KEY_INVOICE = "invoice_paper"
     private const val KEY_RECEIPT = "receipt_paper"
 
-    private fun p(ctx: Context) = ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE)
-
     /** برچسبِ کاغذ، یا رشتهٔ خالی یعنی «هنوز چیزی انتخاب نشده». */
-    fun paperLabel(ctx: Context, receipt: Boolean): String =
-        p(ctx).getString(if (receipt) KEY_RECEIPT else KEY_INVOICE, "").orEmpty()
+    fun paperLabel(s: Settings, receipt: Boolean): String =
+        s.getString(FILE, if (receipt) KEY_RECEIPT else KEY_INVOICE)
 
-    fun savePaperLabel(ctx: Context, receipt: Boolean, label: String) {
-        p(ctx).edit().putString(if (receipt) KEY_RECEIPT else KEY_INVOICE, label).apply()
+    fun savePaperLabel(s: Settings, receipt: Boolean, label: String) {
+        s.putString(FILE, if (receipt) KEY_RECEIPT else KEY_INVOICE, label)
     }
 }

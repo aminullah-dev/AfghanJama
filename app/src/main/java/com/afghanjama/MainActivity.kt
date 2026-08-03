@@ -9,12 +9,15 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.afghanjama.data.buildAppDatabase
 import com.afghanjama.data.repo.Repo
+import com.afghanjama.prefs.AndroidSettings
+import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.ui.nav.AppNav
 import com.afghanjama.ui.screens.PinLockScreen
 import com.afghanjama.util.AppLock
@@ -84,7 +87,13 @@ class MainActivity : FragmentActivity() {
         val db = buildAppDatabase(applicationContext)
         val repo = Repo(db)
 
+        // تنظیمات یک بار ساخته می‌شود و از اینجا به کلِ درخت می‌رود.
+        // صفحه‌هایی که به `:core` رفته‌اند به‌جای `LocalContext` این را
+        // می‌گیرند — همان یک خط بود که نگهشان می‌داشت در `:app`.
+        val settings = AndroidSettings(applicationContext)
+
         setContent {
+          CompositionLocalProvider(LocalSettings provides settings) {
             KhayatYarTheme {
                 // قفل اپ: اگر رمز تنظیم شده باشد، اول باید باز شود
                 var unlocked by remember { mutableStateOf(!AppLock.isPinSet(applicationContext)) }
@@ -171,6 +180,7 @@ class MainActivity : FragmentActivity() {
                     purchaseReturnVm = purchaseReturnVm
                 )
             }
+          }
         }
     }
 }

@@ -64,6 +64,7 @@ import java.util.UUID
 import com.afghanjama.data.entities.SewingAssignment
 import com.afghanjama.ui.components.MeasurementsBlock
 import com.afghanjama.ui.components.OrderCodeLine
+import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
@@ -78,7 +79,7 @@ fun SewingScreen(
     onBack: () -> Unit,
     onGoReview: () -> Unit
 ) {
-    val shop = CompanyPrefs.shopName(LocalContext.current)
+    val shop = CompanyPrefs.shopName(LocalSettings.current)
     val handouts by vm.handouts.collectAsState()
     val measurementsByOrder by vm.measurementsByOrder.collectAsState(initial = emptyMap())
     val designCodeByOrder by vm.designCodeByOrder.collectAsState()

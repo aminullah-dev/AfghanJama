@@ -116,10 +116,34 @@ ICON_SETS = {
     "TwoTone": "androidx.compose.material.icons.twotone",
 }
 
+# ---- نوع‌هایی که خودِ پروژه تعریف کرده، به تفکیکِ بسته ----
+#
+# `local` فقط همان **فایل** را می‌دید. ولی کاتلین هم‌بسته‌ها را بدونِ
+# ایمپورت می‌بیند، و وقتی `Settings` (واسطِ تنظیماتِ فازِ ۴.۵) در یک
+# فایل تعریف و در پنج فایلِ کنارش استفاده شد، این بررسی هر پنج‌تا را
+# خطا گرفت — در حالی که کد درست بود.
+#
+# اسمِ نوع‌های پروژه گاهی با نامِ کتابخانه‌ای یکی می‌شود (`Settings` یک
+# آیکونِ Material هم هست). هم‌بسته بودن باید بر جدولِ نام‌ها بچربد،
+# وگرنه بررسی سرِ کدِ سالم قرمز می‌ماند و کم‌کم بی‌اعتبار می‌شود.
+pkg_types = defaultdict(set)
+file_pkg = {}
+DECL = re.compile(
+    r"^\s*(?:public |internal |private |sealed |abstract |open |value )*"
+    r"(?:data class|enum class|annotation class|class|object|interface)\s+([A-Za-z_]\w*)", re.M)
+for f in files:
+    raw = open(f).read()
+    m = re.search(r"^package\s+([\w.]+)", raw, re.M)
+    if not m:
+        continue
+    file_pkg[f] = m.group(1)
+    pkg_types[m.group(1)] |= set(DECL.findall(strip_code(raw)))
+
 problems = []
 for f in files:
     raw = open(f).read()
     code = strip_code(raw)
+    same_pkg = pkg_types.get(file_pkg.get(f, ""), set())
     imported = set()
     star = False
     for m in re.finditer(r"^import\s+([\w.*]+)(?:\s+as\s+(\w+))?", raw, re.M):
@@ -145,7 +169,7 @@ for f in files:
     for sym in used:
         if sym in AMBIGUOUS or sym not in owner_of:
             continue
-        if sym in imported or sym in local:
+        if sym in imported or sym in local or sym in same_pkg:
             continue
         # «مسیرِ کامل جایی در فایل هست» دلیلِ بی‌نیازی نیست.
         #

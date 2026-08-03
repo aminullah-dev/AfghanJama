@@ -50,6 +50,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.afghanjama.data.entities.Document
 import com.afghanjama.data.entities.docTypeLabel
+import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
@@ -73,6 +74,7 @@ fun DocumentsScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val settings = LocalSettings.current
     val documents by vm.documents.collectAsState()
 
     var typeFilter by remember { mutableStateOf<String?>(null) }
@@ -93,7 +95,7 @@ fun DocumentsScreen(
 
     // ---------- دیالوگ سند ----------
     selected?.let { d ->
-        val shop = CompanyPrefs.shopName(context)
+        val shop = CompanyPrefs.shopName(settings)
         val qr = remember(d.id, shop) { QrGen.bitmap(receiptText(shop, d)) }
         var paper by remember(d.id) { mutableStateOf(vm.paperFor(context, d)) }
         AlertDialog(

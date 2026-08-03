@@ -17,6 +17,7 @@ import androidx.core.content.res.ResourcesCompat
 import com.afghanjama.AppInfo
 import com.afghanjama.R
 import com.afghanjama.prefs.CompanyPrefs
+import com.afghanjama.prefs.settings
 import com.afghanjama.util.PhotoStore
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.fa
@@ -90,7 +91,7 @@ object PdfKit {
     private var logoBitmap: Bitmap? = null
 
     private fun shopLogo(context: Context): Bitmap? {
-        val name = CompanyPrefs.logo(context)
+        val name = CompanyPrefs.logo(context.settings)
         if (name.isBlank()) {
             logoName = ""; logoBitmap = null
             return null
@@ -194,9 +195,9 @@ object PdfKit {
         docDate: Long = System.currentTimeMillis(),
         paper: Paper = Paper.A4
     ): Float {
-        val coName = CompanyPrefs.shopName(context)
-        val addr = CompanyPrefs.address(context)
-        val phone = CompanyPrefs.phone(context)
+        val coName = CompanyPrefs.shopName(context.settings)
+        val addr = CompanyPrefs.address(context.settings)
+        val phone = CompanyPrefs.phone(context.settings)
         val meta = buildString {
             if (docNumber.isNotBlank()) append("شمارهٔ $docNumber • ")
             append(PersianDate.long(docDate))
@@ -267,9 +268,9 @@ object PdfKit {
         }
 
         val small = paint(8.5f, MUTED, f.regular)
-        val phone = CompanyPrefs.phone(context)
+        val phone = CompanyPrefs.phone(context.settings)
         val right = buildString {
-            append(CompanyPrefs.shopName(context))
+            append(CompanyPrefs.shopName(context.settings))
             if (phone.isNotBlank()) append(" • $phone")
         }
         rtl(c, right, paper.margin, top + 8f, small, paper.contentW)

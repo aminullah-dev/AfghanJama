@@ -11,6 +11,7 @@ import com.afghanjama.lan.LanClient
 import com.afghanjama.lan.LanResult
 import com.afghanjama.lan.LanServer
 import com.afghanjama.lan.RemoteWork
+import com.afghanjama.prefs.settings
 import com.afghanjama.prefs.DeviceMode
 import com.afghanjama.prefs.LanPrefs
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -66,10 +67,10 @@ class WorkshopLinkViewModel(private val repo: Repo) : ViewModel() {
     fun load(context: Context) {
         _ui.update {
             it.copy(
-                mode = LanPrefs.mode(context),
-                code = LanPrefs.code(context),
-                host = LanPrefs.host(context),
-                deviceName = LanPrefs.deviceName(context).ifBlank { android.os.Build.MODEL ?: "گوشی" },
+                mode = LanPrefs.mode(context.settings),
+                code = LanPrefs.code(context.settings),
+                host = LanPrefs.host(context.settings),
+                deviceName = LanPrefs.deviceName(context.settings).ifBlank { android.os.Build.MODEL ?: "گوشی" },
                 ip = androidLocalIp(context),
                 serving = server?.running == true
             )
@@ -77,21 +78,21 @@ class WorkshopLinkViewModel(private val repo: Repo) : ViewModel() {
     }
 
     fun setDeviceName(context: Context, name: String) {
-        LanPrefs.setDeviceName(context, name)
+        LanPrefs.setDeviceName(context.settings, name)
         _ui.update { it.copy(deviceName = name) }
     }
 
     // ---------------- گوشیِ اصلی ----------------
 
     fun becomeMain(context: Context) {
-        val code = LanPrefs.code(context).ifBlank { LanPrefs.newCode().also { LanPrefs.setCode(context, it) } }
-        LanPrefs.setMode(context, DeviceMode.MAIN)
+        val code = LanPrefs.code(context.settings).ifBlank { LanPrefs.newCode().also { LanPrefs.setCode(context.settings, it) } }
+        LanPrefs.setMode(context.settings, DeviceMode.MAIN)
         startServing(context, code)
     }
 
     fun newCode(context: Context) {
         val c = LanPrefs.newCode()
-        LanPrefs.setCode(context, c)
+        LanPrefs.setCode(context.settings, c)
         _ui.update { it.copy(code = c) }
         if (server?.running == true) {
             stopServing()
@@ -99,7 +100,7 @@ class WorkshopLinkViewModel(private val repo: Repo) : ViewModel() {
         }
     }
 
-    fun startServing(context: Context, code: String = LanPrefs.code(context)) {
+    fun startServing(context: Context, code: String = LanPrefs.code(context.settings)) {
         val s = server ?: LanServer(buildAppDatabase(context.applicationContext)).also { server = it }
         val ok = s.start(code)
         _ui.update {
@@ -147,9 +148,9 @@ class WorkshopLinkViewModel(private val repo: Repo) : ViewModel() {
                 it.copy(checking = false, message = r.message, isError = true)
             }
             is LanResult.Ok -> {
-                LanPrefs.setMode(context, DeviceMode.WORKER)
-                LanPrefs.setHost(context, host)
-                LanPrefs.setCode(context, code)
+                LanPrefs.setMode(context.settings, DeviceMode.WORKER)
+                LanPrefs.setHost(context.settings, host)
+                LanPrefs.setCode(context.settings, code)
                 _ui.update {
                     it.copy(
                         checking = false, mode = DeviceMode.WORKER,
@@ -162,10 +163,10 @@ class WorkshopLinkViewModel(private val repo: Repo) : ViewModel() {
     }
 
     fun refreshMyWork(context: Context, worker: String) = viewModelScope.launch {
-        val host = LanPrefs.host(context)
+        val host = LanPrefs.host(context.settings)
         if (host.isBlank()) return@launch
         _ui.update { it.copy(checking = true) }
-        when (val r = LanClient(host, LanPrefs.code(context)).myWork(worker)) {
+        when (val r = LanClient(host, LanPrefs.code(context.settings)).myWork(worker)) {
             is LanResult.Err -> _ui.update {
                 it.copy(checking = false, message = r.message, isError = true)
             }
@@ -185,9 +186,9 @@ class WorkshopLinkViewModel(private val repo: Repo) : ViewModel() {
         note: String = ""
     ) = viewModelScope.launch {
         busy.once {
-            val host = LanPrefs.host(context)
-            val client = LanClient(host, LanPrefs.code(context))
-            val device = LanPrefs.deviceName(context).ifBlank { android.os.Build.MODEL ?: "گوشی" }
+            val host = LanPrefs.host(context.settings)
+            val client = LanClient(host, LanPrefs.code(context.settings))
+            val device = LanPrefs.deviceName(context.settings).ifBlank { android.os.Build.MODEL ?: "گوشی" }
             when (val r = client.sendRequest(device, worker, type, summary, refId, amount, note)) {
                 is LanResult.Err -> _ui.update { it.copy(message = r.message, isError = true) }
                 is LanResult.Ok -> _ui.update { it.copy(message = r.value, isError = false) }
@@ -196,7 +197,7 @@ class WorkshopLinkViewModel(private val repo: Repo) : ViewModel() {
     }
 
     fun disconnect(context: Context) {
-        LanPrefs.setMode(context, DeviceMode.STANDALONE)
+        LanPrefs.setMode(context.settings, DeviceMode.STANDALONE)
         stopServing()
         _ui.update { it.copy(mode = DeviceMode.STANDALONE, myWork = emptyList()) }
     }

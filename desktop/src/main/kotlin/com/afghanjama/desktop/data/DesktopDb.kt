@@ -3,6 +3,7 @@ package com.afghanjama.desktop.data
 import androidx.room.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.afghanjama.data.DB_NAME
+import com.afghanjama.prefs.Settings
 import kotlinx.coroutines.Dispatchers
 import java.io.File
 
@@ -16,13 +17,22 @@ import java.io.File
  * روی لینوکس (رانرِ CI و توسعه) `APPDATA` وجود ندارد، پس به خانهٔ کاربر
  * برمی‌گردد. همین باعث می‌شود این کد همه‌جا اجرا شود نه فقط ویندوز.
  */
-fun databaseFile(): File {
+fun dataDir(): File {
     val base = System.getenv("APPDATA")?.takeIf { it.isNotBlank() }
         ?: System.getProperty("user.home")
-    val dir = File(base, "KhayatYar")
-    dir.mkdirs()
-    return File(dir, DB_NAME)
+    return File(base, "KhayatYar").apply { mkdirs() }
 }
+
+fun databaseFile(): File = File(dataDir(), DB_NAME)
+
+/**
+ * تنظیماتِ ویندوز — کنارِ دیتابیس، نه در جای دیگری.
+ *
+ * پشتیبان‌گیری از کارگاه یعنی کپیِ همین یک پوشه. اگر تنظیمات جدا
+ * می‌افتاد، پشتیبان نامِ کارگاه و رمزِ اتصالش را دربر نمی‌گرفت و کسی هم
+ * نمی‌فهمید تا روزِ بازگردانی.
+ */
+fun desktopSettings(): Settings = FileSettings(dataDir())
 
 /**
  * باز کردنِ دفتر.

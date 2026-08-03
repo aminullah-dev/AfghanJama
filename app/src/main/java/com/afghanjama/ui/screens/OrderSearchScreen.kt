@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import com.afghanjama.ui.components.OrderCodeLine
 import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.OrderStatus
+import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.fa
@@ -158,6 +159,7 @@ private fun receiptText(shop: String, order: Order, stageLabel: String): String 
 @Composable
 private fun SearchResultCard(order: Order, designCode: String, onClick: () -> Unit) {
     val context = LocalContext.current
+    val settings = LocalSettings.current
     val stageIndex = stageOrder.indexOfFirst { it.first == order.status }.coerceAtLeast(0)
     val stageLabel = stageOrder.getOrNull(stageIndex)?.second ?: order.status
     val progress = (stageIndex + 1) / stageOrder.size.toFloat()
@@ -249,7 +251,7 @@ private fun SearchResultCard(order: Order, designCode: String, onClick: () -> Un
                 onClick = {
                     val intent = Intent(Intent.ACTION_SEND).apply {
                         type = "text/plain"
-                        putExtra(Intent.EXTRA_TEXT, receiptText(CompanyPrefs.shopName(context), order, stageLabel))
+                        putExtra(Intent.EXTRA_TEXT, receiptText(CompanyPrefs.shopName(settings), order, stageLabel))
                     }
                     context.startActivity(Intent.createChooser(intent, "اشتراک رسید سفارش"))
                 },

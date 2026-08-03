@@ -42,6 +42,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.afghanjama.ui.components.OrderCodeLine
+import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.WorkerPrefs
 import com.afghanjama.ui.components.EmptyState
 import com.afghanjama.ui.format.PersianDate
@@ -61,10 +62,11 @@ fun MyWorkScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val settings = LocalSettings.current
     val ui by vm.ui.collectAsState()
     val designCodeByOrder by vm.designCodeByOrder.collectAsState()
     var pickerOpen by remember { mutableStateOf(false) }
-    var myLabel by remember { mutableStateOf(WorkerPrefs.myLabel(context)) }
+    var myLabel by remember { mutableStateOf(WorkerPrefs.myLabel(settings)) }
 
     LaunchedEffect(myLabel) { vm.setLabel(myLabel) }
 
@@ -80,7 +82,7 @@ fun MyWorkScreen(
                         items(tailorLabels, key = { it }) { label ->
                             TextButton(
                                 onClick = {
-                                    WorkerPrefs.setMyLabel(context, label)
+                                    WorkerPrefs.setMyLabel(settings, label)
                                     myLabel = label
                                     pickerOpen = false
                                 },

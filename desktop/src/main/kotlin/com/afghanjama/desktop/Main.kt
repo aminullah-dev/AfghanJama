@@ -46,6 +46,8 @@ import com.afghanjama.selftest.CheckStatus
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.desktop.data.LedgerStatus
 import com.afghanjama.desktop.data.LedgerStatusViewModel
+import com.afghanjama.desktop.data.desktopSettings
+import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.vm.SelfCheckViewModel
 
@@ -109,7 +111,11 @@ fun main() = application {
             // کاری که KhayatYarTheme روی اندروید می‌کند.
             CompositionLocalProvider(
                 LocalLayoutDirection provides LayoutDirection.Rtl,
-                LocalViewModelStoreOwner provides DesktopViewModelStoreOwner
+                LocalViewModelStoreOwner provides DesktopViewModelStoreOwner,
+                // صفحه‌های مشترک تنظیمات را از اینجا می‌گیرند، همان‌طور
+                // که روی اندروید از `MainActivity`. بی این خط، اولین
+                // صفحهٔ مشترکی که ویندوز نشان دهد سرِ اجرا می‌شکند.
+                LocalSettings provides desktopSettings()
             ) {
                 App()
             }

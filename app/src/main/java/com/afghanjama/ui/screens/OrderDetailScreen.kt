@@ -57,6 +57,7 @@ import com.afghanjama.ui.components.MeasurementsBlock
 import com.afghanjama.ui.components.BusyButton
 import com.afghanjama.ui.components.OrderPhotoStrip
 import com.afghanjama.util.PhotoStore
+import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
@@ -122,6 +123,8 @@ fun OrderDetailScreen(
     var showDelete by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
+
+    val settings = LocalSettings.current
     val scope = rememberCoroutineScope()
 
     // بعد از حذف موفق، برگشت به صفحه قبلی
@@ -140,7 +143,7 @@ fun OrderDetailScreen(
                 vm.deliverToCustomer(qty, unit, received, applied)
                 showDeliver = false
             },
-            allowShortage = SalePrefs.allowNegativeStock(context)
+            allowShortage = SalePrefs.allowNegativeStock(settings)
         )
     }
 
@@ -613,7 +616,7 @@ fun OrderDetailScreen(
                                         type = "text/plain"
                                         putExtra(
                                             android.content.Intent.EXTRA_TEXT,
-                                            deliveryReceipt(CompanyPrefs.shopName(context), o, payments.sumOf { it.amount })
+                                            deliveryReceipt(CompanyPrefs.shopName(settings), o, payments.sumOf { it.amount })
                                         )
                                     }
                                     context.startActivity(

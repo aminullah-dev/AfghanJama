@@ -38,6 +38,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.afghanjama.ui.components.OrderCodeLine
 import com.afghanjama.data.entities.syncRequestLabel
+import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.DeviceMode
 import com.afghanjama.prefs.WorkerPrefs
 import com.afghanjama.ui.components.AppScreen
@@ -62,11 +63,12 @@ fun WorkshopLinkScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val settings = LocalSettings.current
     val ui by vm.ui.collectAsState()
     val designCodeByOrder by vm.designCodeByOrder.collectAsState()
     val pending by vm.pending.collectAsState()
     val busy by vm.busy.state.collectAsState()
-    val myLabel = remember { WorkerPrefs.myLabel(context) }
+    val myLabel = remember { WorkerPrefs.myLabel(settings) }
 
     LaunchedEffect(Unit) { vm.load(context) }
 

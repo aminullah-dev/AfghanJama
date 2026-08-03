@@ -1,7 +1,5 @@
 package com.afghanjama.prefs
 
-import android.content.Context
-
 /**
  * «من کی هستم؟» — برچسبِ خیاط/ناظری که این دستگاه دستِ اوست،
  * مثلاً «[T10] احمد».
@@ -15,16 +13,14 @@ object WorkerPrefs {
     private const val FILE = "worker_prefs"
     private const val KEY_LABEL = "my_label"
 
-    private fun p(ctx: Context) = ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE)
-
     /** برچسبِ کارگرِ این دستگاه — خالی یعنی هنوز انتخاب نشده. */
-    fun myLabel(ctx: Context): String = p(ctx).getString(KEY_LABEL, "") ?: ""
+    fun myLabel(s: Settings): String = s.getString(FILE, KEY_LABEL)
 
-    fun setMyLabel(ctx: Context, label: String) {
-        p(ctx).edit().putString(KEY_LABEL, label.trim()).apply()
+    fun setMyLabel(s: Settings, label: String) {
+        s.putString(FILE, KEY_LABEL, label.trim())
     }
 
-    fun clear(ctx: Context) {
-        p(ctx).edit().remove(KEY_LABEL).apply()
+    fun clear(s: Settings) {
+        s.remove(FILE, KEY_LABEL)
     }
 }

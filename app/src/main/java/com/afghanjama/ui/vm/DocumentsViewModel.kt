@@ -7,6 +7,7 @@ import com.afghanjama.data.entities.Document
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.pdf.DocumentRenderer
 import com.afghanjama.pdf.Paper
+import com.afghanjama.prefs.settings
 import com.afghanjama.prefs.SheetPrefs
 import com.afghanjama.ui.components.SheetAction
 import com.afghanjama.util.PrintKit
@@ -44,13 +45,13 @@ class DocumentsViewModel(private val repo: Repo) : ViewModel() {
      */
     fun paperFor(context: Context, doc: Document): Paper {
         val receipt = DocumentRenderer.isReceipt(doc.type)
-        val saved = SheetPrefs.paperLabel(context, receipt)
+        val saved = SheetPrefs.paperLabel(context.settings, receipt)
         return if (saved.isBlank()) DocumentRenderer.defaultPaper(doc.type)
         else Paper.byLabel(saved)
     }
 
     fun rememberPaper(context: Context, doc: Document, paper: Paper) {
-        SheetPrefs.savePaperLabel(context, DocumentRenderer.isReceipt(doc.type), paper.label)
+        SheetPrefs.savePaperLabel(context.settings, DocumentRenderer.isReceipt(doc.type), paper.label)
     }
 
     /**

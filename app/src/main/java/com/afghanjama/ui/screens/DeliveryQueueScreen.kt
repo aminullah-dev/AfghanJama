@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.afghanjama.ui.components.OrderCodeLine
+import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.SalePrefs
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -70,6 +71,7 @@ fun DeliveryQueueScreen(
     val designCodeByOrder by vm.designCodeByOrder.collectAsState()
     val prepays by vm.prepayOf.collectAsState()
     val context = LocalContext.current
+    val settings = LocalSettings.current
 
     var deliverTarget by remember { mutableStateOf<UUID?>(null) }
 
@@ -84,7 +86,7 @@ fun DeliveryQueueScreen(
                     vm.deliver(row.order.id, qty, unit, received, applied)
                     deliverTarget = null
                 },
-                allowShortage = SalePrefs.allowNegativeStock(context)
+                allowShortage = SalePrefs.allowNegativeStock(settings)
             )
         }
     }

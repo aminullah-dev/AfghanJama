@@ -1,20 +1,17 @@
 package com.afghanjama.prefs
 
-import android.content.Context
-
 /**
  * اطلاعاتِ کارگاه/شرکت که روی رسیدها و فاکتورهای PDF چاپ می‌شود.
- * از SharedPreferences استفاده می‌کند تا خواندنِ همزمان (بدون coroutine)
- * در مسیرِ تولید PDF ممکن باشد.
+ *
+ * از [Settings] می‌خواند و همزمان است — مسیرِ ساختِ PDF این‌ها را وسطِ
+ * چیدنِ کاغذ می‌خواهد و آنجا coroutine نیست.
  */
 object CompanyPrefs {
     private const val FILE = "company"
 
-    private fun p(ctx: Context) = ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE)
-
-    fun name(ctx: Context): String = p(ctx).getString("name", "") ?: ""
-    fun phone(ctx: Context): String = p(ctx).getString("phone", "") ?: ""
-    fun address(ctx: Context): String = p(ctx).getString("address", "") ?: ""
+    fun name(s: Settings): String = s.getString(FILE, "name")
+    fun phone(s: Settings): String = s.getString(FILE, "phone")
+    fun address(s: Settings): String = s.getString(FILE, "address")
 
     /**
      * نامی که روی کاغذ و رسید می‌نشیند.
@@ -26,7 +23,7 @@ object CompanyPrefs {
      * تا وقتی در تنظیمات چیزی ثبت نشده، یک عنوانِ خنثی برمی‌گردد نه
      * نامِ هیچ کسب‌وکارِ مشخصی.
      */
-    fun shopName(ctx: Context): String = name(ctx).ifBlank { DEFAULT_SHOP }
+    fun shopName(s: Settings): String = name(s).ifBlank { DEFAULT_SHOP }
 
     /** عنوانِ خنثی تا وقتی کارگاه نامش را ثبت نکرده. */
     const val DEFAULT_SHOP = "کارگاه خیاطی"
@@ -35,17 +32,15 @@ object CompanyPrefs {
      * نامِ فایلِ لوگوی کارگاه در پوشهٔ خصوصیِ اپ — خالی یعنی لوگو ندارد.
      * روی سرصفحهٔ فاکتور و رسیدهای چاپی می‌نشیند.
      */
-    fun logo(ctx: Context): String = p(ctx).getString("logo", "") ?: ""
+    fun logo(s: Settings): String = s.getString(FILE, "logo")
 
-    fun saveLogo(ctx: Context, fileName: String) {
-        p(ctx).edit().putString("logo", fileName).apply()
+    fun saveLogo(s: Settings, fileName: String) {
+        s.putString(FILE, "logo", fileName)
     }
 
-    fun save(ctx: Context, name: String, phone: String, address: String) {
-        p(ctx).edit()
-            .putString("name", name)
-            .putString("phone", phone)
-            .putString("address", address)
-            .apply()
+    fun save(s: Settings, name: String, phone: String, address: String) {
+        s.putString(FILE, "name", name)
+        s.putString(FILE, "phone", phone)
+        s.putString(FILE, "address", address)
     }
 }

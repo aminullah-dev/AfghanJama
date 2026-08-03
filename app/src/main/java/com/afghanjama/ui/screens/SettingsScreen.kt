@@ -55,6 +55,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.material3.Switch
 import com.afghanjama.AppInfo
+import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.SalePrefs
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -93,7 +94,8 @@ fun SettingsScreen(
     val ui by authVm.ui.collectAsState()
     val backupUi by backupVm.ui.collectAsState()
     val context = LocalContext.current
-    var allowShortage by remember { mutableStateOf(SalePrefs.allowNegativeStock(context)) }
+    val settings = LocalSettings.current
+    var allowShortage by remember { mutableStateOf(SalePrefs.allowNegativeStock(settings)) }
 
     fun stamp(): String =
         SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())
@@ -284,10 +286,10 @@ fun SettingsScreen(
             // خنثای «کارگاه خیاطی» دیده می‌شود.
             if (canManageMaster) {
                 val ctx = LocalContext.current
-                var coName by remember { mutableStateOf(CompanyPrefs.name(ctx)) }
-                var coPhone by remember { mutableStateOf(CompanyPrefs.phone(ctx)) }
-                var coAddr by remember { mutableStateOf(CompanyPrefs.address(ctx)) }
-                var coLogo by remember { mutableStateOf(CompanyPrefs.logo(ctx)) }
+                var coName by remember { mutableStateOf(CompanyPrefs.name(settings)) }
+                var coPhone by remember { mutableStateOf(CompanyPrefs.phone(settings)) }
+                var coAddr by remember { mutableStateOf(CompanyPrefs.address(settings)) }
+                var coLogo by remember { mutableStateOf(CompanyPrefs.logo(settings)) }
                 var coSaved by remember { mutableStateOf(false) }
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -320,13 +322,13 @@ fun SettingsScreen(
                                 onPicked = { name ->
                                     // لوگوی قبلی نباید در حافظه جا بمانَد
                                     val old = coLogo
-                                    CompanyPrefs.saveLogo(ctx, name)
+                                    CompanyPrefs.saveLogo(settings, name)
                                     coLogo = name
                                     if (old.isNotBlank()) PhotoStore.delete(ctx, old)
                                 },
                                 onCleared = {
                                     val old = coLogo
-                                    CompanyPrefs.saveLogo(ctx, "")
+                                    CompanyPrefs.saveLogo(settings, "")
                                     coLogo = ""
                                     if (old.isNotBlank()) PhotoStore.delete(ctx, old)
                                 }
@@ -374,7 +376,7 @@ fun SettingsScreen(
                         )
                         Button(
                             onClick = {
-                                CompanyPrefs.save(ctx, coName.trim(), coPhone.trim(), coAddr.trim())
+                                CompanyPrefs.save(settings, coName.trim(), coPhone.trim(), coAddr.trim())
                                 coSaved = true
                             },
                             modifier = Modifier.fillMaxWidth()
@@ -496,7 +498,7 @@ fun SettingsScreen(
                             checked = allowShortage,
                             onCheckedChange = {
                                 allowShortage = it
-                                SalePrefs.setAllowNegativeStock(context, it)
+                                SalePrefs.setAllowNegativeStock(settings, it)
                             }
                         )
                         Text(if (allowShortage) "اجازه هست" else "اجازه نیست")

@@ -8,6 +8,7 @@ import com.afghanjama.AppInfo
 import com.afghanjama.data.DB_NAME
 import com.afghanjama.data.DB_VERSION
 import com.afghanjama.data.repo.Repo
+import com.afghanjama.prefs.settings
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.util.BackupArchive
 import com.afghanjama.util.PhotoStore
@@ -296,7 +297,7 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
                     // نشسته‌اند نه در دیتابیس. لوگو هم از همان جنس است.
                     // بدونِ این استثنا، فایل پاک می‌شد ولی نامش در تنظیمات
                     // می‌ماند و به فایلی اشاره می‌کرد که دیگر نبود.
-                    val keep = CompanyPrefs.logo(context)
+                    val keep = CompanyPrefs.logo(context.settings)
                     runCatching {
                         PhotoStore.dir(context).listFiles()?.forEach {
                             if (it.name != keep) it.delete()

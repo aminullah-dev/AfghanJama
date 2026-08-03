@@ -1,6 +1,6 @@
 package com.afghanjama.ui.vm
 
-import android.content.Context
+import com.afghanjama.prefs.Settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.afghanjama.data.repo.Repo
@@ -96,24 +96,24 @@ class BoardViewModel(private val repo: Repo) : ViewModel() {
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BoardUi())
 
     /** ساعت و «چند روز» را زنده نگه می‌دارد. */
-    fun start(context: Context) {
-        _mode.value = LanPrefs.mode(context)
+    fun start(settings: Settings) {
+        _mode.value = LanPrefs.mode(settings)
         viewModelScope.launch {
             while (true) {
                 tick.value = System.currentTimeMillis()
-                if (_mode.value == DeviceMode.WORKER) pullRemote(context)
+                if (_mode.value == DeviceMode.WORKER) pullRemote(settings)
                 delay(REFRESH_MS)
             }
         }
     }
 
-    private suspend fun pullRemote(context: Context) {
-        val host = LanPrefs.host(context)
+    private suspend fun pullRemote(settings: Settings) {
+        val host = LanPrefs.host(settings)
         if (host.isBlank()) {
-            _remote.value = _remote.value.copy(error = "نشانیِ گوشیِ اصلی تنظیم نشده.")
+            _remote.value = _remote.value.copy(error = "نشانیِ دستگاهِ اصلی تنظیم نشده.")
             return
         }
-        when (val r = LanClient(host, LanPrefs.code(context)).board()) {
+        when (val r = LanClient(host, LanPrefs.code(settings)).board()) {
             is LanResult.Err -> _remote.value = _remote.value.copy(error = r.message)
             is LanResult.Ok -> _remote.value = BoardUi(
                 rows = r.value,
