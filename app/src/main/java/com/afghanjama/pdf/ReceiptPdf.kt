@@ -9,20 +9,12 @@ import com.afghanjama.util.QrGen
 import com.afghanjama.util.ShareUtil
 import java.io.File
 
-/** دادهٔ یک رسیدِ پول — پرداخت یا دریافت. */
-data class ReceiptData(
-    val title: String,
-    val number: String,
-    val at: Long,
-    /** کسی که پول را داده. */
-    val payer: String,
-    /** کسی که پول را گرفته. */
-    val payee: String,
-    val amount: Long,
-    /** ماندهٔ حساب بعد از این رسید؛ صفر یعنی تسویه. */
-    val remainingDue: Long = 0,
-    val note: String = ""
-)
+/*
+ * `ReceiptData` به `:core` رفت (همان بستهٔ `com.afghanjama.pdf`)، تا
+ * چیدمانِ مشترکِ رسید هم بتواند از آن استفاده کند. بسته یکی است، پس
+ * هیچ ایمپورتی عوض نشد.
+ */
+
 
 /**
  * رسیدِ پول — همان برگهٔ کوچکی که در کارگاه دستِ گیرنده می‌ماند.

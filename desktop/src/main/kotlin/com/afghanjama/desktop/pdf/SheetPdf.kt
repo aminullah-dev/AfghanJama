@@ -100,10 +100,13 @@ class SheetPdf(private val fonts: SheetFonts) {
             Align.End -> op.x
         }
 
+        // `op.y` بالای کادر است، پس خطِ کرسی به اندازهٔ صعودِ قلم
+        // پایین‌تر می‌نشیند. بدونِ این، هر سطر یک خط بالاتر چاپ می‌شود.
+        val baseline = op.y + layout.ascent
         // خطوطِ برداریِ همین متن، با حروفِ به‌هم‌چسبیده — کارِ خودِ جاوا.
         // مقیاسِ y منفی است چون محورِ PDF بالا-به-پایین نیست.
         val at = AffineTransform.getTranslateInstance(
-            startX.toDouble(), flip(op.y, pageH).toDouble()
+            startX.toDouble(), flip(baseline, pageH).toDouble()
         ).apply { scale(1.0, -1.0) }
         val outline = layout.getOutline(null)
 
