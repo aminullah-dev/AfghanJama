@@ -317,10 +317,15 @@ private fun BoardRowView(row: BoardRow, designCode: String) {
 }
 
 /** ستونِ وضعیت — همان چیزی که روی تابلوی فرودگاه «تأخیر» را نشان می‌دهد. */
-private fun statusText(row: BoardRow): String = when {
-    row.dueIn != null && row.dueIn < 0 -> "${(-row.dueIn).fa()} روز تأخیر"
-    row.dueIn == 0 -> "مهلت امروز"
-    row.dueIn != null && row.dueIn <= 2 -> "${row.dueIn.fa()} روز مانده"
-    row.days >= 3 -> "${row.days.fa()} روز زیرِ دست"
-    else -> "${row.days.fa()} روز"
+private fun statusText(row: BoardRow): String {
+    // در متغیرِ محلی گرفته می‌شود چون `BoardRow` حالا در :core است و
+    // کاتلین ویژگیِ عمومیِ ماژولِ دیگر را smart-cast نمی‌کند.
+    val due = row.dueIn
+    return when {
+        due != null && due < 0 -> "${(-due).fa()} روز تأخیر"
+        due == 0 -> "مهلت امروز"
+        due != null && due <= 2 -> "${due.fa()} روز مانده"
+        row.days >= 3 -> "${row.days.fa()} روز زیرِ دست"
+        else -> "${row.days.fa()} روز"
+    }
 }
