@@ -10,7 +10,12 @@ import com.afghanjama.pdf.Paper
 import com.afghanjama.pdf.ReceiptData
 import com.afghanjama.pdf.ShopInfo
 import com.afghanjama.pdf.StatementData
+import com.afghanjama.ui.vm.BalanceSheet
+import com.afghanjama.ui.vm.IncomeStatement
+import com.afghanjama.pdf.InvoiceData
 import com.afghanjama.pdf.documentSheet
+import com.afghanjama.pdf.financialSheets
+import com.afghanjama.pdf.lineInvoiceSheets
 import com.afghanjama.pdf.invoiceSheets
 import com.afghanjama.pdf.partyStatementSheets
 import com.afghanjama.pdf.receiptSheet
@@ -96,4 +101,24 @@ object DesktopDocs {
      */
     private fun safeName(raw: String): String =
         raw.replace(Regex("[/\\\\:*?\"<>|]"), "_")
+
+    /** فاکتورِ چندردیفی — فروش یا خرید، با همان یک چیدمان. */
+    fun lineInvoice(
+        data: InvoiceData,
+        shop: ShopInfo,
+        paper: Paper = Paper.A4,
+        target: File = File(outputDir(), "${safeName(data.number)}.pdf")
+    ): File = engine.write(lineInvoiceSheets(data, shop, measurer, paper), target)
+
+    /** صورت‌های مالی — سود و زیان و ترازنامه. */
+    fun financials(
+        income: IncomeStatement,
+        balance: BalanceSheet,
+        periodLabel: String,
+        shop: ShopInfo,
+        target: File = File(outputDir(), "صورت‌های-مالی.pdf")
+    ): File = engine.write(
+        financialSheets(income, balance, periodLabel, shop, measurer),
+        target
+    )
 }

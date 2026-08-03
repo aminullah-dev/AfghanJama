@@ -219,6 +219,29 @@ class DocChrome(
         return y + 24f
     }
 
+    /**
+     * کادرِ متنی با حاشیه — برای پیامِ پایانِ فاکتور.
+     *
+     * ارتفاعِ کادر از خودِ متن می‌آید، پس اول سطرها نوشته می‌شوند و بعد
+     * دورشان کادر کشیده می‌شود.
+     */
+    fun boxedNote(lines: List<String>, y: Float): Float {
+        val size = if (paper.narrow) 7.5f else 9f
+        val innerW = contentW - 20f
+        var inner = y + 8f
+        lines.filter { it.isNotBlank() }.forEach {
+            inner += rtl(it, inner, size, SheetColors.INK, width = innerW, x = right - 10f)
+        }
+        val bottom = inner + 8f
+        // کادر پس از متن اضافه می‌شود ولی چون فقط خط است، روی متن
+        // نمی‌افتد — برخلافِ مستطیلِ پر که باید اول بیاید.
+        b.line(left, y, right, y, SheetColors.LINE, 1f)
+        b.line(left, bottom, right, bottom, SheetColors.LINE, 1f)
+        b.line(left, y, left, bottom, SheetColors.LINE, 1f)
+        b.line(right, y, right, bottom, SheetColors.LINE, 1f)
+        return bottom + 10f
+    }
+
     /** یادداشتِ کم‌رنگ — شرایط، توضیح، سلبِ مسئولیت. */
     fun note(text: String, y: Float): Float =
         y + rtl(text, y, 8.5f, SheetColors.MUTED) + 8f
