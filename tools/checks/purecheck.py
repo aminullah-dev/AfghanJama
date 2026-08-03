@@ -51,6 +51,32 @@ for p in files:
         if runtime or (line.startswith(BANNED) and not line.startswith(ALLOWED)):
             bad.append((p.relative_to(CORE), i, line.strip()))
 
+# ---- نشتیِ موتورِ دیتابیس ----
+#
+# ایمپورت تنها راهِ گره خوردن به اندروید نیست. `Repo` تا دیروز
+# `db.openHelper` و `db.runInTransaction` را صدا می‌زد — هیچ ایمپورتی
+# لازم نداشت، ولی همان‌ها بودند که نگذاشتند از اندروید جدا شود.
+#
+# هر کاری که واقعاً به موتور نیاز دارد باید در `Db` یک نامِ خودش داشته
+# باشد، نه اینکه موتور را از لای منطق بیرون بکشد.
+ENGINE = ("openHelper", "runInTransaction", "clearAllTables", "beginTransaction")
+leaks = []
+for p_ in files:
+    for i, line in enumerate(p_.read_text(encoding="utf-8").splitlines(), 1):
+        if line.lstrip().startswith(("*", "//")):
+            continue
+        for name in ENGINE:
+            if f".{name}" in line:
+                leaks.append((p_.relative_to(CORE), i, name, line.strip()))
+
+if leaks:
+    print(f"✗ {len(leaks)} نشتیِ موتورِ دیتابیس در :core")
+    for f, i, name, line in leaks:
+        print(f"  {f}:{i}  «{name}»  {line[:60]}")
+    print("\n  اینها فقط روی Room اندروید هستند. اگر منطق به چنین کاری")
+    print("  نیاز دارد، در `Db` یک عملیاتِ نام‌دار برایش تعریف کنید.")
+    sys.exit(1)
+
 if not files:
     print("✗ هیچ فایلی در :core نیست — بررسی پوچ بود، مسیر را ببینید")
     sys.exit(1)

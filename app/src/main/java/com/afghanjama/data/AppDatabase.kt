@@ -155,6 +155,62 @@ abstract class AppDatabase : RoomDatabase(), Db {
     abstract fun breakTimeDao(): BreakTimeDao
     abstract fun syncRequestDao(): SyncRequestDao
     abstract fun orderPhotoDao(): OrderPhotoDao
+
+    // ------------------------------------------------------------
+    // پیاده‌سازیِ اندرویدیِ عملیاتِ سطحِ فایلِ `Db`.
+    //
+    // اینها تنها جایی‌اند که موتورِ Room لازم می‌شود. روی ویندوز همین
+    // چهار کار با موتورِ آنجا نوشته می‌شود و منطقِ کارگاه دست نمی‌خورد.
+    // ------------------------------------------------------------
+
+    override fun checkpoint() {
+        openHelper.writableDatabase
+            .query("PRAGMA wal_checkpoint(FULL)")
+            .use { it.moveToFirst() }
+    }
+
+    override fun closeConnection() {
+        // Room پس از بستن، در اولین دسترسیِ بعدی خودش دوباره باز می‌کند.
+        if (isOpen) close()
+    }
+
+    override fun tableNames(): List<String> {
+        val names = mutableListOf<String>()
+        openHelper.writableDatabase.query(
+            "SELECT name FROM sqlite_master WHERE type='table' " +
+                "AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'android_metadata' " +
+                "AND name NOT LIKE 'room_master_table'"
+        ).use { c ->
+            while (c.moveToNext()) names += c.getString(0)
+        }
+        return names
+    }
+
+    override fun clearTables(tables: List<String>): Int {
+        var cleared = 0
+        // شکلِ Runnable عمداً صریح نوشته شده: `runInTransaction` دو نسخه
+        // دارد (Runnable و Callable) و لامبدای برهنه می‌تواند مبهم باشد.
+        runInTransaction(
+            Runnable {
+                val w = openHelper.writableDatabase
+                tables.forEach { table ->
+                    w.execSQL("DELETE FROM `$table`")
+                    cleared++
+                }
+                // شمارنده‌های AUTOINCREMENT هم از اول شروع کنند، وگرنه
+                // شناسهٔ اولین سندِ تازه از وسطِ راه ادامه پیدا می‌کند.
+                // اگر جدولی AUTOINCREMENT نداشته باشد این جدول اصلاً
+                // وجود ندارد، پس شکستش بی‌اهمیت است.
+                runCatching {
+                    w.execSQL(
+                        "DELETE FROM sqlite_sequence WHERE name IN (" +
+                            tables.joinToString(",") { "'$it'" } + ")"
+                    )
+                }
+            }
+        )
+        return cleared
+    }
 }
 
 /** همهٔ Migrationها یک‌جا تا Workerها و اپ هرگز از هم جدا نیفتند. */
