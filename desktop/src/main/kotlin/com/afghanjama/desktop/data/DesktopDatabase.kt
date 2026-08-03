@@ -216,25 +216,42 @@ abstract class DesktopDatabase : RoomDatabase(), Db {
         }
     }
 
+    /**
+     * خالی کردنِ جدول‌ها، همه در یک تراکنش.
+     *
+     * **چرا تراکنش با SQL خام و نه API تراکنشِ Room:** دو بار پشتِ هم
+     * نامِ آن API را اشتباه حدس زدم و هر بار یک رفت‌وبرگشتِ CI سوخت —
+     * اینجا Gradle اجرا نمی‌شود، پس امضای کتابخانه قابلِ دیدن نیست.
+     * `BEGIN IMMEDIATE`/`COMMIT`/`ROLLBACK` خودِ SQLite است، رفتارش
+     * قطعی است، و همان اتمی‌بودنی را می‌دهد که `Db` می‌خواهد.
+     *
+     * ریستِ نصفه بدترین حالت است: سفارش‌ها رفته ولی دفتر مانده و به
+     * سفارشی ارجاع می‌دهد که دیگر نیست.
+     */
     override fun clearTables(tables: List<String>): Int = runBlocking {
         useWriterConnection { conn: Transactor ->
-            conn.immediateTransaction {
-                var cleared = 0
+            var cleared = 0
+            conn.exec("BEGIN IMMEDIATE")
+            try {
                 tables.forEach { table ->
-                    exec("DELETE FROM `$table`")
+                    conn.exec("DELETE FROM `$table`")
                     cleared++
                 }
                 // شمارنده‌های AUTOINCREMENT هم از اول شروع کنند، وگرنه
                 // شناسهٔ اولین سندِ تازه از وسطِ راه ادامه پیدا می‌کند.
-                // جدولِ sqlite_sequence اگر نباشد، شکستش بی‌اهمیت است.
+                // اگر جدولِ sqlite_sequence نباشد، شکستش بی‌اهمیت است.
                 runCatching {
-                    exec(
+                    conn.exec(
                         "DELETE FROM sqlite_sequence WHERE name IN (" +
                             tables.joinToString(",") { "'$it'" } + ")"
                     )
                 }
-                cleared
+                conn.exec("COMMIT")
+            } catch (t: Throwable) {
+                runCatching { conn.exec("ROLLBACK") }
+                throw t
             }
+            cleared
         }
     }
 }
