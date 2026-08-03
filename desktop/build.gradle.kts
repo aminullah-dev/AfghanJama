@@ -19,7 +19,17 @@ plugins {
 
 dependencies {
     implementation(project(":core"))
+
+    // موتورِ Compose برای سیستم‌عاملِ همین ماشین (روی رانر لینوکس،
+    // روی کارگاه ویندوز). این خط `runtime`, `foundation` و `ui` را
+    // می‌آورد — **ولی Material را نه**.
     implementation(compose.desktop.currentOs)
+
+    // Material 3 بستهٔ جداست و باید صریح خواسته شود. برخلافِ اندروید
+    // که `androidx.compose.material3` را در وابستگی‌های اپ داریم، اینجا
+    // `currentOs` آن را با خودش نمی‌آورد و همهٔ `Text` و `MaterialTheme`ها
+    // «Unresolved reference» می‌شوند.
+    implementation(compose.material3)
 
     // Compose روی دسکتاپ روی حلقهٔ رویدادِ Swing می‌نشیند
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.8.1")
@@ -37,7 +47,7 @@ sourceSets {
 }
 
 kotlin {
-    compilerOptions { jvmToolchain(17) }
+    jvmToolchain(17)
 }
 
 compose.desktop {
