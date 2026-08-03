@@ -63,6 +63,10 @@ dependencies {
      * به‌صورتِ خطوطِ برداری کشیده می‌شود — توضیحش در `SheetPdf`.
      */
     implementation("org.apache.pdfbox:pdfbox:3.0.8")
+
+    // روی اندروید `org.json` در خودِ سیستم است؛ اینجا نیست و باید
+    // آورده شود، وگرنه سرورِ کارگاه سرِ اجرا می‌ترکد.
+    implementation("org.json:json:20260719")
 }
 
 /*

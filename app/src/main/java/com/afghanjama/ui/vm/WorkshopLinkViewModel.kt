@@ -5,7 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.afghanjama.data.entities.SyncRequest
 import com.afghanjama.data.repo.Repo
-import com.afghanjama.lan.Lan
+import com.afghanjama.data.buildAppDatabase
+import com.afghanjama.lan.androidLocalIp
 import com.afghanjama.lan.LanClient
 import com.afghanjama.lan.LanResult
 import com.afghanjama.lan.LanServer
@@ -69,7 +70,7 @@ class WorkshopLinkViewModel(private val repo: Repo) : ViewModel() {
                 code = LanPrefs.code(context),
                 host = LanPrefs.host(context),
                 deviceName = LanPrefs.deviceName(context).ifBlank { android.os.Build.MODEL ?: "گوشی" },
-                ip = Lan.localIp(context),
+                ip = androidLocalIp(context),
                 serving = server?.running == true
             )
         }
@@ -99,14 +100,14 @@ class WorkshopLinkViewModel(private val repo: Repo) : ViewModel() {
     }
 
     fun startServing(context: Context, code: String = LanPrefs.code(context)) {
-        val s = server ?: LanServer(context.applicationContext).also { server = it }
+        val s = server ?: LanServer(buildAppDatabase(context.applicationContext)).also { server = it }
         val ok = s.start(code)
         _ui.update {
             it.copy(
                 serving = ok,
                 mode = DeviceMode.MAIN,
                 code = code,
-                ip = Lan.localIp(context),
+                ip = androidLocalIp(context),
                 message = if (ok) "اشتراکِ کارگاه روشن شد."
                 else "پورت باز نشد؛ شاید اپِ دیگری آن را گرفته باشد.",
                 isError = !ok

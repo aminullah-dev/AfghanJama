@@ -45,6 +45,16 @@ dependencies {
      * کلاس ارث می‌برند و مصرف‌کننده باید نوعِ پدر را ببیند.
      */
     api("androidx.lifecycle:lifecycle-viewmodel:2.8.7")
+
+    /*
+     * JSONِ قراردادِ شبکه.
+     *
+     * `compileOnly` است و این عمدی است: روی **اندروید این کلاس‌ها در
+     * خودِ سیستم هستند**، پس اگر اینجا `implementation` بود، همان
+     * کلاس‌ها دو بار در APK می‌نشستند. روی ویندوز jarِ واقعی لازم است و
+     * `:desktop` خودش می‌آوردش.
+     */
+    compileOnly("org.json:json:20260719")
 }
 
 kotlin {

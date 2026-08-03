@@ -1,8 +1,7 @@
 package com.afghanjama.lan
 
-import android.content.Context
 import com.afghanjama.AppInfo
-import com.afghanjama.data.buildAppDatabase
+import com.afghanjama.data.Db
 import com.afghanjama.data.entities.SyncRequest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,7 +27,15 @@ import java.net.URLDecoder
  * کارفرما و با دستِ خودش گرفته می‌شود — این همان چیزی است که کلِ
  * مسئلهٔ تضادِ دو نویسنده را حذف می‌کند.
  */
-class LanServer(private val context: Context) {
+/**
+ * **دیتابیس تزریق می‌شود، ساخته نمی‌شود.** تا دیروز هر درخواستِ شبکه
+ * یک `buildAppDatabase(context)` تازه صدا می‌زد — هم اندروید را لازم
+ * می‌کرد، هم برای هر «پینگ» یک اتصالِ تازه باز می‌کرد.
+ *
+ * با گرفتنِ `Db`، این سرور دیگر نمی‌داند روی چه چیزی اجرا می‌شود: گوشیِ
+ * کارفرما یا پی‌سیِ دفتر. همان چیزی که فاز ۶ می‌خواست.
+ */
+class LanServer(private val db: Db) {
 
     private var socket: ServerSocket? = null
     private var scope: CoroutineScope? = null
@@ -157,7 +164,6 @@ class LanServer(private val context: Context) {
             })
             return
         }
-        val db = buildAppDatabase(context)
         try {
             val mine = db.sewingAssignmentDao().observeAll().first()
                 .filter { it.tailorLabel.trim() == name }
@@ -191,7 +197,6 @@ class LanServer(private val context: Context) {
      * حسابِ کسی را لو بدهد.
      */
     private suspend fun serveBoard(client: Socket) {
-        val db = buildAppDatabase(context)
         try {
             val assignments = db.sewingAssignmentDao().observeInProgress().first()
             val orders = db.orderDao().observeAll().first()
@@ -235,7 +240,6 @@ class LanServer(private val context: Context) {
             })
             return
         }
-        val db = buildAppDatabase(context)
         try {
             val id = db.syncRequestDao().insert(
                 SyncRequest(
