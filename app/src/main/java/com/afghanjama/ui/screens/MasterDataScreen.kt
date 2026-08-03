@@ -354,7 +354,6 @@ private fun WorkCostEditor(
     }
 }
 
-@Composable
 /**
  * یک ردیفِ فهرستِ اطلاعات پایه.
  *
@@ -439,6 +438,7 @@ private fun EditableRow(
     HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
 }
 
+@Composable
 private fun SimpleListEditor(
     title: String,
     hint: String,
