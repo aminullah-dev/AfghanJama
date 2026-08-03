@@ -3,8 +3,9 @@ package com.afghanjama.desktop.data
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.PooledConnection
+import androidx.room.Transactor
 import androidx.room.useWriterConnection
-import androidx.sqlite.execSQL
 import com.afghanjama.data.Converters
 import com.afghanjama.data.DB_VERSION
 import com.afghanjama.data.Db
@@ -183,16 +184,30 @@ abstract class DesktopDatabase : RoomDatabase(), Db {
     // درایوری است، پس از راهِ اتصالِ نویسنده می‌روند.
     // ------------------------------------------------------------
 
+    /**
+     * اجرای یک دستور روی اتصالِ استخر.
+     *
+     * `execSQL` فقط روی `SQLiteConnection` هست، ولی چیزی که Room اینجا
+     * می‌دهد `Transactor`/`TransactionScope` است و آن‌ها
+     * `PooledConnection`اند نه `SQLiteConnection`. راهِ درست
+     * `usePrepared` است.
+     */
+    private suspend fun PooledConnection.exec(sql: String) {
+        usePrepared(sql) { it.step() }
+    }
+
     override fun checkpoint() {
         runBlocking {
-            useWriterConnection { it.execSQL("PRAGMA wal_checkpoint(TRUNCATE)") }
+            useWriterConnection { conn: Transactor ->
+                conn.exec("PRAGMA wal_checkpoint(TRUNCATE)")
+            }
         }
     }
 
     override fun closeConnection() = close()
 
     override fun tableNames(): List<String> = runBlocking {
-        useWriterConnection { conn ->
+        useWriterConnection { conn: Transactor ->
             conn.usePrepared(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
             ) { stmt ->
@@ -202,23 +217,24 @@ abstract class DesktopDatabase : RoomDatabase(), Db {
     }
 
     override fun clearTables(tables: List<String>): Int = runBlocking {
-        var cleared = 0
-        useWriterConnection { conn ->
+        useWriterConnection { conn: Transactor ->
             conn.immediateTransaction {
+                var cleared = 0
                 tables.forEach { table ->
-                    execSQL("DELETE FROM `$table`")
+                    exec("DELETE FROM `$table`")
                     cleared++
                 }
                 // شمارنده‌های AUTOINCREMENT هم از اول شروع کنند، وگرنه
                 // شناسهٔ اولین سندِ تازه از وسطِ راه ادامه پیدا می‌کند.
+                // جدولِ sqlite_sequence اگر نباشد، شکستش بی‌اهمیت است.
                 runCatching {
-                    execSQL(
+                    exec(
                         "DELETE FROM sqlite_sequence WHERE name IN (" +
                             tables.joinToString(",") { "'$it'" } + ")"
                     )
                 }
+                cleared
             }
         }
-        cleared
     }
 }
