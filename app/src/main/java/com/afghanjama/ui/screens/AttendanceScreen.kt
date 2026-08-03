@@ -31,6 +31,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.foundation.clickable
 import androidx.compose.runtime.Composable
 import androidx.compose.foundation.text.KeyboardOptions
@@ -52,6 +53,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
+import com.afghanjama.data.entities.AttendanceRecord
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.digitsOnly
@@ -63,6 +65,7 @@ import com.afghanjama.ui.format.elapsedHm
 import com.afghanjama.util.BiometricAuth
 import com.afghanjama.work.ShiftReminderWorker
 import kotlinx.coroutines.delay
+import java.util.Calendar
 
 private fun clock(millis: Long): String = PersianDate.shortWithTime(millis)
 
@@ -81,6 +84,8 @@ fun AttendanceScreen(
 ) {
     val employees by vm.employees.collectAsState()
     val records by vm.records.collectAsState()
+    var editing by remember { mutableStateOf<AttendanceRecord?>(null) }
+    val editMessage by vm.editMessage.collectAsState()
     val monthlyWork by vm.monthlyWork.collectAsState()
     val breakTimes by breakVm.times.collectAsState()
     val insideNow by breakVm.inside.collectAsState()
@@ -150,6 +155,132 @@ fun AttendanceScreen(
                 ) { Text("ذخیره") }
             },
             dismissButton = { TextButton(onClick = { breakEditing = null }) { Text("لغو") } }
+        )
+    }
+
+    // نتیجهٔ اصلاح — بازهٔ وارونه ساکت رد نمی‌شود.
+    editMessage?.let { msg ->
+        AlertDialog(
+            onDismissRequest = { vm.clearEditMessage() },
+            text = { Text(msg) },
+            confirmButton = {
+                TextButton(onClick = { vm.clearEditMessage() }) { Text("باشد") }
+            }
+        )
+    }
+
+    // اصلاحِ ساعتِ یک بازهٔ ثبت‌شده.
+    //
+    // فقط ساعت و دقیقه عوض می‌شود نه روز: خطای واقعیِ کارگاه «ساعت را
+    // دیر زدم» است، نه «روز را اشتباه زدم». نگه داشتنِ روز جلوی
+    // جابه‌جاییِ ناخواستهٔ یک بازه به روزِ دیگر را می‌گیرد.
+    editing?.let { rec ->
+        fun hourOf(ms: Long) = Calendar.getInstance().apply { timeInMillis = ms }
+            .get(Calendar.HOUR_OF_DAY)
+        fun minuteOf(ms: Long) = Calendar.getInstance().apply { timeInMillis = ms }
+            .get(Calendar.MINUTE)
+        fun withTime(base: Long, h: Int, m: Int): Long =
+            Calendar.getInstance().apply {
+                timeInMillis = base
+                set(Calendar.HOUR_OF_DAY, h)
+                set(Calendar.MINUTE, m)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }.timeInMillis
+
+        var inH by remember(rec.id) { mutableStateOf(hourOf(rec.checkIn).toString()) }
+        var inM by remember(rec.id) { mutableStateOf(minuteOf(rec.checkIn).toString()) }
+        val out = rec.checkOut
+        var stillInside by remember(rec.id) { mutableStateOf(out == null) }
+        var outH by remember(rec.id) { mutableStateOf(out?.let { hourOf(it).toString() } ?: "") }
+        var outM by remember(rec.id) { mutableStateOf(out?.let { minuteOf(it).toString() } ?: "") }
+
+        val ih = inH.toIntOrNull(); val im = inM.toIntOrNull()
+        val oh = outH.toIntOrNull(); val om = outM.toIntOrNull()
+        val inOk = ih != null && ih in 0..23 && im != null && im in 0..59
+        val outOk = stillInside || (oh != null && oh in 0..23 && om != null && om in 0..59)
+
+        AlertDialog(
+            onDismissRequest = { editing = null },
+            title = { Text("اصلاح ساعتِ ${rec.employee}") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("ورود", style = MaterialTheme.typography.labelMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = inH,
+                            onValueChange = { inH = it.digitsOnly().take(2) },
+                            label = { Text("ساعت") },
+                            singleLine = true,
+                            isError = inH.isNotBlank() && (ih == null || ih !in 0..23),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = inM,
+                            onValueChange = { inM = it.digitsOnly().take(2) },
+                            label = { Text("دقیقه") },
+                            singleLine = true,
+                            isError = inM.isNotBlank() && (im == null || im !in 0..59),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("هنوز داخل است", style = MaterialTheme.typography.bodyMedium)
+                        Switch(checked = stillInside, onCheckedChange = { stillInside = it })
+                    }
+
+                    if (!stillInside) {
+                        Text("خروج", style = MaterialTheme.typography.labelMedium)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = outH,
+                                onValueChange = { outH = it.digitsOnly().take(2) },
+                                label = { Text("ساعت") },
+                                singleLine = true,
+                                isError = outH.isNotBlank() && (oh == null || oh !in 0..23),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f)
+                            )
+                            OutlinedTextField(
+                                value = outM,
+                                onValueChange = { outM = it.digitsOnly().take(2) },
+                                label = { Text("دقیقه") },
+                                singleLine = true,
+                                isError = outM.isNotBlank() && (om == null || om !in 0..59),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+
+                    Text(
+                        "روزِ این بازه عوض نمی‌شود؛ فقط ساعت و دقیقه.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = inOk && outOk,
+                    onClick = {
+                        val newIn = withTime(rec.checkIn, ih!!, im!!)
+                        val newOut =
+                            if (stillInside) null
+                            else withTime(rec.checkOut ?: rec.checkIn, oh!!, om!!)
+                        vm.editTimes(rec, newIn, newOut)
+                        editing = null
+                    }
+                ) { Text("ذخیره") }
+            },
+            dismissButton = { TextButton(onClick = { editing = null }) { Text("لغو") } }
         )
     }
 
@@ -457,6 +588,11 @@ fun AttendanceScreen(
                         }
                         r.checkOut?.let {
                             Text(duration(r.checkIn, it), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                        }
+                        // ساعتِ ثبت‌شده همیشه درست نیست: خیاط هفت آمده و
+                        // نُه دکمه زده، یا شب یادش رفته خروج بزند.
+                        IconButton(onClick = { editing = r }) {
+                            Icon(Icons.Filled.Edit, contentDescription = "اصلاح ساعت")
                         }
                     }
                 }

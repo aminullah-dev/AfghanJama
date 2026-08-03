@@ -61,6 +61,19 @@ class FinanceViewModel(private val repo: Repo) : ViewModel() {
             repo.recordManualCash("WALLET", amount, isIn = true, note = note)
         }
 
+    /**
+     * افزودنِ پول به بانک — همان کاری که `incomeWallet` برای صندوق
+     * می‌کند.
+     *
+     * بدونِ این، کارگاهی که پولش را به بانک می‌ریزد راهی برای واردکردنش
+     * نداشت و مجبور می‌شد از صندوق بزند و بعد انتقال بدهد — دو سند
+     * به‌جای یکی.
+     */
+    fun incomeBank(amount: Long, note: String) =
+        viewModelScope.launch {
+            repo.recordManualCash("BANK", amount, isIn = true, note = note)
+        }
+
     fun incomeProfit(amount: Long, note: String) =
         viewModelScope.launch {
             repo.recordManualCash("PROFIT", amount, isIn = true, note = note)

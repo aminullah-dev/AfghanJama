@@ -33,6 +33,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -70,6 +71,7 @@ import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.util.AppLock
 import com.afghanjama.ui.vm.AuthViewModel
 import com.afghanjama.ui.vm.BackupViewModel
+import com.afghanjama.ui.vm.FinanceViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -79,6 +81,7 @@ import java.util.Locale
 fun SettingsScreen(
     authVm: AuthViewModel,
     backupVm: BackupViewModel,
+    financeVm: FinanceViewModel,
     canManageMaster: Boolean,
     canBackup: Boolean,
     canResetData: Boolean,
@@ -378,6 +381,83 @@ fun SettingsScreen(
                         ) {
                             Text(if (coSaved) "ذخیره شد ✓" else "ذخیره اطلاعات کارگاه")
                         }
+                    }
+                }
+            }
+
+            // ---------- افزودنِ پول به صندوق یا بانک ----------
+            //
+            // پولی که از بیرون وارد کارگاه می‌شود (سرمایهٔ صاحب‌کار، وامِ
+            // شخصی، پولی که از جای دیگری آورده) جایی برای ثبت نداشت.
+            // بدونِ آن، موجودیِ صندوق در اپ با پولِ واقعیِ کشو نمی‌خواند و
+            // هر گزارشی از همان‌جا کج می‌شد.
+            //
+            // اینجاست نه در «مالی»، چون کارِ صاحبِ کارگاه است نه کارِ
+            // روزمرهٔ فروش.
+            var topUpAmount by remember { mutableStateOf("") }
+            var topUpNote by remember { mutableStateOf("") }
+            var topUpBox by remember { mutableStateOf("WALLET") }
+            var topUpDone by remember { mutableStateOf(false) }
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "افزودن پول به صندوق یا بانک",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        "پولی که از بیرون وارد کارگاه می‌شود — سرمایه، یا پولی که خودتان گذاشته‌اید.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("WALLET" to "کیف پول", "BANK" to "بانک").forEach { (code, label) ->
+                            FilterChip(
+                                selected = topUpBox == code,
+                                onClick = { topUpBox = code; topUpDone = false },
+                                label = { Text(label) }
+                            )
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = topUpAmount,
+                        onValueChange = { topUpAmount = it.digitsOnly(); topUpDone = false },
+                        label = { Text("مبلغ") },
+                        suffix = { Text("؋") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = topUpNote,
+                        onValueChange = { topUpNote = it; topUpDone = false },
+                        label = { Text("بابت (مثلاً سرمایهٔ اولیه)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    val topUpValue = topUpAmount.toLongOrNull() ?: 0L
+                    Button(
+                        enabled = topUpValue > 0,
+                        onClick = {
+                            val note = topUpNote.trim().ifBlank { "افزودن دستیِ پول" }
+                            if (topUpBox == "BANK") financeVm.incomeBank(topUpValue, note)
+                            else financeVm.incomeWallet(topUpValue, note)
+                            topUpAmount = ""
+                            topUpNote = ""
+                            topUpDone = true
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(if (topUpDone) "ثبت شد ✓" else "افزودن به موجودی")
                     }
                 }
             }

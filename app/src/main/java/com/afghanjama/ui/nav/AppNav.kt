@@ -647,6 +647,7 @@ fun AppNav(
                     onBack = { navController.popBackStack() },
                     authVm = authVm,
                     backupVm = backupVm,
+                    financeVm = financeVm,
                     canManageMaster = Permissions.canManageMaster(authUi.role),
                     canBackup = Permissions.canBackup(authUi.role),
                     canResetData = Permissions.canResetData(authUi.role),

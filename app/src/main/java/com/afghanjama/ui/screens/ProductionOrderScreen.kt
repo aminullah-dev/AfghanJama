@@ -441,6 +441,47 @@ fun ProductionOrderScreen(
                                     )
                                 }
                             }
+                            // قیمتِ هر خرج‌کارِ انتخاب‌شده همین‌جا قابلِ
+                            // تغییر است — فقط برای همین سفارش. فهرستِ
+                            // «اطلاعات پایه» دست نمی‌خورد، وگرنه قیمتِ
+                            // سفارش‌های قبلی هم در گزارش‌ها جابه‌جا می‌شد.
+                            if (ui.workItems.isNotEmpty()) {
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    "قیمتِ این سفارش (اگر بازار فرق کرده)",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                ui.workItems.forEach { line ->
+                                    Row(
+                                        Modifier.fillMaxWidth().padding(top = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Text(
+                                            line.title,
+                                            modifier = Modifier.weight(1f),
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                        OutlinedTextField(
+                                            value = if (line.price == 0L) "" else line.price.toString(),
+                                            onValueChange = {
+                                                vm.setWorkItemPrice(
+                                                    line.title,
+                                                    it.filter { c -> c.isDigit() }.toLongOrNull() ?: 0L
+                                                )
+                                            },
+                                            modifier = Modifier.width(140.dp),
+                                            singleLine = true,
+                                            suffix = { Text("؋") },
+                                            keyboardOptions = KeyboardOptions(
+                                                keyboardType = KeyboardType.Number
+                                            ),
+                                            shape = MaterialTheme.shapes.medium
+                                        )
+                                    }
+                                }
+                            }
                             if (perPiece > 0) {
                                 Text(
                                     "جمع فی‌عدد: ${perPiece.afn()}  •  " +

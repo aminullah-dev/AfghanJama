@@ -2665,6 +2665,24 @@ class Repo(private val db: Db) {
         db.attendanceDao().insert(AttendanceRecord(employee = emp, checkIn = System.currentTimeMillis()))
     }
 
+    /**
+     * اصلاحِ دستیِ ساعتِ ورود و خروج.
+     *
+     * کارگاه واقعی است: خیاط ساعت هفت آمده ولی ساعت نُه دکمه را زده، یا
+     * شب یادش رفته خروج بزند. بدونِ این، همان عددِ غلط تا ابد در کارکرد
+     * و حقوق می‌ماند.
+     *
+     * **خروج نمی‌تواند پیش از ورود باشد** — بازهٔ منفی کارکرد را منفی
+     * می‌کند و از آنجا به حقوق می‌رسد. `null` یعنی «هنوز داخل است».
+     *
+     * @return `false` اگر بازه وارونه باشد؛ آن‌وقت چیزی نوشته نمی‌شود.
+     */
+    suspend fun editAttendance(record: AttendanceRecord, checkIn: Long, checkOut: Long?): Boolean {
+        if (checkOut != null && checkOut < checkIn) return false
+        db.attendanceDao().update(record.copy(checkIn = checkIn, checkOut = checkOut))
+        return true
+    }
+
     /** ثبت خروج برای بازهٔ بازِ کارمند. */
     suspend fun checkOut(employee: String) {
         val open = db.attendanceDao().findOpen(employee.trim()) ?: return
@@ -2916,6 +2934,57 @@ class Repo(private val db: Db) {
         db.catalogDao().insertWorkCosts(listOf(item))
 
     // ✅ NEW: update work cost
+    // =========================
+    // ویرایش و حذفِ نام‌های اطلاعات پایه
+    //
+    // **اسنادِ گذشته دست نمی‌خورند، و این عمدی است.** نامِ خیاط و طرح
+    // هنگامِ ثبتِ سفارش به‌صورتِ متن در خودِ سفارش کپی می‌شود. پس:
+    //
+    // - حذف چیزی را یتیم نمی‌کند؛ سفارشِ قدیمی نامش را با خودش دارد.
+    // - تغییرِ نام روی سفارش‌های قبلی اثر نمی‌گذارد؛ فاکتوری که چاپ شده
+    //   و دستِ مشتری است نباید با ویرایشِ یک فهرست عوض شود.
+    //
+    // یعنی این دو کار فقط می‌گویند «از این به بعد این نام». برای اصلاحِ
+    // یک سفارشِ مشخص، جای درستش خودِ آن سفارش است نه اینجا.
+    // =========================
+
+    suspend fun renameTailor(id: Long, name: String) {
+        val v = name.trim()
+        if (v.isNotEmpty()) db.masterDataDao().renameTailor(id, v)
+    }
+
+    suspend fun renameInspector(id: Long, name: String) {
+        val v = name.trim()
+        if (v.isNotEmpty()) db.masterDataDao().renameInspector(id, v)
+    }
+
+    suspend fun renameFabricType(id: Long, title: String) {
+        val v = title.trim()
+        if (v.isNotEmpty()) db.masterDataDao().renameFabricType(id, v)
+    }
+
+    suspend fun renameFabricColor(id: Long, title: String) {
+        val v = title.trim()
+        if (v.isNotEmpty()) db.masterDataDao().renameFabricColor(id, v)
+    }
+
+    suspend fun renameSize(id: Long, title: String) {
+        val v = title.trim()
+        if (v.isNotEmpty()) db.masterDataDao().renameSize(id, v)
+    }
+
+    suspend fun renameDesign(id: Long, title: String) {
+        val v = title.trim()
+        if (v.isNotEmpty()) db.masterDataDao().renameDesign(id, v)
+    }
+
+    suspend fun deleteTailor(id: Long) = db.masterDataDao().deleteTailor(id)
+    suspend fun deleteInspector(id: Long) = db.masterDataDao().deleteInspector(id)
+    suspend fun deleteFabricType(id: Long) = db.masterDataDao().deleteFabricType(id)
+    suspend fun deleteFabricColor(id: Long) = db.masterDataDao().deleteFabricColor(id)
+    suspend fun deleteSize(id: Long) = db.masterDataDao().deleteSize(id)
+    suspend fun deleteDesign(id: Long) = db.masterDataDao().deleteDesign(id)
+
     suspend fun updateWorkCost(item: WorkCost) =
         db.catalogDao().updateWorkCost(item)
 

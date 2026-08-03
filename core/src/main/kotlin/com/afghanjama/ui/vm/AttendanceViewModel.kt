@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.afghanjama.data.entities.AttendanceRecord
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.ui.format.PersianDate
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -78,6 +79,24 @@ class AttendanceViewModel(private val repo: Repo) : ViewModel() {
                     .sortedByDescending { it.totalMinutes }
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * اصلاحِ ساعتِ یک بازهٔ ثبت‌شده.
+     *
+     * اگر خروج پیش از ورود باشد `Repo` چیزی نمی‌نویسد و اینجا پیام
+     * می‌آید — ساکت رد شدن یعنی کاربر فکر می‌کند ذخیره شده.
+     */
+    fun editTimes(record: AttendanceRecord, checkIn: Long, checkOut: Long?) =
+        viewModelScope.launch {
+            val ok = repo.editAttendance(record, checkIn, checkOut)
+            _editMessage.value =
+                if (ok) "ساعت اصلاح شد." else "ساعتِ خروج نمی‌تواند پیش از ورود باشد."
+        }
+
+    private val _editMessage = MutableStateFlow<String?>(null)
+    val editMessage: StateFlow<String?> = _editMessage
+
+    fun clearEditMessage() { _editMessage.value = null }
 
     fun checkIn(name: String) = viewModelScope.launch { repo.checkIn(name) }
     fun checkOut(name: String) = viewModelScope.launch { repo.checkOut(name) }

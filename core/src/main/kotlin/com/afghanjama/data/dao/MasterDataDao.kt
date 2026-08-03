@@ -19,6 +19,9 @@ interface MasterDataDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertFabricType(item: FabricType)
 
+    @Query("UPDATE fabric_types SET title = :title WHERE id = :id")
+    suspend fun renameFabricType(id: Long, title: String)
+
     @Query("DELETE FROM fabric_types WHERE id = :id")
     suspend fun deleteFabricType(id: Long)
 
@@ -31,6 +34,9 @@ interface MasterDataDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertFabricColor(item: FabricColor)
+
+    @Query("UPDATE fabric_colors SET title = :title WHERE id = :id")
+    suspend fun renameFabricColor(id: Long, title: String)
 
     @Query("DELETE FROM fabric_colors WHERE id = :id")
     suspend fun deleteFabricColor(id: Long)
@@ -45,6 +51,9 @@ interface MasterDataDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertSize(item: SizeItem)
 
+    @Query("UPDATE sizes SET title = :title WHERE id = :id")
+    suspend fun renameSize(id: Long, title: String)
+
     @Query("DELETE FROM sizes WHERE id = :id")
     suspend fun deleteSize(id: Long)
 
@@ -57,6 +66,9 @@ interface MasterDataDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertTailor(item: Tailor)
+
+    @Query("UPDATE tailors SET name = :name WHERE id = :id")
+    suspend fun renameTailor(id: Long, name: String)
 
     @Query("DELETE FROM tailors WHERE id = :id")
     suspend fun deleteTailor(id: Long)
@@ -71,6 +83,9 @@ interface MasterDataDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertInspector(item: Inspector)
 
+    @Query("UPDATE inspectors SET name = :name WHERE id = :id")
+    suspend fun renameInspector(id: Long, name: String)
+
     @Query("DELETE FROM inspectors WHERE id = :id")
     suspend fun deleteInspector(id: Long)
 
@@ -83,6 +98,12 @@ interface MasterDataDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertDesign(item: DesignItem): Long
+
+    @Query("UPDATE design_items SET title = :title WHERE id = :id")
+    suspend fun renameDesign(id: Long, title: String)
+
+    @Query("DELETE FROM design_items WHERE id = :id")
+    suspend fun deleteDesign(id: Long)
 
     @Query("UPDATE design_items SET code = :code WHERE id = :id")
     suspend fun setDesignCode(id: Long, code: String)

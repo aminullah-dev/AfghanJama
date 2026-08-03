@@ -102,6 +102,24 @@ class MasterDataViewModel(private val repo: Repo) : ViewModel() {
     }
 
     // ✅ CRUD خرج کار
+    // ---- ویرایش و حذفِ نام‌ها ----
+    //
+    // اسنادِ گذشته دست نمی‌خورند — توضیحِ کامل در `Repo`.
+
+    fun renameTailor(id: Long, name: String) = viewModelScope.launch { repo.renameTailor(id, name) }
+    fun renameInspector(id: Long, name: String) = viewModelScope.launch { repo.renameInspector(id, name) }
+    fun renameFabricType(id: Long, title: String) = viewModelScope.launch { repo.renameFabricType(id, title) }
+    fun renameFabricColor(id: Long, title: String) = viewModelScope.launch { repo.renameFabricColor(id, title) }
+    fun renameSize(id: Long, title: String) = viewModelScope.launch { repo.renameSize(id, title) }
+    fun renameDesign(id: Long, title: String) = viewModelScope.launch { repo.renameDesign(id, title) }
+
+    fun deleteTailor(id: Long) = viewModelScope.launch { repo.deleteTailor(id) }
+    fun deleteInspector(id: Long) = viewModelScope.launch { repo.deleteInspector(id) }
+    fun deleteFabricType(id: Long) = viewModelScope.launch { repo.deleteFabricType(id) }
+    fun deleteFabricColor(id: Long) = viewModelScope.launch { repo.deleteFabricColor(id) }
+    fun deleteSize(id: Long) = viewModelScope.launch { repo.deleteSize(id) }
+    fun deleteDesign(id: Long) = viewModelScope.launch { repo.deleteDesign(id) }
+
     fun addWorkCost(title: String, price: Long) = viewModelScope.launch {
         val t = title.trim()
         val p = price.coerceAtLeast(0)

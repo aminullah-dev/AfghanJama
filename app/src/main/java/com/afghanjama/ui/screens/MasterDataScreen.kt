@@ -122,43 +122,57 @@ fun MasterDataScreen(
                         title = "انواع پارچه — فصلِ مناسبش را هم بدهید",
                         hint1 = "نام پارچه (مثلاً کتان، برزنت، لینن…)",
                         hint2 = "فصل: " + FabricSeasons.ALL.joinToString("، ") + " (اختیاری)",
-                        items = types.map { ty ->
-                            ty.title + if (ty.season.isNotBlank()) "  •  ${ty.season}" else ""
+                        rows = types.map { ty ->
+                            MasterRow(
+                                ty.id,
+                                ty.title + if (ty.season.isNotBlank()) "  •  ${ty.season}" else "",
+                                ty.title
+                            )
                         },
                         // فصل ویژگیِ خودِ پارچه است، نه هر خرید: کتان همیشه
                         // تابستانی می‌مانَد. یک بار اینجا داده می‌شود و در
                         // صفحهٔ خرید فقط دیده می‌شود.
-                        onAdd = { title, season -> vm.addFabricType(title, season) }
+                        onAdd = { title, season -> vm.addFabricType(title, season) },
+                        onRename = { id, v -> vm.renameFabricType(id, v) },
+                        onDelete = { id -> vm.deleteFabricType(id) }
                     )
 
                     1 -> SimpleListEditor(
                         title = "فهرست رنگ‌های موجود",
                         hint = "مثلاً: سرمه‌ای، استخوانی…",
-                        items = colors.map { it.title },
-                        onAdd = { vm.addFabricColor(it, null) }
+                        rows = colors.map { MasterRow(it.id, it.title, it.title) },
+                        onAdd = { vm.addFabricColor(it, null) },
+                        onRename = { id, v -> vm.renameFabricColor(id, v) },
+                        onDelete = { id -> vm.deleteFabricColor(id) }
                     )
 
                     2 -> SimpleListEditor(
                         title = "فهرست سایزها",
                         hint = "مثلاً: 42 یا مدیوم",
-                        items = sizes.map { it.title },
-                        onAdd = { vm.addSize(it) }
+                        rows = sizes.map { MasterRow(it.id, it.title, it.title) },
+                        onAdd = { vm.addSize(it) },
+                        onRename = { id, v -> vm.renameSize(id, v) },
+                        onDelete = { id -> vm.deleteSize(id) }
                     )
 
                     3 -> TwoFieldListEditor(
                         title = "تعریف خیاط جدید",
                         hint1 = "کد شناسایی (مثلاً T10)",
                         hint2 = "نام و نام خانوادگی",
-                        items = tailors.map { "[${it.code}] ${it.name}" },
-                        onAdd = { code, name -> vm.addTailor(code, name, null) }
+                        rows = tailors.map { MasterRow(it.id, "[${it.code}] ${it.name}", it.name) },
+                        onAdd = { code, name -> vm.addTailor(code, name, null) },
+                        onRename = { id, v -> vm.renameTailor(id, v) },
+                        onDelete = { id -> vm.deleteTailor(id) }
                     )
 
                     4 -> TwoFieldListEditor(
                         title = "تعریف ناظر کیفی",
                         hint1 = "کد پرسنلی",
                         hint2 = "نام ناظر",
-                        items = inspectors.map { "[${it.code}] ${it.name}" },
-                        onAdd = { code, name -> vm.addInspector(code, name, null) }
+                        rows = inspectors.map { MasterRow(it.id, "[${it.code}] ${it.name}", it.name) },
+                        onAdd = { code, name -> vm.addInspector(code, name, null) },
+                        onRename = { id, v -> vm.renameInspector(id, v) },
+                        onDelete = { id -> vm.deleteInspector(id) }
                     )
 
                     5 -> DesignEditor(
@@ -172,7 +186,9 @@ fun MasterDataScreen(
                         title = "بانک اطلاعات مشتریان",
                         hint1 = "نام خریدار / فروشگاه",
                         hint2 = "شماره تماس (اختیاری)",
-                        items = customers.map { it.name + (it.phone?.let { p -> " - $p" } ?: "") },
+                        rows = customers.map {
+                            MasterRow(it.id, it.name + (it.phone?.let { p -> " - $p" } ?: ""), it.name)
+                        },
                         onAdd = { name, phone -> vm.addCustomer(name, phone.ifBlank { null }) }
                     )
 
@@ -188,8 +204,12 @@ fun MasterDataScreen(
                         title = "کارکنان کارگاه (برای حضور و غیاب و حساب کارمند)",
                         hint1 = "نام کارمند",
                         hint2 = "سمت (آشپز، حسابدار، مدیر، …)",
-                        items = staff.map { s ->
-                            s.name + (if (s.role.isNotBlank()) " — ${s.role}" else "")
+                        rows = staff.map { s ->
+                            MasterRow(
+                                s.id,
+                                s.name + (if (s.role.isNotBlank()) " — ${s.role}" else ""),
+                                s.name
+                            )
                         },
                         onAdd = { name, role -> vm.addStaff(name, role) }
                     )
@@ -335,11 +355,97 @@ private fun WorkCostEditor(
 }
 
 @Composable
+/**
+ * یک ردیفِ فهرستِ اطلاعات پایه.
+ *
+ * [label] چیزی است که دیده می‌شود (گاهی کد و فصل هم دارد) و [editValue]
+ * فقط همان نامی است که ویرایش می‌شود. جدا نگه داشتنشان یعنی کاربر
+ * هنگامِ اصلاحِ نامِ خیاط با «[T10] » هم دست‌وپنجه نرم نمی‌کند.
+ */
+data class MasterRow(val id: Long, val label: String, val editValue: String)
+
+/**
+ * یک سطرِ فهرست با دکمهٔ ویرایش و حذف.
+ *
+ * حذف تأیید می‌خواهد چون برگشت ندارد. ولی خطرش کم است: نامِ خیاط و
+ * طرح هنگامِ ثبتِ سفارش در خودِ سفارش کپی می‌شود، پس حذف از این فهرست
+ * سفارشِ قدیمی را دست نمی‌زند — فقط از فهرستِ انتخاب برمی‌داردش.
+ */
+@Composable
+private fun EditableRow(
+    row: MasterRow,
+    onRename: (Long, String) -> Unit,
+    onDelete: (Long) -> Unit
+) {
+    var editing by remember(row.id) { mutableStateOf(false) }
+    var confirmDelete by remember(row.id) { mutableStateOf(false) }
+    var draft by remember(row.id) { mutableStateOf(row.editValue) }
+
+    if (editing) {
+        AlertDialog(
+            onDismissRequest = { editing = false },
+            title = { Text("ویرایش نام") },
+            text = {
+                OutlinedTextField(
+                    value = draft,
+                    onValueChange = { draft = it },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = draft.isNotBlank(),
+                    onClick = { onRename(row.id, draft.trim()); editing = false }
+                ) { Text("ذخیره") }
+            },
+            dismissButton = { TextButton(onClick = { editing = false }) { Text("لغو") } }
+        )
+    }
+
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text("حذف «${row.editValue}»؟") },
+            text = {
+                Text(
+                    "از این فهرست برداشته می‌شود. سفارش‌ها و اسنادِ قبلی " +
+                        "دست نمی‌خورند — نامشان را با خودشان دارند."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { onDelete(row.id); confirmDelete = false }) {
+                    Text("حذف")
+                }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("لغو") } }
+        )
+    }
+
+    ListItem(
+        headlineContent = { Text(row.label) },
+        trailingContent = {
+            Row {
+                IconButton(onClick = { draft = row.editValue; editing = true }) {
+                    Icon(Icons.Filled.Edit, contentDescription = "ویرایش")
+                }
+                IconButton(onClick = { confirmDelete = true }) {
+                    Icon(Icons.Filled.Delete, contentDescription = "حذف")
+                }
+            }
+        },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+    )
+    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+}
+
 private fun SimpleListEditor(
     title: String,
     hint: String,
-    items: List<String>,
-    onAdd: (String) -> Unit
+    rows: List<MasterRow>,
+    onAdd: (String) -> Unit,
+    onRename: (Long, String) -> Unit,
+    onDelete: (Long) -> Unit
 ) {
     var text by remember { mutableStateOf("") }
 
@@ -384,12 +490,8 @@ private fun SimpleListEditor(
         Spacer(Modifier.height(16.dp))
 
         LazyColumn(Modifier.fillMaxSize()) {
-            items(items.reversed(), key = { it }) { row ->
-                ListItem(
-                    headlineContent = { Text(row) },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                )
-                HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+            items(rows.reversed(), key = { it.id }) { row ->
+                EditableRow(row, onRename, onDelete)
             }
         }
     }
@@ -400,8 +502,11 @@ private fun TwoFieldListEditor(
     title: String,
     hint1: String,
     hint2: String,
-    items: List<String>,
-    onAdd: (String, String) -> Unit
+    rows: List<MasterRow>,
+    onAdd: (String, String) -> Unit,
+    /** `null` یعنی این فهرست هنوز ویرایش ندارد. */
+    onRename: ((Long, String) -> Unit)? = null,
+    onDelete: ((Long) -> Unit)? = null
 ) {
     var t1 by remember { mutableStateOf("") }
     var t2 by remember { mutableStateOf("") }
@@ -458,12 +563,19 @@ private fun TwoFieldListEditor(
         Spacer(Modifier.height(16.dp))
 
         LazyColumn(Modifier.fillMaxSize()) {
-            items(items.reversed(), key = { it }) { row ->
-                ListItem(
-                    headlineContent = { Text(row) },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                )
-                HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+            items(rows.reversed(), key = { it.id }) { row ->
+                if (onRename != null && onDelete != null) {
+                    EditableRow(row, onRename, onDelete)
+                } else {
+                    ListItem(
+                        headlineContent = { Text(row.label) },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    HorizontalDivider(
+                        thickness = 0.5.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+                }
             }
         }
     }

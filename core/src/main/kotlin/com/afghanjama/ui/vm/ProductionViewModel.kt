@@ -195,6 +195,27 @@ class ProductionViewModel(private val repo: Repo) : ViewModel() {
         )
     }
 
+    /**
+     * قیمتِ یک خرج‌کار **فقط برای همین سفارش**.
+     *
+     * فهرستِ «اطلاعات پایه» دست نمی‌خورد: `WorkLine` از اول کپیِ خودِ
+     * سفارش بوده، پس عوض کردنش اینجا قیمتِ پایه را برای سفارش‌های بعدی
+     * تغییر نمی‌دهد.
+     *
+     * چرا لازم است: قیمتِ دکمه و زیپ در بازار بالا و پایین می‌رود و
+     * کارگاه نباید برای یک سفارش مجبور شود فهرستِ پایه را دستکاری کند —
+     * آن کار قیمتِ سفارش‌های قبلی را هم در گزارش‌ها جابه‌جا می‌کرد.
+     */
+    fun setWorkItemPrice(title: String, price: Long) = _ui.update { s ->
+        s.copy(
+            workItems = s.workItems.map {
+                if (it.title == title) it.copy(price = price.coerceAtLeast(0)) else it
+            },
+            message = null,
+            isError = false
+        )
+    }
+
     fun removeWorkItem(title: String) = _ui.update {
         it.copy(workItems = it.workItems.filterNot { w -> w.title == title })
     }
