@@ -84,6 +84,32 @@ jobs:
       - name: Build
         run: ./gradlew --no-daemon assembleDebug
 
+      # سبزبودنِ کامپایل ثابت نمی‌کند که Room کد ساخته باشد.
+      #
+      # `Room.databaseBuilder` کلاسِ `AppDatabase_Impl` را سرِ **اجرا** با
+      # بازتاب پیدا می‌کند، نه سرِ کامپایل. یعنی اگر پردازشگر بی‌سروصدا
+      # اجرا نشود، ساخت سبز می‌ماند و اپ تازه وقتی کارفرما بازش می‌کند
+      # می‌ترکد — بدترین جای ممکن برای دیدنِ این خطا.
+      #
+      # با رفتن از kapt به KSP این خطر واقعی شد، پس از همان‌جا به بعد
+      # وجودِ خروجیِ Room صریح وارسی می‌شود.
+      - name: مطمئن شو Room واقعاً کد ساخت
+        run: |
+          python3 - <<'PY'
+          import pathlib, sys
+          root = pathlib.Path('app/build/generated/ksp')
+          if not root.is_dir():
+              sys.exit('پوشهٔ خروجیِ KSP نیست — یعنی پردازشگر اصلاً اجرا نشده.')
+          impl = [p for p in root.rglob('AppDatabase_Impl.*')]
+          daos = [p for p in root.rglob('*Dao_Impl.*')]
+          print(f'{len(impl)} پیاده‌سازیِ دیتابیس، {len(daos)} پیاده‌سازیِ DAO')
+          if not impl:
+              sys.exit('AppDatabase_Impl ساخته نشده — Room کد تولید نکرده است.')
+          # ۲۸ DAO در `Db` نام برده شده؛ کمترش یعنی چیزی از قلم افتاده.
+          if len(daos) < 28:
+              sys.exit(f'فقط {len(daos)} DAO ساخته شد، انتظار دستِ‌کم ۲۸.')
+          PY
+
       # نسخهٔ release اینجا فقط **ساخته** می‌شود تا مطمئن شویم کامپایل
       # می‌شود؛ امضا نمی‌شود و اینجا هیچ کلیدی وجود ندارد.
       #
