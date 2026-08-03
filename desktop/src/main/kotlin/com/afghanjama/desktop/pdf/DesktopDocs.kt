@@ -7,8 +7,10 @@ import com.afghanjama.data.entities.OrderWorkItem
 import com.afghanjama.pdf.Paper
 import com.afghanjama.pdf.ReceiptData
 import com.afghanjama.pdf.ShopInfo
+import com.afghanjama.pdf.StatementData
 import com.afghanjama.pdf.invoiceSheets
 import com.afghanjama.pdf.receiptSheet
+import com.afghanjama.pdf.statementSheets
 import java.io.File
 
 /**
@@ -53,4 +55,12 @@ object DesktopDocs {
         invoiceSheets(order, fabrics, workItems, payments, shop, measurer),
         target
     )
+
+    /** کارتِ حسابِ مشتری. */
+    fun statement(
+        data: StatementData,
+        shop: ShopInfo,
+        paper: Paper = Paper.A4,
+        target: File = File(outputDir(), "کارت-حساب-${data.customerName}.pdf")
+    ): File = engine.write(statementSheets(data, shop, measurer, paper), target)
 }
