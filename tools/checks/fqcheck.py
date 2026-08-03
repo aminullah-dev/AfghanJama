@@ -16,6 +16,10 @@ fully-qualified calls, so anything broader produces false alarms.
 import pathlib as _pl
 _REPO = str(_pl.Path(__file__).resolve().parents[2])
 import glob, os, re, sys
+import sys as _s, pathlib as _p
+_s.path.insert(0, str(_p.Path(__file__).resolve().parent))
+import _src
+
 
 FLOW_EXTENSIONS = {
     "first", "firstOrNull", "single", "singleOrNull", "toList", "toSet",
@@ -26,7 +30,7 @@ pat = re.compile(
     r"(?<![\w.])kotlinx\.coroutines\.flow\.(" + "|".join(sorted(FLOW_EXTENSIONS)) + r")\s*\("
 )
 bad = []
-for f in glob.glob(os.path.join(root, _REPO + "/app/src/main/java/**/*.kt"), recursive=True):
+for f in [str(x) for x in _src.kt_files()]:
     for n, line in enumerate(open(f, encoding="utf-8"), 1):
         t = line.strip()
         if t.startswith(("import ", "//", "*", "/*")):

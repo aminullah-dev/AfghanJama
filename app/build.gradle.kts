@@ -102,6 +102,12 @@ android {
 
 dependencies {
     /*
+     * منطقِ کارگاه — بی هیچ اندرویدی، پس روی ویندوز هم همین کد اجرا
+     * می‌شود. جزئیات در docs/WINDOWS.md.
+     */
+    implementation(project(":core"))
+
+    /*
      * Room باید با نسخهٔ Kotlin هم‌قدم بماند.
      *
      * Room 2.6.1 نسخهٔ kotlinx-metadata را در خودش بسته‌بندی کرده و آن

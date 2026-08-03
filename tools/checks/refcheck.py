@@ -10,9 +10,22 @@ flags files that use one without either.
 import pathlib as _pl
 _REPO = str(_pl.Path(__file__).resolve().parents[2])
 import glob, re, sys, collections
+import sys as _s, pathlib as _p
+_s.path.insert(0, str(_p.Path(__file__).resolve().parent))
+import _src
 
-SRC = _REPO + "/app/src/main/java/com/afghanjama"
-files = glob.glob(f"{SRC}/**/*.kt", recursive=True)
+
+SRC = _src.PKG_ROOTS
+files = [str(x) for x in _src.kt_files()]
+
+def _rel(f):
+    """مسیرِ نسبی به com/afghanjama، از هر ماژولی که باشد."""
+    for r in _src.PKG_ROOTS:
+        s = str(r) + "/"
+        if f.startswith(s):
+            return f[len(s):]
+    return f
+
 
 # ---- نگهبانِ پوچی ----
 # این اسکریپت‌ها با مسیرِ نسبی نوشته شده بودند و از پوشهٔ scratchpad هیچ
@@ -108,7 +121,7 @@ for f in files:
         if sym in local: continue
         if not re.search(r"\.\s*" + re.escape(sym) + r"\s*\(", body): continue
         if f"{owner}.{sym}" in raw: continue
-        problems.append((f.replace(SRC+"/",""), sym, owner))
+        problems.append((_rel(f), sym, owner))
 
     for sym in used:
         owner = decl_pkg.get(sym)
@@ -118,7 +131,7 @@ for f in files:
         if sym in local: continue
         # fully-qualified usage?
         if f"{owner}.{sym}" in raw: continue
-        problems.append((f.replace(SRC+"/",""), sym, owner))
+        problems.append((_rel(f), sym, owner))
 
 if not problems:
     print(f"✓ {len(files)} files — every project symbol used is imported or same-package")

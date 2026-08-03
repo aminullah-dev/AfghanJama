@@ -14,3 +14,4 @@ dependencyResolutionManagement {
 }
 rootProject.name = "AfghanJama"
 include(":app")
+include(":core")

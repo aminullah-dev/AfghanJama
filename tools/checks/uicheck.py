@@ -19,9 +19,22 @@ import glob
 import re
 import sys
 from collections import defaultdict
+import sys as _s, pathlib as _p
+_s.path.insert(0, str(_p.Path(__file__).resolve().parent))
+import _src
 
-SRC = _REPO + "/app/src/main/java/com/afghanjama"
-files = sorted(glob.glob(f"{SRC}/**/*.kt", recursive=True))
+
+SRC = _src.PKG_ROOTS
+files = [str(x) for x in _src.kt_files()]
+
+def _rel(f):
+    """مسیرِ نسبی به com/afghanjama، از هر ماژولی که باشد."""
+    for r in _src.PKG_ROOTS:
+        s = str(r) + "/"
+        if f.startswith(s):
+            return f[len(s):]
+    return f
+
 if len(files) < 50:
     raise SystemExit(f"✗ فقط {len(files)} فایل — مسیر اشتباه است، بررسی پوچ بود")
 
@@ -142,7 +155,7 @@ for f in files:
         # است — دقیقاً حالتِ GridItemSpan که دو جا با مسیرِ کامل بود و
         # جای سوم کوتاه، و این قاعده پنهانش کرد.
         path = next(iter(owner_of[sym]))
-        problems.append((f.replace(SRC + "/", ""), sym, path))
+        problems.append((_rel(f), sym, path))
 
 # ---- افزونه‌های Modifier که بعد از نقطه صدا زده می‌شوند ----
 for f in files:
@@ -153,7 +166,7 @@ for f in files:
             continue
         if f"import {path}" in raw or path in raw:
             continue
-        problems.append((f.replace(SRC + "/", ""), name, path))
+        problems.append((_rel(f), name, path))
 
 # ---- آیکون‌های استفاده‌شده ولی ایمپورت‌نشده ----
 for f in files:
@@ -167,13 +180,13 @@ for f in files:
             continue
         want = pkg.replace("icons.", "icons.automirrored.")
         if f"import {want}.{m.group(2)}" not in raw:
-            problems.append((f.replace(SRC + "/", ""), m.group(2), f"{want}.{m.group(2)}"))
+            problems.append((_rel(f), m.group(2), f"{want}.{m.group(2)}"))
     for m in re.finditer(r"\bIcons\.(?!AutoMirrored)(\w+)\.(\w+)", code):
         pkg = ICON_SETS.get(m.group(1))
         if not pkg:
             continue
         if f"import {pkg}.{m.group(2)}" not in raw:
-            problems.append((f.replace(SRC + "/", ""), m.group(2), f"{pkg}.{m.group(2)}"))
+            problems.append((_rel(f), m.group(2), f"{pkg}.{m.group(2)}"))
 
 if problems:
     print(f"✗ {len(problems)} نمادِ ایمپورت‌نشده")

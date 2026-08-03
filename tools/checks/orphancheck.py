@@ -20,13 +20,26 @@ _REPO = str(_pl.Path(__file__).resolve().parents[2])
 import glob
 import re
 import sys
+import sys as _s, pathlib as _p
+_s.path.insert(0, str(_p.Path(__file__).resolve().parent))
+import _src
 
-SRC = _REPO + "/app/src/main/java/com/afghanjama"
-files = sorted(glob.glob(f"{SRC}/**/*.kt", recursive=True))
+
+SRC = _src.PKG_ROOTS
+files = [str(x) for x in _src.kt_files()]
+
+def _rel(f):
+    """مسیرِ نسبی به com/afghanjama، از هر ماژولی که باشد."""
+    for r in _src.PKG_ROOTS:
+        s = str(r) + "/"
+        if f.startswith(s):
+            return f[len(s):]
+    return f
+
 if len(files) < 50:
     raise SystemExit(f"✗ فقط {len(files)} فایل — مسیر اشتباه، بررسی پوچ بود")
 
-NAV = f"{SRC}/ui/nav/AppNav.kt"
+NAV = str(_src.find("ui/nav/AppNav.kt"))
 nav_src = open(NAV).read()
 all_src = "\n".join(open(f).read() for f in files)
 
@@ -63,7 +76,7 @@ for s in sorted(screens):
 # ---- ۲. مسیرهای ثبت‌شده ولی بی‌استفاده ----
 routes = {}
 # Routes در فایلِ خودش زندگی می‌کند، نه داخلِ AppNav
-routes_src = strip(open(f"{SRC}/ui/nav/Routes.kt").read())
+routes_src = strip(_src.read("ui/nav/Routes.kt"))
 m = re.search(r"object\s+Routes\s*\{(.*?)\n\}", routes_src, re.S)
 if m:
     for r in re.finditer(r"const\s+val\s+(\w+)\s*=\s*\"([^\"]+)\"", m.group(1)):

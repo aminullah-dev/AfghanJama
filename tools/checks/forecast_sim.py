@@ -4,8 +4,12 @@
 import pathlib as _pl
 import re
 import sys
+import sys as _s, pathlib as _p
+_s.path.insert(0, str(_p.Path(__file__).resolve().parent))
+import _src
 
-ROOT = _pl.Path(__file__).resolve().parents[2] / "app/src/main/java/com/afghanjama"
+
+ROOT = _src.ANY
 fails = []
 def check(c, m):
     if not c: fails.append(m)

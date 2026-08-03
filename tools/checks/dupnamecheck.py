@@ -17,9 +17,13 @@ import pathlib as _pl
 import re
 import sys
 from collections import defaultdict
+import sys as _s, pathlib as _p
+_s.path.insert(0, str(_p.Path(__file__).resolve().parent))
+import _src
+
 
 _REPO = _pl.Path(__file__).resolve().parents[2]
-SRC = _REPO / "app/src/main/java/com/afghanjama/selftest/SelfTest.kt"
+SRC = _src.find("selftest/SelfTest.kt")
 if not SRC.exists():
     raise SystemExit(f"✗ {SRC} نیست — مسیر اشتباه است، بررسی پوچ بود")
 

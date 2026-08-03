@@ -14,7 +14,12 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-scripts = sorted(p for p in HERE.glob("*.py") if p.name != Path(__file__).name)
+# فایل‌های زیرخط‌دار کمکی‌اند نه بررسی — مثلِ _src.py که فقط
+# مسیرِ ماژول‌ها را می‌داند.
+scripts = sorted(
+    p for p in HERE.glob("*.py")
+    if p.name != Path(__file__).name and not p.name.startswith("_")
+)
 
 if not scripts:
     sys.exit("✗ هیچ بررسی‌ای پیدا نشد — پوشه خالی است، این اجرا پوچ بود")

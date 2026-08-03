@@ -4,8 +4,12 @@
 import pathlib as _pl
 _REPO = str(_pl.Path(__file__).resolve().parents[2])
 import sys, pathlib
+import sys as _s, pathlib as _p
+_s.path.insert(0, str(_p.Path(__file__).resolve().parent))
+import _src
+
 bad = 0
-for p in sorted(pathlib.Path(_REPO + "/app/src/main/java").rglob("*.kt")):
+for p in _src.kt_files():
     s = p.read_text(encoding="utf-8")
     i = 0; n = len(s)
     depth = {"(":0,"{":0,"[":0}

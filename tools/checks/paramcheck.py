@@ -12,9 +12,13 @@ no comma, so they are skipped.
 import pathlib as _pl
 _REPO = str(_pl.Path(__file__).resolve().parents[2])
 import glob, re, sys, os
+import sys as _s, pathlib as _p
+_s.path.insert(0, str(_p.Path(__file__).resolve().parent))
+import _src
+
 root = os.environ.get("PARAMCHECK_ROOT", ".")
 bad = []
-for f in glob.glob(os.path.join(root, _REPO + "/app/src/main/java/com/afghanjama/**/*.kt"), recursive=True):
+for f in [str(x) for x in _src.kt_files()]:
     s = open(f).read()
     for m in re.finditer(r"fun\s+\w+\(\n((?:[ \t]+[^\n)]*\n)+?)\)", s):
         lines = [

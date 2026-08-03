@@ -10,8 +10,12 @@ parameter" — invisible to brace balance and to import checking.
 import pathlib as _pl
 _REPO = str(_pl.Path(__file__).resolve().parents[2])
 import glob, re, sys
+import sys as _s, pathlib as _p
+_s.path.insert(0, str(_p.Path(__file__).resolve().parent))
+import _src
+
 bad=[]
-for f in glob.glob(_REPO + "/app/src/main/java/com/afghanjama/**/*.kt", recursive=True):
+for f in [str(x) for x in _src.kt_files()]:
     s=open(f).read()
     # call sites: Foo( ... ) with named args at one indent level
     for m in re.finditer(r"^([ \t]*)([A-Z]\w*)\(\n((?:.*\n)+?)\1\)", s, re.M):

@@ -8,11 +8,15 @@
 import pathlib as _pl
 _REPO = str(_pl.Path(__file__).resolve().parents[2])
 import re, glob, sys
-ROOT=_REPO + '/app/src/main/java/com/afghanjama'
+import sys as _s, pathlib as _p
+_s.path.insert(0, str(_p.Path(__file__).resolve().parent))
+import _src
+
+ROOT = _src.ANY
 
 # جدول‌های واقعی از @Entityها
 real={}
-for f in sorted(glob.glob(ROOT+'/data/entities/*.kt')):
+for f in _src.glob('data/entities/*.kt'):
     s=open(f).read()
     for m in re.finditer(r'@Entity\b', s):
         seg=s[m.start(): m.start()+900]
