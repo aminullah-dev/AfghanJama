@@ -151,6 +151,78 @@ class DocChrome(
         return lineY + 26f
     }
 
+    /**
+     * سلول‌های یک سطر.
+     *
+     * ستون‌ها **از راست** چیده می‌شوند (اولین عنوان راست‌ترین ستون است) و
+     * آخرین ستون — که معمولاً مبلغ است — چپ‌چین می‌شود.
+     */
+    private fun cells(
+        values: List<String>,
+        weights: List<Float>,
+        y: Float,
+        size: Float,
+        color: Int,
+        weight: Weight
+    ) {
+        val total = weights.sum().takeIf { it > 0f } ?: 1f
+        var edge = right
+        values.forEachIndexed { i, text ->
+            val w = contentW * (weights.getOrElse(i) { 1f } / total)
+            val cellLeft = edge - w
+            if (i == values.lastIndex) {
+                if (text.isNotBlank()) {
+                    val lines = m.wrap(text, size, w, weight)
+                    val lh = m.lineHeight(size, weight)
+                    lines.forEachIndexed { k, line ->
+                        b.text(line, cellLeft, y + k * lh, size, color, weight, Align.End, w)
+                    }
+                }
+            } else if (text.isNotBlank()) {
+                val lines = m.wrap(text, size, w, weight)
+                val lh = m.lineHeight(size, weight)
+                lines.forEachIndexed { k, line ->
+                    b.text(line, edge, y + k * lh, size, color, weight, Align.Start, w)
+                }
+            }
+            edge = cellLeft
+        }
+    }
+
+    /** سرستونِ جدول. */
+    fun tableHeader(titles: List<String>, weights: List<Float>, y: Float): Float {
+        b.rect(left, y - 4f, right, y + 17f, SheetColors.SOFT, 3f)
+        cells(
+            titles, weights, y, paper.cellTextSize,
+            if (paper.narrow) SheetColors.INK else SheetColors.BRAND, Weight.Bold
+        )
+        return y + 24f
+    }
+
+    /** ردیفِ جدول؛ [zebra] زمینهٔ ملایم برای خوانایی سطرهای بلند. */
+    fun tableRow(
+        values: List<String>,
+        weights: List<Float>,
+        y: Float,
+        zebra: Boolean = false
+    ): Float {
+        if (zebra) b.rect(left, y - 3f, right, y + 16f, SheetColors.SOFT)
+        cells(values, weights, y, paper.cellTextSize, SheetColors.INK, Weight.Regular)
+        return y + 21f
+    }
+
+    /** عنوانِ بخش با نشانهٔ کوچکِ برند در ابتدایش. */
+    fun section(title: String, y: Float): Float {
+        val ink = if (paper.narrow) SheetColors.INK else SheetColors.BRAND
+        b.rect(right - 3f, y + 2f, right, y + 15f, ink, 1.5f)
+        rtl(title, y, 12.5f, ink, Weight.Bold, contentW - 8f)
+        return y + 24f
+    }
+
+    /** یادداشتِ کم‌رنگ — شرایط، توضیح، سلبِ مسئولیت. */
+    fun note(text: String, y: Float): Float =
+        y + rtl(text, y, 8.5f, SheetColors.MUTED) + 8f
+
     /** سربرگ: نامِ کارگاه، عنوانِ سند، شماره و تاریخ. */
     fun header(title: String, number: String, at: Long): Float {
         var y = paper.margin

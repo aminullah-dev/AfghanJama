@@ -1,8 +1,13 @@
 package com.afghanjama.desktop.pdf
 
+import com.afghanjama.data.entities.CustomerPayment
+import com.afghanjama.data.entities.Order
+import com.afghanjama.data.entities.OrderFabric
+import com.afghanjama.data.entities.OrderWorkItem
 import com.afghanjama.pdf.Paper
 import com.afghanjama.pdf.ReceiptData
 import com.afghanjama.pdf.ShopInfo
+import com.afghanjama.pdf.invoiceSheets
 import com.afghanjama.pdf.receiptSheet
 import java.io.File
 
@@ -35,4 +40,17 @@ object DesktopDocs {
         paper: Paper = Paper.ROLL80,
         target: File = File(outputDir(), "${data.number}.pdf")
     ): File = engine.write(receiptSheet(data, shop, measurer, paper), target)
+
+    /** فاکتورِ سفارش — چندبرگه‌ای اگر اقلام زیاد باشند. */
+    fun invoice(
+        order: Order,
+        fabrics: List<OrderFabric>,
+        workItems: List<OrderWorkItem>,
+        payments: List<CustomerPayment>,
+        shop: ShopInfo,
+        target: File = File(outputDir(), "فاکتور-${order.orderCode}.pdf")
+    ): File = engine.write(
+        invoiceSheets(order, fabrics, workItems, payments, shop, measurer),
+        target
+    )
 }

@@ -21,6 +21,18 @@ data class Sheet(
     val ops: List<DrawOp>
 )
 
+/**
+ * سندِ چندبرگه‌ای.
+ *
+ * فاکتورِ یک سفارشِ بزرگ در یک A4 جا نمی‌شود، پس چیدمان باید بتواند
+ * برگهٔ تازه باز کند. تک‌برگه‌ها هم همین‌اند با یک عضو.
+ */
+data class SheetDoc(val pages: List<Sheet>) {
+    init {
+        require(pages.isNotEmpty()) { "سندِ بی‌برگه معنا ندارد" }
+    }
+}
+
 /** ترازِ افقیِ متن. در متنِ راست‌به‌چپ [End] یعنی سمتِ چپ. */
 enum class Align { Start, Center, End }
 

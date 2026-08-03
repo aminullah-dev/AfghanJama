@@ -3,6 +3,7 @@ package com.afghanjama.desktop.pdf
 import com.afghanjama.pdf.Align
 import com.afghanjama.pdf.DrawOp
 import com.afghanjama.pdf.Sheet
+import com.afghanjama.pdf.SheetDoc
 import com.afghanjama.pdf.Weight
 import org.apache.pdfbox.pdmodel.PDDocument
 import org.apache.pdfbox.pdmodel.PDPage
@@ -35,14 +36,18 @@ import java.io.File
  */
 class SheetPdf(private val fonts: SheetFonts) {
 
-    fun write(page: Sheet, target: File): File {
+    fun write(page: Sheet, target: File): File = write(SheetDoc(listOf(page)), target)
+
+    fun write(document: SheetDoc, target: File): File {
         PDDocument().use { doc ->
-            val pdPage = PDPage(
-                PDRectangle(page.paper.w.toFloat(), page.paper.h.toFloat())
-            )
-            doc.addPage(pdPage)
-            PDPageContentStream(doc, pdPage).use { cs ->
-                page.ops.forEach { draw(doc, cs, it, page.paper.h.toFloat()) }
+            document.pages.forEach { page ->
+                val pdPage = PDPage(
+                    PDRectangle(page.paper.w.toFloat(), page.paper.h.toFloat())
+                )
+                doc.addPage(pdPage)
+                PDPageContentStream(doc, pdPage).use { cs ->
+                    page.ops.forEach { draw(doc, cs, it, page.paper.h.toFloat()) }
+                }
             }
             target.parentFile?.mkdirs()
             doc.save(target)
