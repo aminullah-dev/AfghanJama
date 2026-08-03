@@ -102,9 +102,6 @@ interface MasterDataDao {
     @Query("UPDATE design_items SET title = :title WHERE id = :id")
     suspend fun renameDesign(id: Long, title: String)
 
-    @Query("DELETE FROM design_items WHERE id = :id")
-    suspend fun deleteDesign(id: Long)
-
     @Query("UPDATE design_items SET code = :code WHERE id = :id")
     suspend fun setDesignCode(id: Long, code: String)
 
