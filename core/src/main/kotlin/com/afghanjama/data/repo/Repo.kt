@@ -1,6 +1,6 @@
 package com.afghanjama.data.repo
 
-import com.afghanjama.data.AppDatabase
+import com.afghanjama.data.Db
 import com.afghanjama.data.CashPolicy
 import com.afghanjama.data.PartialFlow
 import com.afghanjama.data.entities.AttendanceRecord
@@ -43,7 +43,7 @@ import com.afghanjama.data.entities.Transaction
 import com.afghanjama.data.entities.WorkCost
 import com.afghanjama.data.ResetPlan
 import com.afghanjama.data.StockFolders
-import com.afghanjama.prefs.SalePrefs
+import com.afghanjama.data.SalePolicy
 import com.afghanjama.ui.format.bareWorkerName
 import com.afghanjama.util.CurrentUser
 import kotlinx.coroutines.flow.Flow
@@ -52,7 +52,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.util.UUID
 
-class Repo(private val db: AppDatabase) {
+class Repo(private val db: Db) {
 
     // =========================
     // Orders
@@ -2090,7 +2090,7 @@ class Repo(private val db: AppDatabase) {
         if (qty > remaining)
             return "از این سفارش فقط ${remaining} عدد باقی مانده."
 
-        val allowShortage = SalePrefs.allowNegativeStockCached()
+        val allowShortage = SalePolicy.allowNegativeStock()
         var item = db.finishedStockDao().find(order.designTitle, order.size)
 
         if (item == null) {
@@ -2200,7 +2200,7 @@ class Repo(private val db: AppDatabase) {
         // وگرنه دو ردیف از یک طرح می‌توانستند بیشتر از موجودی بفروشند.
         val neededPerItem = valid.groupBy { it.item.id }
             .mapValues { (_, rows) -> rows.sumOf { it.qty } }
-        if (!SalePrefs.allowNegativeStockCached()) {
+        if (!SalePolicy.allowNegativeStock()) {
             valid.map { it.item }.distinctBy { it.id }.forEach { item ->
                 if ((neededPerItem[item.id] ?: 0) > item.qty) return false
             }
@@ -2365,7 +2365,7 @@ class Repo(private val db: AppDatabase) {
         discount: Long = 0L
     ): Boolean {
         if (qty <= 0 || unitPrice <= 0) return false
-        if (qty > item.qty && !SalePrefs.allowNegativeStockCached()) return false
+        if (qty > item.qty && !SalePolicy.allowNegativeStock()) return false
         return sellInvoice(
             lines = listOf(SaleLine(item, qty, unitPrice, discount)),
             customerName = customerName,

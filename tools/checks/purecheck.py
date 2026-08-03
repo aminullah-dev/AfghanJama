@@ -18,11 +18,37 @@ CORE = REPO / "core/src/main/kotlin"
 
 BANNED = ("import android.", "import androidx.")
 
+# استثنا: حاشیه‌نویسی‌های Room.
+#
+# `androidx.room` با بقیهٔ androidx فرق دارد: `room-common` یک jarِ
+# خالصِ جاواست، نه کتابخانهٔ اندروید. جدولِ داده‌ها با همین‌ها توصیف
+# می‌شود و روی ویندوز هم همان توصیف کار می‌کند. موتورِ Room
+# (`room-runtime`) اینجا نیست و نباید بیاید.
+ALLOWED = ("import androidx.room.",)
+
+# ...ولی نه هر چیزی زیرِ androidx.room.
+#
+# `room-common` فقط حاشیه‌نویسی است؛ این‌ها در `room-runtime` هستند که
+# موتور است و اندروید می‌خواهد. اگر یکی از این‌ها وارد :core شود، مرز
+# بی‌سروصدا شکسته و همان روز فرقی با نبودنِ مرز ندارد.
+RUNTIME_ONLY = (
+    "import androidx.room.Room\n",
+    "import androidx.room.Room.",
+    "import androidx.room.RoomDatabase",
+    "import androidx.room.RoomWarnings",
+    "import androidx.room.migration",
+    "import androidx.room.testing",
+    "import androidx.room.util",
+)
+
 bad = []
 files = sorted(CORE.rglob("*.kt"))
 for p in files:
     for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
-        if line.startswith(BANNED):
+        runtime = line.startswith(RUNTIME_ONLY) or line.rstrip() in (
+            "import androidx.room.Room",
+        )
+        if runtime or (line.startswith(BANNED) and not line.startswith(ALLOWED)):
             bad.append((p.relative_to(CORE), i, line.strip()))
 
 if not files:

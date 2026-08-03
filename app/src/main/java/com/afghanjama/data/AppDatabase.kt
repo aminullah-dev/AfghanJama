@@ -122,7 +122,11 @@ import com.afghanjama.data.entities.WorkCost
     exportSchema = false
 )
 @TypeConverters(Converters::class)
-abstract class AppDatabase : RoomDatabase() {
+/*
+ * `Db` را پیاده می‌کند تا منطقِ کارگاه به موتورِ Room گره نخورد؛
+ * توضیحِ کامل در Db.kt.
+ */
+abstract class AppDatabase : RoomDatabase(), Db {
     abstract fun orderDao(): OrderDao
     abstract fun orderCounterDao(): OrderCounterDao
     abstract fun financeDao(): FinanceDao

@@ -15,6 +15,16 @@ plugins {
 
 dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
+
+    /*
+     * فقط حاشیه‌نویسی‌های Room (@Entity, @Dao, @Query…) — نه موتورش.
+     *
+     * `room-common` یک jarِ خالصِ جاواست و هیچ چیزِ اندرویدی ندارد؛
+     * موتورِ Room (`room-runtime`) و پردازشگرش در `:app` می‌مانند.
+     * یعنی جدولِ داده‌ها اینجا **توصیف** می‌شود و هر سکو خودش موتورش را
+     * می‌آورد — همان چیزی که نسخهٔ ویندوز لازم دارد.
+     */
+    api("androidx.room:room-common:2.7.1")
 }
 
 kotlin {
