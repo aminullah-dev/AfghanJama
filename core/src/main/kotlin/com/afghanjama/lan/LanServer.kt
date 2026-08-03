@@ -164,30 +164,26 @@ class LanServer(private val db: Db) {
             })
             return
         }
-        try {
-            val mine = db.sewingAssignmentDao().observeAll().first()
-                .filter { it.tailorLabel.trim() == name }
+        val mine = db.sewingAssignmentDao().observeAll().first()
+            .filter { it.tailorLabel.trim() == name }
 
-            val items = JSONArray()
-            mine.filter { it.status != "DONE" }.forEach { a ->
-                items.put(JSONObject().apply {
-                    put("id", a.id)
-                    put("orderCode", a.orderCode)
-                    put("qty", a.qty)
-                    put("unitWage", a.unitWage)
-                    put("createdAt", a.createdAt)
-                })
-            }
-            val doneCount = mine.count { it.status == "DONE" }
-            respond(client, 200, JSONObject().apply {
-                put("ok", true)
-                put("worker", name)
-                put("inHand", items)
-                put("doneTotal", doneCount)
+        val items = JSONArray()
+        mine.filter { it.status != "DONE" }.forEach { a ->
+            items.put(JSONObject().apply {
+                put("id", a.id)
+                put("orderCode", a.orderCode)
+                put("qty", a.qty)
+                put("unitWage", a.unitWage)
+                put("createdAt", a.createdAt)
             })
-        } finally {
-            db.close()
         }
+        val doneCount = mine.count { it.status == "DONE" }
+        respond(client, 200, JSONObject().apply {
+            put("ok", true)
+            put("worker", name)
+            put("inHand", items)
+            put("doneTotal", doneCount)
+        })
     }
 
     /**
@@ -197,31 +193,27 @@ class LanServer(private val db: Db) {
      * حسابِ کسی را لو بدهد.
      */
     private suspend fun serveBoard(client: Socket) {
-        try {
-            val assignments = db.sewingAssignmentDao().observeInProgress().first()
-            val orders = db.orderDao().observeAll().first()
-            val byCode = orders.associateBy { it.orderCode }
-            val now = System.currentTimeMillis()
+        val assignments = db.sewingAssignmentDao().observeInProgress().first()
+        val orders = db.orderDao().observeAll().first()
+        val byCode = orders.associateBy { it.orderCode }
+        val now = System.currentTimeMillis()
 
-            val arr = JSONArray()
-            assignments.forEach { a ->
-                val o = byCode[a.orderCode]
-                arr.put(JSONObject().apply {
-                    put("tailor", a.tailorLabel.trim())
-                    put("orderCode", a.orderCode)
-                    put("design", o?.designTitle.orEmpty())
-                    put("qty", a.qty)
-                    put("days", ((now - a.createdAt) / 86_400_000L).toInt().coerceAtLeast(0))
-                    val due = o?.dueDate ?: 0L
-                    if (due > 0) put("dueIn", ((due - now) / 86_400_000L).toInt())
-                })
-            }
-            respond(client, 200, JSONObject().apply {
-                put("ok", true); put("rows", arr); put("at", now)
+        val arr = JSONArray()
+        assignments.forEach { a ->
+            val o = byCode[a.orderCode]
+            arr.put(JSONObject().apply {
+                put("tailor", a.tailorLabel.trim())
+                put("orderCode", a.orderCode)
+                put("design", o?.designTitle.orEmpty())
+                put("qty", a.qty)
+                put("days", ((now - a.createdAt) / 86_400_000L).toInt().coerceAtLeast(0))
+                val due = o?.dueDate ?: 0L
+                if (due > 0) put("dueIn", ((due - now) / 86_400_000L).toInt())
             })
-        } finally {
-            db.close()
         }
+        respond(client, 200, JSONObject().apply {
+            put("ok", true); put("rows", arr); put("at", now)
+        })
     }
 
     /** تنها راهِ نوشتن از شبکه — و فقط در صندوقِ درخواست‌ها. */
@@ -240,25 +232,21 @@ class LanServer(private val db: Db) {
             })
             return
         }
-        try {
-            val id = db.syncRequestDao().insert(
-                SyncRequest(
-                    deviceName = json.optString("device").take(60).ifBlank { "گوشی کارگر" },
-                    worker = json.optString("worker").trim().take(60),
-                    type = type,
-                    summary = json.optString("summary").take(200),
-                    refId = json.optLong("refId", 0L),
-                    amount = json.optInt("amount", 0),
-                    note = json.optString("note").take(300)
-                )
+        val id = db.syncRequestDao().insert(
+            SyncRequest(
+                deviceName = json.optString("device").take(60).ifBlank { "گوشی کارگر" },
+                worker = json.optString("worker").trim().take(60),
+                type = type,
+                summary = json.optString("summary").take(200),
+                refId = json.optLong("refId", 0L),
+                amount = json.optInt("amount", 0),
+                note = json.optString("note").take(300)
             )
-            respond(client, 200, JSONObject().apply {
-                put("ok", true); put("id", id)
-                put("message", "درخواست ثبت شد و منتظرِ تأییدِ کارفرماست.")
-            })
-        } finally {
-            db.close()
-        }
+        )
+        respond(client, 200, JSONObject().apply {
+            put("ok", true); put("id", id)
+            put("message", "درخواست ثبت شد و منتظرِ تأییدِ کارفرماست.")
+        })
     }
 
     private fun respond(client: Socket, status: Int, json: JSONObject) {
