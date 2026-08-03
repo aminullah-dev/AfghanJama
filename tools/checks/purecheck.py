@@ -121,6 +121,42 @@ if bad:
 
 print(f"✓ {len(files)} فایلِ :core — هیچ‌کدام به اندروید وابسته نیست")
 
+# ---- ارجاعِ کاملاً مقید از :core به بیرون ----
+#
+# `import` تنها راهِ نام بردن از یک کلاس نیست. `LanClient` سالها
+# `com.afghanjama.ui.vm.BoardRow` را **کاملاً مقید** صدا می‌زد — بی هیچ
+# خطِ import. وقتی آن فایل به `:core` رفت، اسکنِ ایمپورت چیزی ندید و
+# ساخت در CI شکست.
+#
+# هر نامِ کاملاً مقیدِ `com.afghanjama.*` که در `:core` نوشته شود باید
+# خودش هم در `:core` باشد.
+FQ = re.compile(r"\bcom\.afghanjama\.((?:\w+\.)+)([A-Z]\w*)")
+core_pkgs = set()
+for p_ in files:
+    for line in p_.read_text(encoding="utf-8").splitlines():
+        if line.startswith("package "):
+            core_pkgs.add(line.split()[1].strip())
+            break
+
+fq_bad = []
+for p_ in files:
+    for i, line in enumerate(p_.read_text(encoding="utf-8").splitlines(), 1):
+        s = line.strip()
+        if s.startswith(("import ", "package ", "*", "//")):
+            continue
+        for mm in FQ.finditer(line):
+            pkg = "com.afghanjama." + mm.group(1).rstrip(".")
+            if pkg not in core_pkgs:
+                fq_bad.append((p_.relative_to(CORE), i, f"{pkg}.{mm.group(2)}"))
+
+if fq_bad:
+    print(f"✗ {len(fq_bad)} ارجاعِ کاملاً مقید از :core به بستهٔ بیرونی")
+    for f, i, name in fq_bad:
+        print(f"  {f}:{i}  {name}")
+    print("\n  این‌ها خطِ import ندارند، پس از چشمِ اسکنرها می‌افتند.")
+    print("  یا آن نماد باید به :core بیاید، یا ارجاع برداشته شود.")
+    sys.exit(1)
+
 # ---- `internal`ِ :core که بیرون استفاده شده ----
 #
 # `internal` در کاتلین مرزِ **ماژول** دارد نه بسته. تا وقتی یک تابع در
