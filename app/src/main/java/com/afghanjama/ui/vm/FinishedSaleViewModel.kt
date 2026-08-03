@@ -5,8 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.afghanjama.data.entities.FinishedSale
 import com.afghanjama.data.entities.FinishedStock
 import com.afghanjama.data.StockFolders
+import com.afghanjama.data.SalePolicy
 import com.afghanjama.data.repo.Repo
-import com.afghanjama.prefs.SalePrefs
 import com.afghanjama.ui.format.fa
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -125,7 +125,7 @@ class FinishedSaleViewModel(private val repo: Repo) : ViewModel() {
                 _ui.update { it.copy(message = "تعداد فروش را وارد کنید.", isError = true) }
                 return
             }
-            if (qty > item.qty && !SalePrefs.allowNegativeStockCached()) {
+            if (qty > item.qty && !SalePolicy.allowNegativeStock()) {
                 _ui.update {
                     it.copy(
                         message = "تعداد فروش بیشتر از موجودی است. موجودی: ${item.qty.fa()} عدد",
