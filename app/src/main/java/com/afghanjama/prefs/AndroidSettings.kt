@@ -32,6 +32,13 @@ class AndroidSettings(private val ctx: Context) : Settings {
         p(file).edit().putBoolean(key, value).apply()
     }
 
+    override fun getLong(file: String, key: String, def: Long): Long =
+        p(file).getLong(key, def)
+
+    override fun putLong(file: String, key: String, value: Long) {
+        p(file).edit().putLong(key, value).apply()
+    }
+
     override fun remove(file: String, key: String) {
         p(file).edit().remove(key).apply()
     }

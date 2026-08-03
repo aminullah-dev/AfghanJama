@@ -63,7 +63,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.LocalContext
+import com.afghanjama.data.ShiftPolicy
+import com.afghanjama.prefs.BackupPrefs
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.components.IconBadge
@@ -74,8 +75,6 @@ import com.afghanjama.ui.format.elapsedHm
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.vm.ActionCenterViewModel
 import com.afghanjama.ui.vm.HomeViewModel
-import com.afghanjama.work.AutoBackupWorker
-import com.afghanjama.work.ShiftReminderWorker
 import kotlinx.coroutines.delay
 
 private data class HomeAction(
@@ -126,15 +125,8 @@ fun HomeDashboardScreen(
     val action by actionVm.ui.collectAsState()
 
     // سنِ آخرین بکاپ برای بنرِ هشدار
-    val backupCtx = LocalContext.current
-    LaunchedEffect(Unit) {
-        actionVm.setLastBackup(
-            backupCtx.getSharedPreferences(
-                AutoBackupWorker.PREFS,
-                android.content.Context.MODE_PRIVATE
-            ).getLong(AutoBackupWorker.KEY_LAST, 0L)
-        )
-    }
+    val backupSettings = LocalSettings.current
+    LaunchedEffect(Unit) { actionVm.setLastBackup(BackupPrefs.lastAuto(backupSettings)) }
 
     // ساعتِ شیفت: هر ۳۰ ثانیه تیک می‌خورد تا مدتِ حضورِ باز دیده شود
     var nowTick by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -204,7 +196,6 @@ fun HomeDashboardScreen(
         // پرداخت و بنرهای هشدار می‌آمد، یعنی وسطِ صفحه — جایی که هیچ
         // سرصفحه‌ای نباید باشد.
         item(span = { fullSpan() }) {
-            val ctx = LocalContext.current
             val settings = LocalSettings.current
             val coName = remember { CompanyPrefs.shopName(settings) }
             val hour = remember { java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY) }
@@ -322,7 +313,7 @@ fun HomeDashboardScreen(
             item(span = { fullSpan() }) {
                 val oldest = insideNow.minByOrNull { it.checkIn }!!
                 val nearEnd = insideNow.any {
-                    (nowTick - it.checkIn) >= ShiftReminderWorker.WARN_AFTER_MS
+                    (nowTick - it.checkIn) >= ShiftPolicy.WARN_AFTER_MS
                 }
                 Card(
                     modifier = Modifier.fillMaxWidth(),

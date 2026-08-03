@@ -12,6 +12,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.afghanjama.data.ShiftPolicy
 import com.afghanjama.data.buildAppDatabase
 import java.util.concurrent.TimeUnit
 
@@ -82,9 +83,12 @@ class ShiftReminderWorker(
         const val NOTIFICATION_ID_BASE = 2000
         const val KEY_EMPLOYEE = "employee"
 
-        /** شیفت ۸ ساعته؛ هشدار ۳۰ دقیقه قبل از پایان → ۷:۳۰ بعد از ورود. */
-        val WARN_AFTER_MS: Long =
-            TimeUnit.HOURS.toMillis(8) - TimeUnit.MINUTES.toMillis(30)
+        /**
+         * از `ShiftPolicy` می‌آید نه از اینجا: همان عدد را دو صفحه هم
+         * می‌خوانند و اگر اینجا تعریف می‌شد، آن‌ها به WorkManager وابسته
+         * می‌ماندند.
+         */
+        val WARN_AFTER_MS: Long = ShiftPolicy.WARN_AFTER_MS
 
         private val VIBRATE_PATTERN = longArrayOf(0, 600, 250, 600, 250, 900)
 

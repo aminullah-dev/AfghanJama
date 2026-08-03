@@ -67,6 +67,16 @@ class FileSettings(private val dir: File) : Settings {
     }
 
     @Synchronized
+    override fun getLong(file: String, key: String, def: Long): Long =
+        props(file).getProperty(key)?.toLongOrNull() ?: def
+
+    @Synchronized
+    override fun putLong(file: String, key: String, value: Long) {
+        props(file).setProperty(key, value.toString())
+        write(file)
+    }
+
+    @Synchronized
     override fun remove(file: String, key: String) {
         props(file).remove(key)
         write(file)

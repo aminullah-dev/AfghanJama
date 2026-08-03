@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.afghanjama.prefs.BackupPrefs
 import com.afghanjama.AppInfo
 import com.afghanjama.data.DB_NAME
 import com.afghanjama.data.DB_VERSION
@@ -99,8 +100,7 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
 
     /** زمان آخرین بکاپ خودکار (۰ = هنوز اجرا نشده). */
     fun lastAutoBackupTime(context: Context): Long =
-        context.getSharedPreferences(AutoBackupWorker.PREFS, Context.MODE_PRIVATE)
-            .getLong(AutoBackupWorker.KEY_LAST, 0L)
+        BackupPrefs.lastAuto(context.settings)
 
     // ------------------------------------------------
     // بازیابی: جایگزینی فایل دیتابیس + نیاز به راه‌اندازی دوباره اپ

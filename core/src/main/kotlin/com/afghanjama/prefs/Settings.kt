@@ -28,5 +28,11 @@ interface Settings {
     fun getBoolean(file: String, key: String, def: Boolean): Boolean
     fun putBoolean(file: String, key: String, value: Boolean)
 
+    // زمان‌ها (میلی‌ثانیه از مبدأ) — مثلِ «آخرین پشتیبان کِی گرفته شد».
+    // با رشته هم می‌شد ولی آن‌وقت هر خواننده باید خودش تبدیل می‌کرد و
+    // یکی‌شان روزی فراموش می‌کرد.
+    fun getLong(file: String, key: String, def: Long): Long
+    fun putLong(file: String, key: String, value: Long)
+
     fun remove(file: String, key: String)
 }
