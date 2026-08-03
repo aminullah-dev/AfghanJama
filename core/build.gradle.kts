@@ -11,6 +11,10 @@
  */
 plugins {
     id("org.jetbrains.kotlin.jvm")
+    // صفحه‌های مشترک `@Composable`اند، پس پردازشگرِ Compose باید اینجا
+    // هم اجرا شود. این افزونه به اندروید کاری ندارد؛ روی هر ماژولِ
+    // کاتلین می‌نشیند.
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 dependencies {
@@ -55,6 +59,44 @@ dependencies {
      * `:desktop` خودش می‌آوردش.
      */
     compileOnly("org.json:json:20260719")
+
+    /*
+     * Compose برای صفحه‌های مشترک — و `compileOnly` بودنش عمدی و مهم است.
+     *
+     * چرا اصلاً ممکن است: کلاس‌های Compose روی هر دو سکو **نامِ یکسان**
+     * دارند (`androidx.compose.material3.Text` روی گوشی و روی پی‌سی یکی
+     * است؛ نسخهٔ اندرویدیِ Compose Multiplatform خودش همان androidx است).
+     * پس بایت‌کدی که اینجا ساخته می‌شود هر دو جا می‌نشیند.
+     *
+     * چرا `compileOnly` و نه `api`: با `api` این‌ها به گرافِ وابستگیِ
+     * `:app` اضافه می‌شدند و می‌توانستند با `compose-bom` سرِ نسخه دعوا
+     * کنند. با `compileOnly` گرافِ وابستگیِ اپِ اندروید **دست‌نخورده**
+     * می‌ماند — یعنی این فاز از اساس نمی‌تواند چیزی را که در APK
+     * می‌نشیند عوض کند. هر مصرف‌کننده Compose خودش را دارد: `:app` از
+     * `compose-bom` و `:desktop` از `compose.desktop.currentOs`.
+     *
+     * چرا `-desktop`: اینها jarِ سادهٔ JVMاند و ابهامِ variant ندارند.
+     * نسخهٔ بی‌پسوند فراداده‌ای چندسکویی دارد که یک ماژولِ `kotlin("jvm")`
+     * بدونِ افزونهٔ Compose ممکن است نتواند درست تفکیکش کند. چون
+     * `compileOnly` است، این نام هرگز به اندروید نشت نمی‌کند.
+     */
+    val compose = "1.8.0"
+    compileOnly("org.jetbrains.compose.runtime:runtime-desktop:$compose")
+    compileOnly("org.jetbrains.compose.foundation:foundation-desktop:$compose")
+    compileOnly("org.jetbrains.compose.material3:material3-desktop:$compose")
+    compileOnly("org.jetbrains.compose.ui:ui-desktop:$compose")
+    compileOnly("org.jetbrains.compose.ui:ui-text-desktop:$compose")
+    compileOnly("org.jetbrains.compose.ui:ui-unit-desktop:$compose")
+    compileOnly("org.jetbrains.compose.ui:ui-graphics-desktop:$compose")
+
+    /*
+     * آیکون‌ها روی ۱.۷.۳ قفل‌اند و این یک محدودیتِ واقعی است، نه سلیقه:
+     * `material-icons-extended` برای دسکتاپ بعد از ۱.۷.۳ منتشر نشده
+     * (۱.۸.۰ روی Maven Central وجود ندارد — بررسی شد). خودِ آیکون‌ها
+     * فقط مسیرِ برداری‌اند و بینِ نسخه‌ها عوض نمی‌شوند، پس این قفل بی‌خطر
+     * است؛ ولی اگر روزی آیکونی پیدا نشد، علتش همین است.
+     */
+    compileOnly("org.jetbrains.compose.material:material-icons-extended-desktop:1.7.3")
 }
 
 kotlin {

@@ -34,10 +34,34 @@ BANNED = ("import android.", "import androidx.")
 # می‌شود؛ Gradle برای هر مصرف‌کننده نسخهٔ درستش را برمی‌دارد. پس مثلِ
 # `room-common` اینجا مجاز است — ولی فقط همین دو نام، نه هر چیزی که
 # زیرِ `androidx.lifecycle` باشد.
+#
+# و `androidx.compose.*` — صفحه‌های مشترکِ فازِ ۴.۵.
+#
+# همان استدلال: کلاس‌های Compose روی گوشی و پی‌سی نامِ یکسان دارند، پس
+# یک صفحه یک بار نوشته می‌شود و هر دو جا اجرا. اینجا `compileOnly`اند تا
+# گرافِ وابستگیِ اپِ اندروید دست‌نخورده بماند.
 ALLOWED = (
     "import androidx.room.",
     "import androidx.lifecycle.ViewModel",
     "import androidx.lifecycle.viewModelScope",
+    "import androidx.compose.",
+)
+
+# ...ولی نه هر چیزی زیرِ androidx.compose.
+#
+# اینها اسمشان Compose است ولی زیرشان اندروید است: `LocalContext` یک
+# `android.content.Context` می‌دهد، `stringResource` به `res/` گوشی نگاه
+# می‌کند، و `Preview` ابزارِ Android Studio است. اگر یکی از اینها وارد
+# یک صفحهٔ مشترک شود، آن صفحه دیگر روی ویندوز کامپایل نمی‌شود — و چون
+# `:core` را رانرِ لینوکس با jarِ دسکتاپ می‌سازد، کامپایلر هم می‌گیردش؛
+# ولی این بررسی زودتر و با پیامِ روشن‌تر می‌گیرد.
+COMPOSE_ANDROID = (
+    "import androidx.compose.ui.platform.LocalContext",
+    "import androidx.compose.ui.platform.LocalConfiguration",
+    "import androidx.compose.ui.platform.LocalView",
+    "import androidx.compose.ui.res.",
+    "import androidx.compose.ui.tooling.",
+    "import androidx.compose.ui.viewinterop.",
 )
 
 # ...و اینها زیرِ `androidx.lifecycle` هستند ولی اندروید می‌خواهند.
@@ -79,6 +103,7 @@ for p in files:
             "import androidx.room.Room",
         )
         runtime = runtime or line.startswith(LIFECYCLE_ANDROID)
+        runtime = runtime or line.startswith(COMPOSE_ANDROID)
         if runtime or (line.startswith(BANNED) and not line.startswith(ALLOWED)):
             bad.append((p.relative_to(CORE), i, line.strip()))
 
