@@ -49,15 +49,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.afghanjama.platform.LocalDocs
 import com.afghanjama.data.dao.PartyBalance
 import com.afghanjama.data.entities.ledgerRefLabel
 import com.afghanjama.data.entities.partyTypeLabel
-import com.afghanjama.pdf.PartyStatementPdf
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.vm.LedgerViewModel
-import com.afghanjama.util.ShareUtil
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -85,7 +84,7 @@ fun LedgerScreen(
     vm: LedgerViewModel,
     onBack: () -> Unit
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val docs = LocalDocs.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val balances by vm.balances.collectAsState()
     val entries by vm.entries.collectAsState()
@@ -121,10 +120,9 @@ fun LedgerScreen(
                     TextButton(onClick = {
                         // صورت‌حساب PDF برای اشتراک با خودِ طرف
                         scope.launch {
-                            val file = withContext(Dispatchers.IO) {
-                                PartyStatementPdf.create(context, p.type, p.name, p.net, rows)
-                            }
-                            ShareUtil.shareFile(context, file, "application/pdf", "اشتراک صورت‌حساب")
+                            docs.partyStatement(
+                                p.type, p.name, p.net, rows, "اشتراک صورت‌حساب"
+                            )
                         }
                     }) { Text("PDF") }
                     TextButton(onClick = {

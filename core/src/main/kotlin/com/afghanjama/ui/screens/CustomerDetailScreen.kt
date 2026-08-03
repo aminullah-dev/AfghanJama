@@ -44,10 +44,8 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
+import com.afghanjama.platform.LocalDocs
 import com.afghanjama.ui.components.OrderCodeLine
-import com.afghanjama.util.ShareUtil
-import com.afghanjama.pdf.StatementPdf
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -71,7 +69,7 @@ fun CustomerDetailScreen(
 
     val s by vm.summary.collectAsState()
     val designCodeByOrder by vm.designCodeByOrder.collectAsState()
-    val context = LocalContext.current
+    val docs = LocalDocs.current
     val scope = rememberCoroutineScope()
     var sharing by remember { mutableStateOf(false) }
     val measurements by vm.measurements.collectAsState()
@@ -150,14 +148,10 @@ fun CustomerDetailScreen(
                                 sharing = true
                                 scope.launch {
                                     val data = vm.statementData(name)
-                                    val file = withContext(Dispatchers.IO) {
-                                        StatementPdf.create(
-                                            context, data,
-                                            fileName = "hesab-${name.trim()}.pdf"
-                                        )
-                                    }
-                                    ShareUtil.shareFile(
-                                        context, file, "application/pdf", "فرستادن کارت حساب"
+                                    docs.statement(
+                                        data,
+                                        "hesab-${name.trim()}.pdf",
+                                        "فرستادن کارت حساب"
                                     )
                                     sharing = false
                                 }
