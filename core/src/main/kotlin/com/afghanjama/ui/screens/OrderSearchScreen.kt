@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import android.content.Intent
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
@@ -37,10 +36,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.afghanjama.platform.LocalSystemActions
 import com.afghanjama.ui.components.OrderCodeLine
 import com.afghanjama.data.entities.Order
 import com.afghanjama.data.entities.OrderStatus
@@ -158,7 +157,7 @@ private fun receiptText(shop: String, order: Order, stageLabel: String): String 
 
 @Composable
 private fun SearchResultCard(order: Order, designCode: String, onClick: () -> Unit) {
-    val context = LocalContext.current
+    val system = LocalSystemActions.current
     val settings = LocalSettings.current
     val stageIndex = stageOrder.indexOfFirst { it.first == order.status }.coerceAtLeast(0)
     val stageLabel = stageOrder.getOrNull(stageIndex)?.second ?: order.status
@@ -249,11 +248,10 @@ private fun SearchResultCard(order: Order, designCode: String, onClick: () -> Un
 
             OutlinedButton(
                 onClick = {
-                    val intent = Intent(Intent.ACTION_SEND).apply {
-                        type = "text/plain"
-                        putExtra(Intent.EXTRA_TEXT, receiptText(CompanyPrefs.shopName(settings), order, stageLabel))
-                    }
-                    context.startActivity(Intent.createChooser(intent, "اشتراک رسید سفارش"))
+                    system.shareText(
+                        "اشتراک رسید سفارش",
+                        receiptText(CompanyPrefs.shopName(settings), order, stageLabel)
+                    )
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {

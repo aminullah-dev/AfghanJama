@@ -38,7 +38,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.afghanjama.ui.components.OrderCodeLine
@@ -61,7 +60,6 @@ fun MyWorkScreen(
     tailorLabels: List<String>,
     onBack: () -> Unit
 ) {
-    val context = LocalContext.current
     val settings = LocalSettings.current
     val ui by vm.ui.collectAsState()
     val designCodeByOrder by vm.designCodeByOrder.collectAsState()

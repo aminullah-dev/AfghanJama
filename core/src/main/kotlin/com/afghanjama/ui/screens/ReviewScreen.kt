@@ -18,7 +18,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import android.content.Intent
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Share
@@ -51,10 +50,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.afghanjama.platform.LocalSystemActions
 import com.afghanjama.ui.components.OrderCodeLine
 import com.afghanjama.data.entities.Order
 import com.afghanjama.prefs.LocalSettings
@@ -72,7 +71,7 @@ fun ReviewScreen(
     onBack: () -> Unit,
     onGoSewing: () -> Unit
 ) {
-    val context = LocalContext.current
+    val system = LocalSystemActions.current
     val settings = LocalSettings.current
     val orders by vm.ordersInReview.collectAsState(initial = emptyList())
     val designCodeByOrder by vm.designCodeByOrder.collectAsState()
@@ -175,11 +174,10 @@ fun ReviewScreen(
                     // رسیدِ ناظر: فهرستِ کارهای منتظرِ بررسی + یادآوری
                     IconButton(
                         onClick = {
-                            val intent = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, inspectorBrief(CompanyPrefs.shopName(settings), orders))
-                            }
-                            context.startActivity(Intent.createChooser(intent, "اشتراک رسید ناظر"))
+                            system.shareText(
+                                "اشتراک رسید ناظر",
+                                inspectorBrief(CompanyPrefs.shopName(settings), orders)
+                            )
                         },
                         enabled = orders.isNotEmpty()
                     ) {

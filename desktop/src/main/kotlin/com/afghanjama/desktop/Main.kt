@@ -47,6 +47,8 @@ import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.desktop.data.LedgerStatus
 import com.afghanjama.desktop.data.LedgerStatusViewModel
 import com.afghanjama.desktop.data.desktopSettings
+import com.afghanjama.desktop.platform.DesktopSystemActions
+import com.afghanjama.platform.LocalSystemActions
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.vm.SelfCheckViewModel
@@ -115,7 +117,8 @@ fun main() = application {
                 // صفحه‌های مشترک تنظیمات را از اینجا می‌گیرند، همان‌طور
                 // که روی اندروید از `MainActivity`. بی این خط، اولین
                 // صفحهٔ مشترکی که ویندوز نشان دهد سرِ اجرا می‌شکند.
-                LocalSettings provides desktopSettings()
+                LocalSettings provides desktopSettings(),
+                LocalSystemActions provides DesktopSystemActions()
             ) {
                 App()
             }

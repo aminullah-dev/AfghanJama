@@ -41,7 +41,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -74,8 +73,6 @@ fun LoginScreen(
     val ui by vm.ui.collectAsState()
     var pin by remember { mutableStateOf("") }
     var roleMenu by remember { mutableStateOf(false) }
-
-    val ctx = LocalContext.current
 
     val settings = LocalSettings.current
     val coName = remember { CompanyPrefs.name(settings) }

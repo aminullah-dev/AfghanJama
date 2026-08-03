@@ -17,6 +17,8 @@ import androidx.compose.runtime.setValue
 import com.afghanjama.data.buildAppDatabase
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.prefs.AndroidSettings
+import com.afghanjama.platform.AndroidSystemActions
+import com.afghanjama.platform.LocalSystemActions
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.ui.nav.AppNav
 import com.afghanjama.ui.screens.PinLockScreen
@@ -91,9 +93,13 @@ class MainActivity : FragmentActivity() {
         // صفحه‌هایی که به `:core` رفته‌اند به‌جای `LocalContext` این را
         // می‌گیرند — همان یک خط بود که نگهشان می‌داشت در `:app`.
         val settings = AndroidSettings(applicationContext)
+        val system = AndroidSystemActions(applicationContext)
 
         setContent {
-          CompositionLocalProvider(LocalSettings provides settings) {
+          CompositionLocalProvider(
+            LocalSettings provides settings,
+            LocalSystemActions provides system
+          ) {
             KhayatYarTheme {
                 // قفل اپ: اگر رمز تنظیم شده باشد، اول باید باز شود
                 var unlocked by remember { mutableStateOf(!AppLock.isPinSet(applicationContext)) }

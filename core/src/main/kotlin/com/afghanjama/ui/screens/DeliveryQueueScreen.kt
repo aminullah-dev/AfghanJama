@@ -2,8 +2,6 @@
 
 package com.afghanjama.ui.screens
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -38,7 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import com.afghanjama.platform.LocalSystemActions
 import com.afghanjama.ui.components.OrderCodeLine
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.SalePrefs
@@ -70,7 +68,7 @@ fun DeliveryQueueScreen(
     val ui by vm.ui.collectAsState()
     val designCodeByOrder by vm.designCodeByOrder.collectAsState()
     val prepays by vm.prepayOf.collectAsState()
-    val context = LocalContext.current
+    val system = LocalSystemActions.current
     val settings = LocalSettings.current
 
     var deliverTarget by remember { mutableStateOf<UUID?>(null) }
@@ -219,11 +217,7 @@ fun DeliveryQueueScreen(
                             if (o.customerPhone.isNotBlank()) {
                                 OutlinedButton(
                                     onClick = {
-                                        runCatching {
-                                            context.startActivity(
-                                                Intent(Intent.ACTION_DIAL, Uri.parse("tel:${o.customerPhone}"))
-                                            )
-                                        }
+                                        system.dial(o.customerPhone)
                                     },
                                     modifier = Modifier.weight(1f)
                                 ) {

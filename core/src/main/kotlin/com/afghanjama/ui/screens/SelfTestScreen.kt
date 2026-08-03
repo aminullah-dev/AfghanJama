@@ -2,7 +2,6 @@
 
 package com.afghanjama.ui.screens
 
-import android.content.Intent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -37,9 +36,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.afghanjama.platform.LocalSystemActions
 import com.afghanjama.AppInfo
 import com.afghanjama.selftest.CheckResult
 import com.afghanjama.selftest.CheckStatus
@@ -62,7 +61,7 @@ fun SelfTestScreen(
     onBack: () -> Unit
 ) {
     val ui by vm.ui.collectAsState()
-    val context = LocalContext.current
+    val system = LocalSystemActions.current
 
     LaunchedEffect(Unit) { if (ui.results.isEmpty()) vm.run() }
 
@@ -72,11 +71,7 @@ fun SelfTestScreen(
         actions = {
             if (ui.results.isNotEmpty()) {
                 IconButton(onClick = {
-                    val intent = Intent(Intent.ACTION_SEND).apply {
-                        type = "text/plain"
-                        putExtra(Intent.EXTRA_TEXT, reportText(ui.results, ui.ranAt))
-                    }
-                    context.startActivity(Intent.createChooser(intent, "اشتراک نتیجهٔ خودآزمایی"))
+                    system.shareText("اشتراک نتیجهٔ خودآزمایی", reportText(ui.results, ui.ranAt))
                 }) {
                     Icon(Icons.Default.Share, contentDescription = "اشتراک نتیجه")
                 }

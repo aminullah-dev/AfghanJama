@@ -2,7 +2,6 @@
 
 package com.afghanjama.ui.screens
 
-import android.content.Intent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -54,11 +53,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.afghanjama.platform.LocalSystemActions
 import com.afghanjama.data.entities.Order
 import java.util.UUID
 import com.afghanjama.data.entities.SewingAssignment
@@ -501,7 +500,7 @@ private fun InProgressCard(
     onDone: (String, Int) -> Unit,
     onCancel: () -> Unit
 ) {
-    val context = LocalContext.current
+    val system = LocalSystemActions.current
     var showDone by remember { mutableStateOf(false) }
 
     if (showDone) {
@@ -577,11 +576,7 @@ private fun InProgressCard(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(
                     onClick = {
-                        val intent = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_TEXT, receiptText)
-                        }
-                        context.startActivity(Intent.createChooser(intent, "اشتراک رسید تحویل به خیاط"))
+                        system.shareText("اشتراک رسید تحویل به خیاط", receiptText)
                     },
                     modifier = Modifier.weight(1f)
                 ) {
