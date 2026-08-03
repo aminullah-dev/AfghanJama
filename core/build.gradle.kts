@@ -82,6 +82,9 @@ dependencies {
      */
     val compose = "1.8.0"
     compileOnly("org.jetbrains.compose.runtime:runtime-desktop:$compose")
+    // `rememberSaveable` جدا بسته‌بندی شده، نه داخلِ runtime. `MasterDataScreen`
+    // از آن استفاده می‌کند و بدونِ این خط فقط سرِ کامپایل معلوم می‌شد.
+    compileOnly("org.jetbrains.compose.runtime:runtime-saveable-desktop:$compose")
     compileOnly("org.jetbrains.compose.foundation:foundation-desktop:$compose")
     compileOnly("org.jetbrains.compose.material3:material3-desktop:$compose")
     compileOnly("org.jetbrains.compose.ui:ui-desktop:$compose")

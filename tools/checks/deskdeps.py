@@ -22,7 +22,7 @@ import sys
 
 import _src
 
-DESKTOP_SRC = _src.ROOTS[-1]
+DESKTOP_SRC = _src.DESKTOP
 BUILD = _src.REPO / "desktop/build.gradle.kts"
 
 # خانواده‌هایی که `compose.desktop.currentOs` با خودش می‌آورد.
