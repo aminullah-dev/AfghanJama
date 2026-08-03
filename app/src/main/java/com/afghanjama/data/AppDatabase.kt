@@ -127,34 +127,34 @@ import com.afghanjama.data.entities.WorkCost
  * توضیحِ کامل در Db.kt.
  */
 abstract class AppDatabase : RoomDatabase(), Db {
-    abstract fun orderDao(): OrderDao
-    abstract fun orderCounterDao(): OrderCounterDao
-    abstract fun financeDao(): FinanceDao
-    abstract fun masterDataDao(): MasterDataDao
-    abstract fun catalogDao(): CatalogDao
-    abstract fun tailorWageDao(): TailorWageDao
-    abstract fun customerPaymentDao(): CustomerPaymentDao
-    abstract fun orderStageLogDao(): OrderStageLogDao
-    abstract fun orderFabricDao(): OrderFabricDao
-    abstract fun sewingAssignmentDao(): SewingAssignmentDao
-    abstract fun orderWorkItemDao(): OrderWorkItemDao
-    abstract fun materialStockDao(): MaterialStockDao
-    abstract fun procurementDao(): ProcurementDao
-    abstract fun finishedStockDao(): FinishedStockDao
-    abstract fun supplierDao(): SupplierDao
-    abstract fun customerMeasurementDao(): CustomerMeasurementDao
-    abstract fun stockMovementDao(): StockMovementDao
-    abstract fun cuttingRecordDao(): CuttingRecordDao
-    abstract fun qcRecordDao(): QcRecordDao
-    abstract fun attendanceDao(): AttendanceDao
-    abstract fun ledgerDao(): LedgerDao
-    abstract fun documentDao(): DocumentDao
-    abstract fun journalDao(): JournalDao
-    abstract fun auditDao(): AuditDao
-    abstract fun salaryDao(): SalaryDao
-    abstract fun breakTimeDao(): BreakTimeDao
-    abstract fun syncRequestDao(): SyncRequestDao
-    abstract fun orderPhotoDao(): OrderPhotoDao
+    abstract override fun orderDao(): OrderDao
+    abstract override fun orderCounterDao(): OrderCounterDao
+    abstract override fun financeDao(): FinanceDao
+    abstract override fun masterDataDao(): MasterDataDao
+    abstract override fun catalogDao(): CatalogDao
+    abstract override fun tailorWageDao(): TailorWageDao
+    abstract override fun customerPaymentDao(): CustomerPaymentDao
+    abstract override fun orderStageLogDao(): OrderStageLogDao
+    abstract override fun orderFabricDao(): OrderFabricDao
+    abstract override fun sewingAssignmentDao(): SewingAssignmentDao
+    abstract override fun orderWorkItemDao(): OrderWorkItemDao
+    abstract override fun materialStockDao(): MaterialStockDao
+    abstract override fun procurementDao(): ProcurementDao
+    abstract override fun finishedStockDao(): FinishedStockDao
+    abstract override fun supplierDao(): SupplierDao
+    abstract override fun customerMeasurementDao(): CustomerMeasurementDao
+    abstract override fun stockMovementDao(): StockMovementDao
+    abstract override fun cuttingRecordDao(): CuttingRecordDao
+    abstract override fun qcRecordDao(): QcRecordDao
+    abstract override fun attendanceDao(): AttendanceDao
+    abstract override fun ledgerDao(): LedgerDao
+    abstract override fun documentDao(): DocumentDao
+    abstract override fun journalDao(): JournalDao
+    abstract override fun auditDao(): AuditDao
+    abstract override fun salaryDao(): SalaryDao
+    abstract override fun breakTimeDao(): BreakTimeDao
+    abstract override fun syncRequestDao(): SyncRequestDao
+    abstract override fun orderPhotoDao(): OrderPhotoDao
 
     // ------------------------------------------------------------
     // پیاده‌سازیِ اندرویدیِ عملیاتِ سطحِ فایلِ `Db`.
