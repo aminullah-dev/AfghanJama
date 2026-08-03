@@ -11,7 +11,10 @@
 بررسی در یک ثانیه همان را می‌گوید.
 """
 import pathlib
+import re
 import sys
+
+import _src
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 CORE = REPO / "core/src/main/kotlin"
@@ -117,6 +120,42 @@ if bad:
     sys.exit(1)
 
 print(f"✓ {len(files)} فایلِ :core — هیچ‌کدام به اندروید وابسته نیست")
+
+# ---- `internal`ِ :core که بیرون استفاده شده ----
+#
+# `internal` در کاتلین مرزِ **ماژول** دارد نه بسته. تا وقتی یک تابع در
+# `:app` بود، `internal` بی‌ضرر بود؛ همان تابع که به `:core` می‌رود،
+# `internal`اش یعنی «`:app` دیگر نمی‌بیندت».
+#
+# این یک بار افتاد: `qtyFa` با `internal` به `:core` رفت و ساختِ اپ
+# شکست. کامپایلر می‌گیردش، ولی ده دقیقه بعد در CI.
+CORE_INTERNAL = re.compile(
+    r"^internal\s+(?:fun|val|var|class|object|interface)\s+(?:[\w.<>]+\.)?(\w+)", re.M
+)
+internals = {}
+for p_ in files:
+    for mm in CORE_INTERNAL.finditer(p_.read_text(encoding="utf-8")):
+        internals[mm.group(1)] = p_.relative_to(CORE)
+
+outside = []
+if internals:
+    others = []
+    for r in _src.ROOTS:
+        if r.resolve() == CORE.resolve():
+            continue
+        others.extend(r.rglob("*.kt"))
+    for p_ in others:
+        body = p_.read_text(encoding="utf-8")
+        for name, owner in internals.items():
+            if re.search(rf"\b{re.escape(name)}\s*\(", body):
+                outside.append((name, owner, p_.name))
+
+if outside:
+    print(f"✗ {len(outside)} نمادِ internalِ :core از بیرون استفاده شده")
+    for name, owner, user in outside:
+        print(f"  «{name}» در {owner}  ←  {user}")
+    print("\n  `internal` مرزِ ماژول دارد. اگر بیرون لازم است، عمومی‌اش کنید.")
+    sys.exit(1)
 
 # ---- نگهبانِ خودِ بررسی‌ها ----
 #

@@ -20,7 +20,14 @@ data class InvoiceLine(
  * تعداد را برای چاپ می‌نویسد: عددِ درست بدونِ «٫۰» اضافه، و اعشاری بدونِ
  * صفرهای دنباله‌دار. «۴» نه «۴٫۰»، و «۲٫۵» نه «۲٫۵۰۰۰».
  */
-internal fun Double.qtyFa(): String {
+/**
+ * عددِ مقدار به فارسی — بی صفرهای بی‌فایدهٔ اعشار.
+ *
+ * **عمومی است نه `internal`.** وقتی این تابع در `:app` بود، `internal`
+ * درست بود. حالا که در `:core` است، `internal` یعنی `:app` نمی‌بیندش —
+ * و همان یک کلمه ساخت را شکست.
+ */
+fun Double.qtyFa(): String {
     val whole = toLong()
     if (this == whole.toDouble()) return whole.fa()
     return toString().trimEnd('0').trimEnd('.').toPersianDigits()
