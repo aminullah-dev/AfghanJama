@@ -7,13 +7,17 @@
 import pathlib as _pl
 _REPO = str(_pl.Path(__file__).resolve().parents[2])
 import re, glob, sys
+import sys as _s2, pathlib as _p2
+_s2.path.insert(0, str(_p2.Path(__file__).resolve().parent))
+import _src
+
 SIG = {"drawHeader":7,"drawFooter":6,"rule":3,"section":5,"kv":7,
        "tableHeader":6,"tableRow":7,"totalBox":6,"signatures":6,"note":5,
        "boxedNote":5,"drawCells":6}
 RECV = "PdfKit."
 NAMED = re.compile(r'^\s*[A-Za-z_]\w*\s*=(?!=)')
 bad=[]
-for path in glob.glob(_REPO + '/app/src/main/java/com/afghanjama/**/*.kt', recursive=True):
+for path in [str(x) for x in _src.kt_files()]:
     src=open(path).read()
     for fn,pos in SIG.items():
         for m in re.finditer(re.escape(RECV)+fn+r'\s*\(', src):

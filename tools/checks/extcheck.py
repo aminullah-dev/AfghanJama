@@ -9,12 +9,16 @@
 import pathlib as _pl
 _REPO = str(_pl.Path(__file__).resolve().parents[2])
 import re, glob, os, sys, collections
+import sys as _s2, pathlib as _p2
+_s2.path.insert(0, str(_p2.Path(__file__).resolve().parent))
+import _src
 
-ROOT = _REPO + '/app/src/main/java/com/afghanjama'
+
+ROOT = None  # مسیرها از _src می‌آیند
 
 # ۱) همهٔ توابعِ الحاقیِ سطحِ بالای پروژه را پیدا کن: fun Type.name(...)
 ext = {}          # نام -> پکیج
-for path in glob.glob(ROOT+'/**/*.kt', recursive=True):
+for path in [str(x) for x in _src.kt_files()]:
     src = open(path).read()
     pkg = re.search(r'^package\s+([\w.]+)', src, re.M)
     if not pkg: continue
@@ -23,7 +27,7 @@ for path in glob.glob(ROOT+'/**/*.kt', recursive=True):
         ext.setdefault(m.group(1), set()).add(pkg)
 
 bad = []
-for path in glob.glob(ROOT+'/**/*.kt', recursive=True):
+for path in [str(x) for x in _src.kt_files()]:
     src = open(path).read()
     pkg = re.search(r'^package\s+([\w.]+)', src, re.M)
     pkg = pkg.group(1) if pkg else ''

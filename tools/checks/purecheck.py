@@ -37,3 +37,27 @@ if bad:
     sys.exit(1)
 
 print(f"✓ {len(files)} فایلِ :core — هیچ‌کدام به اندروید وابسته نیست")
+
+# ---- نگهبانِ خودِ بررسی‌ها ----
+#
+# هیچ بررسی‌ای نباید مسیرِ ماژول را در خودش سفت کند. با دو ماژول شدنِ
+# پروژه، `extcheck` دقیقاً همین را داشت و بی‌سروصدا از ۹ تابع به ۱ تابع
+# افتاد — سبز ماند در حالی که تقریباً هیچ نمی‌دید. بدترین حالتِ ممکن
+# برای یک بررسی.
+checks = pathlib.Path(__file__).resolve().parent
+hard = []
+for p in sorted(checks.glob("*.py")):
+    if p.name in ("_src.py", "purecheck.py"):
+        continue
+    for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
+        if "app/src/main/java" in line or "core/src/main/kotlin" in line:
+            hard.append((p.name, i, line.strip()))
+
+if hard:
+    print(f"\n✗ {len(hard)} بررسی مسیرِ ماژول را در خودش سفت کرده")
+    for f, i, line in hard:
+        print(f"  {f}:{i}  {line[:78]}")
+    print("\n  مسیرها باید از _src بیایند، وگرنه ماژولِ تازه از دیدشان می‌افتد.")
+    sys.exit(1)
+
+print(f"✓ هیچ بررسی‌ای مسیرِ ماژول را سفت نکرده")

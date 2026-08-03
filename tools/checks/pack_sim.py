@@ -3,7 +3,11 @@
 """بسته‌بندی: پول عوض نشود، انبار عددی شود، مصرف با واحدِ درست حساب شود."""
 import re, sys
 from pathlib import Path
-ROOT = Path(__file__).resolve().parents[2] / "app/src/main/java/com/afghanjama"
+import sys as _s2, pathlib as _p2
+_s2.path.insert(0, str(_p2.Path(__file__).resolve().parent))
+import _src
+
+ROOT = _src.ANY
 fails = []
 def check(c, m):
     if not c: fails.append(m)

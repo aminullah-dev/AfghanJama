@@ -408,8 +408,13 @@ fun HomeDashboardScreen(
                                 buildString {
                                     append("• ${f.name}: ")
                                     append("${f.amount.toLong().fa()} ${f.unit} مانده")
-                                    if (f.daysLeft != null) {
-                                        append(" — حدود ${f.daysLeft.fa()} روز دیگر تمام می‌شود")
+                                    // در یک متغیرِ محلی گرفته می‌شود چون
+                                    // کاتلین خاصیتِ ماژولِ دیگر را smart-cast
+                                    // نمی‌کند — از دیدِ کامپایلر، آن ماژول
+                                    // می‌تواند جدا عوض شود.
+                                    val left = f.daysLeft
+                                    if (left != null) {
+                                        append(" — حدود ${left.fa()} روز دیگر تمام می‌شود")
                                     } else {
                                         append(" — زیرِ حدِ هشدار")
                                     }
