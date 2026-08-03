@@ -91,8 +91,30 @@ compose.desktop {
             targetFormats(TargetFormat.Msi, TargetFormat.Deb)
             packageName = "KhayatYar"
             packageVersion = "1.0.0"
+            description = "خیاط‌یار — دفترِ کارگاهِ خیاطی"
+            vendor = "KhayatYar"
+
+            /*
+             * **دامِ اصلیِ بسته‌بندی.** `jpackage` یک JVMِ کوچک‌شده کنارِ
+             * برنامه می‌گذارد و هر ماژولی که اینجا نام برده نشود در آن
+             * نیست. نتیجه‌اش بدترین شکلِ خرابی است: از Gradle اجرا
+             * می‌شود، ولی نسخهٔ نصب‌شده روی پی‌سیِ کارگاه سرِ اولین کار
+             * با `NoClassDefFoundError` می‌ایستد.
+             *
+             * - `java.sql`      : درایورِ SQLite
+             * - `java.naming`   : وابستگیِ غیرمستقیمِ همان
+             * - `java.logging`  : PDFBox لاگ می‌زند
+             * - `jdk.unsupported`: `sun.misc.Unsafe` که کتابخانه‌های
+             *   بومی (از جمله SQLiteِ همراه) هنوز به آن دست می‌زنند
+             */
+            modules("java.sql", "java.naming", "java.logging", "jdk.unsupported")
+
             windows {
                 menuGroup = "KhayatYar"
+                // میان‌بر روی دسکتاپ و منوی شروع — کارگاه نباید دنبالِ
+                // پوشهٔ نصب بگردد.
+                shortcut = true
+                dirChooser = true
                 // با هر نسخهٔ تازه عوض نشود، وگرنه ویندوز به‌جای
                 // به‌روزرسانی یک برنامهٔ دوم نصب می‌کند.
                 upgradeUuid = "6E7B1F2C-9A54-4B8E-97C6-3D2A5B41E0F7"

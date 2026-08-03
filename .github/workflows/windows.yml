@@ -1,0 +1,89 @@
+name: بستهٔ ویندوز
+
+# جدا از ساختِ APK، و این عمدی است:
+#
+# MSI را فقط ویندوز می‌سازد (`jpackage` به WiX نیاز دارد). رانرِ ساختِ
+# APK لینوکس است، پس این کار آنجا شدنی نیست. جدا بودنشان یعنی اگر
+# بسته‌بندیِ ویندوز روزی بشکند، اپِ اندروید همچنان ساخته و تحویل
+# می‌شود.
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "desktop/**"
+      - "core/**"
+      - "gradle/**"
+      - "*.gradle.kts"
+      - ".github/workflows/windows.yml"
+  workflow_dispatch:
+
+jobs:
+  package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: کشِ Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # این فایل به مسیرِ SDK روی کامپیوترِ شخصی اشاره می‌کند و روی
+      # ماشینِ CI وجود ندارد.
+      - name: برداشتنِ local.properties
+        shell: bash
+        run: rm -f local.properties
+
+      # پوشهٔ اجرایی — همیشه ساخته می‌شود و به WiX نیاز ندارد.
+      #
+      # برای کارگاه این حتی از نصب‌کننده هم عملی‌تر است: پوشه را روی
+      # پی‌سی کپی می‌کنی و `KhayatYar.exe` را می‌زنی. نه نصبی، نه
+      # دسترسیِ مدیری.
+      - name: ساختِ پوشهٔ اجرایی
+        shell: bash
+        run: ./gradlew --no-daemon :desktop:createDistributable
+
+      # سبزبودنِ مرحلهٔ بالا کافی نیست: اگر jpackage چیزی تولید نکند هم
+      # ممکن است موفق گزارش دهد. اینجا وجودِ خودِ فایلِ اجرایی وارسی
+      # می‌شود.
+      - name: مطمئن شو exe واقعاً ساخته شد
+        shell: bash
+        run: |
+          exe=$(find desktop/build/compose/binaries -name 'KhayatYar.exe' | head -1)
+          if [ -z "$exe" ]; then
+            echo "هیچ KhayatYar.exe ساخته نشد."
+            find desktop/build/compose -maxdepth 4 -type d || true
+            exit 1
+          fi
+          echo "ساخته شد: $exe"
+          du -sh "$(dirname "$exe")"
+
+      - name: بارگذاری پوشهٔ اجرایی
+        uses: actions/upload-artifact@v4
+        with:
+          name: khayatyar-windows-${{ github.sha }}
+          path: desktop/build/compose/binaries/main/app/
+          if-no-files-found: error
+          retention-days: 30
+
+      # نصب‌کنندهٔ MSI به WiX نیاز دارد و روی هر رانری نیست.
+      # `continue-on-error` یعنی نبودنش کلِ کار را قرمز نمی‌کند —
+      # پوشهٔ اجرایی از قبل بارگذاری شده.
+      - name: ساختِ نصب‌کنندهٔ MSI
+        id: msi
+        shell: bash
+        continue-on-error: true
+        run: ./gradlew --no-daemon :desktop:packageMsi
+
+      - name: بارگذاری MSI
+        if: steps.msi.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: khayatyar-msi-${{ github.sha }}
+          path: desktop/build/compose/binaries/main/msi/*.msi
+          if-no-files-found: warn
+          retention-days: 30
