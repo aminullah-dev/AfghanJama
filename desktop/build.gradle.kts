@@ -55,6 +55,14 @@ dependencies {
     implementation("androidx.room:room-runtime:$room")
     implementation("androidx.sqlite:sqlite-bundled:2.5.1")
     ksp("androidx.room:room-compiler:$room")
+
+    /*
+     * ساختِ PDF روی ویندوز. جاوا خودش نویسندهٔ PDF ندارد.
+     *
+     * PDFBox شکل‌دهیِ متن ندارد و فارسی را نمی‌چسباند؛ برای همین متن
+     * به‌صورتِ خطوطِ برداری کشیده می‌شود — توضیحش در `SheetPdf`.
+     */
+    implementation("org.apache.pdfbox:pdfbox:3.0.8")
 }
 
 /*
