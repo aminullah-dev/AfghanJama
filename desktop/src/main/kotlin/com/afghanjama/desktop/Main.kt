@@ -44,6 +44,9 @@ import com.afghanjama.AppInfo
 import com.afghanjama.selftest.CheckResult
 import com.afghanjama.selftest.CheckStatus
 import com.afghanjama.ui.format.PersianDate
+import com.afghanjama.desktop.data.LedgerStatus
+import com.afghanjama.desktop.data.LedgerStatusViewModel
+import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.vm.SelfCheckViewModel
 
 // رنگ‌های خودِ اپ — همان‌هایی که در Theme.kt اندروید هستند
@@ -121,6 +124,8 @@ private fun App() {
     // خودمان بالاتر گذاشته‌ایم.
     val vm: SelfCheckViewModel = viewModel { SelfCheckViewModel() }
     val ui by vm.ui.collectAsState()
+    val ledgerVm: LedgerStatusViewModel = viewModel { LedgerStatusViewModel() }
+    val ledger by ledgerVm.ui.collectAsState()
 
     Column(
         Modifier.fillMaxSize().background(Bg).padding(28.dp),
@@ -135,6 +140,8 @@ private fun App() {
             running = ui.running,
             onRun = { vm.run() }
         )
+
+        LedgerCard(ledger)
 
         Text(
             "این‌ها همان بررسی‌هایی‌اند که روی گوشی هم اجرا می‌شوند — " +
@@ -255,6 +262,49 @@ private fun ResultRow(r: CheckResult) {
         Column(Modifier.fillMaxWidth()) {
             Text(r.name, fontFamily = Vazirmatn, fontSize = 14.sp, color = Ink)
             Text(r.detail, fontFamily = Vazirmatn, fontSize = 12.sp, color = Muted)
+        }
+    }
+}
+
+/**
+ * حالِ دفتر — اولین چیزی که روی ویندوز از دادهٔ واقعی خوانده می‌شود.
+ *
+ * روی دفترِ نو عددها صفرند و همان هم خبرِ خوبی است: یعنی فایل ساخته شد،
+ * جدول‌ها نشستند و پرس‌وجوها جواب دادند.
+ */
+@Composable
+private fun LedgerCard(s: LedgerStatus) {
+    val failed = s.error != null
+    Column(
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (failed) Color(0xFFF9DEDC) else CardBg)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Text(
+            when {
+                s.opening -> "در حالِ باز کردنِ دفتر…"
+                failed -> "دفتر باز نشد"
+                else -> "دفتر باز است — ${s.tables.fa()} جدول، نسخهٔ ${s.version.fa()}"
+            },
+            fontFamily = Vazirmatn, fontWeight = FontWeight.SemiBold,
+            fontSize = 15.sp, color = if (failed) Bad else Ink
+        )
+        if (failed) {
+            Text(
+                s.error.orEmpty(),
+                fontFamily = Vazirmatn, fontSize = 12.sp, color = Bad
+            )
+        } else if (!s.opening) {
+            Text(
+                "مشتری: ${s.customers.fa()}  •  صندوق: ${s.wallet.fa()} ؋  " +
+                    "•  بانک: ${s.bank.fa()} ؋",
+                fontFamily = Vazirmatn, fontSize = 13.sp, color = Muted
+            )
+        }
+        if (s.path.isNotBlank()) {
+            Text(s.path, fontFamily = Vazirmatn, fontSize = 11.sp, color = Muted)
         }
     }
 }
