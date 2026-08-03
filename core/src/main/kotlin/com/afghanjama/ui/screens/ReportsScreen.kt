@@ -43,8 +43,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -56,17 +54,16 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.afghanjama.platform.LocalDocs
+import com.afghanjama.platform.LocalFileExport
 import com.afghanjama.AppInfo
-import com.afghanjama.pdf.FinancialStatementsPdf
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.format.toPersianDigits
 import com.afghanjama.ui.vm.ReportsViewModel
-import com.afghanjama.util.ShareUtil
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -238,7 +235,7 @@ fun ReportsScreen(
     val sheet by vm.balanceSheet.collectAsState()
     val trend by vm.trend.collectAsState()
 
-    val context = LocalContext.current
+    val docs = LocalDocs.current
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     val message by vm.message.collectAsState()
@@ -247,9 +244,9 @@ fun ReportsScreen(
         message?.let { snackbar.showSnackbar(it); vm.clearMessage() }
     }
 
-    val csvLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("text/csv")
-    ) { uri -> uri?.let { vm.exportCsv(context, it) } }
+    val saveCsv = LocalFileExport.current.rememberTextSaver("text/csv") {
+        vm.csvText().also { vm.csvSaved() }
+    }
     val periodLabel = range.label
 
     // ---------- بازهٔ دلخواه ----------
@@ -313,18 +310,15 @@ fun ReportsScreen(
                 actions = {
                     IconButton(onClick = {
                         scope.launch {
-                            val file = withContext(Dispatchers.IO) {
-                                FinancialStatementsPdf.create(context, income, sheet, periodLabel)
-                            }
-                            ShareUtil.shareFile(
-                                context, file, "application/pdf", "اشتراک صورت‌های مالی"
+                            docs.financials(
+                                income, sheet, periodLabel, "اشتراک صورت‌های مالی"
                             )
                         }
                     }) {
                         Icon(Icons.Default.PictureAsPdf, contentDescription = "صورت‌های مالی PDF")
                     }
                     IconButton(onClick = {
-                        csvLauncher.launch("گزارش-${AppInfo.NAME}.csv")
+                        saveCsv("گزارش-${AppInfo.NAME}.csv")
                     }) {
                         Icon(Icons.Default.TableChart, contentDescription = "خروجی اکسل")
                     }

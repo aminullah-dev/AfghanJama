@@ -9,7 +9,10 @@ import com.afghanjama.pdf.ShopInfo
 import com.afghanjama.pdf.SheetDoc
 import com.afghanjama.pdf.StatementData
 import com.afghanjama.pdf.partyStatementSheets
+import com.afghanjama.pdf.financialSheets
 import com.afghanjama.pdf.statementSheets
+import com.afghanjama.ui.vm.BalanceSheet
+import com.afghanjama.ui.vm.IncomeStatement
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.prefs.Settings
 import com.afghanjama.pdf.TextMeasurer
@@ -49,6 +52,19 @@ class DesktopDocsBridge(private val settings: Settings) : Docs {
 
     override suspend fun statement(data: StatementData, fileName: String, title: String) {
         share(statementSheets(data, shop(), measurer), fileName, title)
+    }
+
+    override suspend fun financials(
+        income: IncomeStatement,
+        balance: BalanceSheet,
+        periodLabel: String,
+        title: String
+    ) {
+        share(
+            financialSheets(income, balance, periodLabel, shop(), measurer),
+            "surat-mali.pdf",
+            title
+        )
     }
 
     override suspend fun partyStatement(

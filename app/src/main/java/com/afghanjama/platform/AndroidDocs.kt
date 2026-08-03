@@ -3,6 +3,7 @@ package com.afghanjama.platform
 import android.content.Context
 import com.afghanjama.data.entities.LedgerEntry
 import com.afghanjama.pdf.AndroidTextMeasurer
+import com.afghanjama.pdf.FinancialStatementsPdf
 import com.afghanjama.pdf.PartyStatementPdf
 import com.afghanjama.pdf.StatementData
 import com.afghanjama.pdf.StatementPdf
@@ -10,6 +11,8 @@ import com.afghanjama.pdf.PdfKit
 import com.afghanjama.pdf.SheetDoc
 import com.afghanjama.pdf.SheetPdfAndroid
 import com.afghanjama.pdf.TextMeasurer
+import com.afghanjama.ui.vm.BalanceSheet
+import com.afghanjama.ui.vm.IncomeStatement
 import com.afghanjama.util.ShareUtil
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -40,6 +43,18 @@ class AndroidDocs(private val ctx: Context) : Docs {
     override suspend fun statement(data: StatementData, fileName: String, title: String) {
         val file = withContext(Dispatchers.IO) {
             StatementPdf.create(ctx, data, fileName = fileName)
+        }
+        ShareUtil.shareFile(ctx, file, "application/pdf", title)
+    }
+
+    override suspend fun financials(
+        income: IncomeStatement,
+        balance: BalanceSheet,
+        periodLabel: String,
+        title: String
+    ) {
+        val file = withContext(Dispatchers.IO) {
+            FinancialStatementsPdf.create(ctx, income, balance, periodLabel)
         }
         ShareUtil.shareFile(ctx, file, "application/pdf", title)
     }

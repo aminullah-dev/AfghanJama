@@ -32,7 +32,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -62,7 +61,7 @@ fun WorkshopLinkScreen(
     isManager: Boolean,
     onBack: () -> Unit
 ) {
-    val context = LocalContext.current
+    val settings = LocalSettings.current
     val settings = LocalSettings.current
     val ui by vm.ui.collectAsState()
     val designCodeByOrder by vm.designCodeByOrder.collectAsState()
@@ -70,7 +69,7 @@ fun WorkshopLinkScreen(
     val busy by vm.busy.state.collectAsState()
     val myLabel = remember { WorkerPrefs.myLabel(settings) }
 
-    LaunchedEffect(Unit) { vm.load(context) }
+    LaunchedEffect(Unit) { vm.load(settings) }
 
     AppScreen(title = "اشتراک کارگاه", onBack = onBack) { pad ->
         LazyColumn(
@@ -136,7 +135,7 @@ fun WorkshopLinkScreen(
                     if (isManager) {
                         item {
                             OutlinedButton(
-                                onClick = { vm.becomeMain(context) },
+                                onClick = { vm.becomeMain(settings) },
                                 modifier = Modifier.fillMaxWidth()
                             ) { Text("این گوشیِ اصلیِ کارگاه است") }
                         }
@@ -199,7 +198,7 @@ fun WorkshopLinkScreen(
                         }
                     }
                     item {
-                        TextButton(onClick = { vm.disconnect(context) }, modifier = Modifier.fillMaxWidth()) {
+                        TextButton(onClick = { vm.disconnect(settings) }, modifier = Modifier.fillMaxWidth()) {
                             Text("خاموش‌کردن اشتراک و برگشت به حالتِ تک‌گوشی")
                         }
                     }
@@ -236,14 +235,14 @@ fun WorkshopLinkScreen(
                         item {
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedButton(
-                                    onClick = { vm.refreshMyWork(context, myLabel) },
+                                    onClick = { vm.refreshMyWork(settings, myLabel) },
                                     enabled = !ui.checking,
                                     modifier = Modifier.weight(1f)
                                 ) { Text(if (ui.checking) "…" else "تازه‌سازی کارها") }
                                 OutlinedButton(
                                     onClick = {
                                         vm.sendRequest(
-                                            context, myLabel, "ATTENDANCE_IN",
+                                            settings, myLabel, "ATTENDANCE_IN",
                                             summary = "درخواستِ ثبتِ ورود"
                                         )
                                     },
@@ -253,7 +252,7 @@ fun WorkshopLinkScreen(
                                 OutlinedButton(
                                     onClick = {
                                         vm.sendRequest(
-                                            context, myLabel, "ATTENDANCE_OUT",
+                                            settings, myLabel, "ATTENDANCE_OUT",
                                             summary = "درخواستِ ثبتِ خروج"
                                         )
                                     },
@@ -309,7 +308,7 @@ fun WorkshopLinkScreen(
                                         text = "اعلامِ تحویل به کارفرما",
                                         onClick = {
                                             vm.sendRequest(
-                                                context, myLabel, "SEWING_DONE",
+                                                settings, myLabel, "SEWING_DONE",
                                                 summary = "${w.orderCode} — ${done} عدد از ${w.qty} عدد",
                                                 refId = w.id, amount = done
                                             )
@@ -330,7 +329,7 @@ fun WorkshopLinkScreen(
                     }
 
                     item {
-                        TextButton(onClick = { vm.disconnect(context) }, modifier = Modifier.fillMaxWidth()) {
+                        TextButton(onClick = { vm.disconnect(settings) }, modifier = Modifier.fillMaxWidth()) {
                             Text("قطعِ اتصال")
                         }
                     }
@@ -354,7 +353,7 @@ private fun SectionTitleRow(text: String) {
 
 @Composable
 private fun MainCard(vm: WorkshopLinkViewModel, serving: Boolean, ip: String?, code: String) {
-    val context = LocalContext.current
+    val settings = LocalSettings.current
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -383,11 +382,11 @@ private fun MainCard(vm: WorkshopLinkViewModel, serving: Boolean, ip: String?, c
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(
-                    onClick = { if (serving) vm.stopServing() else vm.startServing(context) },
+                    onClick = { if (serving) vm.stopServing() else vm.startServing(settings) },
                     modifier = Modifier.weight(1f)
                 ) { Text(if (serving) "خاموش" else "روشن") }
                 OutlinedButton(
-                    onClick = { vm.newCode(context) },
+                    onClick = { vm.newCode(settings) },
                     modifier = Modifier.weight(1f)
                 ) { Text("رمز تازه") }
             }
@@ -397,7 +396,7 @@ private fun MainCard(vm: WorkshopLinkViewModel, serving: Boolean, ip: String?, c
 
 @Composable
 private fun WorkerConnectCard(vm: WorkshopLinkViewModel, busy: Boolean) {
-    val context = LocalContext.current
+    val settings = LocalSettings.current
     var host by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
     Card(
@@ -425,7 +424,7 @@ private fun WorkerConnectCard(vm: WorkshopLinkViewModel, busy: Boolean) {
             )
             BusyButton(
                 text = "اتصال",
-                onClick = { vm.becomeWorker(context, host, code) },
+                onClick = { vm.becomeWorker(settings, host, code) },
                 enabled = host.isNotBlank() && code.length >= 4,
                 busy = busy,
                 busyText = "در حال اتصال…",

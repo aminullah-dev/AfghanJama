@@ -5,6 +5,8 @@ import com.afghanjama.data.entities.LedgerEntry
 import com.afghanjama.pdf.SheetDoc
 import com.afghanjama.pdf.StatementData
 import com.afghanjama.pdf.TextMeasurer
+import com.afghanjama.ui.vm.BalanceSheet
+import com.afghanjama.ui.vm.IncomeStatement
 
 /**
  * ساختن و بیرون‌دادنِ سندِ کاغذی — بی اینکه صفحه بداند چه کسی می‌کشد.
@@ -59,6 +61,14 @@ interface Docs {
 
     /** کارت حسابِ یک مشتری. */
     suspend fun statement(data: StatementData, fileName: String, title: String)
+
+    /** صورت‌های مالی — سود و زیان و ترازنامه. */
+    suspend fun financials(
+        income: IncomeStatement,
+        balance: BalanceSheet,
+        periodLabel: String,
+        title: String
+    )
 
     /** صورت‌حسابِ یک طرفِ حساب (فروشنده، خیاط، …). */
     suspend fun partyStatement(

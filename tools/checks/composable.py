@@ -37,9 +37,13 @@ ANN = re.compile(r"^\s*@Composable\s*$")
 OTHER_ANN = re.compile(r"^\s*@\w")
 
 #: چیزی که **می‌تواند** `@Composable` بگیرد: تابع، یا ویژگی (getterِ آن)
+#: `override` و `abstract` هم اصلاح‌کننده‌اند و جا افتاده بودند. تا
+#: امروز پیش نیامده بود چون هیچ `@Composable`ی در پروژه `override`
+#: نبود؛ با آمدنِ مرزهای سکو (که متدِ `@Composable` دارند) اولین بار
+#: پیش آمد و این بررسی روی کدِ سالم قرمز شد.
 OK = re.compile(r"^\s*(?:(?:private|internal|public|protected|inline|noinline|"
                 r"crossinline|expect|actual|external|suspend|operator|infix|"
-                r"tailrec)\s+)*(?:fun|val|var|get)\b")
+                r"tailrec|override|abstract|open|final)\s+)*(?:fun|val|var|get)\b")
 
 
 def landing(lines, i):

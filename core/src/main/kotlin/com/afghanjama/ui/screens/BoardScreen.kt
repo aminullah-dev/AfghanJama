@@ -1,6 +1,5 @@
 package com.afghanjama.ui.screens
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -18,7 +17,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -28,13 +26,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.afghanjama.platform.LocalScreenBehavior
 import com.afghanjama.ui.components.OrderCodeLine
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.CompanyPrefs
@@ -71,22 +68,18 @@ fun BoardScreen(
     vm: BoardViewModel,
     onBack: () -> Unit
 ) {
-    val context = LocalContext.current
     val settings = LocalSettings.current
     val ui by vm.ui.collectAsState()
     val designCodeByOrder by vm.designCodeByOrder.collectAsState()
-    val view = LocalView.current
+    val screen = LocalScreenBehavior.current
 
     LaunchedEffect(Unit) { vm.start(settings) }
 
     // صفحه نباید خاموش شود — تابلوی خاموش تابلو نیست.
-    DisposableEffect(Unit) {
-        view.keepScreenOn = true
-        onDispose { view.keepScreenOn = false }
-    }
+    screen.KeepAwake()
 
     // برگشت با دکمهٔ سیستم هم کار کند، چون نوارِ بالا اینجا نداریم
-    BackHandler { onBack() }
+    screen.HandleBack(onBack)
 
     val pages = remember(ui.rows.size) {
         if (ui.rows.isEmpty()) 1 else (ui.rows.size + ROWS_PER_PAGE - 1) / ROWS_PER_PAGE

@@ -16,10 +16,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.afghanjama.data.buildAppDatabase
 import com.afghanjama.data.repo.Repo
+import com.afghanjama.lan.AndroidLanHost
 import com.afghanjama.prefs.AndroidSettings
 import com.afghanjama.platform.AndroidDocs
+import com.afghanjama.platform.AndroidFileExport
+import com.afghanjama.platform.AndroidScreenBehavior
 import com.afghanjama.platform.AndroidSystemActions
 import com.afghanjama.platform.LocalDocs
+import com.afghanjama.platform.LocalFileExport
+import com.afghanjama.platform.LocalScreenBehavior
 import com.afghanjama.platform.LocalSystemActions
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.ui.nav.AppNav
@@ -102,7 +107,9 @@ class MainActivity : FragmentActivity() {
           CompositionLocalProvider(
             LocalSettings provides settings,
             LocalSystemActions provides system,
-            LocalDocs provides docs
+            LocalDocs provides docs,
+            LocalFileExport provides AndroidFileExport,
+            LocalScreenBehavior provides AndroidScreenBehavior
           ) {
             KhayatYarTheme {
                 // قفل اپ: اگر رمز تنظیم شده باشد، اول باید باز شود
@@ -142,7 +149,7 @@ class MainActivity : FragmentActivity() {
                 val deliveryQueueVm = remember { DeliveryQueueViewModel(repo) }
                 val newSaleVm = remember { NewSaleViewModel(repo) }
                 val breakVm = remember { BreakTimeViewModel(repo) }
-                val linkVm = remember { WorkshopLinkViewModel(repo) }
+                val linkVm = remember { WorkshopLinkViewModel(repo, AndroidLanHost(applicationContext)) }
                 val boardVm = remember { BoardViewModel(repo) }
                 val selfTestVm = remember { SelfTestViewModel(repo) }
                 val purchasePlanVm = remember { PurchasePlanViewModel(repo) }

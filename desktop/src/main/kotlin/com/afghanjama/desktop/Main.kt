@@ -48,8 +48,10 @@ import com.afghanjama.desktop.data.LedgerStatus
 import com.afghanjama.desktop.data.LedgerStatusViewModel
 import com.afghanjama.desktop.data.desktopSettings
 import com.afghanjama.desktop.platform.DesktopDocsBridge
+import com.afghanjama.desktop.platform.DesktopFileExport
 import com.afghanjama.desktop.platform.DesktopSystemActions
 import com.afghanjama.platform.LocalDocs
+import com.afghanjama.platform.LocalFileExport
 import com.afghanjama.platform.LocalSystemActions
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.ui.format.fa
@@ -122,7 +124,8 @@ fun main() = application {
                 // صفحهٔ مشترکی که ویندوز نشان دهد سرِ اجرا می‌شکند.
                 LocalSettings provides settings,
                 LocalSystemActions provides DesktopSystemActions(),
-                LocalDocs provides DesktopDocsBridge(settings)
+                LocalDocs provides DesktopDocsBridge(settings),
+                LocalFileExport provides DesktopFileExport()
             ) {
                 App()
             }
