@@ -18,6 +18,7 @@ REPO = pathlib.Path(__file__).resolve().parents[2]
 ROOTS = [
     REPO / "core/src/main/kotlin",
     REPO / "app/src/main/java",
+    REPO / "desktop/src/main/kotlin",
 ]
 
 #: همان ریشه‌ها، تا سرِ بستهٔ اصلی

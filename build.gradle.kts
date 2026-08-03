@@ -5,4 +5,6 @@ plugins {
     id("org.jetbrains.kotlin.jvm") version "2.1.20" apply false
     id("org.jetbrains.kotlin.kapt") version "2.1.20" apply false
     id("org.jetbrains.kotlin.plugin.compose") version "2.1.20" apply false
+    // Compose Multiplatform — نسخهٔ همگام با Kotlin 2.1.20
+    id("org.jetbrains.compose") version "1.8.0" apply false
 }
