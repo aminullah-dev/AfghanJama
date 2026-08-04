@@ -1,21 +1,25 @@
 package com.afghanjama.desktop
 
 import androidx.compose.material3.Typography
-import androidx.compose.ui.graphics.Color
+import com.afghanjama.ui.theme.LightColors
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.platform.Font
 
-// رنگ‌های خودِ اپ — همان‌هایی که در Theme.kt اندروید هستند.
-// `internal` است نه `private`، چون حالا بیش از یک فایلِ ویندوز از آن
-// استفاده می‌کند.
-internal val Brand = Color(0xFF1F6E5C)
-internal val BrandSoft = Color(0xFFD3EDE3)
-internal val Ink = Color(0xFF1B1C1A)
-internal val Muted = Color(0xFF5F5E58)
-internal val Bg = Color(0xFFF7F6F3)
-internal val CardBg = Color(0xFFFFFFFF)
-internal val Bad = Color(0xFFB3261E)
+// نام‌های کوتاه برای متن‌های خودِ پنجرهٔ ویندوز (سربرگ، نوارِ کناری).
+//
+// **مقدارشان از پالتِ مشترک می‌آید، نه از کپی.** تا دیروز همین هفت رنگ
+// اینجا دوباره نوشته شده بودند و اتفاقاً درست هم بودند — ولی «اتفاقاً
+// درست» تا اولین باری دوام دارد که کسی پالت را عوض کند و این‌جا را
+// نبیند.
+internal val Brand = LightColors.primary
+internal val BrandSoft = LightColors.primaryContainer
+internal val Ink = LightColors.onSurface
+internal val Muted = LightColors.onSurfaceVariant
+internal val Bg = LightColors.background
+internal val CardBg = LightColors.surface
+internal val Bad = LightColors.error
+internal val BadSoft = LightColors.errorContainer
 
 /**
  * فونتِ اپ، از همان فایلی که اندروید برمی‌دارد.

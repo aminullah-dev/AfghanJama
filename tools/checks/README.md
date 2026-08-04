@@ -11,6 +11,7 @@
 | `uicheck` | همان، برای نمادهای androidx/kotlinx |
 | `corecompose` | بستهٔ Compose که `:core` استفاده می‌کند ولی نخواسته است |
 | `coreref` | نمادی که `:core` استفاده می‌کند ولی در `:app` است |
+| `palette` | رنگِ دستی در `:desktop` — پالت باید یکی باشد |
 | `balance` | پرانتز و آکولادِ نبسته |
 | `paramcheck` | فهرستِ پارامترِ ناقص |
 | `dupcheck` / `dupargcheck` | آرگومان یا پارامترِ تکراری |

@@ -20,7 +20,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.text.font.FontWeight
@@ -33,7 +32,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.lightColorScheme
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
@@ -54,6 +52,7 @@ import com.afghanjama.platform.LocalFileExport
 import com.afghanjama.platform.LocalSystemActions
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.ui.format.fa
+import com.afghanjama.ui.theme.LightColors
 import com.afghanjama.ui.vm.SelfCheckViewModel
 
 
@@ -80,13 +79,12 @@ fun main() = application {
         title = "${AppInfo.NAME} — نسخهٔ ویندوز"
     ) {
         MaterialTheme(
-            colorScheme = lightColorScheme(
-                primary = Brand,
-                background = Bg,
-                surface = CardBg,
-                onSurface = Ink
-            ),
-            // صفحه‌های مشترک قلم را از تم می‌گیرند، نه از خودشان.
+            // **همان پالتِ گوشی**، از `:core`. تا دیروز اینجا چهار رنگ
+            // دستی نوشته شده بود و چهارده نقشِ دیگر از پالتِ پیش‌فرضِ
+            // بنفشِ متریال می‌آمد — یعنی همان صفحه روی پی‌سی رنگِ دیگری
+            // داشت.
+            colorScheme = LightColors,
+            // صفحه‌های مشترک قلم را هم از تم می‌گیرند، نه از خودشان.
             typography = vazirTypography()
         ) {
             // کلِ برنامه راست‌به‌چپ، مستقلِ از زبانِ ویندوز — همان
@@ -200,7 +198,7 @@ private fun SummaryCard(
     Row(
         Modifier.fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(if (ok) BrandSoft else Color(0xFFF9DEDC))
+            .background(if (ok) BrandSoft else BadSoft)
             .padding(18.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -270,7 +268,7 @@ private fun LedgerCard(s: LedgerStatus) {
     Column(
         Modifier.fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(if (failed) Color(0xFFF9DEDC) else CardBg)
+            .background(if (failed) BadSoft else CardBg)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
