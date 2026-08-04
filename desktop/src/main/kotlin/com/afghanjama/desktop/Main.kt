@@ -23,8 +23,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.text.platform.Font
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -46,6 +44,7 @@ import com.afghanjama.selftest.CheckStatus
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.desktop.data.LedgerStatus
 import com.afghanjama.desktop.data.LedgerStatusViewModel
+import com.afghanjama.desktop.data.DesktopLedger
 import com.afghanjama.desktop.data.desktopSettings
 import com.afghanjama.desktop.platform.DesktopDocsBridge
 import com.afghanjama.desktop.platform.DesktopFileExport
@@ -57,32 +56,7 @@ import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.vm.SelfCheckViewModel
 
-// رنگ‌های خودِ اپ — همان‌هایی که در Theme.kt اندروید هستند
-private val Brand = Color(0xFF1F6E5C)
-private val BrandSoft = Color(0xFFD3EDE3)
-private val Ink = Color(0xFF1B1C1A)
-private val Muted = Color(0xFF5F5E58)
-private val Bg = Color(0xFFF7F6F3)
-private val CardBg = Color(0xFFFFFFFF)
-private val Bad = Color(0xFFB3261E)
 
-/**
- * فونتِ اپ، از همان فایلی که اندروید برمی‌دارد.
- *
- * بدونِ این، فارسی با فونتِ پیش‌فرضِ سیستم نوشته می‌شود که روی ویندوز
- * اغلب حروف را نمی‌چسباند و اعدادِ فارسی را بد می‌کشد.
- */
-private val Vazirmatn: FontFamily = runCatching {
-    FontFamily(
-        Font("vazirmatn_regular.ttf", FontWeight.Normal),
-        Font("vazirmatn_semibold.ttf", FontWeight.SemiBold),
-        Font("vazirmatn_bold.ttf", FontWeight.Bold)
-    )
-}.getOrElse {
-    // نبودنِ فونت نباید برنامه را بیندازد؛ فارسی بدشکل بهتر از پنجرهٔ
-    // بازنشده است.
-    FontFamily.Default
-}
 
 /**
  * جایی که ViewModelها زندگی می‌کنند.
@@ -111,7 +85,9 @@ fun main() = application {
                 background = Bg,
                 surface = CardBg,
                 onSurface = Ink
-            )
+            ),
+            // صفحه‌های مشترک قلم را از تم می‌گیرند، نه از خودشان.
+            typography = vazirTypography()
         ) {
             // کلِ برنامه راست‌به‌چپ، مستقلِ از زبانِ ویندوز — همان
             // کاری که KhayatYarTheme روی اندروید می‌کند.
@@ -127,14 +103,14 @@ fun main() = application {
                 LocalDocs provides DesktopDocsBridge(settings),
                 LocalFileExport provides DesktopFileExport()
             ) {
-                App()
+                Shell(DesktopLedger.repo().getOrNull())
             }
         }
     }
 }
 
 @Composable
-private fun App() {
+internal fun Overview() {
     // همان `viewModel { }`ِ اندروید، همان کلاسِ ViewModel، همان
     // `viewModelScope`. تنها فرق این است که اینجا صاحبِ ViewModel را
     // خودمان بالاتر گذاشته‌ایم.

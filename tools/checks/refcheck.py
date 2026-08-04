@@ -74,7 +74,15 @@ def interpolations(src):
            " ".join(re.findall(r"\$([A-Za-z_][A-Za-z0-9_.]*)", src))
 
 # ---- 1. map every top-level declaration to its package ----
-decl_pkg = {}          # plain top-level symbol -> package
+# symbol -> **set** of packages that declare it.
+#
+# A set, not a single package: the same name can legitimately exist in two
+# modules. `Vazirmatn` is declared in both `com.afghanjama.ui.theme` (the
+# Android theme) and `com.afghanjama.desktop` (the Windows one). With
+# `setdefault` into a plain dict, whichever file was scanned first won and
+# every use in the *other* module was reported as missing an import — a red
+# check on correct code.
+decl_pkg = collections.defaultdict(set)   # plain top-level symbol -> {packages}
 ext_pkg  = {}          # extension function -> package (called with a dot)
 pkg_of_file = {}
 body_of = {}
@@ -91,7 +99,7 @@ for f in files:
                          r"([A-Za-z_]\w*)(?![\w.])", code, re.M):
         # the negative lookahead drops extension receivers: in "fun Long.afn()"
         # the first identifier is Long, which is a receiver type, not a decl.
-        decl_pkg.setdefault(m.group(2), pkg)
+        decl_pkg[m.group(2)].add(pkg)
     # extension functions: fun Long.afn() -> called as x.afn(), still needs an import
     for m in re.finditer(r"^(?:public |internal )*fun\s+(?:<[^>]+>\s*)?"
                          r"[A-Za-z_][\w.<>?]*\.([A-Za-z_]\w*)\s*\(", code, re.M):
@@ -124,14 +132,14 @@ for f in files:
         problems.append((_rel(f), sym, owner))
 
     for sym in used:
-        owner = decl_pkg.get(sym)
-        if owner is None: continue          # not one of ours
-        if owner == pkg: continue           # same package, no import needed
+        owners = decl_pkg.get(sym)
+        if not owners: continue             # not one of ours
+        if pkg in owners: continue          # same package, no import needed
         if sym in imported or "*" in imported: continue
         if sym in local: continue
         # fully-qualified usage?
-        if f"{owner}.{sym}" in raw: continue
-        problems.append((_rel(f), sym, owner))
+        if any(f"{o}.{sym}" in raw for o in owners): continue
+        problems.append((_rel(f), sym, sorted(owners)[0]))
 
 if not problems:
     print(f"✓ {len(files)} files — every project symbol used is imported or same-package")

@@ -158,6 +158,12 @@ for f in files:
     local = set(re.findall(
         r"\b(?:class|object|interface|enum class|data class|annotation class)\s+([A-Za-z_]\w*)",
         code))
+    # ...و عضوهای enum. اینها هم نامِ بزرگ دارند و اعلانشان نقطه‌ای پیش
+    # از خود ندارد، پس مثلِ «استفادهٔ بی‌ایمپورت» دیده می‌شوند. نوارِ
+    # کناریِ ویندوز عضوی به نامِ `Warehouse` دارد و این بررسی آن را با
+    # آیکونِ Material اشتباه گرفت — قرمز روی کدِ کاملاً سالم.
+    for em in re.finditer(r"enum class\s+\w+[^{]*\{([^}]*)\}", code, re.S):
+        local |= set(re.findall(r"(?<![.\w])([A-Z]\w*)\s*(?:\(|,|;|$)", em.group(1), re.M))
 
     # نامِ با حرفِ بزرگ هرجا، و نامِ با حرفِ کوچک فقط وقتی مثلِ تابع صدا
     # زده می‌شود یا واگذارندهٔ `by` است. توابعِ کوچکِ Compose مثل remember
