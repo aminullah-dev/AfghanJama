@@ -73,6 +73,47 @@ jobs:
           echo "ساخته شد: $exe"
           du -sh "$(dirname "$exe")"
 
+      # ---------------------------------------------------------------
+      # **مهم‌ترین مرحلهٔ این فایل.**
+      #
+      # تا امروز CI فقط ثابت می‌کرد `exe` *ساخته* می‌شود، نه اینکه *بالا
+      # می‌آید*. و دقیقاً همان‌جا خراب شد: بسته سبز بود ولی روی پی‌سیِ
+      # کارگاه «Failed to launch JVM» می‌داد، چون `java.desktop` در JVMِ
+      # همراه نبود.
+      #
+      # اینجا برنامه واقعاً اجرا می‌شود. اگر JVM بالا نیاید، فرایند
+      # بی‌درنگ می‌میرد و این مرحله قرمز می‌شود — همان چیزی که باید
+      # پیش از رسیدن به دستِ کارگاه گرفته شود.
+      #
+      # ۲۵ ثانیه صبر می‌کند: بالا آمدنِ Compose و باز شدنِ دیتابیس روی
+      # رانر کند است و کمتر از این هشدارِ نادرست می‌دهد.
+      - name: مطمئن شو برنامه واقعاً بالا می‌آید
+        shell: bash
+        run: |
+          exe=$(find desktop/build/compose/binaries -name 'KhayatYar.exe' | head -1)
+          echo "اجرا: $exe"
+          "$exe" &
+          pid=$!
+          sleep 25
+          if kill -0 "$pid" 2>/dev/null; then
+            echo "✓ برنامه ۲۵ ثانیه سرِ پا ماند — JVM بالا آمد."
+            kill "$pid" 2>/dev/null || true
+          else
+            wait "$pid"; code=$?
+            echo "✗ برنامه بی‌درنگ بسته شد (کدِ خروج $code)."
+            echo "  یعنی JVMِ همراه ناقص است یا برنامه سرِ شروع می‌ترکد."
+            exit 1
+          fi
+
+      # فهرستِ ماژول‌های JVMِ همراه — مدرک، نه حدس. اگر روزی دوباره
+      # چیزی کم بود، همین‌جا دیده می‌شود.
+      - name: فهرستِ ماژول‌های JVMِ همراه
+        if: always()
+        shell: bash
+        run: |
+          rel=$(find desktop/build/compose/binaries -name release -path '*runtime*' | head -1)
+          [ -n "$rel" ] && grep -o 'MODULES=.*' "$rel" | tr ' ' '\n' | head -40 || echo "فایلِ release پیدا نشد"
+
       - name: بارگذاری پوشهٔ اجرایی
         uses: actions/upload-artifact@v4
         with:
