@@ -1,4 +1,5 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 /*
  * :desktop — نسخهٔ ویندوزِ خیاط‌یار.
@@ -80,8 +81,12 @@ sourceSets {
     }
 }
 
+// همان دلیلِ `:core`: هدفِ بایت‌کد ۱۷ بدونِ اصرار بر نصبِ JDK 17، تا
+// سینکِ Android Studio (که با JDK 21 می‌آید) نشکند.
 kotlin {
-    jvmToolchain(17)
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_17)
+    }
 }
 
 compose.desktop {

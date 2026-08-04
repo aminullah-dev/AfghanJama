@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 /*
  * :core — منطقِ کارگاه، بی هیچ اندرویدی.
  *
@@ -103,9 +105,27 @@ dependencies {
     compileOnly("org.jetbrains.compose.material:material-icons-extended-desktop:1.7.3")
 }
 
+/*
+ * **هدفِ بایت‌کد ۱۷، بدونِ اینکه JDKِ خاصی طلب شود.**
+ *
+ * تا دیروز اینجا `jvmToolchain(17)` بود، یعنی Gradle **اصرار** داشت یک
+ * نصبِ JDK 17 پیدا کند. روی CI مشکلی نبود (`setup-java` همان را
+ * می‌گذارد)، ولی Android Studio با JDK 21 می‌آید و آنجا سینک می‌شکست:
+ *
+ *     Cannot find a Java installation on your machine
+ *     Undefined Toolchain Download Repositories
+ *
+ * راهِ دیگر افزودنِ «foojay» بود تا Gradle خودش یک JDK 17 دانلود کند —
+ * ولی آن یعنی ۱۸۰ مگابایت دانلود روی هر ماشینِ تازه، فقط برای اینکه
+ * بایت‌کدِ ۱۷ بسازیم.
+ *
+ * این شکل همان کاری است که `:app` از قبل می‌کرد: با هر JDKی که Gradle
+ * روی آن است کامپایل کن، ولی خروجی را ۱۷ بگذار. CI همچنان روی ۱۷ سنجیده
+ * می‌شود، پس چیزی که تحویل می‌رود عوض نمی‌شود.
+ */
 kotlin {
     compilerOptions {
-        jvmToolchain(17)
+        jvmTarget.set(JvmTarget.JVM_17)
     }
 }
 
