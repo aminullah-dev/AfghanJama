@@ -299,9 +299,14 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
                     // می‌ماند و به فایلی اشاره می‌کرد که دیگر نبود.
                     val keep = CompanyPrefs.logo(context.settings)
                     runCatching {
-                        PhotoStore.dir(context).listFiles()?.forEach {
-                            if (it.name != keep) it.delete()
-                        }
+                        // `allowEmpty` چون اینجا خالی بودن خواسته است:
+                        // کارگاهی که لوگو ندارد باید همهٔ عکس‌ها را از
+                        // دست بدهد. در جاروی راه‌اندازی برعکس است.
+                        PhotoStore.sweep(
+                            context,
+                            setOfNotNull(keep.takeIf { it.isNotBlank() }),
+                            allowEmpty = true
+                        )
                     }
                     cleared
                 }

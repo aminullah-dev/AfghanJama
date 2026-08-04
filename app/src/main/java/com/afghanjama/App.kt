@@ -6,6 +6,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.afghanjama.data.buildAppDatabase
 import com.afghanjama.data.repo.Repo
+import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.prefs.SalePrefs
 import com.afghanjama.prefs.settings
 import com.afghanjama.util.CrashLog
@@ -76,14 +77,29 @@ class App : Application() {
             runCatching {
                 val db = buildAppDatabase(this@App)
                 try {
-                    val live = Repo(db).livePhotoFileNames()
-                    PhotoStore.dir(this@App).listFiles()?.forEach {
-                        if (it.name !in live) it.delete()
-                    }
+                    PhotoStore.sweep(this@App, keptPhotoNames(Repo(db)))
                 } finally {
                     db.close()
                 }
             }
         }
     }
+
+    /**
+     * نامِ هر عکسی که **صاحب دارد** — یعنی نباید جارو شود.
+     *
+     * **چرا این تابع جدا شد و چرا فهرستش دو تکه است:**
+     *
+     * لوگوی کارگاه در `SharedPreferences` می‌ماند، نه در دیتابیس. جاروی
+     * راه‌اندازی فقط `livePhotoFileNames()` را می‌پرسید که از جدول‌ها
+     * می‌آید، پس لوگو در آن نبود و **هر بار که اپ باز می‌شد پاک
+     * می‌شد**. از دیدِ کاربر: لوگو انتخاب می‌شد، دیده هم می‌شد، و دفعهٔ
+     * بعد نبود — «عکس آپلود نمی‌شود».
+     *
+     * پس هر جای تازه‌ای که نامِ عکسی را بیرون از دیتابیس نگه دارد، باید
+     * همین‌جا اضافه شود. `photosweep` این را نگه می‌دارد.
+     */
+    private suspend fun keptPhotoNames(repo: Repo): Set<String> =
+        repo.livePhotoFileNames() +
+            setOfNotNull(CompanyPrefs.logo(settings).takeIf { it.isNotBlank() })
 }
