@@ -15,8 +15,22 @@ android {
         applicationId = "com.afghanjama"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        /*
+         * نسخه‌ها با هم بالا می‌روند و هیچ‌وقت پایین نمی‌آیند.
+         *
+         * `versionCode` عددِ اندروید است: نصبِ تازه فقط وقتی روی نسخهٔ
+         * قبلی می‌نشیند که این عدد **بزرگ‌تر** باشد. `versionName` چیزی
+         * است که کاربر می‌بیند.
+         *
+         * ۱.۰ نسخه‌ای بود که تا فازِ ۴ تحویل شد. ۱.۱ اولین نسخه‌ای است که
+         * صفحه‌ها و منطقش با نسخهٔ ویندوز یکی است (فاز ۴.۵) و نسخهٔ
+         * ویندوز کنارش هست.
+         *
+         * `DB_VERSION` هیچ ربطی به این‌ها ندارد و دست نمی‌خورد؛ آن عدد
+         * فقط وقتی عوض می‌شود که جدولی در دیتابیس تغییر کند.
+         */
+        versionCode = 2
+        versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }

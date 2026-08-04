@@ -8,6 +8,7 @@ import com.afghanjama.data.buildAppDatabase
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.prefs.SalePrefs
 import com.afghanjama.prefs.settings
+import com.afghanjama.util.CrashLog
 import com.afghanjama.util.PhotoStore
 import com.afghanjama.work.AutoBackupWorker
 import com.afghanjama.work.BreakReminderWorker
@@ -22,6 +23,12 @@ class App : Application() {
 
     override fun onCreate() {
         super.onCreate()
+
+        // **اولین کار، پیش از هر چیزِ دیگر.** هر خطایی که از این خط به
+        // بعد بیفتد — در همین متد، در اکتیویتی، یا در هر کوروتینِ
+        // پس‌زمینه — روی دیسک ثبت می‌شود و دفعهٔ بعد نشان داده می‌شود.
+        // اگر بالاتر می‌آمد، خرابیِ خودِ راه‌اندازی از قلم می‌افتاد.
+        CrashLog.install(this)
 
         // یادآوری هفتگی تسویه کارمزد خیاط‌ها
         val request = PeriodicWorkRequestBuilder<WageReminderWorker>(7, TimeUnit.DAYS)

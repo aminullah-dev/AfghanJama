@@ -95,7 +95,11 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Deb)
             packageName = "KhayatYar"
-            packageVersion = "1.0.0"
+            // با `versionName`ِ اندروید یکی می‌ماند: یک محصول است و اگر
+            // دو عدد داشته باشد، پرسیدنِ «کدام نسخه را داری؟» بی‌جواب
+            // می‌ماند. jpackage قالبِ سه‌بخشی می‌خواهد، پس ۱.۱ اینجا
+            // ۱.۱.۰ نوشته می‌شود.
+            packageVersion = "1.1.0"
             /*
              * لاتین و بی نویسهٔ خاص، عمداً.
              *

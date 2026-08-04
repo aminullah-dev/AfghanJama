@@ -73,6 +73,16 @@ XML
 # یک بار باز کردنِ اپ و سنجیدنش.
 #   $1 = نامِ مرحله (برای لاگ)
 # ───────────────────────────────────────────────────────────────────
+#
+# **چرا `am start` و نه `monkey`:** بارِ اول با `monkey` نوشته شده بود و
+# خروجی‌اش هم دور ریخته می‌شد. وقتی مرحلهٔ داشبورد شکست، لاگ نمی‌توانست
+# بگوید «اپ اصلاً باز نشد» یا «باز شد و مُرد» — و این دو تشخیصِ کاملاً
+# متفاوت‌اند. `am start -W` صریح می‌گوید `Status: ok` یا `Error: …`.
+#
+# **چرا لاگِ خودِ اپ چاپ می‌شود، حتی وقتی همه‌چیز خوب است:** `tail -200`ِ
+# لاگِ کامل روی شبیه‌سازِ CI پر است از پیامِ سرویس‌های گوگل و در پنجرهٔ
+# ۲۰۰ خطی حتی یک خط از اپِ ما نبود. فیلترشده، همان ۲۰۰ خط همه‌اش
+# به‌دردبخور است.
 launch() {
     local label="$1"
     echo
@@ -81,11 +91,32 @@ launch() {
     adb shell am force-stop "$PKG" >/dev/null 2>&1
     adb logcat -c >/dev/null 2>&1 || true
 
-    adb shell monkey -p "$PKG" -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
+    local started
+    started=$(adb shell am start -W -n "$PKG/.MainActivity" 2>&1 | tr -d '\r')
+    echo "$started" | sed 's/^/    /'
+    if echo "$started" | grep -qi "Error"; then
+        echo "✗ اپ اصلاً باز نشد — دستورِ راه‌اندازی خطا داد."
+        return 1
+    fi
 
-    # ۲۵ ثانیه: باز شدنِ Room، مهاجرت‌ها و اولین ترکیبِ Compose روی
-    # شبیه‌سازِ CI کند است. کمتر از این هشدارِ نادرست می‌دهد.
-    sleep 25
+    # به‌جای خوابِ ثابت، تا ۶۰ ثانیه صبر می‌کنیم ولی به محضِ کرش بیرون
+    # می‌آییم. خوابِ ثابتِ ۲۵ ثانیه هم کند بودنِ شبیه‌ساز را تحمل نمی‌کرد
+    # و هم وقتِ CI را سرِ حالت‌های سالم می‌سوزاند.
+    local pid="" i=0
+    while [ $i -lt 60 ]; do
+        pid=$(adb shell pidof "$PKG" 2>/dev/null | tr -d '\r')
+        [ -z "$pid" ] && [ $i -gt 3 ] && break
+        adb logcat -d -b crash 2>/dev/null | grep -q "$PKG" && break
+        i=$((i + 1))
+        sleep 1
+    done
+
+    # همیشه چاپ می‌شود — چه سبز چه قرمز. سرنخِ «داشت چه می‌کرد که مُرد»
+    # فقط همین‌جاست.
+    echo "── لاگِ مربوط به اپ:"
+    adb logcat -d 2>/dev/null | grep -Ei \
+        "afghanjama|AndroidRuntime|FATAL|ANR in|lowmemorykiller|lmkd|Killing|native crash|DEBUG *:" \
+        | tail -150 | sed 's/^/    /'
 
     local crash fatal anr
     crash=$(adb logcat -d -b crash 2>/dev/null | grep -A200 "$PKG" || true)
@@ -107,16 +138,19 @@ launch() {
     fi
 
     # نبودنِ کرش کافی نیست: اپ ممکن است بی‌صدا بسته شده باشد.
-    local pid
     pid=$(adb shell pidof "$PKG" 2>/dev/null | tr -d '\r')
     if [ -z "$pid" ]; then
         echo "✗ اپ زنده نیست و کرشی هم ثبت نشده — یعنی بی‌صدا بسته شد."
-        echo "── آخرین ۲۰۰ خطِ لاگ برای سرنخ:"
-        adb logcat -d | tail -200
+        echo "── چه چیزی روی صفحه است:"
+        adb shell dumpsys activity activities 2>/dev/null \
+            | grep -E "mResumedActivity|mFocusedApp" | sed 's/^/    /'
         return 1
     fi
 
-    echo "✓ «$label» — اپ ۲۵ ثانیه سرِ پا ماند (pid $pid)"
+    echo "── صفحهٔ روی نمایش:"
+    adb shell dumpsys activity activities 2>/dev/null \
+        | grep -E "mResumedActivity" | sed 's/^/    /'
+    echo "✓ «$label» — اپ سرِ پا ماند (pid $pid)"
 }
 
 # ───────────────────────────────────────────────────────────────────

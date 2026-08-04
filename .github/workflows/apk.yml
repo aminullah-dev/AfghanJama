@@ -193,7 +193,16 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
-          target: google_apis
+          # `default` و نه `google_apis`: ایمیجِ گوگل ده‌ها سرویسِ پس‌زمینه
+          # دارد و در اجرای قبلی همان‌ها شبیه‌ساز را چنان کند کردند که یک
+          # فریم ۳۰ ثانیه طول کشید و سیستم خودش هشدارِ ANR داد. اپِ ما به
+          # هیچ سرویسِ گوگلی کار ندارد (QR با zxing، اثر انگشت با
+          # androidx.biometric)، پس این ایمیجِ سبک‌تر هم درست‌تر است هم
+          # سریع‌تر.
+          target: default
           arch: x86_64
           disable-animations: true
+          emulator-options: >-
+            -no-window -gpu swiftshader_indirect -no-snapshot -noaudio
+            -no-boot-anim -camera-back none -memory 4096
           script: bash tools/ci/smoke.sh

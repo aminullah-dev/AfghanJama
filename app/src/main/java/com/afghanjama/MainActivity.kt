@@ -28,8 +28,10 @@ import com.afghanjama.platform.LocalScreenBehavior
 import com.afghanjama.platform.LocalSystemActions
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.ui.nav.AppNav
+import com.afghanjama.ui.screens.CrashReportScreen
 import com.afghanjama.ui.screens.PinLockScreen
 import com.afghanjama.util.AppLock
+import com.afghanjama.util.CrashLog
 import com.afghanjama.ui.theme.KhayatYarTheme
 import com.afghanjama.ui.vm.ActionCenterViewModel
 import com.afghanjama.ui.vm.AttendanceViewModel
@@ -112,6 +114,33 @@ class MainActivity : FragmentActivity() {
             LocalScreenBehavior provides AndroidScreenBehavior
           ) {
             KhayatYarTheme {
+                /*
+                 * گزارشِ خرابیِ بارِ قبل — پیش از هر چیزِ دیگر.
+                 *
+                 * عمداً بالاتر از قفلِ اپ و از کلِ درختِ صفحه‌هاست: اگر
+                 * خرابی در ساختِ همان درخت باشد، هر جای دیگری بگذاریمش
+                 * پیش از دیده شدن دوباره می‌ترکد و کاربر هیچ‌وقت متن را
+                 * نمی‌بیند.
+                 *
+                 * ۳۸ ViewModelِ پایین‌تر هم تا وقتی این صفحه سرِ پاست
+                 * ساخته نمی‌شوند، چون `return@KhayatYarTheme` جلوی
+                 * رسیدن به آن‌ها را می‌گیرد. یعنی اپی که سرِ باز شدن
+                 * می‌ترکید، دستِ‌کم یک بار باز می‌شود و می‌گوید چرا.
+                 */
+                var crash by remember { mutableStateOf(CrashLog.pending(applicationContext)) }
+                val report = crash
+                if (report != null) {
+                    CrashReportScreen(
+                        report = report,
+                        onSend = { system.shareText("گزارشِ خرابیِ خیاط‌یار", report) },
+                        onContinue = {
+                            CrashLog.clear(applicationContext)
+                            crash = null
+                        }
+                    )
+                    return@KhayatYarTheme
+                }
+
                 // قفل اپ: اگر رمز تنظیم شده باشد، اول باید باز شود
                 var unlocked by remember { mutableStateOf(!AppLock.isPinSet(applicationContext)) }
                 if (!unlocked) {
