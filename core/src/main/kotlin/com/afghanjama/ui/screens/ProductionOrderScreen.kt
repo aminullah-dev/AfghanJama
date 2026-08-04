@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import com.afghanjama.ui.platform.AppAlertDialog
 import com.afghanjama.ui.platform.AppDropdownMenu
 import com.afghanjama.ui.platform.AppDropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -79,7 +80,7 @@ fun ProductionOrderScreen(
 
     // ---------- ثبت طرح جدید در کاتالوگ با کدِ اختصاصیِ کارگاه ----------
     if (addDesignOpen) {
-        androidx.compose.material3.AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { addDesignOpen = false },
             title = { Text("ثبت طرح در کاتالوگ") },
             text = {

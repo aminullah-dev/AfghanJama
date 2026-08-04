@@ -87,6 +87,12 @@ def check_source(symbols):
     bad, wildcard = [], []
     imp = re.compile(r"^import\s+(androidx\.compose\.[\w.]+?)\.(\w+)\s*$")
     star = re.compile(r"^import\s+androidx\.compose\.[\w.]+\.\*\s*$")
+    # فراخوانیِ کاملاً مقید ایمپورت لازم ندارد و از بندِ بالا رد می‌شود.
+    #
+    # این را از حدس ننوشتم: حالتِ بایت‌کد در CI یک `AlertDialog_skikoKt`
+    # گرفت که همین بررسی در حالتِ متنی ندیده بود، چون در کد
+    # `androidx.compose.material3.AlertDialog(` نوشته شده بود، بی ایمپورت.
+    fq = re.compile(r"(?<!import )androidx\.compose\.[\w.]+?\.(\w+)\s*\(")
     for p in files:
         for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
             if star.match(line):
@@ -97,6 +103,9 @@ def check_source(symbols):
             m = imp.match(line)
             if m and m.group(2) in symbols:
                 bad.append((p.name, i, m.group(2), symbols[m.group(2)]))
+            for m in fq.finditer(line):
+                if m.group(1) in symbols:
+                    bad.append((p.name, i, m.group(1), symbols[m.group(1)]))
     return files, bad, wildcard
 
 
