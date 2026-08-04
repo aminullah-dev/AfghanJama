@@ -23,7 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.AlertDialog
+import com.afghanjama.ui.platform.AppAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -313,7 +313,7 @@ private fun WorkCostEditor(
 
     // دیالوگ ویرایش
     if (editItem != null) {
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { editItem = null },
             title = { Text("ویرایش خرج کار") },
             text = {
@@ -381,7 +381,7 @@ private fun EditableRow(
     var draft by remember(row.id) { mutableStateOf(row.editValue) }
 
     if (editing) {
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { editing = false },
             title = { Text("ویرایش نام") },
             text = {
@@ -403,7 +403,7 @@ private fun EditableRow(
     }
 
     if (confirmDelete) {
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { confirmDelete = false },
             title = { Text("حذف «${row.editValue}»؟") },
             text = {
@@ -602,7 +602,7 @@ private fun DesignEditor(
     // ---------- دیالوگِ دسته ----------
     editing?.let { d ->
         var cat by remember(d.id) { mutableStateOf(d.category) }
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { editing = null },
             title = { Text("دستهٔ «${d.title}»") },
             text = {

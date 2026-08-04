@@ -15,7 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.PersonAdd
-import androidx.compose.material3.AlertDialog
+import com.afghanjama.ui.platform.AppAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -84,7 +84,7 @@ fun PayrollScreen(
         var salary by remember(row) {
             mutableStateOf(if ((row?.monthlySalary ?: 0) > 0) row!!.monthlySalary.toString() else "")
         }
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { addOpen = false; editing = null },
             title = { Text(if (row == null) "کارمند جدید" else "ویرایش ${row.name}") },
             text = {
@@ -137,7 +137,7 @@ fun PayrollScreen(
         val salary = amount.toLongOrNull() ?: 0L
         val deducted = if (deduct) minOf(row.advance, salary) else 0L
         val cashOut = (salary - deducted).coerceAtLeast(0)
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { paying = null },
             title = { Text("پرداخت حقوق ${row.name}") },
             text = {

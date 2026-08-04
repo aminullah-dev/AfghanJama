@@ -19,12 +19,12 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Payments
-import androidx.compose.material3.AlertDialog
+import com.afghanjama.ui.platform.AppAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.afghanjama.ui.platform.AppDropdownMenu
+import com.afghanjama.ui.platform.AppDropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -76,7 +76,7 @@ fun FinanceHubScreen(
     // پیامِ ردشدن (موجودیِ ناکافی) — بی این، کاربر فکر می‌کرد ثبت شد
     val financeMessage by financeVm.message.collectAsState()
     financeMessage?.let { msg ->
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { financeVm.clearMessage() },
             text = { Text(msg) },
             confirmButton = {
@@ -476,7 +476,7 @@ private fun WalletTab(vm: FinanceViewModel) {
 
     // ---------- دیالوگ حذف تراکنش ----------
     deleteTarget?.let { t ->
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { deleteTarget = null },
             title = { Text("حذف تراکنش؟") },
             text = {
@@ -512,7 +512,7 @@ private fun WalletTab(vm: FinanceViewModel) {
         var toMenu by remember { mutableStateOf(false) }
         val boxes = listOf("WALLET", "BANK", "PROFIT")
 
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showTransfer = false },
             title = { Text("انتقال بین صندوق‌ها") },
             text = {
@@ -520,17 +520,17 @@ private fun WalletTab(vm: FinanceViewModel) {
                     OutlinedButton(onClick = { fromMenu = true }, modifier = Modifier.fillMaxWidth()) {
                         Text("از: " + boxLabel(fromBox))
                     }
-                    DropdownMenu(expanded = fromMenu, onDismissRequest = { fromMenu = false }) {
+                    AppDropdownMenu(expanded = fromMenu, onDismissRequest = { fromMenu = false }) {
                         boxes.forEach { b ->
-                            DropdownMenuItem(text = { Text(boxLabel(b)) }, onClick = { fromBox = b; fromMenu = false })
+                            AppDropdownMenuItem(text = { Text(boxLabel(b)) }, onClick = { fromBox = b; fromMenu = false })
                         }
                     }
                     OutlinedButton(onClick = { toMenu = true }, modifier = Modifier.fillMaxWidth()) {
                         Text("به: " + boxLabel(toBox))
                     }
-                    DropdownMenu(expanded = toMenu, onDismissRequest = { toMenu = false }) {
+                    AppDropdownMenu(expanded = toMenu, onDismissRequest = { toMenu = false }) {
                         boxes.forEach { b ->
-                            DropdownMenuItem(text = { Text(boxLabel(b)) }, onClick = { toBox = b; toMenu = false })
+                            AppDropdownMenuItem(text = { Text(boxLabel(b)) }, onClick = { toBox = b; toMenu = false })
                         }
                     }
                     OutlinedTextField(
@@ -560,7 +560,7 @@ private fun WalletTab(vm: FinanceViewModel) {
         var note by remember { mutableStateOf("") }
         var catMenu by remember { mutableStateOf(false) }
 
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showExpense = false },
             title = { Text("ثبت هزینه کارگاه") },
             text = {
@@ -568,9 +568,9 @@ private fun WalletTab(vm: FinanceViewModel) {
                     OutlinedButton(onClick = { catMenu = true }, modifier = Modifier.fillMaxWidth()) {
                         Text(category.ifBlank { "انتخاب دسته هزینه" })
                     }
-                    DropdownMenu(expanded = catMenu, onDismissRequest = { catMenu = false }) {
+                    AppDropdownMenu(expanded = catMenu, onDismissRequest = { catMenu = false }) {
                         expenseCategories.forEach { c ->
-                            DropdownMenuItem(text = { Text(c) }, onClick = { category = c; catMenu = false })
+                            AppDropdownMenuItem(text = { Text(c) }, onClick = { category = c; catMenu = false })
                         }
                     }
                     OutlinedTextField(

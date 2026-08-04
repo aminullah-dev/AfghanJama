@@ -22,7 +22,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.AlertDialog
+import com.afghanjama.ui.platform.AppAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -113,7 +113,7 @@ fun LedgerScreen(
     // ---------- دیالوگ گردش حساب ----------
     selected?.let { p ->
         val rows = entries.filter { it.partyType == p.type && it.partyName == p.name }
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { selected = null },
             confirmButton = {
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -229,7 +229,7 @@ fun LedgerScreen(
 
     // ---------- دیالوگ سند دستی ----------
     if (manualOpen) {
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { manualOpen = false },
             confirmButton = {
                 Button(

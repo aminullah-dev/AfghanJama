@@ -18,7 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.AlertDialog
+import com.afghanjama.ui.platform.AppAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -80,7 +80,7 @@ fun CustomerDetailScreen(
     if (showMeasure) {
         var label by remember { mutableStateOf("") }
         var value by remember { mutableStateOf("") }
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showMeasure = false },
             title = { Text("افزودن اندازه") },
             text = {
@@ -108,7 +108,7 @@ fun CustomerDetailScreen(
 
     if (showPay) {
         var amount by remember { mutableStateOf("") }
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showPay = false },
             title = { Text("ثبت دریافتی") },
             text = {

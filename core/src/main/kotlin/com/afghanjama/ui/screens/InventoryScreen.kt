@@ -22,7 +22,7 @@ import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.AlertDialog
+import com.afghanjama.ui.platform.AppAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -92,7 +92,7 @@ fun InventoryScreen(
     }
 
     if (uiState.isError && uiState.message != null) {
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { vm.clearMessage() },
             confirmButton = { TextButton(onClick = { vm.clearMessage() }) { Text("باشه") } },
             title = { Text("خطا") },
@@ -117,7 +117,7 @@ fun InventoryScreen(
     }
 
     if (showAddMoney && canManage) {
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showAddMoney = false },
             confirmButton = {
                 TextButton(

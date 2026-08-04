@@ -34,10 +34,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.afghanjama.ui.platform.AppDropdownMenu
+import com.afghanjama.ui.platform.AppDropdownMenuItem
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.AlertDialog
+import com.afghanjama.ui.platform.AppAlertDialog
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -94,7 +94,7 @@ fun ProcurementScreen(
             val q = search.trim()
             if (q.isBlank()) suppliers else suppliers.filter { it.contains(q, ignoreCase = true) }
         }
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showSupplierPicker = false },
             title = { Text("انتخاب تأمین‌کننده") },
             text = {
@@ -138,7 +138,7 @@ fun ProcurementScreen(
     // خودکار انجام نمی‌شود. هر دو پاسخ خرید را ثبت می‌کنند؛ فرقشان فقط
     // این است که نام برای دفعهٔ بعد می‌مانَد یا نه.
     if (askPermanent) {
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { askPermanent = false },
             title = { Text("این تأمین‌کننده دایمی است؟") },
             text = {
@@ -558,9 +558,9 @@ private fun FabricPicker(
                 color = MaterialTheme.colorScheme.error
             )
         }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+        AppDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             options.forEachIndexed { i, shown ->
-                DropdownMenuItem(
+                AppDropdownMenuItem(
                     text = { Text(shown) },
                     onClick = {
                         onPick(values.getOrElse(i) { shown })

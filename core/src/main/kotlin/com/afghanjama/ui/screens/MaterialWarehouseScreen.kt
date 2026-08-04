@@ -18,7 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.AlertDialog
+import com.afghanjama.ui.platform.AppAlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -68,7 +68,7 @@ fun MaterialWarehouseScreen(
         var amountText by remember(item.id) { mutableStateOf(fmtAmountLatin(item.amount)) }
         var minText by remember(item.id) { mutableStateOf(fmtAmountLatin(item.minLevel)) }
         var wasteText by remember(item.id) { mutableStateOf("") }
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { editTarget = null },
             title = { Text("اصلاح «${item.name}»") },
             text = {

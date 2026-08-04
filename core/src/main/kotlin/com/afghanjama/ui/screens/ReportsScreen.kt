@@ -24,13 +24,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.TableChart
-import androidx.compose.material3.AlertDialog
+import com.afghanjama.ui.platform.AppAlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.afghanjama.ui.platform.AppDropdownMenu
+import com.afghanjama.ui.platform.AppDropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -178,9 +178,9 @@ private fun JalaliDateRow(
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Box {
                 OutlinedButton(onClick = { dOpen = true }) { Text(day.fa()) }
-                DropdownMenu(expanded = dOpen, onDismissRequest = { dOpen = false }) {
+                AppDropdownMenu(expanded = dOpen, onDismissRequest = { dOpen = false }) {
                     (1..maxDay).forEach { d ->
-                        DropdownMenuItem(
+                        AppDropdownMenuItem(
                             text = { Text(d.fa()) },
                             onClick = { onChange(year, month, d); dOpen = false }
                         )
@@ -191,9 +191,9 @@ private fun JalaliDateRow(
                 OutlinedButton(onClick = { mOpen = true }) {
                     Text(PersianDate.afghanMonths[month - 1])
                 }
-                DropdownMenu(expanded = mOpen, onDismissRequest = { mOpen = false }) {
+                AppDropdownMenu(expanded = mOpen, onDismissRequest = { mOpen = false }) {
                     PersianDate.afghanMonths.forEachIndexed { i, name ->
-                        DropdownMenuItem(
+                        AppDropdownMenuItem(
                             text = { Text(name) },
                             onClick = {
                                 val m = i + 1
@@ -207,9 +207,9 @@ private fun JalaliDateRow(
             }
             Box {
                 OutlinedButton(onClick = { yOpen = true }) { Text(year.fa()) }
-                DropdownMenu(expanded = yOpen, onDismissRequest = { yOpen = false }) {
+                AppDropdownMenu(expanded = yOpen, onDismissRequest = { yOpen = false }) {
                     years.forEach { y ->
-                        DropdownMenuItem(
+                        AppDropdownMenuItem(
                             text = { Text(y.fa()) },
                             onClick = {
                                 val d = day.coerceAtMost(PersianDate.daysInJalaliMonth(y, month))
@@ -259,7 +259,7 @@ fun ReportsScreen(
         val toMs = PersianDate.endOfJalaliDay(t.first, t.second, t.third)
         val valid = fromMs <= toMs
 
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { customOpen = false },
             title = { Text("بازهٔ دلخواه") },
             text = {

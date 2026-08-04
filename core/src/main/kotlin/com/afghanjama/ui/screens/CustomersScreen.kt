@@ -16,7 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.PersonAdd
-import androidx.compose.material3.AlertDialog
+import com.afghanjama.ui.platform.AppAlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -58,7 +58,7 @@ fun CustomersScreen(
     if (showAdd) {
         var name by remember { mutableStateOf("") }
         var phone by remember { mutableStateOf("") }
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showAdd = false },
             title = { Text("مشتری جدید") },
             text = {

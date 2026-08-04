@@ -15,7 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.PersonSearch
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.AlertDialog
+import com.afghanjama.ui.platform.AppAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -69,7 +69,7 @@ fun MyWorkScreen(
     LaunchedEffect(myLabel) { vm.setLabel(myLabel) }
 
     if (pickerOpen) {
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { pickerOpen = false },
             title = { Text("شما کدام هستید؟") },
             text = {

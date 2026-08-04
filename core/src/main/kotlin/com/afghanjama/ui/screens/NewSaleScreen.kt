@@ -27,7 +27,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Store
-import androidx.compose.material3.AlertDialog
+import com.afghanjama.ui.platform.AppAlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -96,7 +96,7 @@ fun NewSaleScreen(
             if (q.isBlank()) customers
             else customers.filter { it.contains(q, ignoreCase = true) }
         }
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showCustomerPicker = false },
             title = { Text("انتخاب خریدار") },
             text = {
@@ -583,7 +583,7 @@ private fun ItemPickerDialog(
         stock.filter { it.qty > 0 && (q.isBlank() || it.name.contains(q) || it.size.contains(q)) }
     }
 
-    AlertDialog(
+    AppAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("انتخاب کالا") },
         text = {

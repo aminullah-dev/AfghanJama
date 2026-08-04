@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.runtime.CompositionLocalProvider
+import com.afghanjama.ui.platform.LocalWidgets
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -99,7 +100,8 @@ fun main() = application {
                 LocalSettings provides settings,
                 LocalSystemActions provides DesktopSystemActions(),
                 LocalDocs provides DesktopDocsBridge(settings),
-                LocalFileExport provides DesktopFileExport()
+                LocalFileExport provides DesktopFileExport(),
+                LocalWidgets provides DesktopWidgets
             ) {
                 Shell(DesktopLedger.repo().getOrNull())
             }

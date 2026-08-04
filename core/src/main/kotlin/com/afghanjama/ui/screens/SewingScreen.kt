@@ -22,12 +22,12 @@ import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
+import com.afghanjama.ui.platform.AppAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.afghanjama.ui.platform.AppDropdownMenu
+import com.afghanjama.ui.platform.AppDropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -430,12 +430,12 @@ private fun HandoutCard(
                     Spacer(Modifier.width(8.dp))
                     Text(tailor.ifBlank { "انتخاب خیاط" }, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                AppDropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                     if (tailorLabels.isEmpty()) {
-                        DropdownMenuItem(text = { Text("هیچ خیاطی ثبت نشده (اطلاعات پایه)") }, onClick = { menuOpen = false })
+                        AppDropdownMenuItem(text = { Text("هیچ خیاطی ثبت نشده (اطلاعات پایه)") }, onClick = { menuOpen = false })
                     } else {
                         tailorLabels.forEach { label ->
-                            DropdownMenuItem(text = { Text(label) }, onClick = { tailor = label; menuOpen = false })
+                            AppDropdownMenuItem(text = { Text(label) }, onClick = { tailor = label; menuOpen = false })
                         }
                     }
                 }
@@ -507,7 +507,7 @@ private fun InProgressCard(
         var deliveredText by remember { mutableStateOf(assignment.qty.toString()) }
         var quality by remember { mutableStateOf("") }
         val delivered = deliveredText.toIntOrNull() ?: 0
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showDone = false },
             title = { Text("تحویل دوختِ ${assignment.tailorLabel}") },
             text = {

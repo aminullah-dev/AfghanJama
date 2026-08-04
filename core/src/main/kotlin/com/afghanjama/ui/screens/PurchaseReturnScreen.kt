@@ -14,8 +14,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.afghanjama.ui.platform.AppDropdownMenu
+import com.afghanjama.ui.platform.AppDropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -113,9 +113,9 @@ fun PurchaseReturnScreen(
                             onClick = { supMenu = true },
                             modifier = Modifier.fillMaxWidth()
                         ) { Text(if (supplier.isBlank()) "انتخاب فروشنده" else supplier) }
-                        DropdownMenu(expanded = supMenu, onDismissRequest = { supMenu = false }) {
+                        AppDropdownMenu(expanded = supMenu, onDismissRequest = { supMenu = false }) {
                             ui.suppliers.forEach { s ->
-                                DropdownMenuItem(
+                                AppDropdownMenuItem(
                                     text = { Text(s) },
                                     onClick = { supplier = s; supMenu = false }
                                 )
@@ -141,9 +141,9 @@ fun PurchaseReturnScreen(
                     ) {
                         Text(picked?.let { "${it.first} (${it.second})" } ?: "انتخاب قلم از انبار")
                     }
-                    DropdownMenu(expanded = itemMenu, onDismissRequest = { itemMenu = false }) {
+                    AppDropdownMenu(expanded = itemMenu, onDismissRequest = { itemMenu = false }) {
                         ui.materials.forEach { m ->
-                            DropdownMenuItem(
+                            AppDropdownMenuItem(
                                 text = { Text("${m.name} • موجودی ${m.amount} ${m.unit}") },
                                 onClick = {
                                     picked = m.name to m.unit

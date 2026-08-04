@@ -26,6 +26,8 @@ import com.afghanjama.platform.LocalDocs
 import com.afghanjama.platform.LocalFileExport
 import com.afghanjama.platform.LocalScreenBehavior
 import com.afghanjama.platform.LocalSystemActions
+import com.afghanjama.ui.platform.AndroidWidgets
+import com.afghanjama.ui.platform.LocalWidgets
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.ui.nav.AppNav
 import com.afghanjama.ui.screens.CrashReportScreen
@@ -111,7 +113,10 @@ class MainActivity : FragmentActivity() {
             LocalSystemActions provides system,
             LocalDocs provides docs,
             LocalFileExport provides AndroidFileExport,
-            LocalScreenBehavior provides AndroidScreenBehavior
+            LocalScreenBehavior provides AndroidScreenBehavior,
+            // بی این خط، هر صفحه‌ای که پنجرهٔ تأیید یا منوی بازشو
+            // دارد سرِ باز شدن می‌شکند.
+            LocalWidgets provides AndroidWidgets
           ) {
             KhayatYarTheme {
                 /*

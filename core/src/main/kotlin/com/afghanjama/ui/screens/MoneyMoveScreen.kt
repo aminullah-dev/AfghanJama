@@ -18,8 +18,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.afghanjama.ui.platform.AppDropdownMenu
+import com.afghanjama.ui.platform.AppDropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -150,16 +150,16 @@ fun MoneyMoveScreen(
                         ) {
                             Text(if (name.isBlank()) "انتخاب از فهرست" else name)
                         }
-                        DropdownMenu(expanded = pickerOpen, onDismissRequest = { pickerOpen = false }) {
+                        AppDropdownMenu(expanded = pickerOpen, onDismissRequest = { pickerOpen = false }) {
                             val list = ui.of(type)
                             if (list.isEmpty()) {
-                                DropdownMenuItem(
+                                AppDropdownMenuItem(
                                     text = { Text("کسی ثبت نشده — نام را دستی بنویسید") },
                                     onClick = { pickerOpen = false }
                                 )
                             }
                             list.forEach { p ->
-                                DropdownMenuItem(
+                                AppDropdownMenuItem(
                                     text = {
                                         Column {
                                             Text(p.name)

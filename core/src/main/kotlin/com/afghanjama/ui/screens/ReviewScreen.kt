@@ -22,12 +22,12 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.VerifiedUser
-import androidx.compose.material3.AlertDialog
+import com.afghanjama.ui.platform.AppAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.afghanjama.ui.platform.AppDropdownMenu
+import com.afghanjama.ui.platform.AppDropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -89,7 +89,7 @@ fun ReviewScreen(
         // خالی = «معلوم نیست»؛ همان رفتارِ قبلی، فقط حالا یک انتخابِ صریح است.
         var blamedTailor by remember(oid) { mutableStateOf("") }
 
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { rejectTarget = null },
             title = { Text("برگشت برای اصلاح") },
             text = {
@@ -296,19 +296,19 @@ fun ReviewScreen(
                                 )
                             }
 
-                            DropdownMenu(
+                            AppDropdownMenu(
                                 expanded = menuOpen,
                                 onDismissRequest = { menuMap[o.id] = false }
                             ) {
                                 if (inspectors.isEmpty()) {
-                                    DropdownMenuItem(
+                                    AppDropdownMenuItem(
                                         text = { Text("هیچ ناظری ثبت نشده") },
                                         onClick = { menuMap[o.id] = false }
                                     )
                                 } else {
                                     inspectors.forEach { ins ->
                                         val label = "[${ins.code}] ${ins.name}"
-                                        DropdownMenuItem(
+                                        AppDropdownMenuItem(
                                             text = { Text(label) },
                                             onClick = {
                                                 pickMap[o.id] = label

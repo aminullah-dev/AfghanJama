@@ -24,8 +24,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.afghanjama.ui.platform.AppDropdownMenu
+import com.afghanjama.ui.platform.AppDropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -158,10 +158,10 @@ fun ProductionOrderScreen(
                                 Icon(Icons.Default.Add, contentDescription = "افزودن طرح به کاتالوگ")
                             }
                         }
-                        DropdownMenu(expanded = designMenu, onDismissRequest = { designMenu = false }) {
+                        AppDropdownMenu(expanded = designMenu, onDismissRequest = { designMenu = false }) {
                             designs.forEach { d ->
                                 val made = designCounts[d.title] ?: 0
-                                DropdownMenuItem(
+                                AppDropdownMenuItem(
                                     text = {
                                         Column {
                                             Text(d.title)
@@ -222,9 +222,9 @@ fun ProductionOrderScreen(
                                 Icon(Icons.Default.Add, contentDescription = "افزودن سایز به کاتالوگ")
                             }
                         }
-                        DropdownMenu(expanded = sizeMenu, onDismissRequest = { sizeMenu = false }) {
+                        AppDropdownMenu(expanded = sizeMenu, onDismissRequest = { sizeMenu = false }) {
                             sizes.forEach { sz ->
-                                DropdownMenuItem(
+                                AppDropdownMenuItem(
                                     text = { Text(sz.title) },
                                     onClick = { vm.setSize(sz.title); sizeMenu = false }
                                 )
@@ -326,9 +326,9 @@ fun ProductionOrderScreen(
                                 else "${ui.pickedName} • موجودی به واحد ${ui.pickedUnit}"
                             )
                         }
-                        DropdownMenu(expanded = pickerOpen, onDismissRequest = { pickerOpen = false }) {
+                        AppDropdownMenu(expanded = pickerOpen, onDismissRequest = { pickerOpen = false }) {
                             materials.forEach { m ->
-                                DropdownMenuItem(
+                                AppDropdownMenuItem(
                                     text = { Text("${m.name} — ${fmtNum(m.amount)} ${m.unit}") },
                                     onClick = { vm.pickMaterial(m); pickerOpen = false }
                                 )
