@@ -42,7 +42,13 @@ data class WorkshopLinkUi(
  */
 class WorkshopLinkViewModel(
     private val repo: Repo,
-    private val host: LanHost
+    /**
+     * عمداً `lan` نام دارد نه `host`: در همین کلاس `host` از قبل به
+     * معنیِ **نشانیِ دستگاهِ اصلی** به کار می‌رود و اگر هم‌نام می‌شدند،
+     * `val host = LanPrefs.host(settings)`ِ محلی این را می‌پوشاند — که یک بار
+     * شد و کامپایل را شکست.
+     */
+    private val lan: LanHost
 ) : ViewModel() {
 
     /**
@@ -65,51 +71,51 @@ class WorkshopLinkViewModel(
 
     val busy = Busy()
 
-    fun load(s: Settings) {
+    fun load(settings: Settings) {
         _ui.update {
             it.copy(
-                mode = LanPrefs.mode(s),
-                code = LanPrefs.code(s),
-                host = LanPrefs.host(s),
-                deviceName = LanPrefs.deviceName(s).ifBlank { host.deviceName },
-                ip = host.localIp(),
+                mode = LanPrefs.mode(settings),
+                code = LanPrefs.code(settings),
+                host = LanPrefs.host(settings),
+                deviceName = LanPrefs.deviceName(settings).ifBlank { lan.deviceName },
+                ip = lan.localIp(),
                 serving = server?.running == true
             )
         }
     }
 
-    fun setDeviceName(s: Settings, name: String) {
-        LanPrefs.setDeviceName(s, name)
+    fun setDeviceName(settings: Settings, name: String) {
+        LanPrefs.setDeviceName(settings, name)
         _ui.update { it.copy(deviceName = name) }
     }
 
     // ---------------- گوشیِ اصلی ----------------
 
-    fun becomeMain(s: Settings) {
-        val code = LanPrefs.code(s).ifBlank { LanPrefs.newCode().also { LanPrefs.setCode(s, it) } }
-        LanPrefs.setMode(s, DeviceMode.MAIN)
-        startServing(s, code)
+    fun becomeMain(settings: Settings) {
+        val code = LanPrefs.code(settings).ifBlank { LanPrefs.newCode().also { LanPrefs.setCode(settings, it) } }
+        LanPrefs.setMode(settings, DeviceMode.MAIN)
+        startServing(settings, code)
     }
 
-    fun newCode(s: Settings) {
+    fun newCode(settings: Settings) {
         val c = LanPrefs.newCode()
-        LanPrefs.setCode(s, c)
+        LanPrefs.setCode(settings, c)
         _ui.update { it.copy(code = c) }
         if (server?.running == true) {
             stopServing()
-            startServing(s, c)
+            startServing(settings, c)
         }
     }
 
-    fun startServing(s: Settings, code: String = LanPrefs.code(s)) {
-        val s = server ?: LanServer(host.ledger()).also { server = it }
-        val ok = s.start(code)
+    fun startServing(settings: Settings, code: String = LanPrefs.code(settings)) {
+        val srv = server ?: LanServer(lan.ledger()).also { server = it }
+        val ok = srv.start(code)
         _ui.update {
             it.copy(
                 serving = ok,
                 mode = DeviceMode.MAIN,
                 code = code,
-                ip = host.localIp(),
+                ip = lan.localIp(),
                 message = if (ok) "اشتراکِ کارگاه روشن شد."
                 else "پورت باز نشد؛ شاید اپِ دیگری آن را گرفته باشد.",
                 isError = !ok
@@ -141,7 +147,7 @@ class WorkshopLinkViewModel(
 
     // ---------------- گوشیِ کارگر ----------------
 
-    fun becomeWorker(s: Settings, host: String, code: String) = viewModelScope.launch {
+    fun becomeWorker(settings: Settings, host: String, code: String) = viewModelScope.launch {
         _ui.update { it.copy(checking = true, message = null) }
         val client = LanClient(host.trim(), code.trim())
         when (val r = client.ping()) {
@@ -149,9 +155,9 @@ class WorkshopLinkViewModel(
                 it.copy(checking = false, message = r.message, isError = true)
             }
             is LanResult.Ok -> {
-                LanPrefs.setMode(s, DeviceMode.WORKER)
-                LanPrefs.setHost(s, host)
-                LanPrefs.setCode(s, code)
+                LanPrefs.setMode(settings, DeviceMode.WORKER)
+                LanPrefs.setHost(settings, host)
+                LanPrefs.setCode(settings, code)
                 _ui.update {
                     it.copy(
                         checking = false, mode = DeviceMode.WORKER,
@@ -163,11 +169,11 @@ class WorkshopLinkViewModel(
         }
     }
 
-    fun refreshMyWork(s: Settings, worker: String) = viewModelScope.launch {
-        val host = LanPrefs.host(s)
+    fun refreshMyWork(settings: Settings, worker: String) = viewModelScope.launch {
+        val host = LanPrefs.host(settings)
         if (host.isBlank()) return@launch
         _ui.update { it.copy(checking = true) }
-        when (val r = LanClient(host, LanPrefs.code(s)).myWork(worker)) {
+        when (val r = LanClient(host, LanPrefs.code(settings)).myWork(worker)) {
             is LanResult.Err -> _ui.update {
                 it.copy(checking = false, message = r.message, isError = true)
             }
@@ -178,7 +184,7 @@ class WorkshopLinkViewModel(
     }
 
     fun sendRequest(
-        s: Settings,
+        settings: Settings,
         worker: String,
         type: String,
         summary: String,
@@ -187,9 +193,9 @@ class WorkshopLinkViewModel(
         note: String = ""
     ) = viewModelScope.launch {
         busy.once {
-            val host = LanPrefs.host(s)
-            val client = LanClient(host, LanPrefs.code(s))
-            val device = LanPrefs.deviceName(s).ifBlank { host.deviceName }
+            val host = LanPrefs.host(settings)
+            val client = LanClient(host, LanPrefs.code(settings))
+            val device = LanPrefs.deviceName(settings).ifBlank { lan.deviceName }
             when (val r = client.sendRequest(device, worker, type, summary, refId, amount, note)) {
                 is LanResult.Err -> _ui.update { it.copy(message = r.message, isError = true) }
                 is LanResult.Ok -> _ui.update { it.copy(message = r.value, isError = false) }
@@ -197,8 +203,8 @@ class WorkshopLinkViewModel(
         }
     }
 
-    fun disconnect(s: Settings) {
-        LanPrefs.setMode(s, DeviceMode.STANDALONE)
+    fun disconnect(settings: Settings) {
+        LanPrefs.setMode(settings, DeviceMode.STANDALONE)
         stopServing()
         _ui.update { it.copy(mode = DeviceMode.STANDALONE, myWork = emptyList()) }
     }

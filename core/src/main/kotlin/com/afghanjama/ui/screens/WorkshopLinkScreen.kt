@@ -62,7 +62,6 @@ fun WorkshopLinkScreen(
     onBack: () -> Unit
 ) {
     val settings = LocalSettings.current
-    val settings = LocalSettings.current
     val ui by vm.ui.collectAsState()
     val designCodeByOrder by vm.designCodeByOrder.collectAsState()
     val pending by vm.pending.collectAsState()
