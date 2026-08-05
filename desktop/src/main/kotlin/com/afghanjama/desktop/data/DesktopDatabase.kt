@@ -5,6 +5,7 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.room.PooledConnection
 import androidx.room.Transactor
+import androidx.room.Transactor.SQLiteTransactionType
 import androidx.room.useWriterConnection
 import com.afghanjama.data.Converters
 import com.afghanjama.data.DB_VERSION
@@ -149,6 +150,47 @@ import kotlinx.coroutines.runBlocking
 )
 @TypeConverters(Converters::class)
 abstract class DesktopDatabase : RoomDatabase(), Db {
+    /*
+     * مرزِ تراکنش برای این سکو.
+     *
+     * **`androidx.room.withTransaction` اینجا وجود ندارد.** آن تابع در
+     * `room-ktx` است و `room-ktx` فقط اندروید منتشر می‌شود؛ در
+     * `room-runtime-jvm` نیست. از خودِ jar وارسی شد:
+     * `androidx.room.RoomDatabaseKt` روی دسکتاپ فقط
+     * `useReaderConnection`، `useWriterConnection` و سه تابعِ
+     * اعتبارسنجی دارد.
+     *
+     * راهِ درستِ این سکو موتورِ درایوری است:
+     *
+     *   • `useWriterConnection` اتصالِ نویسنده را می‌دهد و **در همان
+     *     کوروتین دوباره‌ورودی است** — یعنی صدا زدنش درونِ خودش همان
+     *     اتصال را برمی‌گرداند، نه یکی تازه.
+     *   • `Transactor.inTransaction()` می‌گوید آیا از قبل داخلِ تراکنشیم.
+     *   • `Transactor.withTransaction(IMMEDIATE)` تراکنش را می‌بندد و
+     *     سرِ استثنا برش می‌گرداند.
+     *
+     * **تودرتو بودن** — که قرارداد `Tx` صریح می‌خواهدش — از همین
+     * `inTransaction()` می‌آید: اگر بیرونی باز است، بلوک همان‌جا اجرا
+     * می‌شود و در تراکنشِ بیرونی ادغام می‌گردد. `sellInvoice` که
+     * `addFinishedStock` را صدا می‌زند دقیقاً همین حالت است؛ بی این
+     * بند، تراکنشِ دومی روی همان اتصال باز می‌شد و SQLite خطا می‌داد.
+     *
+     * `IMMEDIATE` انتخاب شد نه `DEFERRED` — همان چیزی که `clearTables`
+     * پایین‌تر هم می‌گیرد. قفلِ نوشتن از همان اول گرفته می‌شود، پس دو
+     * نویسنده به‌جای گیر کردن در میانهٔ کار، همان اول صف می‌کشند.
+     *
+     * متدِ **پیاده‌شده** است نه abstract، چون Room فقط برای متدهای
+     * abstract کد تولید می‌کند.
+     */
+    override suspend fun <T> atomic(block: suspend () -> T): T =
+        useWriterConnection { conn: Transactor ->
+            if (conn.inTransaction()) {
+                block()
+            } else {
+                conn.withTransaction(SQLiteTransactionType.IMMEDIATE) { block() }
+            }
+        }
+
     abstract override fun orderDao(): OrderDao
     abstract override fun orderCounterDao(): OrderCounterDao
     abstract override fun financeDao(): FinanceDao

@@ -324,6 +324,34 @@ val migrationSmoke by tasks.registering(JavaExec::class) {
 }
 
 /*
+ * `txSmoke` — مرزِ تراکنش روی ویندوز واقعاً تراکنش است.
+ *
+ * روی اندروید این کار را `androidx.room.withTransaction` می‌کند. اینجا
+ * آن تابع وجود ندارد (`room-ktx` فقط اندروید است) و با موتورِ درایوری
+ * دوباره ساخته شده — و تراکنشِ دست‌ساز چیزی نیست که «کامپایل شد»
+ * ثابتش کند.
+ *
+ * چهار بند: ماندنِ commit، برگشتِ کامل سرِ استثنا، ادغامِ تراکنشِ
+ * تودرتو، و برگشتِ بیرونی که نوشتهٔ درونی را هم برمی‌گرداند.
+ */
+val txSmoke by tasks.registering(JavaExec::class) {
+    group = "verification"
+    description = "تراکنشِ ویندوز: همه یا هیچ، و تودرتو-امن"
+    dependsOn("createDistributable")
+    mainClass.set("com.afghanjama.desktop.data.TxSmokeKt")
+    jvmArgs("-Dfile.encoding=UTF-8", "-Dstdout.encoding=UTF-8")
+    doFirst {
+        val appDir = layout.buildDirectory
+            .dir("compose/binaries/main/app/KhayatYar/app").get().asFile
+        val jars = appDir.listFiles { f: JFile -> f.name.endsWith(".jar") } ?: emptyArray()
+        if (jars.isEmpty()) {
+            throw GradleException("پوشهٔ بسته خالی است: $appDir — بررسی پوچ می‌شد")
+        }
+        classpath = files(appDir) + files(*jars)
+    }
+}
+
+/*
  * `selfTestRun` — خودآزمایی روی ویندوز اجرا می‌شود و سبز است.
  *
  * `screenSmoke` ثابت می‌کند صفحهٔ خودآزمایی **رسم** می‌شود. این ثابت

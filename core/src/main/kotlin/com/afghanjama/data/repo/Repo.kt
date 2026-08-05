@@ -2141,11 +2141,31 @@ class Repo(private val db: Db) {
      *
      * [receivedNow] = -1 یعنی «همه نقد».
      */
+    /*
+     * پوستهٔ تراکنش. بدنهٔ اصلی دست‌نخورده در `sellInvoiceTx` است.
+     *
+     * **چرا بدنه جدا شد و مستقیم پیچیده نشد:** `atomic` یک لامبدای
+     * غیرِ inline می‌گیرد، پس `return false`های داخلِ بدنه — که وارسیِ
+     * ورودی‌اند — کامپایل نمی‌شدند. جدا کردنِ بدنه معنای `return` را
+     * دقیقاً حفظ می‌کند و هیچ خطی از منطق را تغییر نمی‌دهد.
+     *
+     * سودِ جانبی: `…Tx` همان چیزی است که در نقشهٔ معماری قرار است
+     * فردا به `CommandHandler` تبدیل شود.
+     */
     suspend fun sellInvoice(
         lines: List<SaleLine>,
         customerName: String,
         receivedNow: Long = -1L,
         applyPrepay: Long = 0L
+    ): Boolean = db.atomic {
+        sellInvoiceTx(lines, customerName, receivedNow, applyPrepay)
+    }
+
+    private suspend fun sellInvoiceTx(
+        lines: List<SaleLine>,
+        customerName: String,
+        receivedNow: Long,
+        applyPrepay: Long
     ): Boolean {
         val valid = lines.filter { it.qty > 0 && it.unitPrice > 0 }
         if (valid.isEmpty()) return false
@@ -2346,6 +2366,15 @@ class Repo(private val db: Db) {
         qty: Int,
         refundCash: Boolean,
         cashBox: String = "WALLET"
+    ): Boolean = db.atomic {
+        recordSaleReturnTx(sale, qty, refundCash, cashBox)
+    }
+
+    private suspend fun recordSaleReturnTx(
+        sale: FinishedSale,
+        qty: Int,
+        refundCash: Boolean,
+        cashBox: String
     ): Boolean {
         if (qty <= 0 || qty > sale.returnableQty) return false
 

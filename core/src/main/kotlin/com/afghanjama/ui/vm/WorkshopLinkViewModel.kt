@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.afghanjama.data.entities.SyncRequest
 import com.afghanjama.data.repo.Repo
+import com.afghanjama.lan.HostAddress
 import com.afghanjama.lan.LanClient
 import com.afghanjama.lan.LanResult
 import com.afghanjama.lan.LanHost
@@ -148,20 +149,33 @@ class WorkshopLinkViewModel(
     // ---------------- گوشیِ کارگر ----------------
 
     fun becomeWorker(settings: Settings, host: String, code: String) = viewModelScope.launch {
+        // نشانی **اینجا هم** وارسی می‌شود، نه فقط در صفحه.
+        //
+        // چون این تابع از جای دیگری هم صدا زده می‌شود (اتصالِ دوبارهٔ
+        // خودکار با نشانیِ ذخیره‌شده)، و نشانیِ بدی که یک بار ذخیره شده
+        // باشد وگرنه هر بار همان پیامِ گمراه‌کنندهٔ «وای‌فای را ببینید»
+        // را می‌دهد.
+        val clean = when (val r = HostAddress.check(host)) {
+            is HostAddress.Result.Bad -> {
+                _ui.update { it.copy(checking = false, message = r.reason, isError = true) }
+                return@launch
+            }
+            is HostAddress.Result.Ok -> r.host
+        }
         _ui.update { it.copy(checking = true, message = null) }
-        val client = LanClient(host.trim(), code.trim())
+        val client = LanClient(clean, code.trim())
         when (val r = client.ping()) {
             is LanResult.Err -> _ui.update {
                 it.copy(checking = false, message = r.message, isError = true)
             }
             is LanResult.Ok -> {
                 LanPrefs.setMode(settings, DeviceMode.WORKER)
-                LanPrefs.setHost(settings, host)
+                LanPrefs.setHost(settings, clean)
                 LanPrefs.setCode(settings, code)
                 _ui.update {
                     it.copy(
                         checking = false, mode = DeviceMode.WORKER,
-                        host = host.trim(), code = code.trim(),
+                        host = clean, code = code.trim(),
                         message = "وصل شد.", isError = false
                     )
                 }
