@@ -3,6 +3,8 @@
 package com.afghanjama.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,7 +12,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -26,6 +30,7 @@ import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Tune
@@ -59,14 +64,16 @@ import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.SalePrefs
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.afghanjama.platform.LocalPhotos
+import com.afghanjama.platform.Photos
 import com.afghanjama.prefs.CompanyPrefs
-import com.afghanjama.ui.components.SinglePhotoPicker
-import com.afghanjama.util.PhotoStore
 import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.util.AppLock
@@ -285,7 +292,6 @@ fun SettingsScreen(
             // کارگاه می‌نشیند. تا وقتی نامی ثبت نشده، همه‌جا عنوانِ
             // خنثای «کارگاه خیاطی» دیده می‌شود.
             if (canManageMaster) {
-                val ctx = LocalContext.current
                 var coName by remember { mutableStateOf(CompanyPrefs.name(settings)) }
                 var coPhone by remember { mutableStateOf(CompanyPrefs.phone(settings)) }
                 var coAddr by remember { mutableStateOf(CompanyPrefs.address(settings)) }
@@ -310,45 +316,98 @@ fun SettingsScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
 
-                        // لوگو کنارِ نام، مثلِ سربرگِ کاغذ
+                        /*
+                         * لوگو کنارِ نام مثلِ سربرگِ کاغذ — ولی دکمه‌ها در
+                         * سطرِ خودشان.
+                         *
+                         * **چرا این‌طور شد.** تا دیروز کلِ `SinglePhotoPicker`
+                         * در همین ردیف بود، کنارِ ستونی که `weight(1f)`
+                         * داشت. آن ویجت خودش یک ردیفِ بی‌وزن است: ریزعکسِ
+                         * ۷۲dp + دکمهٔ «لوگو» + «دوربین» + «برداشتن».
+                         * `Row` در Compose اول بچه‌های **بی‌وزن** را اندازه
+                         * می‌گیرد و هرچه ماند به وزن‌دارها می‌دهد — و
+                         * اینجا چیزی نمی‌ماند: عرضِ داخلِ کارت روی گوشیِ
+                         * ۳۶۰dp حدود ۳۰۰dp است و آن ویجت با لوگو بیش از
+                         * همه‌اش را می‌گیرد. یعنی نامِ کارگاه و توضیحش در
+                         * چند dp فشرده می‌شدند: هر حرف در یک سطر.
+                         *
+                         * **و چرا تازه حالا دیده شد:** تا پیش از درست شدنِ
+                         * `PhotoStore.decodeBounds` هیچ لوگویی ذخیره
+                         * نمی‌شد، پس ریزعکس و آن سه دکمه هرگز با هم روی
+                         * صفحه نبودند. تعمیرِ آپلود این را بیرون انداخت.
+                         *
+                         * اینجا عمداً از `SinglePhotoPicker` استفاده
+                         * نمی‌شود: آن ویجت برای انبار ساخته شده و چیدمانش
+                         * مالِ خودش است. تنظیمات سربرگ می‌خواهد، پس همان
+                         * دو تکهٔ مرزِ `Photos` را مستقیم برمی‌دارد.
+                         * دوربین هم اینجا نیست — لوگوی کارگاه از فایل
+                         * می‌آید، نه از عکسِ لحظه‌ای.
+                         */
+                        val photos = LocalPhotos.current
+                        val pickLogo = photos.rememberPicker { name ->
+                            // لوگوی قبلی نباید در حافظه جا بمانَد
+                            val old = coLogo
+                            CompanyPrefs.saveLogo(settings, name)
+                            coLogo = name
+                            if (old.isNotBlank()) photos.delete(old)
+                        }
+                        val logoThumb = photos.rememberThumb(coLogo, Photos.THUMB_SIDE)
+
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            SinglePhotoPicker(
-                                fileName = coLogo,
-                                canEdit = true,
-                                label = "لوگو",
-                                onPicked = { name ->
-                                    // لوگوی قبلی نباید در حافظه جا بمانَد
-                                    val old = coLogo
-                                    CompanyPrefs.saveLogo(settings, name)
-                                    coLogo = name
-                                    if (old.isNotBlank()) PhotoStore.delete(ctx, old)
-                                },
-                                onCleared = {
-                                    val old = coLogo
-                                    CompanyPrefs.saveLogo(settings, "")
-                                    coLogo = ""
-                                    if (old.isNotBlank()) PhotoStore.delete(ctx, old)
-                                }
-                            )
-                            Column(Modifier.weight(1f)) {
+                            if (logoThumb != null) {
+                                Image(
+                                    bitmap = logoThumb,
+                                    contentDescription = "لوگوی کارگاه",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(56.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                                )
+                            }
+                            Column(
+                                Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
                                 Text(
                                     coName.ifBlank { CompanyPrefs.DEFAULT_SHOP },
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Text(
-                                    // وقتی لوگو نیست، انتخابگر فقط یک دکمه
-                                    // نشان می‌دهد و هیچ مربعی روی صفحه نیست؛
-                                    // پس متن هم باید همان دکمه را نشان بدهد.
                                     if (coLogo.isBlank())
-                                        "لوگو ندارید — دکمهٔ «لوگو» را بزنید تا از گالری انتخاب شود."
+                                        "لوگو ندارید — دکمهٔ زیر را بزنید تا از گالری انتخاب شود."
                                     else "لوگو روی اسنادِ چاپی هم می‌نشیند.",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = pickLogo,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Default.PhotoLibrary, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text(if (coLogo.isBlank()) "انتخاب لوگو" else "تعویض لوگو")
+                            }
+                            if (coLogo.isNotBlank()) {
+                                TextButton(
+                                    onClick = {
+                                        val old = coLogo
+                                        CompanyPrefs.saveLogo(settings, "")
+                                        coLogo = ""
+                                        if (old.isNotBlank()) photos.delete(old)
+                                    }
+                                ) { Text("برداشتن") }
                             }
                         }
 
