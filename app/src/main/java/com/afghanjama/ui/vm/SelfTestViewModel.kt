@@ -192,7 +192,7 @@ class SelfTestViewModel(private val repo: Repo) : ViewModel() {
                     checkRestoreVerdict(
                         verdict = { o, i, fv, av -> BackupArchive.verdict(o, i, fv, av) },
                         labelOf = { (it as BackupArchive.Verdict).name },
-                        appVersion = DB_VERSION
+                        schemaVersion = DB_VERSION
                     )
                 )
                 addAll(

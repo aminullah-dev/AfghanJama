@@ -18,7 +18,9 @@ class AwtTextMeasurer(private val fonts: SheetFonts) : TextMeasurer {
     override fun width(text: String, size: Float, weight: Weight): Float {
         if (text.isEmpty()) return 0f
         val f = fonts.of(weight).deriveFont(size)
-        return f.getStringBounds(text, FRC).width.toFloat()
+        // همان چیدمانی که `SheetPdf` می‌کشد — پس پهنا و رسم
+        // نمی‌توانند از هم بیفتند (نشانهٔ ؋ جایگزین دارد).
+        return if (text.isEmpty()) 0f else RtlText.layout(text, f).advance
     }
 
     override fun wrap(text: String, size: Float, maxWidth: Float, weight: Weight): List<String> {
@@ -26,16 +28,9 @@ class AwtTextMeasurer(private val fonts: SheetFonts) : TextMeasurer {
         if (maxWidth <= 0f) return listOf(text)
         val f = fonts.of(weight).deriveFont(size)
 
-        val attr = AttributedString(text).apply {
-            addAttribute(java.awt.font.TextAttribute.FONT, f)
-            // بدونِ این، جاوا جهتِ متن را از حروفِ اولش حدس می‌زند و
-            // سطری که با عدد شروع شود چپ‌به‌راست شکسته می‌شود.
-            addAttribute(
-                java.awt.font.TextAttribute.RUN_DIRECTION,
-                java.awt.font.TextAttribute.RUN_DIRECTION_RTL
-            )
-        }
-        val measurer = LineBreakMeasurer(attr.iterator, FRC)
+        // جهتِ راست‌به‌چپ و قلمِ جایگزین، از همان جایی که رسم‌کننده
+        // می‌گیرد.
+        val measurer = LineBreakMeasurer(RtlText.attributed(text, f).iterator, FRC)
         val out = mutableListOf<String>()
         var start = 0
         while (measurer.position < text.length) {

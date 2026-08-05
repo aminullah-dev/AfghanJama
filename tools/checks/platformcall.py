@@ -36,6 +36,7 @@
 `--require-bytecode` حالتِ متنی را قبول نمی‌کند؛ CI بعد از ساختِ
 `:core` با همین سوییچ صدایش می‌زند.
 """
+import os
 import pathlib
 import re
 import sys
@@ -60,6 +61,31 @@ def load_symbols():
     return out
 
 
+def _read_bytes(p: pathlib.Path) -> bytes:
+    r"""خواندنِ فایلِ کلاس، حتی وقتی مسیرش از حدِ ویندوز بلندتر است.
+
+    نامِ کلاس‌های لامبدای Compose خیلی بلند می‌شود
+    (`…$invoke$lambda$5$lambda$4$$inlined$items$default$1.class`) و اگر
+    پروژه در پوشه‌ای تودرتو باشد، مسیرِ کامل از ۲۶۰ نویسه — سقفِ قدیمیِ
+    ویندوز — رد می‌شود.
+
+    آن‌وقت `rglob` فایل را **می‌بیند** ولی `open` نمی‌تواند بازش کند و
+    بررسی با یک traceback می‌ترکد؛ چیزی که شبیهِ خرابیِ کد است ولی
+    نیست.
+
+    **رد کردنِ آن فایل‌ها راهِ درستی نبود:** این بررسی روی بایت‌کد کار
+    می‌کند تا چیزی از دستش نرود، و هر فایلِ نخوانده یک سوراخِ خاموش
+    است. پیشوندِ ``\\?\`` همان فایل را با API بلندِ ویندوز باز می‌کند.
+    """
+    try:
+        return p.read_bytes()
+    except OSError:
+        if os.name != "nt":
+            raise
+        # رشتهٔ نهایی باید `\\?\C:\…` باشد؛ در سورس دو برابر می‌شود.
+        return pathlib.Path("\\\\?\\" + str(p.resolve())).read_bytes()
+
+
 def check_bytecode():
     """دقیق: ارجاعِ واقعی در فایل‌های `.class`."""
     files = sorted(CLASSES.rglob("*.class"))
@@ -70,9 +96,10 @@ def check_bytecode():
         + b"|".join(s.encode() for s in SUFFIXES)
         + rb"))"
     )
+
     bad = {}
     for p in files:
-        for m in set(pat.findall(p.read_bytes())):
+        for m in set(pat.findall(_read_bytes(p))):
             bad.setdefault(m.decode(), set()).add(p.stem.split("$")[0])
     return files, bad
 

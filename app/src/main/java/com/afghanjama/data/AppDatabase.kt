@@ -243,6 +243,15 @@ val ALL_MIGRATIONS = arrayOf(
  */
 fun buildAppDatabase(context: Context): AppDatabase =
     Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, DB_NAME)
-        .addMigrations(*ALL_MIGRATIONS)
+        /*
+         * `ALL_MIGRATIONS` همان ۴۲ مهاجرتِ تاریخی است (۱۹ تا ۶۱) و
+         * دست‌نخورده می‌ماند.
+         *
+         * `sharedMigrations()` گام‌های **آینده** است که در `:core`
+         * نوشته می‌شوند تا ویندوز هم همان‌ها را اجرا کند. امروز
+         * `SCHEMA_STEPS` خالی است، پس این خط هیچ رفتاری را عوض نمی‌کند —
+         * یک آرایهٔ خالی به `addMigrations` اضافه می‌شود و بس.
+         */
+        .addMigrations(*ALL_MIGRATIONS, *sharedMigrations())
         .fallbackToDestructiveMigration()
         .build()

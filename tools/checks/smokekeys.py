@@ -44,9 +44,32 @@ roles_src = _src.read("ui/vm/UserRole.kt")
 fail = []
 
 # ── ۱. نامِ فایلِ تنظیمات ──────────────────────────────────────────
-m = re.search(r'getSharedPreferences\(\s*"([^"]+)"', auth)
+#
+# **دو شکل پذیرفته است، و دلیلش مهم است.**
+#
+# `AuthViewModel` از `:app` به `:core` رفت و `SharedPreferences` جایش را
+# به واسطِ `Settings` داد — چون بی آن، نسخهٔ ویندوز اصلاً صفحهٔ ورود
+# نداشت. ولی **روی اندروید هیچ چیز عوض نشد**: `AndroidSettings` همان
+# `getSharedPreferences(file, …)` را صدا می‌زند با همان نام و همان
+# کلیدها، تا گوشی‌هایی که امروز رمز دارند رمزشان را نگه دارند.
+#
+# پس `smoke.sh` هنوز درست کار می‌کند و این بررسی هنوز معنا دارد؛ فقط
+# جایی که نامِ فایل نوشته می‌شود عوض شده:
+#
+#   پیش‌تر:  getSharedPreferences("auth_prefs", …)
+#   حالا:    private const val FILE = "auth_prefs"
+#
+# اگر فقط الگوی قدیمی می‌ماند، بررسی با `sys.exit(1)` قرمز می‌شد — که
+# بهتر از سبزِ پوچ است، ولی درست نبود. و اگر الگو را برمی‌داشتیم، بررسی
+# **همیشه‌سبز** می‌شد؛ همان چیزی که README می‌گوید از نبودنش بدتر است.
+m = re.search(r'getSharedPreferences\(\s*"([^"]+)"', auth) or re.search(
+    r'val\s+FILE\s*=\s*"([^"]+)"', auth
+)
 if not m:
-    print("✗ `getSharedPreferences` در AuthViewModel پیدا نشد — بررسی پوچ شد.")
+    print(
+        "✗ نامِ فایلِ تنظیمات در AuthViewModel پیدا نشد — نه "
+        "`getSharedPreferences(\"…\")` و نه `val FILE = \"…\"`. بررسی پوچ شد."
+    )
     sys.exit(1)
 prefs_file = m.group(1)
 if f"{prefs_file}.xml" not in smoke_code:

@@ -18,9 +18,28 @@ import com.afghanjama.data.repo.Repo
 object DesktopLedger {
 
     @Volatile
+    private var cachedDb: Result<DesktopDatabase>? = null
+
+    @Volatile
     private var cached: Result<Repo>? = null
+
+    /**
+     * خودِ دیتابیس — برای سرورِ شبکه.
+     *
+     * **چرا لازم شد:** `DesktopServer` تا دیروز خودش `openDatabase()`
+     * را صدا می‌زد، یعنی یک اتصالِ **دوم** به همان فایل. دو ایراد داشت و
+     * هر دو در توضیحِ بالای همین شیء از قبل هشدار داده شده بودند:
+     *
+     * - نوشتنِ گوشی از آن اتصال، `Flow`های پنجره را بی‌اعتبار نمی‌کرد.
+     *   یعنی خیاط سفارشی را جلو می‌برد و **صفحهٔ پی‌سی همان‌جا می‌ماند**
+     *   تا کسی دستی تازه‌اش کند.
+     * - دو اتصالِ نویسنده به یک فایلِ SQLite، روزی سرِ قفل به هم می‌خورند.
+     */
+    @Synchronized
+    fun db(): Result<DesktopDatabase> =
+        cachedDb ?: runCatching { openDatabase() }.also { cachedDb = it }
 
     @Synchronized
     fun repo(): Result<Repo> =
-        cached ?: runCatching { Repo(openDatabase()) }.also { cached = it }
+        cached ?: db().mapCatching { Repo(it) }.also { cached = it }
 }

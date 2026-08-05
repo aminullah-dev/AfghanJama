@@ -26,8 +26,22 @@ if not scripts:
 
 failed = []
 for s in scripts:
-    r = subprocess.run([sys.executable, str(s)], capture_output=True, text=True)
-    out = (r.stdout + r.stderr).strip()
+    # **`text=True` تنها کافی نیست.** بی `encoding`، پایتون خروجیِ بچه را
+    # با کدگذاریِ محلیِ سیستم می‌خواند: روی لینوکس UTF-8 است و درست
+    # درمی‌آید، ولی روی ویندوز cp1252 است و اولین حرفِ فارسی کلِ اجرا را
+    # با `UnicodeDecodeError` می‌اندازد — یعنی روی همان سکویی که این
+    # پروژه دارد به آن می‌رود، هیچ‌کدام از بررسی‌ها اجرا نمی‌شد.
+    #
+    # `errors="replace"` هم عمدی است: یک نویسهٔ ناخوانا نباید جلوی
+    # گزارشِ بیست‌ودو بررسی را بگیرد.
+    r = subprocess.run(
+        [sys.executable, str(s)],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    out = ((r.stdout or "") + (r.stderr or "")).strip()
     last = out.splitlines()[-1] if out else "(بی‌خروجی)"
     print(f"{s.stem:16} {last}")
     if r.returncode != 0:

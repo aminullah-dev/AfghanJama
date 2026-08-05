@@ -28,9 +28,29 @@ android {
          *
          * `DB_VERSION` هیچ ربطی به این‌ها ندارد و دست نمی‌خورد؛ آن عدد
          * فقط وقتی عوض می‌شود که جدولی در دیتابیس تغییر کند.
+         *
+         * ---
+         *
+         * **عددها از `gradle.properties` می‌آیند، نه از اینجا.**
+         *
+         * پیش‌تر دو عددِ دستی بود — `"1.1"` اینجا و `"1.1.0"` در
+         * `:desktop` — و `versions.py` می‌سنجید که از هم نیفتند. آن
+         * بررسی درست بود ولی *پس از وقوع* کار می‌کرد: اول باید یکی را
+         * فراموش می‌کردی تا خطا بگیری.
+         *
+         * حالا یک عدد بیشتر نیست، پس افتادنشان از هم **ممکن نیست**. به
+         * همین دلیل `versions.py` برداشته شد و جایش `appversion.py`
+         * نشست: همان کار، به‌علاوهٔ قالبِ MSI، صفرِ ابتدایی، و
+         * `upgradeUuid`.
+         *
+         * یک تفاوتِ عمدی با قبل: `versionName` حالا `1.1.0` است نه
+         * `1.1` — دقیقاً همان رشته‌ای که رویِ فایلِ MSI هم هست. هدفِ
+         * `versions.py` همین بود که «کدام نسخه را داری؟» جوابِ روشن
+         * داشته باشد؛ با دو قالبِ متفاوت، جواب یک نگاشتِ ذهنی لازم
+         * داشت.
          */
-        versionCode = 2
-        versionName = "1.1"
+        versionCode = providers.gradleProperty("appVersionCode").get().toInt()
+        versionName = providers.gradleProperty("appVersion").get()
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }

@@ -17,7 +17,7 @@ ROOT = _src.ANY
 # جدول‌های واقعی از @Entityها
 real={}
 for f in _src.glob('data/entities/*.kt'):
-    s=open(f).read()
+    s=open(f, encoding="utf-8").read()
     for m in re.finditer(r'@Entity\b', s):
         seg=s[m.start(): m.start()+900]
         cls=re.search(r'data class (\w+)', seg)
@@ -26,7 +26,7 @@ for f in _src.glob('data/entities/*.kt'):
         real[t.group(1) if t else cls.group(1)]=cls.group(1)
 
 # فهرست‌های ResetPlan
-plan=open(ROOT+'/data/ResetPlan.kt').read()
+plan=open(ROOT+'/data/ResetPlan.kt', encoding="utf-8").read()
 def names(block):
     seg=plan.split(f'val {block} = listOf(')[1].split(')')[0]
     return [x for x in re.findall(r'"([^"]+)"', seg)]

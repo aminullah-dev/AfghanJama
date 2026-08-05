@@ -54,6 +54,8 @@ import com.afghanjama.platform.LocalSystemActions
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.theme.LightColors
+import com.afghanjama.ui.screens.LoginScreen
+import com.afghanjama.ui.vm.AuthViewModel
 import com.afghanjama.ui.vm.SelfCheckViewModel
 
 
@@ -103,7 +105,27 @@ fun main() = application {
                 LocalFileExport provides DesktopFileExport(),
                 LocalWidgets provides DesktopWidgets
             ) {
-                Shell(DesktopLedger.repo().getOrNull())
+                /*
+                 * درِ ورود — تا دیروز نبود.
+                 *
+                 * پنجره مستقیم باز می‌شد و `Shell` نقشِ مدیر را **فرض**
+                 * می‌کرد؛ یعنی هر کسی که پشتِ پی‌سی می‌نشست همه‌کاره
+                 * بود، حتی اگر روی گوشیِ همان کارگاه نقشش خیاط بود.
+                 *
+                 * حالا همان `AuthViewModel`ِ گوشی اینجا هم اجرا می‌شود و
+                 * نقش از همان‌جا می‌آید. رمز در `auth_prefs` است — روی
+                 * ویندوز کنارِ دفتر، روی گوشی همان `SharedPreferences`.
+                 */
+                val authVm: AuthViewModel = viewModel { AuthViewModel(settings) }
+                val auth by authVm.ui.collectAsState()
+
+                if (!auth.isLoggedIn) {
+                    // `onLoggedIn` لازم نیست کاری کند: حالت خودش عوض
+                    // می‌شود و بازترکیب صفحه را رد می‌کند.
+                    LoginScreen(authVm, onLoggedIn = {})
+                } else {
+                    Shell(DesktopLedger.repo().getOrNull(), auth.role)
+                }
             }
         }
     }
@@ -278,7 +300,19 @@ private fun LedgerCard(s: LedgerStatus) {
             when {
                 s.opening -> "در حالِ باز کردنِ دفتر…"
                 failed -> "دفتر باز نشد"
-                else -> "دفتر باز است — ${s.tables.fa()} جدول، نسخهٔ ${s.version.fa()}"
+                // **«نسخهٔ دفتر»، نه «نسخه».**
+                //
+                // این عدد `DB_VERSION` است (اسکیمای دیتابیس)، نه نسخهٔ
+                // برنامه. تا دیروز فقط «نسخهٔ ۶۱» می‌نوشت و این تنها
+                // عددی بود که روی داشبورد «نسخه» نام داشت — یعنی
+                // کارفرمایی که می‌پرسیدند «کدام نسخه را داری؟» جواب
+                // می‌داد «۶۱».
+                //
+                // نسخهٔ خودِ برنامه (`appVersion` در `gradle.properties`)
+                // امروز سرِ اجرا در دسترس نیست: `:core` ماژولِ سادهٔ JVM
+                // است و `BuildConfig` ندارد. تا آن روز، دستِ‌کم این عدد
+                // ادعای غلط نمی‌کند.
+                else -> "دفتر باز است — ${s.tables.fa()} جدول، نسخهٔ دفتر ${s.version.fa()}"
             },
             fontFamily = Vazirmatn, fontWeight = FontWeight.SemiBold,
             fontSize = 15.sp, color = if (failed) Bad else Ink

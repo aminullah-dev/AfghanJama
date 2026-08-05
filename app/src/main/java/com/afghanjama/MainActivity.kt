@@ -38,6 +38,7 @@ import com.afghanjama.ui.theme.KhayatYarTheme
 import com.afghanjama.ui.vm.ActionCenterViewModel
 import com.afghanjama.ui.vm.AttendanceViewModel
 import com.afghanjama.ui.vm.AuditViewModel
+import com.afghanjama.prefs.settings
 import com.afghanjama.ui.vm.AuthViewModel
 import com.afghanjama.ui.vm.BackupViewModel
 import com.afghanjama.ui.vm.CustomerDetailViewModel
@@ -153,7 +154,7 @@ class MainActivity : FragmentActivity() {
                     return@KhayatYarTheme
                 }
 
-                val authVm = remember { AuthViewModel(application) }
+                val authVm = remember { AuthViewModel(applicationContext.settings) }
                 val financeVm = remember { FinanceViewModel(repo) }
                 val inventoryVm = remember { InventoryViewModel(repo) }
                 val cuttingVm = remember { CuttingViewModel(repo) }

@@ -19,7 +19,7 @@ import _src
 root = os.environ.get("PARAMCHECK_ROOT", ".")
 bad = []
 for f in [str(x) for x in _src.kt_files()]:
-    s = open(f).read()
+    s = open(f, encoding="utf-8").read()
     for m in re.finditer(r"fun\s+\w+\(\n((?:[ \t]+[^\n)]*\n)+?)\)", s):
         lines = [
             l for l in m.group(1).split("\n")

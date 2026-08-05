@@ -19,7 +19,7 @@ ROOT = None  # مسیرها از _src می‌آیند
 # ۱) همهٔ توابعِ الحاقیِ سطحِ بالای پروژه را پیدا کن: fun Type.name(...)
 ext = {}          # نام -> پکیج
 for path in [str(x) for x in _src.kt_files()]:
-    src = open(path).read()
+    src = open(path, encoding="utf-8").read()
     pkg = re.search(r'^package\s+([\w.]+)', src, re.M)
     if not pkg: continue
     pkg = pkg.group(1)
@@ -28,7 +28,7 @@ for path in [str(x) for x in _src.kt_files()]:
 
 bad = []
 for path in [str(x) for x in _src.kt_files()]:
-    src = open(path).read()
+    src = open(path, encoding="utf-8").read()
     pkg = re.search(r'^package\s+([\w.]+)', src, re.M)
     pkg = pkg.group(1) if pkg else ''
     imports = set(re.findall(r'^import\s+([\w.]+)', src, re.M))

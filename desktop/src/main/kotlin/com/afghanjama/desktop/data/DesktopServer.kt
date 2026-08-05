@@ -20,16 +20,32 @@ object DesktopServer {
 
     val running: Boolean get() = server?.running == true
 
-    /** نشانی‌ای که باید روی گوشیِ خیاط وارد شود. */
-    fun address(): String? = Lan.localIp()?.let { "$it:${Lan.PORT}" }
+    /**
+     * نشانی‌ای که باید روی گوشیِ خیاط وارد شود — **بی درگاه**.
+     *
+     * تا دیروز `"$ip:${Lan.PORT}"` برمی‌گشت و این یک اشکالِ واقعی بود:
+     * `LanClient` خودش درگاه را می‌چسباند
+     * (`URL("http://$host:${Lan.PORT}$path")`). یعنی هر کس نشانیِ
+     * نشان‌داده‌شده را در گوشی وارد می‌کرد، به
+     * `http://192.168.1.5:8797:8797/ping` می‌رسید و اتصال هرگز برقرار
+     * نمی‌شد — بی هیچ پیامِ روشنی که چرا.
+     *
+     * `LanHost.localIp()` هم همین قرارداد را دارد: نشانیِ برهنه.
+     */
+    fun address(): String? = Lan.localIp()
 
     /**
      * روشن کردنِ سرور با رمزِ اتصال.
      *
+     * دیتابیس **از `DesktopLedger`** می‌آید، نه `openDatabase()`ِ تازه.
+     * با اتصالِ جدا، نوشتنِ گوشی `Flow`های پنجره را بی‌اعتبار نمی‌کرد و
+     * صفحهٔ پی‌سی از کارِ کارگاه عقب می‌ماند.
+     *
      * @return `false` اگر رمز خالی باشد یا درگاه گرفته باشد
      */
     fun start(pairCode: String): Boolean {
-        val s = server ?: LanServer(openDatabase()).also { server = it }
+        val db = DesktopLedger.db().getOrNull() ?: return false
+        val s = server ?: LanServer(db).also { server = it }
         return s.start(pairCode)
     }
 

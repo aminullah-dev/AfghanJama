@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,37 +29,112 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.afghanjama.data.repo.Repo
+import com.afghanjama.desktop.data.DesktopLanHost
 import com.afghanjama.ui.screens.AuditScreen
+import com.afghanjama.ui.screens.BoardScreen
+import com.afghanjama.ui.screens.CustomerDetailScreen
 import com.afghanjama.ui.screens.CustomersScreen
+import com.afghanjama.ui.screens.DeliveryQueueScreen
 import com.afghanjama.ui.screens.FinanceHubScreen
+import com.afghanjama.ui.screens.GuideScreen
+import com.afghanjama.ui.screens.InventoryScreen
 import com.afghanjama.ui.screens.LedgerScreen
 import com.afghanjama.ui.screens.MasterDataScreen
 import com.afghanjama.ui.screens.MaterialWarehouseScreen
+import com.afghanjama.ui.screens.MoneyMoveScreen
+import com.afghanjama.ui.screens.MyWorkScreen
+import com.afghanjama.ui.screens.NewSaleScreen
+import com.afghanjama.ui.screens.OrderSearchScreen
+import com.afghanjama.ui.screens.PayrollScreen
+import com.afghanjama.ui.screens.PerformanceScreen
+import com.afghanjama.ui.screens.ProcurementScreen
+import com.afghanjama.ui.screens.ProductionOrderScreen
+import com.afghanjama.ui.screens.PurchasePlanScreen
+import com.afghanjama.ui.screens.PurchaseReturnScreen
 import com.afghanjama.ui.screens.ReportsScreen
+import com.afghanjama.ui.screens.ReviewScreen
+import com.afghanjama.ui.screens.ShopProfileScreen
+import com.afghanjama.ui.screens.SewingScreen
+import com.afghanjama.ui.screens.StockLedgerScreen
+import com.afghanjama.ui.screens.WorkshopLinkScreen
 import com.afghanjama.ui.vm.AuditViewModel
+import com.afghanjama.ui.vm.BoardViewModel
+import com.afghanjama.ui.vm.CustomerDetailViewModel
 import com.afghanjama.ui.vm.CustomersViewModel
 import com.afghanjama.ui.vm.DashboardViewModel
+import com.afghanjama.ui.vm.DeliveryQueueViewModel
 import com.afghanjama.ui.vm.FinanceViewModel
+import com.afghanjama.ui.vm.InventoryViewModel
 import com.afghanjama.ui.vm.LedgerViewModel
 import com.afghanjama.ui.vm.MasterDataViewModel
+import com.afghanjama.ui.vm.MoneyMoveViewModel
+import com.afghanjama.ui.vm.MyWorkViewModel
+import com.afghanjama.ui.vm.NewSaleViewModel
+import com.afghanjama.ui.vm.OrderSearchViewModel
+import com.afghanjama.ui.vm.PayrollViewModel
+import com.afghanjama.ui.vm.PerformanceViewModel
+import com.afghanjama.ui.vm.ProcurementViewModel
+import com.afghanjama.ui.vm.ProductionViewModel
+import com.afghanjama.ui.vm.PurchasePlanViewModel
+import com.afghanjama.ui.vm.PurchaseReturnViewModel
 import com.afghanjama.ui.vm.ReportsViewModel
+import com.afghanjama.ui.vm.ReviewViewModel
+import com.afghanjama.ui.vm.SewingViewModel
+import com.afghanjama.ui.vm.Permissions
+import com.afghanjama.ui.vm.UserRole
 import com.afghanjama.ui.vm.WarehouseViewModel
+import com.afghanjama.ui.vm.WorkshopLinkViewModel
 
 /**
  * بخش‌های نوارِ کناری.
  *
  * `Overview` همان چیزی است که تا امروز کلِ پنجره بود: خودآزمایی و
  * وضعیتِ دفتر. حالا یکی از بخش‌هاست، نه همهٔ برنامه.
+ *
+ * **این فهرست تنها جایی است که بخش‌ها تعریف می‌شوند.** نوارِ کناری از
+ * روی همین ساخته می‌شود و `screenSmoke` هم روی همین می‌گردد — پس بخشی
+ * نمی‌تواند اضافه شود و از آزمون جا بماند. (پیش‌تر آزمون فهرستِ خودش را
+ * داشت و این دو می‌توانستند از هم بیفتند.)
  */
-private enum class Section(val title: String) {
+internal enum class Section(val title: String) {
     Overview("وضعیت"),
-    Finance("مالی"),
-    Ledger("دفترِ حساب"),
+
+    // کارگاه — از سفارش تا تحویل
+    Board("تختهٔ کار"),
+    Inventory("سفارش‌ها"),
+    OrderSearch("جست‌وجوی سفارش"),
+    ProductionOrder("شروعِ تولید"),
+    Sewing("دوخت"),
+    Review("نظارت"),
+    DeliveryQueue("صفِ تحویل"),
+    MyWork("کارِ من"),
+
+    // انبار و خرید
     Warehouse("انبارِ مواد"),
+    StockLedger("گردشِ انبار"),
+    Procurement("خریدِ مواد"),
+    PurchasePlan("برنامهٔ خرید"),
+    PurchaseReturn("برگشتِ خرید"),
+
+    // فروش و پول
+    NewSale("فروشِ نو"),
     Customers("خریداران"),
+    Ledger("دفترِ حساب"),
+    Finance("مالی"),
+    MoneyMove("جابه‌جاییِ پول"),
+
+    // آدم‌ها
+    Payroll("پرداختِ حقوق"),
+    Performance("کارکرد"),
+
+    // بقیه
     Reports("گزارش‌ها"),
     Audit("رسیدگی"),
-    MasterData("اطلاعات پایه")
+    MasterData("اطلاعات پایه"),
+    ShopProfile("پروفایل کارگاه"),
+    WorkshopLink("اشتراکِ کارگاه"),
+    Backup("پشتیبان و بازیابی"),
+    Guide("راهنما")
 }
 
 /**
@@ -74,8 +150,11 @@ private enum class Section(val title: String) {
  * همان کد**، از `:core`. هیچ نسخهٔ ویندوزیِ جداگانه‌ای از آن‌ها نیست.
  */
 @Composable
-fun Shell(repo: Repo?) {
+fun Shell(repo: Repo?, role: UserRole = UserRole.MANAGER) {
     var section by remember { mutableStateOf(Section.Overview) }
+    // جزئیاتِ مشتری بخشِ نوار نیست؛ از دلِ «خریداران» باز می‌شود و با
+    // «برگشت» بسته. پس یک حالتِ کوچک کنارِ بخشِ جاری کافی است.
+    var openCustomer by remember { mutableStateOf<Long?>(null) }
 
     // اگر دفتر باز نشد، فقط «وضعیت» می‌ماند — چون همان است که خطا را
     // نشان می‌دهد. بردنِ کاربر به صفحه‌ای که دادهٔ خالی نشان دهد بدتر
@@ -87,57 +166,234 @@ fun Shell(repo: Repo?) {
 
     Row(Modifier.fillMaxSize().background(Bg)) {
         // در چیدمانِ راست‌به‌چپ، اولین عضوِ Row سمتِ راست می‌نشیند.
-        Sidebar(section) { section = it }
+        Sidebar(section) {
+            section = it
+            openCustomer = null
+        }
 
         Box(Modifier.fillMaxSize()) {
-            when (section) {
-                Section.Overview -> Overview()
-
-                Section.Finance -> {
-                    val financeVm: FinanceViewModel = viewModel { FinanceViewModel(repo) }
-                    val dashVm: DashboardViewModel = viewModel { DashboardViewModel(repo) }
-                    FinanceHubScreen(financeVm, dashVm, onBack = { section = Section.Overview })
-                }
-
-                Section.Ledger -> {
-                    val vm: LedgerViewModel = viewModel { LedgerViewModel(repo) }
-                    LedgerScreen(vm, onBack = { section = Section.Overview })
-                }
-
-                Section.Warehouse -> {
-                    val vm: WarehouseViewModel = viewModel { WarehouseViewModel(repo) }
-                    // روی پی‌سیِ کارگاه که دستِ کارفرماست، اصلاحِ موجودی
-                    // مجاز است — همان چیزی که روی گوشیِ مدیر هم هست.
-                    MaterialWarehouseScreen(vm, canAdjust = true, onBack = { section = Section.Overview })
-                }
-
-                Section.Customers -> {
-                    val vm: CustomersViewModel = viewModel { CustomersViewModel(repo) }
-                    CustomersScreen(
-                        vm,
-                        onBack = { section = Section.Overview },
-                        // صفحهٔ جزئیاتِ مشتری هنوز در پوسته نیست؛ تا آن
-                        // وقت کلیک بی‌اثر است نه اینکه به جای اشتباه برود.
-                        onOpenCustomer = {}
-                    )
-                }
-
-                Section.Reports -> {
-                    val vm: ReportsViewModel = viewModel { ReportsViewModel(repo) }
-                    ReportsScreen(vm, onBack = { section = Section.Overview })
-                }
-
-                Section.Audit -> {
-                    val vm: AuditViewModel = viewModel { AuditViewModel(repo) }
-                    AuditScreen(vm, onBack = { section = Section.Overview })
-                }
-
-                Section.MasterData -> {
-                    val vm: MasterDataViewModel = viewModel { MasterDataViewModel(repo) }
-                    MasterDataScreen(vm, onBack = { section = Section.Overview })
-                }
+            val customerId = openCustomer
+            if (section == Section.Customers && customerId != null) {
+                val vm: CustomerDetailViewModel = viewModel { CustomerDetailViewModel(repo) }
+                CustomerDetailScreen(
+                    vm,
+                    customerId,
+                    onBack = { openCustomer = null },
+                    // صفحهٔ سفارش هنوز در `:app` است (چاپ و عکس نگهش
+                    // داشته). تا آن وقت کلیک بی‌اثر است نه اینکه به جای
+                    // اشتباه برود.
+                    onOpenOrder = {}
+                )
+            } else {
+                SectionContent(
+                    section = section,
+                    repo = repo,
+                    role = role,
+                    go = { section = it },
+                    onOpenCustomer = { openCustomer = it }
+                )
             }
         }
+    }
+}
+
+/**
+ * محتوای هر بخش.
+ *
+ * از `Shell` جدا شده تا `screenSmoke` بتواند **همین** را برای هر عضوِ
+ * `Section` صدا بزند. اگر این `when` در دلِ `Shell` می‌ماند، آزمون
+ * ناچار بود فهرستِ خودش را نگه دارد و آن دو روزی از هم می‌افتادند —
+ * یعنی صفحه‌ای اضافه می‌شد و بی‌آزمون به کارگاه می‌رفت.
+ */
+@Composable
+internal fun SectionContent(
+    section: Section,
+    repo: Repo,
+    role: UserRole,
+    go: (Section) -> Unit,
+    onOpenCustomer: (Long) -> Unit
+) {
+    val back = { go(Section.Overview) }
+
+    when (section) {
+        Section.Overview -> Overview()
+
+        Section.Board -> {
+            val vm: BoardViewModel = viewModel { BoardViewModel(repo) }
+            BoardScreen(vm, onBack = back)
+        }
+
+        Section.Inventory -> {
+            val vm: InventoryViewModel = viewModel { InventoryViewModel(repo) }
+            val financeVm: FinanceViewModel = viewModel { FinanceViewModel(repo) }
+            InventoryScreen(
+                vm = vm,
+                financeVm = financeVm,
+                // نقشِ واقعیِ کاربرِ واردشده — نه فرض. تا دیروز اینجا
+                // `UserRole.MANAGER` ثابت بود چون ویندوز ورود نداشت.
+                role = role,
+                onGoStartProduction = { go(Section.ProductionOrder) },
+                onGoWallet = { go(Section.Finance) },
+                onGoSearch = { go(Section.OrderSearch) },
+                onGoStock = { go(Section.StockLedger) },
+                // این دو صفحهٔ مشترک ندارند: «تنظیمات» و «برش» هنوز در
+                // `:app`اند. بی‌اثر می‌مانند تا جای اشتباه نبرند.
+                onGoSettings = {},
+                onGoCutting = {},
+                onOpenDetail = {},
+                onBack = back
+            )
+        }
+
+        Section.OrderSearch -> {
+            val vm: OrderSearchViewModel = viewModel { OrderSearchViewModel(repo) }
+            OrderSearchScreen(vm, onBack = back, onOpenDetail = {})
+        }
+
+        Section.ProductionOrder -> {
+            val vm: ProductionViewModel = viewModel { ProductionViewModel(repo) }
+            ProductionOrderScreen(vm, onBack = back)
+        }
+
+        Section.Sewing -> {
+            val vm: SewingViewModel = viewModel { SewingViewModel(repo) }
+            SewingScreen(vm, onBack = back, onGoReview = { go(Section.Review) })
+        }
+
+        Section.Review -> {
+            val vm: ReviewViewModel = viewModel { ReviewViewModel(repo) }
+            ReviewScreen(vm, onBack = back, onGoSewing = { go(Section.Sewing) })
+        }
+
+        Section.DeliveryQueue -> {
+            val vm: DeliveryQueueViewModel = viewModel { DeliveryQueueViewModel(repo) }
+            DeliveryQueueScreen(vm, onBack = back)
+        }
+
+        Section.MyWork -> {
+            val vm: MyWorkViewModel = viewModel { MyWorkViewModel(repo) }
+            // برچسبِ خیاط‌ها از همان جایی می‌آید که روی اندروید
+            // (`AppNav`) می‌آمد — خیاط‌ها و ناظرها با هم.
+            val master: MasterDataViewModel = viewModel { MasterDataViewModel(repo) }
+            val tailors by master.tailors.collectAsState()
+            val inspectors by master.inspectors.collectAsState()
+            MyWorkScreen(
+                vm = vm,
+                tailorLabels = (tailors.map { "[${it.code}] ${it.name}" } +
+                    inspectors.map { "[${it.code}] ${it.name}" }).distinct(),
+                onBack = back
+            )
+        }
+
+        Section.Warehouse -> {
+            val vm: WarehouseViewModel = viewModel { WarehouseViewModel(repo) }
+            // همان قاعده‌ای که اندروید به کار می‌برد، نه `true`ِ ثابت.
+            MaterialWarehouseScreen(
+                vm,
+                canAdjust = Permissions.canAdjustMaterial(role),
+                onBack = back
+            )
+        }
+
+        Section.StockLedger -> {
+            // همان ViewModelِ انبار؛ این صفحه فقط گردشِ آن را نشان می‌دهد.
+            val vm: WarehouseViewModel = viewModel { WarehouseViewModel(repo) }
+            StockLedgerScreen(vm, onBack = back)
+        }
+
+        Section.Procurement -> {
+            val vm: ProcurementViewModel = viewModel { ProcurementViewModel(repo) }
+            ProcurementScreen(vm, onBack = back)
+        }
+
+        Section.PurchasePlan -> {
+            val vm: PurchasePlanViewModel = viewModel { PurchasePlanViewModel(repo) }
+            PurchasePlanScreen(
+                vm,
+                onGoProcurement = { go(Section.Procurement) },
+                onBack = back
+            )
+        }
+
+        Section.PurchaseReturn -> {
+            val vm: PurchaseReturnViewModel = viewModel { PurchaseReturnViewModel(repo) }
+            PurchaseReturnScreen(vm, onBack = back)
+        }
+
+        Section.NewSale -> {
+            val vm: NewSaleViewModel = viewModel { NewSaleViewModel(repo) }
+            NewSaleScreen(vm, onBack = back)
+        }
+
+        Section.Customers -> {
+            val vm: CustomersViewModel = viewModel { CustomersViewModel(repo) }
+            CustomersScreen(vm, onBack = back, onOpenCustomer = onOpenCustomer)
+        }
+
+        Section.Ledger -> {
+            val vm: LedgerViewModel = viewModel { LedgerViewModel(repo) }
+            LedgerScreen(vm, onBack = back)
+        }
+
+        Section.Finance -> {
+            val financeVm: FinanceViewModel = viewModel { FinanceViewModel(repo) }
+            val dashVm: DashboardViewModel = viewModel { DashboardViewModel(repo) }
+            FinanceHubScreen(financeVm, dashVm, onBack = back)
+        }
+
+        Section.MoneyMove -> {
+            val vm: MoneyMoveViewModel = viewModel { MoneyMoveViewModel(repo) }
+            MoneyMoveScreen(vm, startAsPayment = false, onBack = back)
+        }
+
+        Section.Payroll -> {
+            val vm: PayrollViewModel = viewModel { PayrollViewModel(repo) }
+            PayrollScreen(vm, onBack = back)
+        }
+
+        Section.Performance -> {
+            val vm: PerformanceViewModel = viewModel { PerformanceViewModel(repo) }
+            PerformanceScreen(vm, onBack = back)
+        }
+
+        Section.Reports -> {
+            val vm: ReportsViewModel = viewModel { ReportsViewModel(repo) }
+            ReportsScreen(vm, onBack = back)
+        }
+
+        Section.Audit -> {
+            val vm: AuditViewModel = viewModel { AuditViewModel(repo) }
+            AuditScreen(vm, onBack = back)
+        }
+
+        Section.MasterData -> {
+            val vm: MasterDataViewModel = viewModel { MasterDataViewModel(repo) }
+            MasterDataScreen(vm, onBack = back)
+        }
+
+        // بی این صفحه، هر کاغذی که پی‌سی چاپ می‌کرد نامِ پیش‌فرض داشت:
+        // `CompanyPrefs.save` تنها در تنظیماتِ اندروید صدا زده می‌شد و
+        // ویندوز هیچ راهی برای نوشتنش نداشت.
+        Section.ShopProfile -> ShopProfileScreen(onBack = back)
+
+        // ماشینی که دفترِ حساب است باید بتواند پشتیبان بگیرد.
+        // تا دیروز `grep -i backup desktop/src` هیچ نمی‌داد.
+        // آخرین صفحهٔ مشترکی که در `:app` گیر افتاده بود — تنها
+        // مانعش نبودنِ `LanHost` روی دسکتاپ بود.
+        Section.WorkshopLink -> {
+            val vm: WorkshopLinkViewModel = viewModel {
+                WorkshopLinkViewModel(repo, DesktopLanHost())
+            }
+            WorkshopLinkScreen(
+                vm,
+                isManager = role == UserRole.MANAGER,
+                onBack = back
+            )
+        }
+
+        Section.Backup -> BackupScreen(onBack = back)
+
+        Section.Guide -> GuideScreen(onBack = back)
     }
 }
 

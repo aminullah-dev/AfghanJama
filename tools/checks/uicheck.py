@@ -51,7 +51,7 @@ def strip_code(src):
 owner_of = defaultdict(set)      # نامِ ساده → مجموعهٔ مسیرهای کامل
 for f in files:
     for m in re.finditer(r"^import\s+((?:androidx|kotlinx|java|org|com\.google)[\w.]*)",
-                         open(f).read(), re.M):
+                         open(f, encoding="utf-8").read(), re.M):
         path = m.group(1)
         simple = path.split(".")[-1]
         if simple == "*":
@@ -64,7 +64,7 @@ for f in files:
     # نمی‌شناختش — بعد جای سومی با نامِ کوتاه نوشته شد و کامپایل شکست.
     for m in re.finditer(
         r"(?<![\w.])((?:androidx|kotlinx|java|org|com\.google)(?:\.[a-z0-9_]+)+\.([A-Z]\w*))",
-        open(f).read()
+        open(f, encoding="utf-8").read()
     ):
         owner_of[m.group(2)].add(m.group(1))
 
@@ -132,7 +132,7 @@ DECL = re.compile(
     r"^\s*(?:public |internal |private |sealed |abstract |open |value )*"
     r"(?:data class|enum class|annotation class|class|object|interface)\s+([A-Za-z_]\w*)", re.M)
 for f in files:
-    raw = open(f).read()
+    raw = open(f, encoding="utf-8").read()
     m = re.search(r"^package\s+([\w.]+)", raw, re.M)
     if not m:
         continue
@@ -141,7 +141,7 @@ for f in files:
 
 problems = []
 for f in files:
-    raw = open(f).read()
+    raw = open(f, encoding="utf-8").read()
     code = strip_code(raw)
     same_pkg = pkg_types.get(file_pkg.get(f, ""), set())
     imported = set()
@@ -189,7 +189,7 @@ for f in files:
 
 # ---- افزونه‌های Modifier که بعد از نقطه صدا زده می‌شوند ----
 for f in files:
-    raw = open(f).read()
+    raw = open(f, encoding="utf-8").read()
     code = strip_code(raw)
     for name, path in MODIFIER_EXT.items():
         if not re.search(r"\.\s*" + name + r"\s*\(", code):
@@ -200,7 +200,7 @@ for f in files:
 
 # ---- آیکون‌های استفاده‌شده ولی ایمپورت‌نشده ----
 for f in files:
-    raw = open(f).read()
+    raw = open(f, encoding="utf-8").read()
     if re.search(r"^import androidx\.compose\.material\.icons\.\*", raw, re.M):
         continue
     code = strip_code(raw)

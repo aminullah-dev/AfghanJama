@@ -81,22 +81,22 @@ object BackupArchive {
      * تصمیم اینجا خالص نگه داشته شده تا CI بسنجدش؛ خواندنِ واقعیِ فایل
      * کارِ صداکننده است.
      */
-    fun verdict(openable: Boolean, integrityOk: Boolean, fileVersion: Int, appVersion: Int): Verdict = when {
+    fun verdict(openable: Boolean, integrityOk: Boolean, fileVersion: Int, schemaVersion: Int): Verdict = when {
         !openable || !integrityOk -> Verdict.CORRUPT
         // نسخهٔ صفر یعنی هیچ‌وقت Room رویش ننشسته — دیتابیسِ ما نیست
         fileVersion <= 0 -> Verdict.CORRUPT
-        fileVersion > appVersion -> Verdict.TOO_NEW
+        fileVersion > schemaVersion -> Verdict.TOO_NEW
         else -> Verdict.OK
     }
 
     /** پیامِ آدمیزادِ هر سرنوشت. */
-    fun verdictMessage(v: Verdict, fileVersion: Int, appVersion: Int): String = when (v) {
+    fun verdictMessage(v: Verdict, fileVersion: Int, schemaVersion: Int): String = when (v) {
         Verdict.OK -> ""
         Verdict.CORRUPT ->
             "این فایلِ پشتیبان سالم نیست و باز نمی‌شود. دادهٔ فعلی دست‌نخورده ماند."
         Verdict.TOO_NEW ->
             "این پشتیبان با نسخهٔ جدیدترِ اپ ساخته شده (نسخهٔ $fileVersion در برابرِ " +
-                "$appVersion). اول اپ را به‌روز کنید، بعد بازیابی. دادهٔ فعلی دست‌نخورده ماند."
+                "$schemaVersion). اول اپ را به‌روز کنید، بعد بازیابی. دادهٔ فعلی دست‌نخورده ماند."
     }
 
     /**
