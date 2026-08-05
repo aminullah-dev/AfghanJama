@@ -47,26 +47,12 @@ WRITE = re.compile(
 #:
 #: ترتیبِ کار: از پرخطرترین به کم‌خطرترین — هرچه ناحیهٔ بیشتری را لمس
 #: کند، نیمه‌ماندنش گران‌تر است.
-PENDING = {
-    "recordPurchaseReturn",   # انبار+پول+دفتر+ژورنال+سند
-    "settleTailorWages",      # پول+دفتر+ژورنال+سند
-    "recordManualLedger",
-    "settleSupplier",
-    "paySalary",
-    "recordPurchaseInvoice",
-    "recordOrderDeposit",
-    "depositBatchToFinished",
-    "createOrder",
-    "deleteOrder",
-    "completeAssignment",
-    "transfer",
-    "recordCustomerReceipt",
-    "recordExpense",
-    "recordManualCash",
-    "settleOrphanWorkCost",
-    "addFinishedStock",
-    "adjustFinishedStock",
-}
+PENDING: set[str] = set()
+#
+# **خالی شد.** هر ۲۰ عملیاتِ چندناحیه‌ای اتمی است.
+#
+# اگر روزی نامی اینجا اضافه شد، یعنی کسی عملیاتِ پولیِ تازه‌ای نوشته و
+# اتمی نکرده. آن نام باید با دلیل بیاید، نه بی‌صدا.
 
 
 def members(src):

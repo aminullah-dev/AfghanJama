@@ -2,11 +2,11 @@ package com.afghanjama.desktop.data
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
-import androidx.room.withTransaction
+import androidx.room.immediateTransaction
+import androidx.room.useWriterConnection
 import androidx.room.TypeConverters
 import androidx.room.PooledConnection
 import androidx.room.Transactor
-import androidx.room.useWriterConnection
 import com.afghanjama.data.Converters
 import com.afghanjama.data.DB_VERSION
 import com.afghanjama.data.Db
@@ -152,7 +152,13 @@ abstract class DesktopDatabase : RoomDatabase(), Db {
     /*
      * مرزِ تراکنش برای این سکو.
      *
-     * `withTransaction` روی کوروتین کار می‌کند و **تودرتو-امن** است:
+     * **چرا اینجا با اندروید فرق دارد:** `withTransaction` در
+     * `room-ktx` است و آن بسته فقط اندرویدی است — CI همین را گرفت:
+     * «Unresolved reference 'withTransaction'». نسخهٔ چندسکوییِ Room
+     * همین کار را با `useWriterConnection` + `immediateTransaction`
+     * انجام می‌دهد.
+     *
+     * تراکنش روی کوروتین است و **تودرتو-امن**:
      * اگر عملیاتی داخلِ عملیاتِ دیگری صدا زده شود، در همان تراکنشِ
      * بیرونی ادغام می‌شود و دو بار commit نمی‌کند. `sellInvoice` که
      * `addFinishedStock` را صدا می‌زند دقیقاً همین حالت است.
@@ -161,7 +167,7 @@ abstract class DesktopDatabase : RoomDatabase(), Db {
      * abstract کد تولید می‌کند.
      */
     override suspend fun <T> atomic(block: suspend () -> T): T =
-        withTransaction(block)
+        useWriterConnection { it.immediateTransaction { block() } }
 
     abstract override fun orderDao(): OrderDao
     abstract override fun orderCounterDao(): OrderCounterDao
