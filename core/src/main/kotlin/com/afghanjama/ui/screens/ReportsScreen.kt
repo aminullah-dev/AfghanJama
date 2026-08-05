@@ -362,7 +362,23 @@ fun ReportsScreen(
             item {
                 SectionCard("فروش دوره") {
                     StatRow("تعداد فروش", r.salesCount.fa())
-                    StatRow("درآمد فروش", r.revenue.afn())
+                    // برگشتی فقط وقتی نشان داده می‌شود که وجود داشته
+                    // باشد؛ سطرِ همیشه-صفر فقط صفحه را شلوغ می‌کند.
+                    // ولی وقتی هست، **پیش از** درآمدِ خالص می‌آید تا
+                    // معلوم باشد آن عدد از کجا آمده.
+                    if (r.salesReturned > 0) {
+                        StatRow("فروش ناخالص", (r.revenue + r.salesReturned).afn())
+                        StatRow(
+                            "کسر: برگشت از فروش" +
+                                (if (r.returnedQty > 0) " (${r.returnedQty.fa()} عدد)" else ""),
+                            "− ${r.salesReturned.afn()}",
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                    StatRow(
+                        if (r.salesReturned > 0) "درآمد خالص فروش" else "درآمد فروش",
+                        r.revenue.afn()
+                    )
                     StatRow("بهای تمام‌شدهٔ فروش", r.cogs.afn())
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     StatRow(
@@ -459,7 +475,8 @@ fun ReportsScreen(
                                 fraction = if (max > 0) m.revenue.toFloat() / max else 0f,
                                 subText = if (m.salesCount == 0) "فروشی ثبت نشده"
                                 else (if (m.profit >= 0) "سود ${m.profit.afn()}" else "زیان ${(-m.profit).afn()}") +
-                                    " • ${m.salesCount.fa()} فروش",
+                                    " • ${m.salesCount.fa()} فروش" +
+                                    (if (m.returned > 0) " • برگشتی ${m.returned.afn()}" else ""),
                                 subColor = if (m.salesCount == 0) MaterialTheme.colorScheme.onSurfaceVariant
                                 else if (m.profit >= 0) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.error
@@ -490,12 +507,25 @@ fun ReportsScreen(
                         trend.products.take(8).forEach { p ->
                             BarRow(
                                 label = p.name,
-                                valueText = "${p.qty.fa()} عدد • ${p.revenue.afn()}",
+                                // «۱۸ عدد» به‌تنهایی همان چیزی است که
+                                // اعتماد را می‌بَرد وقتی کاربر فاکتورها را
+                                // می‌شمارد و ۲۰ تا می‌بیند. پس هر سه عدد
+                                // نوشته می‌شود.
+                                valueText = (
+                                    if (p.hasReturns)
+                                        "${p.soldQty.fa()} − ${p.returnedQty.fa()} = ${p.qty.fa()} عدد"
+                                    else "${p.qty.fa()} عدد"
+                                    ) + " • ${p.revenue.afn()}",
                                 fraction = if (max > 0) p.revenue.toFloat() / max else 0f,
                                 subText = (
                                     if (p.profit >= 0) "سود ${p.profit.afn()}"
                                     else "زیان ${(-p.profit).afn()}"
-                                    ) + " • حاشیه ${p.marginPercent.fa()}٪".toPersianDigits(),
+                                    ) + " • حاشیه ${p.marginPercent.fa()}٪".toPersianDigits() +
+                                    (
+                                        if (p.hasReturns)
+                                            " • برگشت ${p.returnPercent.fa()}٪".toPersianDigits()
+                                        else ""
+                                        ),
                                 subColor = if (p.profit >= 0) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.error
                             )
