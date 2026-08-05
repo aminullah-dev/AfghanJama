@@ -3,6 +3,8 @@
 package com.afghanjama.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,7 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -21,7 +23,6 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Checkroom
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -47,7 +49,10 @@ import androidx.compose.ui.unit.dp
 import com.afghanjama.AppInfo
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.CompanyPrefs
-import com.afghanjama.ui.components.IconBadge
+import com.afghanjama.ui.components.BrandButton
+import com.afghanjama.ui.theme.Brand
+import com.afghanjama.ui.theme.CopperBrush
+import com.afghanjama.ui.theme.EmeraldBrush
 import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.vm.AuthViewModel
 import com.afghanjama.ui.platform.AppDropdownMenu
@@ -93,6 +98,23 @@ fun LoginScreen(
         return
     }
 
+    /*
+     * زمینهٔ زمردی — در هر دو حالتِ روشن و تاریک.
+     *
+     * صفحهٔ ورود تنها جایی است که عمداً از تمِ دستگاه پیروی نمی‌کند:
+     * این صفحه هویتِ اپ را نشان می‌دهد، نه داده‌ای که کاربر باید
+     * بخواند. یک هویت باید همیشه یک شکل باشد، وگرنه نصفِ کاربرها
+     * برنامهٔ دیگری می‌بینند.
+     *
+     * چون زمینه همیشه تیره است، متن‌های رویش از `Brand` رنگ می‌گیرند
+     * نه از `colorScheme`. در حالتِ روشن `onSurface` تقریباً سیاه است
+     * و روی زمردِ تیره خوانده نمی‌شود.
+     */
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(EmeraldBrush)
+    ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -102,19 +124,33 @@ fun LoginScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // ---------- نشانِ اپ ----------
-        IconBadge(Icons.Default.Checkroom, size = 68.dp)
+        Box(
+            Modifier
+                .size(72.dp)
+                .clip(CircleShape)
+                .background(CopperBrush),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Default.Checkroom,
+                contentDescription = null,
+                tint = Brand.OnCopper,
+                modifier = Modifier.size(36.dp)
+            )
+        }
 
         Spacer(Modifier.height(14.dp))
 
         Text(
             AppInfo.NAME,
             style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            color = Brand.OnEmerald
         )
         Text(
             coName.ifBlank { "سامانهٔ مدیریتِ کارگاه خیاطی" },
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = Brand.OnEmeraldMuted,
             textAlign = TextAlign.Center
         )
 
@@ -216,19 +252,21 @@ fun LoginScreen(
                     visualTransformation = PasswordVisualTransformation()
                 )
 
-                Button(
+                BrandButton(
+                    text = if (ui.isSetupDone) "ورود" else "ثبت رمز",
                     onClick = {
                         vm.clearMessage()
                         if (ui.isSetupDone) vm.login(pin) else vm.setupPin(pin)
                     },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Default.Lock, contentDescription = null)
-                    // تا دیروز اینجا Spacer با ارتفاعِ صفر بود، یعنی هیچ
-                    // فاصله‌ای؛ در یک ردیف عرض لازم است نه ارتفاع.
-                    Spacer(Modifier.width(8.dp))
-                    Text(if (ui.isSetupDone) "ورود" else "ثبت رمز")
-                }
+                    modifier = Modifier.fillMaxWidth(),
+                    leading = {
+                        Icon(
+                            Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = Brand.OnCopper
+                        )
+                    }
+                )
 
                 ui.message?.let { msg ->
                     Card(
@@ -262,5 +300,6 @@ fun LoginScreen(
                 }
             }
         }
+    }
     }
 }

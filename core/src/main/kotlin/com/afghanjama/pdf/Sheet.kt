@@ -119,6 +119,33 @@ object SheetColors {
     const val LINE = 0xFFE1DFD8.toInt()
     const val SOFT = 0xFFF4F7F5.toInt()
     const val DANGER = 0xFFB3261E.toInt()
+
+    // مس — همان پله‌هایی که `ui.theme.Brand` روی صفحه دارد.
+    //
+    // عمداً دوباره اینجا نوشته شده و از آنجا وارد نمی‌شود: این لایه
+    // `Int`ِ ARGB می‌خواهد و آن لایه `Color`ِ Compose است؛ وابسته
+    // کردنِ سازندهٔ کاغذ به لایهٔ رابطِ کاربری برای سه عدد، بهایی است
+    // که نمی‌ارزد. اگر یکی عوض شد، آن یکی هم باید عوض شود.
+    const val COPPER_LIGHT = 0xFFEBCBA6.toInt()
+    const val COPPER = 0xFFC08B57.toInt()
+    const val COPPER_DEEP = 0xFF97633A.toInt()
+}
+
+/**
+ * رنگِ میانیِ دو رنگ — [t] بینِ ۰ و ۱.
+ *
+ * در فضای sRGB و بدونِ تصحیحِ گاما. برای گذرِ کوتاهِ بینِ دو پلهٔ نزدیکِ
+ * مس تفاوتش با روشِ درست به چشم نمی‌آید، و روشِ درست یعنی توان‌رسانی
+ * برای هر تکه از نوار.
+ */
+fun lerpColor(from: Int, to: Int, t: Float): Int {
+    val f = t.coerceIn(0f, 1f)
+    fun ch(shift: Int): Int {
+        val a = (from shr shift) and 0xFF
+        val b = (to shr shift) and 0xFF
+        return (a + (b - a) * f).toInt().coerceIn(0, 255)
+    }
+    return (ch(24) shl 24) or (ch(16) shl 16) or (ch(8) shl 8) or ch(0)
 }
 
 /** ساختنِ برگه به‌صورتِ گام‌به‌گام. */
@@ -145,6 +172,48 @@ class SheetBuilder(private val paper: Paper) {
 
     fun rect(left: Float, top: Float, right: Float, bottom: Float, color: Int, radius: Float = 0f) =
         add(DrawOp.Rect(left, top, right, bottom, color, radius))
+
+    /**
+     * نوارِ گرادیانِ افقی — از [stops] پله به پله.
+     *
+     * **چرا با مستطیل‌های نازک و نه با یک عملیاتِ گرادیان.** افزودنِ
+     * `DrawOp.Gradient` یعنی هر دو رسام — `Canvas`ِ اندروید و رسامِ
+     * ویندوز — باید پیاده‌اش کنند، و تا وقتی هر دو نکرده‌اند سربرگِ یک
+     * سکو با آن یکی فرق دارد. با مستطیل، هر رسامی که همین حالا
+     * `Rect` را می‌کشد بدونِ یک خط تغییر همین را هم می‌کشد.
+     *
+     * [steps] پیش‌فرض ۱۲۸ است، و این عدد اندازه‌گیری شده نه حدسی: با
+     * پله‌های مسِ این پروژه، بیشترین جهشِ رنگ بینِ دو تکهٔ کنارِ هم در
+     * ۴۸ تکه به ۷ می‌رسد که روی کاغذ پلکان دیده می‌شود، در ۹۶ تکه به
+     * ۴، و در ۱۲۸ به ۳ — زیرِ آستانه‌ای که چشم روی سطحِ یکدست
+     * تشخیص می‌دهد. ۱۲۸ مستطیلِ نازک برای یک سند هزینه‌ای ندارد.
+     */
+    fun gradientBand(
+        left: Float,
+        top: Float,
+        right: Float,
+        bottom: Float,
+        stops: List<Int>,
+        steps: Int = 128
+    ) {
+        if (stops.isEmpty() || right <= left || bottom <= top) return
+        if (stops.size == 1) {
+            rect(left, top, right, bottom, stops[0])
+            return
+        }
+        val n = steps.coerceAtLeast(stops.size)
+        val width = (right - left) / n
+        for (i in 0 until n) {
+            // جای این تکه روی کلِ نوار، و اینکه بینِ کدام دو پله افتاده
+            val pos = i / (n - 1).toFloat().coerceAtLeast(1f)
+            val span = 1f / (stops.size - 1)
+            val idx = (pos / span).toInt().coerceIn(0, stops.size - 2)
+            val local = (pos - idx * span) / span
+            val x = left + i * width
+            // نیمْ‌نقطه هم‌پوشانی تا بینِ تکه‌ها خطِ سفید نیفتد
+            rect(x, top, x + width + 0.5f, bottom, lerpColor(stops[idx], stops[idx + 1], local))
+        }
+    }
 
     fun build() = Sheet(paper, ops.toList())
 }

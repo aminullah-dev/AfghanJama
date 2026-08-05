@@ -35,10 +35,13 @@ val LightColors = lightColorScheme(
     primaryContainer = Color(0xFFD3EDE3),
     onPrimaryContainer = Color(0xFF07352A),
 
-    secondary = Color(0xFF8A6B41),         // برنزی گرم (حس پارچه و کارگاه)
+    // مسِ گرم — هم‌خانوادهٔ `Brand.Copper`، فقط تیره‌تر تا روی زمینهٔ
+    // روشن به‌اندازهٔ کافی کنتراست داشته باشد. حالتِ روشن و تاریک باید
+    // یک لهجه داشته باشند، وگرنه اپ در دو حالت دو محصولِ متفاوت است.
+    secondary = Color(0xFF8F5F31),
     onSecondary = Color(0xFFFFFFFF),
-    secondaryContainer = Color(0xFFF3E6D1),
-    onSecondaryContainer = Color(0xFF3C2C13),
+    secondaryContainer = Color(0xFFF6E5D2),
+    onSecondaryContainer = Color(0xFF3B2413),
 
     tertiary = Color(0xFF41616D),          // آبیِ خاکستری — برای خبر، نه هشدار
     onTertiary = Color(0xFFFFFFFF),
@@ -76,15 +79,36 @@ val LightColors = lightColorScheme(
     onErrorContainer = Color(0xFF410E0B)
 )
 
+/*
+ * حالتِ تاریک: میدانِ زمردی، تأکیدِ مسی.
+ *
+ * تا دیروز خاکستریِ خنثی بود (`#121412`) با لهجهٔ سبز. حالا خودِ
+ * زمینه زمرد است. دو نکته که در انتخابِ این عددها تعیین‌کننده بود:
+ *
+ *  • **پله‌های سطح باید از هم جدا دیده شوند.** کارتِ روی زمینه فقط با
+ *    اختلافِ روشنایی تعریف می‌شود، نه با سایه. اگر همه‌شان یک سبزِ
+ *    نزدیک به هم باشند، صفحه یکدست و بی‌عمق می‌شود.
+ *  • **متن باید بخواند.** `onSurface` روی `surface` نسبتِ کنتراستِ
+ *    بالای ۱۲ دارد و `onSurfaceVariant` بالای ۷ — هر دو از حدِ AA
+ *    عبور می‌کنند. سبزِ تیره وسوسه می‌کند که متن را هم سبز کنیم؛
+ *    همان‌جاست که خوانایی می‌رود.
+ *
+ * `primary` عمداً همان نعناییِ روشن ماند و مسی نشد: مس در این طرح
+ * نقشِ **تأکید** دارد نه نقشِ رنگِ سیستمی، و از `Brand`/`CopperBrush`
+ * می‌آید. اگر `primary` مسی می‌شد، هر چک‌باکس و سوییچ و نوارِ پیشرفت
+ * هم مسی می‌شد و تأکید معنایش را از دست می‌داد.
+ */
 val DarkColors = darkColorScheme(
-    primary = Color(0xFF87D6BE),
+    primary = Color(0xFF7FD9B9),
     onPrimary = Color(0xFF00382B),
-    primaryContainer = Color(0xFF0F5142),
+    primaryContainer = Color(0xFF145746),
     onPrimaryContainer = Color(0xFFA5F2DA),
 
-    secondary = Color(0xFFDDC3A0),
-    onSecondary = Color(0xFF3E2E14),
-    secondaryContainer = Color(0xFF574429),
+    // مس — همان پله‌های `Brand`, تا تأکیدِ تخت و تأکیدِ گرادیانی از
+    // یک خانواده باشند.
+    secondary = Color(0xFFE3B489),
+    onSecondary = Color(0xFF40270F),
+    secondaryContainer = Color(0xFF6B482A),
     onSecondaryContainer = Color(0xFFFBDFBB),
 
     tertiary = Color(0xFFA9CBD8),
@@ -92,28 +116,28 @@ val DarkColors = darkColorScheme(
     tertiaryContainer = Color(0xFF2C4A56),
     onTertiaryContainer = Color(0xFFC6E4F0),
 
-    background = Color(0xFF121412),
-    onBackground = Color(0xFFE3E3DE),
+    background = Color(0xFF07271E),
+    onBackground = Color(0xFFEAF2EC),
 
-    surface = Color(0xFF1A1C1A),
-    onSurface = Color(0xFFE3E3DE),
-    surfaceVariant = Color(0xFF2A2C29),
-    onSurfaceVariant = Color(0xFFC5C4BC),
+    surface = Color(0xFF0D3327),
+    onSurface = Color(0xFFEAF2EC),
+    surfaceVariant = Color(0xFF15402F),
+    onSurfaceVariant = Color(0xFFAFC9BA),
 
-    surfaceContainerLowest = Color(0xFF0D0F0D),
-    surfaceContainerLow = Color(0xFF1A1C1A),
-    surfaceContainer = Color(0xFF1E201E),
-    surfaceContainerHigh = Color(0xFF282A27),
-    surfaceContainerHighest = Color(0xFF333531),
-    surfaceBright = Color(0xFF383A37),
-    surfaceDim = Color(0xFF121412),
+    surfaceContainerLowest = Color(0xFF051F17),
+    surfaceContainerLow = Color(0xFF0A2E23),
+    surfaceContainer = Color(0xFF103A2C),
+    surfaceContainerHigh = Color(0xFF164634),
+    surfaceContainerHighest = Color(0xFF1D523E),
+    surfaceBright = Color(0xFF225A44),
+    surfaceDim = Color(0xFF051F17),
 
-    inverseSurface = Color(0xFFE3E3DE),
-    inverseOnSurface = Color(0xFF2F312E),
+    inverseSurface = Color(0xFFEAF2EC),
+    inverseOnSurface = Color(0xFF12352A),
     inversePrimary = Color(0xFF1F6E5C),
 
-    outline = Color(0xFF8F8E86),
-    outlineVariant = Color(0xFF43453F),
+    outline = Color(0xFF6E9484),
+    outlineVariant = Color(0xFF1F4B3A),
     scrim = Color(0xFF000000),
 
     error = Color(0xFFF2B8B5),

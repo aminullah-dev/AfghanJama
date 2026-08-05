@@ -67,6 +67,8 @@ import com.afghanjama.data.ShiftPolicy
 import com.afghanjama.prefs.BackupPrefs
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.CompanyPrefs
+import com.afghanjama.ui.components.BrandCard
+import com.afghanjama.ui.theme.Brand
 import com.afghanjama.ui.components.IconBadge
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.data.StockForecast
@@ -428,8 +430,8 @@ fun HomeDashboardScreen(
 
         item { StatCard("در تولید", s.inProduction.fa(), "سفارش در جریان") }
         item { StatCard("انبار محصول", s.finishedPieces.fa(), "عدد آماده فروش") }
-        item { StatCard("کیف پول", s.wallet.afn(), "موجودی نقد") }
-        item { StatCard("بانک", s.bank.afn(), "موجودی بانک") }
+        item { StatCard("کیف پول", s.wallet.afn(), "موجودی نقد", money = true) }
+        item { StatCard("بانک", s.bank.afn(), "موجودی بانک", money = true) }
 
         // ---------- ضربان خط تولید ----------
         if (isManager && s.inProduction > 0) {
@@ -568,7 +570,33 @@ private fun ActionCard(action: HomeAction) {
 }
 
 @Composable
-private fun StatCard(title: String, value: String, sub: String) {
+private fun StatCard(title: String, value: String, sub: String, money: Boolean = false) {
+    /*
+     * کارتِ پول رویهٔ مسی می‌گیرد، کارتِ شمارش نه.
+     *
+     * چهار کارت کنارِ هم‌اند و هر چهار تا یک شکل بودند، پس چشم برای
+     * پیدا کردنِ «چقدر پول داریم» باید هر بار عنوان‌ها را می‌خواند.
+     * دو تای پولی که مسی شوند، همان نگاهِ اول جواب می‌دهد.
+     *
+     * اگر هر چهار تا مسی می‌شدند دوباره هیچ‌کدام برجسته نبود — تأکید
+     * فقط وقتی کار می‌کند که اقلیت باشد.
+     */
+    if (money) {
+        BrandCard(contentPadding = 14.dp) {
+            Text(title, style = MaterialTheme.typography.labelMedium, color = Brand.OnCopperMuted)
+            Text(
+                value,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = Brand.OnCopper
+            )
+            Text(sub, style = MaterialTheme.typography.labelSmall, color = Brand.OnCopperMuted)
+        }
+        return
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),

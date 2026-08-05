@@ -19,6 +19,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Payments
+import com.afghanjama.ui.components.BrandCard
+import com.afghanjama.ui.theme.Brand
 import com.afghanjama.ui.platform.AppAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -195,27 +197,25 @@ private fun DashboardTab(vm: DashboardViewModel) {
             }
         }
 
-        // فروش
+        // فروش — تنها کارتِ مسیِ این صفحه
+        //
+        // این عددی است که کارفرما صبح اول از همه می‌خواهد. بقیهٔ
+        // کارت‌ها عمداً آرام ماندند؛ اگر همه مسی شوند این هم دیگر
+        // برجسته نیست.
         item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-            ) {
-                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        "فروش",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        MoneyBlock("۷ روز اخیر", s.sales7.afn())
-                        MoneyBlock("۳۰ روز اخیر", s.sales30.afn())
-                    }
+            BrandCard {
+                Text(
+                    "فروش",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Brand.OnCopper
+                )
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    MoneyBlock("۷ روز اخیر", s.sales7.afn(), onCopper = true)
+                    MoneyBlock("۳۰ روز اخیر", s.sales30.afn(), onCopper = true)
                 }
             }
         }
@@ -433,19 +433,36 @@ private fun StageStat(label: String, count: Int) {
 }
 
 @Composable
-private fun MoneyBlock(label: String, value: String, highlight: Boolean = false) {
+private fun MoneyBlock(
+    label: String,
+    value: String,
+    highlight: Boolean = false,
+    /**
+     * روی رویهٔ مسی نشسته است؟
+     *
+     * لازم است چون رنگ‌های `colorScheme` برای سطحِ تمِ جاری ساخته
+     * شده‌اند: `onSurface` در حالتِ تاریک تقریباً سفید است و روی مس
+     * محو می‌شود، و در حالتِ روشن تقریباً سیاه که آن هم رنگِ درستِ
+     * این سطح نیست. رویهٔ مسی رنگ‌های خودش را دارد.
+     */
+    onCopper: Boolean = false
+) {
     Column {
         Text(
             label,
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = if (onCopper) Brand.OnCopperMuted
+            else MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
             value,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
-            color = if (highlight) MaterialTheme.colorScheme.primary
-            else MaterialTheme.colorScheme.onSurface
+            color = when {
+                onCopper -> Brand.OnCopper
+                highlight -> MaterialTheme.colorScheme.primary
+                else -> MaterialTheme.colorScheme.onSurface
+            }
         )
     }
 }

@@ -248,6 +248,33 @@ class DocChrome(
 
     /** سربرگ: نامِ کارگاه، عنوانِ سند، شماره و تاریخ. */
     fun header(title: String, number: String, at: Long): Float {
+        /*
+         * نوارِ مسیِ بالای برگه — همان هویتی که روی صفحهٔ گوشی هست.
+         *
+         * از لبه تا لبه و **بالاتر از حاشیه** کشیده می‌شود، پس هیچ
+         * متنی را جابه‌جا نمی‌کند: چیدمانِ بدنه از `paper.margin`
+         * شروع می‌شود و آن دست‌نخورده مانده. اگر نوار جا باز می‌کرد،
+         * محلِ شکستِ صفحه در همهٔ اسناد عوض می‌شد.
+         *
+         * روی رولِ باریک نمی‌آید — همان‌جا که `Paper.narrow` می‌گوید
+         * جای سربرگِ رنگی نیست. چاپگرِ حرارتی هم رنگ ندارد و فقط
+         * نوارِ خاکستری چاپ می‌کند.
+         */
+        if (!paper.narrow) {
+            b.gradientBand(
+                left = 0f,
+                top = 0f,
+                right = paper.w.toFloat(),
+                bottom = 5f,
+                stops = listOf(
+                    SheetColors.COPPER_DEEP,
+                    SheetColors.COPPER,
+                    SheetColors.COPPER_LIGHT,
+                    SheetColors.COPPER_DEEP
+                )
+            )
+        }
+
         var y = paper.margin
         val nameSize = if (paper.narrow) 11f else 15f
         y += rtl(shop.name, y, nameSize, SheetColors.BRAND, Weight.Bold)

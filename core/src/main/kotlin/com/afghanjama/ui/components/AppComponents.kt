@@ -15,10 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -410,6 +406,11 @@ fun MeasurementsBlock(
  * دو ضربهٔ سریع نباید دو سند بسازد. غیرفعال‌شدن نیمی از کار است؛ نیمهٔ
  * دیگر نگهبانِ [com.afghanjama.ui.vm.Busy] در ViewModel است، چون
  * زمان‌بندیِ بازترسیمِ Compose تضمین‌شده نیست.
+ *
+ * **رویه‌اش مسی است.** این دکمه در هر صفحه‌ای که هست، کارِ اصلیِ آن
+ * صفحه است — ثبتِ فروش، پرداخت، انتقال. همین‌جا مسی شدنش یعنی هر
+ * دوازده صفحه بی آنکه دست بخورند تأکیدِ درست را گرفتند، و صفحهٔ
+ * سیزدهم هم که فردا اضافه شود خودبه‌خود همان را می‌گیرد.
  */
 @Composable
 fun BusyButton(
@@ -421,23 +422,12 @@ fun BusyButton(
     busyText: String = "در حال ثبت…",
     /** نشانهٔ کوچکِ کنارِ متن — وقتی چند دکمه کنارِ هم‌اند و باید زود از هم جدا شوند. */
     leading: (@Composable () -> Unit)? = null
-) {
-    Button(
-        onClick = onClick,
-        enabled = enabled && !busy,
-        modifier = modifier
-    ) {
-        if (busy) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(18.dp),
-                strokeWidth = 2.dp,
-                color = MaterialTheme.colorScheme.onPrimary
-            )
-            Spacer(Modifier.width(10.dp))
-        } else if (leading != null) {
-            leading()
-            Spacer(Modifier.width(6.dp))
-        }
-        Text(if (busy) busyText else text)
-    }
-}
+) = BrandButton(
+    text = text,
+    onClick = onClick,
+    modifier = modifier,
+    enabled = enabled,
+    busy = busy,
+    busyText = busyText,
+    leading = leading
+)
