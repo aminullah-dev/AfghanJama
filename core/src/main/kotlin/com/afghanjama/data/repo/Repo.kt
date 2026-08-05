@@ -110,6 +110,14 @@ class Repo(private val db: Db) {
         order: Order,
         fabrics: List<OrderFabric> = emptyList(),
         workItems: List<OrderWorkItem> = emptyList()
+    ): Boolean = db.atomic {
+        createOrderTx(order, fabrics, workItems)
+    }
+
+    private suspend fun createOrderTx(
+        order: Order,
+        fabrics: List<OrderFabric>,
+        workItems: List<OrderWorkItem>
     ): Boolean {
         val src = order.workCostSource.trim().uppercase().ifBlank { "CREDIT" }
         if (order.workCost > 0 && src != "CREDIT" && !hasFunds(src, order.workCost)) return false
@@ -546,7 +554,13 @@ class Repo(private val db: Db) {
     }
 
     // ✅ NEW: delete order (برای حذف سفارش) + پاک‌کردن جدول‌های فرزند
-    suspend fun deleteOrder(order: Order) {
+    suspend fun deleteOrder(order: Order) = db.atomic {
+        deleteOrderTx(order)
+    }
+
+    private suspend fun deleteOrderTx(
+        order: Order
+    ) {
         db.orderFabricDao().deleteForOrder(order.id.toString())
         db.orderWorkItemDao().deleteForOrder(order.id.toString())
         db.sewingAssignmentDao().deleteForOrder(order.id.toString())
@@ -682,7 +696,15 @@ class Repo(private val db: Db) {
      * دوخت یک تحویل تمام شد: کارمزد آن خیاط ثبت و تحویل بسته می‌شود.
      * اگر همه تحویل‌ها تمام و سفارش کامل تحویل شده باشد، به «نظارت» می‌رود.
      */
-    suspend fun completeAssignment(assignmentId: Long, quality: String = "", deliveredQty: Int? = null) {
+    suspend fun completeAssignment(assignmentId: Long, quality: String = "", deliveredQty: Int? = null) = db.atomic {
+        completeAssignmentTx(assignmentId, quality, deliveredQty)
+    }
+
+    private suspend fun completeAssignmentTx(
+        assignmentId: Long,
+        quality: String,
+        deliveredQty: Int?
+    ) {
         val a = db.sewingAssignmentDao().getById(assignmentId) ?: return
         if (a.status != "SEWING") return
 
@@ -827,7 +849,16 @@ class Repo(private val db: Db) {
      * پول را از بین نمی‌برد ولی مبدأ می‌تواند منفی شود، پس همان کنترل
      * لازم است.
      */
-    suspend fun transfer(from: String, to: String, amount: Long, note: String): Boolean {
+    suspend fun transfer(from: String, to: String, amount: Long, note: String): Boolean = db.atomic {
+        transferTx(from, to, amount, note)
+    }
+
+    private suspend fun transferTx(
+        from: String,
+        to: String,
+        amount: Long,
+        note: String
+    ): Boolean {
         if (from == to || amount <= 0) return false
         if (!hasFunds(from, amount)) return false
         // جابه‌جاییِ داخلی: پولی وارد یا خارجِ کارگاه نمی‌شود، پس هر دو سطر
@@ -846,7 +877,15 @@ class Repo(private val db: Db) {
     }
 
     /** دریافتیِ دستی از مشتری: نقد + حساب مشتری + دفتر کل + ژورنال، یک‌جا. */
-    suspend fun recordCustomerReceipt(name: String, amount: Long, note: String = "") {
+    suspend fun recordCustomerReceipt(name: String, amount: Long, note: String = "") = db.atomic {
+        recordCustomerReceiptTx(name, amount, note)
+    }
+
+    private suspend fun recordCustomerReceiptTx(
+        name: String,
+        amount: Long,
+        note: String
+    ) {
         if (name.isBlank() || amount <= 0) return
         val n = note.ifBlank { "دریافتی از $name" }
         income("WALLET", amount, n)
@@ -872,7 +911,15 @@ class Repo(private val db: Db) {
      * (SALE_BILLING)؛ این دریافت آن را بستانکار می‌کند، پس ماندهٔ حساب
      * دقیقاً «باقی‌ماندهٔ بدهیِ مشتری» می‌ماند.
      */
-    suspend fun recordOrderDeposit(order: Order, amount: Long, source: String = "WALLET") {
+    suspend fun recordOrderDeposit(order: Order, amount: Long, source: String = "WALLET") = db.atomic {
+        recordOrderDepositTx(order, amount, source)
+    }
+
+    private suspend fun recordOrderDepositTx(
+        order: Order,
+        amount: Long,
+        source: String
+    ) {
         if (amount <= 0) return
         val customer = order.customerName.trim()
         val note = "بیعانهٔ سفارش ${order.orderCode}"
@@ -926,6 +973,15 @@ class Repo(private val db: Db) {
         category: String,
         amount: Long,
         note: String
+    ): Boolean = db.atomic {
+        recordExpenseTx(source, category, amount, note)
+    }
+
+    private suspend fun recordExpenseTx(
+        source: String,
+        category: String,
+        amount: Long,
+        note: String
     ): Boolean {
         if (amount <= 0) return false
         if (!hasFunds(source, amount)) return false
@@ -946,6 +1002,15 @@ class Repo(private val db: Db) {
      * @return false اگر پرداخت باشد و موجودیِ صندوق کافی نباشد.
      */
     suspend fun recordManualCash(
+        source: String,
+        amount: Long,
+        isIn: Boolean,
+        note: String
+    ): Boolean = db.atomic {
+        recordManualCashTx(source, amount, isIn, note)
+    }
+
+    private suspend fun recordManualCashTx(
         source: String,
         amount: Long,
         isIn: Boolean,
@@ -1018,7 +1083,15 @@ class Repo(private val db: Db) {
      * [paySource] باید همان صندوقی باشد که موجودی‌اش کنترل شده است؛
      * وگرنه پول از صندوقی کم می‌شود که کاربر انتخابش نکرده بود.
      */
-    suspend fun settleTailorWages(tailorLabel: String, total: Long, paySource: String = "WALLET") {
+    suspend fun settleTailorWages(tailorLabel: String, total: Long, paySource: String = "WALLET") = db.atomic {
+        settleTailorWagesTx(tailorLabel, total, paySource)
+    }
+
+    private suspend fun settleTailorWagesTx(
+        tailorLabel: String,
+        total: Long,
+        paySource: String
+    ) {
         db.tailorWageDao().settleForTailor(tailorLabel, System.currentTimeMillis())
         spend(paySource, total, "تسویه کارمزد خیاط $tailorLabel")
         // آینه در دفتر کل: پرداختِ کارمزد → بدهکارِ حساب خیاط (کاهش طلب او)
@@ -1099,7 +1172,13 @@ class Repo(private val db: Db) {
      * @return false اگر چیزی برای تسویه نباشد یا صندوق کافی نباشد؛ در هر
      * دو حال هیچ چیز ثبت نمی‌شود.
      */
-    suspend fun settleOrphanWorkCost(paySource: String): Boolean {
+    suspend fun settleOrphanWorkCost(paySource: String): Boolean = db.atomic {
+        settleOrphanWorkCostTx(paySource)
+    }
+
+    private suspend fun settleOrphanWorkCostTx(
+        paySource: String
+    ): Boolean {
         val amount = orphanWorkCostPayable()
         if (amount <= 0) return false
         val src = paySource.trim().uppercase()
@@ -1291,6 +1370,17 @@ class Repo(private val db: Db) {
         isPayment: Boolean,
         paySource: String = "WALLET",
         note: String = ""
+    ): Boolean = db.atomic {
+        recordManualLedgerTx(type, name, amount, isPayment, paySource, note)
+    }
+
+    private suspend fun recordManualLedgerTx(
+        type: String,
+        name: String,
+        amount: Long,
+        isPayment: Boolean,
+        paySource: String,
+        note: String
     ): Boolean {
         if (amount <= 0 || name.isBlank()) return false
         if (isPayment) {
@@ -1597,6 +1687,13 @@ class Repo(private val db: Db) {
     suspend fun recordPurchaseInvoice(
         invoice: PurchaseInvoice,
         items: List<PurchaseItem>
+    ): Boolean = db.atomic {
+        recordPurchaseInvoiceTx(invoice, items)
+    }
+
+    private suspend fun recordPurchaseInvoiceTx(
+        invoice: PurchaseInvoice,
+        items: List<PurchaseItem>
     ): Boolean {
         // «به حساب مشتری» هنوز پیاده نشده: پولی خارج نمی‌شد ولی سندش نقد را
         // بستانکار می‌کرد و مواد هم وارد انبار می‌شد — یعنی صندوقِ سند از
@@ -1676,7 +1773,16 @@ class Repo(private val db: Db) {
     }
 
     /** تسویهٔ (بخشی از) بدهی فروشنده: پول از صندوق کم و بدهی کاهش می‌یابد. */
-    suspend fun settleSupplier(supplier: String, amount: Long, paySource: String, note: String) {
+    suspend fun settleSupplier(supplier: String, amount: Long, paySource: String, note: String) = db.atomic {
+        settleSupplierTx(supplier, amount, paySource, note)
+    }
+
+    private suspend fun settleSupplierTx(
+        supplier: String,
+        amount: Long,
+        paySource: String,
+        note: String
+    ) {
         if (amount <= 0) return
         spend(paySource, amount, note.ifBlank { "تسویه قرض $supplier" }, category = "تسویه قرض")
         db.supplierDao().insert(
@@ -1716,6 +1822,19 @@ class Repo(private val db: Db) {
         refundCash: Boolean,
         cashBox: String = "WALLET",
         note: String = ""
+    ): Boolean = db.atomic {
+        recordPurchaseReturnTx(supplier, name, unit, qty, amount, refundCash, cashBox, note)
+    }
+
+    private suspend fun recordPurchaseReturnTx(
+        supplier: String,
+        name: String,
+        unit: String,
+        qty: Double,
+        amount: Long,
+        refundCash: Boolean,
+        cashBox: String,
+        note: String
     ): Boolean {
         val sup = supplier.trim().ifBlank { "نامشخص" }
         val item = name.trim()
@@ -1780,7 +1899,16 @@ class Repo(private val db: Db) {
      * «تعداد × میانگینِ گردشده» را برمی‌گرداند، حسابِ موجودیِ محصول
      * حتی با انبارِ خالی هم به صفر برنمی‌گشت.
      */
-    suspend fun addFinishedStock(name: String, size: String, qty: Int, batchValue: Long) {
+    suspend fun addFinishedStock(name: String, size: String, qty: Int, batchValue: Long) = db.atomic {
+        addFinishedStockTx(name, size, qty, batchValue)
+    }
+
+    private suspend fun addFinishedStockTx(
+        name: String,
+        size: String,
+        qty: Int,
+        batchValue: Long
+    ) {
         if (qty <= 0) return
         val now = System.currentTimeMillis()
         val cur = db.finishedStockDao().find(name.trim(), size.trim())
@@ -1883,6 +2011,15 @@ class Repo(private val db: Db) {
         size: String,
         countedQty: Int,
         note: String = ""
+    ): Boolean = db.atomic {
+        adjustFinishedStockTx(name, size, countedQty, note)
+    }
+
+    private suspend fun adjustFinishedStockTx(
+        name: String,
+        size: String,
+        countedQty: Int,
+        note: String
     ): Boolean {
         val cur = db.finishedStockDao().find(name.trim(), size.trim()) ?: return false
         val target = countedQty.coerceAtLeast(0)
@@ -1948,7 +2085,14 @@ class Repo(private val db: Db) {
      * از این مسیر گذشته باشند؛ وگرنه به «دوخت» برمی‌گردد و منتظرِ دستهٔ
      * بعدی می‌ماند.
      */
-    suspend fun depositBatchToFinished(order: Order, batch: Int) {
+    suspend fun depositBatchToFinished(order: Order, batch: Int) = db.atomic {
+        depositBatchToFinishedTx(order, batch)
+    }
+
+    private suspend fun depositBatchToFinishedTx(
+        order: Order,
+        batch: Int
+    ) {
         if (batch <= 0) return
         val batchValue = PartialFlow.depositValue(
             qty = order.qty,
@@ -2619,6 +2763,18 @@ class Repo(private val db: Db) {
         source: String = "WALLET",
         note: String = "",
         deductAdvance: Long = 0
+    ): Boolean = db.atomic {
+        paySalaryTx(employee, amount, periodKey, periodLabel, source, note, deductAdvance)
+    }
+
+    private suspend fun paySalaryTx(
+        employee: String,
+        amount: Long,
+        periodKey: String,
+        periodLabel: String,
+        source: String,
+        note: String,
+        deductAdvance: Long
     ): Boolean {
         val emp = employee.trim()
         if (emp.isEmpty() || amount <= 0) return false

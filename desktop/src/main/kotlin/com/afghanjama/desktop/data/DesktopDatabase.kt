@@ -2,11 +2,11 @@ package com.afghanjama.desktop.data
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import androidx.room.immediateTransaction
+import androidx.room.useWriterConnection
 import androidx.room.TypeConverters
 import androidx.room.PooledConnection
 import androidx.room.Transactor
-import androidx.room.Transactor.SQLiteTransactionType
-import androidx.room.useWriterConnection
 import com.afghanjama.data.Converters
 import com.afghanjama.data.DB_VERSION
 import com.afghanjama.data.SQL_WORKSHOP_TABLES
@@ -153,43 +153,22 @@ abstract class DesktopDatabase : RoomDatabase(), Db {
     /*
      * مرزِ تراکنش برای این سکو.
      *
-     * **`androidx.room.withTransaction` اینجا وجود ندارد.** آن تابع در
-     * `room-ktx` است و `room-ktx` فقط اندروید منتشر می‌شود؛ در
-     * `room-runtime-jvm` نیست. از خودِ jar وارسی شد:
-     * `androidx.room.RoomDatabaseKt` روی دسکتاپ فقط
-     * `useReaderConnection`، `useWriterConnection` و سه تابعِ
-     * اعتبارسنجی دارد.
+     * **چرا اینجا با اندروید فرق دارد:** `withTransaction` در
+     * `room-ktx` است و آن بسته فقط اندرویدی است — CI همین را گرفت:
+     * «Unresolved reference 'withTransaction'». نسخهٔ چندسکوییِ Room
+     * همین کار را با `useWriterConnection` + `immediateTransaction`
+     * انجام می‌دهد.
      *
-     * راهِ درستِ این سکو موتورِ درایوری است:
-     *
-     *   • `useWriterConnection` اتصالِ نویسنده را می‌دهد و **در همان
-     *     کوروتین دوباره‌ورودی است** — یعنی صدا زدنش درونِ خودش همان
-     *     اتصال را برمی‌گرداند، نه یکی تازه.
-     *   • `Transactor.inTransaction()` می‌گوید آیا از قبل داخلِ تراکنشیم.
-     *   • `Transactor.withTransaction(IMMEDIATE)` تراکنش را می‌بندد و
-     *     سرِ استثنا برش می‌گرداند.
-     *
-     * **تودرتو بودن** — که قرارداد `Tx` صریح می‌خواهدش — از همین
-     * `inTransaction()` می‌آید: اگر بیرونی باز است، بلوک همان‌جا اجرا
-     * می‌شود و در تراکنشِ بیرونی ادغام می‌گردد. `sellInvoice` که
-     * `addFinishedStock` را صدا می‌زند دقیقاً همین حالت است؛ بی این
-     * بند، تراکنشِ دومی روی همان اتصال باز می‌شد و SQLite خطا می‌داد.
-     *
-     * `IMMEDIATE` انتخاب شد نه `DEFERRED` — همان چیزی که `clearTables`
-     * پایین‌تر هم می‌گیرد. قفلِ نوشتن از همان اول گرفته می‌شود، پس دو
-     * نویسنده به‌جای گیر کردن در میانهٔ کار، همان اول صف می‌کشند.
+     * تراکنش روی کوروتین است و **تودرتو-امن**:
+     * اگر عملیاتی داخلِ عملیاتِ دیگری صدا زده شود، در همان تراکنشِ
+     * بیرونی ادغام می‌شود و دو بار commit نمی‌کند. `sellInvoice` که
+     * `addFinishedStock` را صدا می‌زند دقیقاً همین حالت است.
      *
      * متدِ **پیاده‌شده** است نه abstract، چون Room فقط برای متدهای
      * abstract کد تولید می‌کند.
      */
     override suspend fun <T> atomic(block: suspend () -> T): T =
-        useWriterConnection { conn: Transactor ->
-            if (conn.inTransaction()) {
-                block()
-            } else {
-                conn.withTransaction(SQLiteTransactionType.IMMEDIATE) { block() }
-            }
-        }
+        useWriterConnection { it.immediateTransaction { block() } }
 
     abstract override fun orderDao(): OrderDao
     abstract override fun orderCounterDao(): OrderCounterDao
