@@ -3,6 +3,7 @@ package com.afghanjama.ui.vm
 import androidx.lifecycle.ViewModel
 import com.afghanjama.prefs.Settings
 import com.afghanjama.util.CurrentUser
+import com.afghanjama.util.PinHash
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -88,7 +89,9 @@ class AuthViewModel(private val settings: Settings) : ViewModel() {
         }
 
         val role = role()
-        settings.putString(FILE, KEY_PIN, p)
+        // هش، نه خودِ رمز. تا دیروز اینجا `p` نوشته می‌شد و رمزِ کارگاه
+        // در فایلِ تنظیمات خواندنی بود.
+        settings.putString(FILE, KEY_PIN, PinHash.hash(p))
         settings.putBoolean(FILE, KEY_LOGGED_IN, true)
         settings.putString(FILE, KEY_ROLE, role.name)
 
@@ -118,10 +121,14 @@ class AuthViewModel(private val settings: Settings) : ViewModel() {
             return
         }
 
-        if (pin.trim() != saved) {
+        if (!PinHash.verify(pin, saved)) {
             _ui.update { it.copy(message = "رمز اشتباه است.", isError = true) }
             return
         }
+        // گوشی‌هایی که رمزشان خام ذخیره شده بود همچنان باز می‌شوند، و
+        // همین‌جا بی‌صدا ارتقا می‌گیرند. تنها لحظه‌ای که ممکن است: رمزِ
+        // درست دمِ دست است.
+        if (PinHash.needsUpgrade(saved)) settings.putString(FILE, KEY_PIN, PinHash.hash(pin))
 
         val role = role()
         settings.putBoolean(FILE, KEY_LOGGED_IN, true)
@@ -140,7 +147,7 @@ class AuthViewModel(private val settings: Settings) : ViewModel() {
     /** تغییر رمز با تأیید رمز فعلی. */
     fun changePin(oldPin: String, newPin: String) {
         val saved = pin()
-        if (saved.isBlank() || oldPin.trim() != saved) {
+        if (saved.isBlank() || !PinHash.verify(oldPin, saved)) {
             _ui.update { it.copy(message = "رمز فعلی اشتباه است.", isError = true) }
             return
         }
@@ -149,7 +156,7 @@ class AuthViewModel(private val settings: Settings) : ViewModel() {
             _ui.update { it.copy(message = "رمز جدید باید حداقل ۴ رقم باشد.", isError = true) }
             return
         }
-        settings.putString(FILE, KEY_PIN, p)
+        settings.putString(FILE, KEY_PIN, PinHash.hash(p))
         _ui.update { it.copy(message = "✅ رمز با موفقیت تغییر کرد.", isError = false) }
     }
 
