@@ -144,7 +144,7 @@ class FinishedSaleViewModel(private val repo: Repo) : ViewModel() {
             )
             _ui.update {
                 if (ok) it.copy(
-                    message = "✅ فروش ثبت شد." +
+                    message = "فروش ثبت شد." +
                         (if (applyPrepay > 0) " بیعانه هم اعمال شد." else ""),
                     isError = false,
                     prepayOfCustomer = 0
@@ -228,7 +228,7 @@ class FinishedSaleViewModel(private val repo: Repo) : ViewModel() {
         }
         val ok = repo.recordSaleReturn(sale, qty, refundCash, cashBox)
         _ui.update {
-            if (ok) it.copy(message = "✅ برگشت از فروش ثبت و سندش صادر شد.", isError = false)
+            if (ok) it.copy(message = "برگشت از فروش ثبت و سندش صادر شد.", isError = false)
             else it.copy(
                 message = if (refundCash) "موجودیِ صندوق برای پس‌دادنِ پول کافی نیست."
                 else "ثبتِ برگشت ممکن نشد.",

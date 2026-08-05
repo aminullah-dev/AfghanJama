@@ -60,7 +60,7 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
         }.onSuccess { photos ->
             _ui.update {
                 it.copy(
-                    message = "✅ پشتیبان‌گیری کامل شد" +
+                    message = "پشتیبان‌گیری کامل شد" +
                         (if (photos > 0) " — همراهِ ${photos.fa()} عکس." else "."),
                     isError = false
                 )
@@ -205,7 +205,7 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
         }.onSuccess { photos ->
             _ui.update {
                 it.copy(
-                    message = "✅ بازیابی انجام شد" +
+                    message = "بازیابی انجام شد" +
                         (if (photos > 0) " — ${photos.fa()} عکس هم برگشت" else "") +
                         ". اپ را ببندید و دوباره باز کنید.",
                     isError = false,
@@ -314,7 +314,7 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
             result.onSuccess { cleared ->
                 _ui.update {
                     it.copy(
-                        message = "✅ ${cleared.fa()} جدول پاک شد. اطلاعات پایه و " +
+                        message = "${cleared.fa()} جدول پاک شد. اطلاعات پایه و " +
                             "مشتریان سرِ جایشان‌اند. پشتیبانِ پیش از ریست در " +
                             "Downloads/${DownloadsWriter.FOLDER} است.",
                         isError = false
@@ -359,7 +359,7 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
                 w.flush()
             } ?: error("openOutputStream returned null")
         }.onSuccess {
-            _ui.update { it.copy(message = "✅ خروجی سفارش‌ها ذخیره شد.", isError = false) }
+            _ui.update { it.copy(message = "خروجی سفارش‌ها ذخیره شد.", isError = false) }
         }.onFailure { e ->
             _ui.update { it.copy(message = "خطا در خروجی: ${e.message}", isError = true) }
         }
@@ -387,7 +387,7 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
                 w.flush()
             } ?: error("openOutputStream returned null")
         }.onSuccess {
-            _ui.update { it.copy(message = "✅ خروجی تراکنش‌ها ذخیره شد.", isError = false) }
+            _ui.update { it.copy(message = "خروجی تراکنش‌ها ذخیره شد.", isError = false) }
         }.onFailure { e ->
             _ui.update { it.copy(message = "خطا در خروجی: ${e.message}", isError = true) }
         }

@@ -171,7 +171,7 @@ fun MyWorkScreen(
                         )
                         if (ui.unpaidWage > 0) {
                             Text(
-                                "💰 طلبِ تسویه‌نشدهٔ من: ${ui.unpaidWage.afn()}",
+                                "طلبِ تسویه‌نشدهٔ من: ${ui.unpaidWage.afn()}",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 color = onColor

@@ -149,7 +149,7 @@ class MoneyMoveViewModel(private val repo: Repo) : ViewModel() {
         )
         _state.update {
             if (ok) it.copy(
-                message = (if (isPayment) "✅ پرداخت ثبت و رسیدش صادر شد." else "✅ دریافت ثبت و رسیدش صادر شد."),
+                message = (if (isPayment) "پرداخت ثبت و رسیدش صادر شد." else "دریافت ثبت و رسیدش صادر شد."),
                 isError = false, done = true
             )
             else it.copy(message = "موجودیِ صندوق کافی نیست.", isError = true, done = false)

@@ -272,7 +272,7 @@ fun ReportsScreen(
                     }
                     Text(
                         if (valid) "از ${PersianDate.long(fromMs)} تا ${PersianDate.long(toMs)}"
-                        else "⚠ تاریخِ شروع بعد از تاریخِ پایان است",
+                        else "تاریخِ شروع بعد از تاریخِ پایان است",
                         style = MaterialTheme.typography.bodySmall,
                         color = if (valid) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.error
@@ -446,9 +446,9 @@ fun ReportsScreen(
                             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                 Text(
                                     if (pct >= 0)
-                                        "📈 سود ${pct.fa()}٪ بیشتر شده".toPersianDigits()
+                                        "سود ${pct.fa()}٪ بیشتر شده".toPersianDigits()
                                     else
-                                        "📉 سود ${(-pct).fa()}٪ کمتر شده".toPersianDigits(),
+                                        "سود ${(-pct).fa()}٪ کمتر شده".toPersianDigits(),
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = if (pct >= 0) MaterialTheme.colorScheme.primary
@@ -492,7 +492,7 @@ fun ReportsScreen(
                     SectionCard("سودآوریِ محصولات — $periodLabel") {
                         trend.bestProduct?.takeIf { it.profit > 0 }?.let { best ->
                             Text(
-                                "🏆 پرسودترین: ${best.name} — ${best.profit.afn()}",
+                                "پرسودترین: ${best.name} — ${best.profit.afn()}",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
@@ -629,9 +629,9 @@ fun ReportsScreen(
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         Text(
                             if (sheet.balanced)
-                                "✓ ترازنامه متوازن است — دارایی = بدهی + سرمایه"
+                                "ترازنامه متوازن است — دارایی = بدهی + سرمایه"
                             else
-                                "⚠ ترازنامه متوازن نیست — دفترها را بررسی کنید",
+                                "ترازنامه متوازن نیست — دفترها را بررسی کنید",
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
                             color = if (sheet.balanced) MaterialTheme.colorScheme.primary
@@ -647,9 +647,9 @@ fun ReportsScreen(
                     SectionCard("حسابداری دوطرفه — تراز آزمایشی") {
                         Text(
                             if (tb.balanced)
-                                "✓ دفترها تراز است — جمع هر طرف: ${tb.totalDebit.afn()}"
+                                "دفترها تراز است — جمع هر طرف: ${tb.totalDebit.afn()}"
                             else
-                                "⚠ عدم تراز! بدهکار ${tb.totalDebit.afn()} ≠ بستانکار ${tb.totalCredit.afn()}",
+                                "عدم تراز! بدهکار ${tb.totalDebit.afn()} ≠ بستانکار ${tb.totalCredit.afn()}",
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
                             color = if (tb.balanced) MaterialTheme.colorScheme.primary

@@ -441,7 +441,7 @@ fun SettingsScreen(
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(if (coSaved) "ذخیره شد ✓" else "ذخیره اطلاعات کارگاه")
+                            Text(if (coSaved) "ذخیره شد" else "ذخیره اطلاعات کارگاه")
                         }
                     }
                 }
@@ -519,7 +519,7 @@ fun SettingsScreen(
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(if (topUpDone) "ثبت شد ✓" else "افزودن به موجودی")
+                        Text(if (topUpDone) "ثبت شد" else "افزودن به موجودی")
                     }
                 }
             }
@@ -677,9 +677,9 @@ fun SettingsScreen(
                         val lastAuto = backupVm.lastAutoBackupTime(context)
                         Text(
                             if (lastAuto > 0)
-                                "🔄 بکاپ خودکار روزانه فعال است — آخرین بکاپ: ${PersianDate.shortWithTime(lastAuto)} (پوشه Downloads/${AppInfo.NAME_LATIN})"
+                                "بکاپ خودکار روزانه فعال است — آخرین بکاپ: ${PersianDate.shortWithTime(lastAuto)} (پوشه Downloads/${AppInfo.NAME_LATIN})"
                             else
-                                "🔄 بکاپ خودکار روزانه فعال است — اولین بکاپ به‌زودی در Downloads/${AppInfo.NAME_LATIN} ذخیره می‌شود.",
+                                "بکاپ خودکار روزانه فعال است — اولین بکاپ به‌زودی در Downloads/${AppInfo.NAME_LATIN} ذخیره می‌شود.",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary
                         )

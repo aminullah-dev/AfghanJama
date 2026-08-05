@@ -70,7 +70,10 @@ val LightColors = lightColorScheme(
     inversePrimary = Color(0xFF87D6BE),
 
     outline = Color(0xFF87867F),
-    outlineVariant = Color(0xFFE2E0D9),
+    // خطِ مویی که لبهٔ کارت را تعریف می‌کند. #E2E0D9 روی سفید فقط
+    // نسبتِ ۱٫۳۲ می‌داد — یعنی همان خطی که `AppCard` رویش حساب کرده
+    // بود تا کارت را بدونِ سایه از زمینه جدا کند، عملاً دیده نمی‌شد.
+    outlineVariant = Color(0xFFD2D0C6),
     scrim = Color(0xFF000000),
 
     error = Color(0xFFB3261E),
@@ -137,7 +140,7 @@ val DarkColors = darkColorScheme(
     inversePrimary = Color(0xFF1F6E5C),
 
     outline = Color(0xFF6E9484),
-    outlineVariant = Color(0xFF1F4B3A),
+    outlineVariant = Color(0xFF2A6049),
     scrim = Color(0xFF000000),
 
     error = Color(0xFFF2B8B5),

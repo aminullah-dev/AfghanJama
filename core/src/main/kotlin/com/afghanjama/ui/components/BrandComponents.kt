@@ -14,7 +14,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,7 +27,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -59,7 +66,11 @@ fun BrandCard(
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val clickable = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
+    // کارتی که کار می‌کند باید برای صفحه‌خوان هم «دکمه» باشد، نه یک
+    // ناحیهٔ بی‌نام. کارتِ بی‌کنش نقشی نمی‌گیرد تا بی‌جهت اعلام نشود.
+    val clickable =
+        if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick)
+        else Modifier
     Box(
         modifier
             .fillMaxWidth()
@@ -105,11 +116,30 @@ fun BrandButton(
     val surface = if (live) CopperBrush else SolidColor(disabledSurface())
     val ink = if (live) Brand.OnCopper else disabledContent()
 
+    /*
+     * `role = Role.Button` و `enabled` صریح‌اند، نه تزئینی.
+     *
+     * این یک `Box` است نه `Button`ِ متریال (چون رنگِ ظرفِ آن `Color`
+     * است و گرادیان نمی‌گیرد). ولی جعبهٔ ساده برای TalkBack «دکمه»
+     * نیست — فقط یک چیزِ قابلِ لمس. کاربری که با صفحه‌خوان کار
+     * می‌کند نمی‌فهمید این دکمهٔ «ثبتِ فروش» است.
+     *
+     * `enabled` هم به خودِ `clickable` داده می‌شود نه فقط با
+     * برداشتنِ آن: این‌طور صفحه‌خوان «غیرفعال» را هم اعلام می‌کند و
+     * موجِ لمس (ripple) روی دکمهٔ خاموش نمی‌افتد.
+     *
+     * ارتفاعِ کمینه ۴۸dp است — حدِ اندروید برای هدفِ لمسی.
+     */
     Box(
         modifier
             .clip(shape)
             .background(surface)
-            .then(if (live) Modifier.clickable(onClick = onClick) else Modifier)
+            .clickable(
+                enabled = live,
+                role = Role.Button,
+                onClickLabel = if (busy) busyText else text,
+                onClick = onClick
+            )
             .heightIn(min = 48.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -136,6 +166,74 @@ fun BrandButton(
                 )
             }
         }
+    }
+}
+
+/**
+ * سطرِ هشدار: آیکنِ برداری + متن، هم‌تراز از بالا.
+ *
+ * **جایگزینِ «⚠ …» شد.** ایموجی روی هر گوشی شکلِ خودش را دارد (روی
+ * یکی زرد و تخت، روی دیگری قرمز و برجسته)، اندازه‌اش با متن می‌پرد،
+ * از پالت رنگ نمی‌گیرد، و صفحه‌خوان آن را «علامتِ تعجب در مثلث»
+ * می‌خواند وسطِ جمله. آیکنِ برداری هر چهار مشکل را ندارد.
+ *
+ * `Alignment.Top` عمدی است: متنِ دوخطی نباید آیکن را وسط بیندازد.
+ */
+@Composable
+fun WarningLine(
+    text: String,
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.error,
+    style: TextStyle = MaterialTheme.typography.labelMedium,
+    icon: ImageVector = Icons.Default.WarningAmber
+) {
+    Row(
+        modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Icon(
+            icon,
+            // متن خودش همه‌چیز را می‌گوید؛ اعلامِ دوبارهٔ «هشدار» فقط
+            // صفحه‌خوان را پرحرف می‌کند.
+            contentDescription = null,
+            tint = color,
+            modifier = Modifier.size(16.dp)
+        )
+        Text(text, style = style, color = color, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+/**
+ * یک مرحله از خطِ تولید: آیکن، نام، عدد.
+ *
+ * پیش از این کلِ ضربانِ خطِ تولید یک رشته بود:
+ * یک رشتهٔ سه‌ایموجیِ به‌هم‌چسبیده. سه ایموجی، سه فاصلهٔ دستی،
+ * و هیچ راهی برای اینکه ستون‌ها زیرِ هم بیفتند یا عددها از نام جدا
+ * دیده شوند.
+ */
+@Composable
+fun StageChip(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp)
+        )
+        Text(label, style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold)
     }
 }
 

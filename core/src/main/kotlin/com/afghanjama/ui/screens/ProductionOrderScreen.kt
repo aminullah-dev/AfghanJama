@@ -274,7 +274,7 @@ fun ProductionOrderScreen(
                         )
                         ui.dueDays.toLongOrNull()?.takeIf { it > 0 }?.let { d ->
                             Text(
-                                "📅 تحویل تا ${PersianDate.long(System.currentTimeMillis() + d * 86_400_000L)}",
+                                "تحویل تا ${PersianDate.long(System.currentTimeMillis() + d * 86_400_000L)}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.SemiBold
@@ -293,7 +293,7 @@ fun ProductionOrderScreen(
                         ui.deposit.toLongOrNull()?.takeIf { it > 0 }?.let { dep ->
                             val agreed = ui.agreedPrice.toLongOrNull() ?: 0L
                             Text(
-                                "💰 بیعانه به صندوق می‌رود و رسیدش صادر می‌شود" +
+                                "بیعانه به صندوق می‌رود و رسیدش صادر می‌شود" +
                                     (if (agreed > 0) " • باقی‌ماندهٔ مشتری: ${(agreed - dep).afn()}" else ""),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = if (agreed in 1 until dep) MaterialTheme.colorScheme.error

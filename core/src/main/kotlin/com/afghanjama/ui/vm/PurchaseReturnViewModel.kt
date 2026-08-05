@@ -88,7 +88,7 @@ class PurchaseReturnViewModel(private val repo: Repo) : ViewModel() {
             qty = qty, amount = amount, refundCash = refundCash, cashBox = cashBox
         )
         _state.value = _state.value.copy(
-            message = if (ok) "✅ برگشت از خرید ثبت و سندش صادر شد."
+            message = if (ok) "برگشت از خرید ثبت و سندش صادر شد."
             else "موجودیِ انبار برای این مقدار کافی نیست.",
             isError = !ok,
             done = ok

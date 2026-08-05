@@ -256,7 +256,7 @@ fun PayrollScreen(
                         Text(
                             if (ui.unpaidCount > 0)
                                 "باقی‌مانده ${ui.remainingTotal.afn()} برای ${ui.unpaidCount.fa()} نفر"
-                            else "✓ حقوقِ همه پرداخت شده است",
+                            else "حقوقِ همه پرداخت شده است",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = onColor
@@ -304,7 +304,7 @@ fun PayrollScreen(
                             }
                             if (row.monthlySalary > 0) {
                                 Text(
-                                    if (row.isPaid) "✓ پرداخت شد" else "در انتظار پرداخت",
+                                    if (row.isPaid) "پرداخت شد" else "در انتظار پرداخت",
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = if (row.isPaid) MaterialTheme.colorScheme.primary

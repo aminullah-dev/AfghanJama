@@ -53,7 +53,7 @@ class LedgerViewModel(private val repo: Repo) : ViewModel() {
         val ok = repo.settleOrphanWorkCost(paySource)
         refreshOrphan()
         _message.value = if (ok) {
-            "✅ ${before} ؋ بدهیِ خرج‌کارِ پیشین تسویه شد و از صندوق کم گردید."
+            "${before} ؋ بدهیِ خرج‌کارِ پیشین تسویه شد و از صندوق کم گردید."
         } else {
             "تسویه انجام نشد — یا چیزی نمانده یا موجودیِ صندوق کافی نیست."
         }

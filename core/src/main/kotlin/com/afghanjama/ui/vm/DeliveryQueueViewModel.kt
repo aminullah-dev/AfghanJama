@@ -136,7 +136,7 @@ class DeliveryQueueViewModel(private val repo: Repo) : ViewModel() {
         val o = repo.getOrder(orderId) ?: return
         val err = repo.deliverOrderToCustomer(o, qty, unitPrice, receivedNow, applyPrepay)
         _ui.update {
-            if (err == null) it.copy(message = "✅ ${o.customerName} تحویل گرفت.", isError = false)
+            if (err == null) it.copy(message = "${o.customerName} تحویل گرفت.", isError = false)
             else it.copy(message = err, isError = true)
         }
         if (err == null) prepays.update { it - o.customerName.trim() }

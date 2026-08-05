@@ -377,7 +377,7 @@ fun AttendanceScreen(
                                 )
                                 if (nearShiftEnd) {
                                     Text(
-                                        "⚠ نزدیک پایان شیفت ۸ ساعته — خروج را ثبت کنید",
+                                        "نزدیک پایان شیفت ۸ ساعته — خروج را ثبت کنید",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.error,
                                         fontWeight = FontWeight.SemiBold

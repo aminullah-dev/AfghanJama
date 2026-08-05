@@ -126,9 +126,9 @@ object SheetColors {
     // `Int`ِ ARGB می‌خواهد و آن لایه `Color`ِ Compose است؛ وابسته
     // کردنِ سازندهٔ کاغذ به لایهٔ رابطِ کاربری برای سه عدد، بهایی است
     // که نمی‌ارزد. اگر یکی عوض شد، آن یکی هم باید عوض شود.
-    const val COPPER_LIGHT = 0xFFEBCBA6.toInt()
-    const val COPPER = 0xFFC08B57.toInt()
-    const val COPPER_DEEP = 0xFF97633A.toInt()
+    const val COPPER_LIGHT = 0xFFD8B496.toInt()
+    const val COPPER = 0xFFC58E62.toInt()
+    const val COPPER_DEEP = 0xFFBA7944.toInt()
 }
 
 /**

@@ -148,7 +148,7 @@ private fun DashboardTab(vm: DashboardViewModel) {
                 ) {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
-                            "⏰ یادآوری تسویه هفتگی",
+                            "یادآوری تسویه هفتگی",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onErrorContainer
@@ -683,7 +683,7 @@ private fun WalletTab(vm: FinanceViewModel) {
         }
 
         OutlinedButton(onClick = { showTransfer = true }, modifier = Modifier.fillMaxWidth()) {
-            Text("⇄ انتقال بین صندوق‌ها")
+            Text("انتقال بین صندوق‌ها")
         }
 
         Button(onClick = { showExpense = true }, modifier = Modifier.fillMaxWidth()) {

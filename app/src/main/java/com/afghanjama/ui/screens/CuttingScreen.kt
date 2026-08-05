@@ -384,7 +384,7 @@ fun CuttingScreen(
                                     onClick = { vm.backToStock(o.id) },
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Text("↩ برگشت به انبار (اصلاح اشتباه)")
+                                    Text("برگشت به انبار (اصلاح اشتباه)")
                                 }
                             }
                         }

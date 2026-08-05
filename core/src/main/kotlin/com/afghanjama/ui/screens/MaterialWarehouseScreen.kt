@@ -230,7 +230,7 @@ fun MaterialWarehouseScreen(
                             )
                             if (low) {
                                 Text(
-                                    "⚠ موجودی کم",
+                                    "موجودی کم",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.error,
                                     fontWeight = FontWeight.Bold

@@ -112,7 +112,7 @@ fun ShopProfileScreen(onBack: () -> Unit) {
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(if (saved) "ذخیره شد ✓" else "ذخیره اطلاعات کارگاه")
+                        Text(if (saved) "ذخیره شد" else "ذخیره اطلاعات کارگاه")
                     }
                 }
             }

@@ -94,7 +94,7 @@ fun PurchasePlanScreen(
                             MaterialTheme.colorScheme.onErrorContainer
                         else MaterialTheme.colorScheme.onPrimaryContainer
                         Text(
-                            if (ui.needed.isEmpty()) "✅ فعلاً خریدی لازم نیست"
+                            if (ui.needed.isEmpty()) "فعلاً خریدی لازم نیست"
                             else "${ui.needed.size.fa()} قلم نیاز به خرید دارد",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
@@ -109,7 +109,7 @@ fun PurchasePlanScreen(
                         }
                         if (ui.runningOut.isNotEmpty()) {
                             Text(
-                                "⚠ ${ui.runningOut.size.fa()} قلم تا یک هفتهٔ دیگر تمام می‌شود",
+                                "${ui.runningOut.size.fa()} قلم تا یک هفتهٔ دیگر تمام می‌شود",
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.SemiBold,
                                 color = onColor
@@ -171,7 +171,7 @@ private fun ReorderCard(r: ReorderRow) {
                 Text(r.name, fontWeight = FontWeight.SemiBold)
                 Text(
                     r.daysOfCover?.let {
-                        if (urgent) "⚠ ${it.fa()} روز باقی" else "${it.fa()} روز باقی"
+                        if (urgent) "${it.fa()} روز باقی" else "${it.fa()} روز باقی"
                     } ?: "بدون مصرف",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
@@ -198,7 +198,7 @@ private fun ReorderCard(r: ReorderRow) {
             if (r.needsPurchase) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Text(
-                    "🛒 پیشنهاد خرید: ${r.suggestedQty.qty()} ${r.unit}" +
+                    "پیشنهاد خرید: ${r.suggestedQty.qty()} ${r.unit}" +
                         (if (r.estimatedCost > 0) " ≈ ${r.estimatedCost.afn()}" else ""),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,

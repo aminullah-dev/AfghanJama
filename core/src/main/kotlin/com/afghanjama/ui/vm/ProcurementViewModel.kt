@@ -258,7 +258,7 @@ class ProcurementViewModel(private val repo: Repo) : ViewModel() {
         }
 
         _ui.update {
-            ProcurementUi(message = "✅ خرید ثبت شد و ${rows.size} قلم وارد انبار شد.", isError = false)
+            ProcurementUi(message = "خرید ثبت شد و ${rows.size} قلم وارد انبار شد.", isError = false)
         }
     }
 }

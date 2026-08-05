@@ -111,13 +111,13 @@ fun MoneyMoveScreen(
                         modifier = Modifier.weight(1f),
                         colors = if (isPayment) ButtonDefaults.buttonColors()
                         else ButtonDefaults.outlinedButtonColors()
-                    ) { Text("پرداخت 🡐") }
+                    ) { Text("پرداخت") }
                     Button(
                         onClick = { isPayment = false },
                         modifier = Modifier.weight(1f),
                         colors = if (!isPayment) ButtonDefaults.buttonColors()
                         else ButtonDefaults.outlinedButtonColors()
-                    ) { Text("دریافت 🡒") }
+                    ) { Text("دریافت") }
                 }
             }
 

@@ -477,7 +477,7 @@ fun FinishedWarehouseScreen(
                         )
                         if (openFolder != null) {
                             TextButton(onClick = { openFolder = null }) {
-                                Text("↩ همهٔ پوشه‌ها")
+                                Text("همهٔ پوشه‌ها")
                             }
                         }
                     }

@@ -89,7 +89,7 @@ fun PerformanceScreen(
                         )
                         ui.topTailor?.let { top ->
                             Text(
-                                "🏆 بهترین کارنامه: ${top.name}",
+                                "بهترین کارنامه: ${top.name}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.SemiBold
@@ -232,7 +232,7 @@ private fun TailorCard(t: TailorScore) {
             )
             if (t.inProgress > 0) {
                 Text(
-                    "🧵 ${t.inProgress.fa()} کار زیرِ دست",
+                    "${t.inProgress.fa()} کار زیرِ دست",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.tertiary
                 )

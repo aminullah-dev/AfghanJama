@@ -202,7 +202,7 @@ class NewSaleViewModel(private val repo: Repo) : ViewModel() {
         if (ok) {
             _ui.value = NewSaleUi(
                 lines = listOf(DraftLine(key = nextKey++)),
-                message = "✅ فاکتور با ${ready.size} ردیف ثبت شد." +
+                message = "فاکتور با ${ready.size} ردیف ثبت شد." +
                     (if (u.appliedPrepay > 0) " بیعانه هم اعمال شد." else "") +
                     (if (incomplete > 0) " ($incomplete ردیفِ ناقص ثبت نشد.)" else ""),
                 isError = false

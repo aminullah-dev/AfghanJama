@@ -423,7 +423,7 @@ private fun HandoutCard(
             // ---- فرم تحویل جدید ----
             if (handout.remaining > 0) {
                 HorizontalDivider(thickness = 0.5.dp)
-                Text("📋 تحویل به خیاط", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                Text("تحویل به خیاط", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
 
                 OutlinedButton(onClick = { menuOpen = true }, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Default.ContentCut, contentDescription = null)
@@ -482,7 +482,7 @@ private fun HandoutCard(
 
                 if (handout.assignments.isEmpty()) {
                     TextButton(onClick = onBackToCutting, modifier = Modifier.fillMaxWidth()) {
-                        Text("↩ برگشت به برش (اصلاح اشتباه)")
+                        Text("برگشت به برش (اصلاح اشتباه)")
                     }
                 }
             }
@@ -591,7 +591,7 @@ private fun InProgressCard(
                 }
             }
             TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) {
-                Text("↩ لغو تحویل")
+                Text("لغو تحویل")
             }
         }
     }

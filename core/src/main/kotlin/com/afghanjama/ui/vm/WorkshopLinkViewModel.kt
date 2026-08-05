@@ -133,7 +133,7 @@ class WorkshopLinkViewModel(
         busy.once {
             val err = repo.approveRequest(id)
             _ui.update {
-                if (err == null) it.copy(message = "✅ تأیید و ثبت شد.", isError = false)
+                if (err == null) it.copy(message = "تأیید و ثبت شد.", isError = false)
                 else it.copy(message = err, isError = true)
             }
         }

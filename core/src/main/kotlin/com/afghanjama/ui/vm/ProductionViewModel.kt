@@ -358,7 +358,7 @@ class ProductionViewModel(private val repo: Repo) : ViewModel() {
 
         _ui.update {
             ProductionUi(
-                message = "✅ سفارش تولید ثبت و وارد انبار شد. مواد هنگام «برش» از انبار کسر می‌شود." +
+                message = "سفارش تولید ثبت و وارد انبار شد. مواد هنگام «برش» از انبار کسر می‌شود." +
                     (if (deposit > 0) " بیعانه هم دریافت و رسیدش صادر شد." else ""),
                 isError = false
             )

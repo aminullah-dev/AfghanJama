@@ -157,7 +157,7 @@ class AuthViewModel(private val settings: Settings) : ViewModel() {
             return
         }
         settings.putString(FILE, KEY_PIN, PinHash.hash(p))
-        _ui.update { it.copy(message = "✅ رمز با موفقیت تغییر کرد.", isError = false) }
+        _ui.update { it.copy(message = "رمز با موفقیت تغییر کرد.", isError = false) }
     }
 
     fun logout() {

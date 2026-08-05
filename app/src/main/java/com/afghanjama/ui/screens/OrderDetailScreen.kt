@@ -228,8 +228,8 @@ fun OrderDetailScreen(
                     if (dueDaysText != initialDueDays) {
                         val d = dueDaysText.toLongOrNull()?.takeIf { it > 0 }
                         Text(
-                            if (d == null) "⚠ مهلت حذف می‌شود"
-                            else "📅 مهلت جدید: ${PersianDate.long(System.currentTimeMillis() + d * 86_400_000L)}",
+                            if (d == null) "مهلت حذف می‌شود"
+                            else "مهلت جدید: ${PersianDate.long(System.currentTimeMillis() + d * 86_400_000L)}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -413,7 +413,7 @@ fun OrderDetailScreen(
                                 )
                                 Text(
                                     fmtDate(o.dueDate) + " • " + (
-                                        if (late) "⚠ ${dueDaysLate(o.dueDate).fa()} روز تأخیر"
+                                        if (late) "${dueDaysLate(o.dueDate).fa()} روز تأخیر"
                                         else "${dueDaysLeft(o.dueDate).fa()} روز مانده"
                                         ),
                                     style = MaterialTheme.typography.bodyMedium,
@@ -605,7 +605,7 @@ fun OrderDetailScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Text(
-                                "✅ تحویل ${o.customerName.ifBlank { "مشتری" }} شد",
+                                "تحویل ${o.customerName.ifBlank { "مشتری" }} شد",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -873,7 +873,7 @@ fun OrderDetailScreen(
                                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                         Text(
-                                            if (approved) "✔ تأیید شد" else "↩ برگشت برای اصلاح",
+                                            if (approved) "تأیید شد" else "برگشت برای اصلاح",
                                             fontWeight = FontWeight.Medium,
                                             color = if (approved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                                         )

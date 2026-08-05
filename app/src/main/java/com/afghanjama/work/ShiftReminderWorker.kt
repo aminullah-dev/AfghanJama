@@ -66,7 +66,7 @@ class ShiftReminderWorker(
         val text = "شیفت ۸ ساعتهٔ «$employee» تا ۳۰ دقیقهٔ دیگر تمام می‌شود — خروج را ثبت کنید."
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle("⏰ پایان شیفت نزدیک است")
+            .setContentTitle("پایان شیفت نزدیک است")
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setPriority(NotificationCompat.PRIORITY_HIGH)

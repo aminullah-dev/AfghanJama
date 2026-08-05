@@ -345,7 +345,7 @@ class ReportsViewModel(private val repo: Repo) : ViewModel() {
 
     /** پس از ذخیرهٔ موفق، از خودِ صفحه صدا زده می‌شود. */
     fun csvSaved() {
-        _message.value = "✅ خروجی اکسل ذخیره شد."
+        _message.value = "خروجی اکسل ذخیره شد."
     }
 
     /**

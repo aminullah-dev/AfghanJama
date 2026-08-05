@@ -160,7 +160,7 @@ class OrderDetailViewModel(private val repo: Repo) : ViewModel() {
                 )
             }
         }
-        _ui.update { it.copy(message = "✅ مشخصات سفارش ذخیره شد.", isError = false) }
+        _ui.update { it.copy(message = "مشخصات سفارش ذخیره شد.", isError = false) }
     }
 
     /**
@@ -217,7 +217,7 @@ class OrderDetailViewModel(private val repo: Repo) : ViewModel() {
         val o = order.value ?: return@launch
         val err = repo.deliverOrderToCustomer(o, qty, unitPrice, receivedNow, applyPrepay)
         _ui.update {
-            if (err == null) it.copy(message = "✅ سفارش تحویل مشتری شد.", isError = false)
+            if (err == null) it.copy(message = "سفارش تحویل مشتری شد.", isError = false)
             else it.copy(message = err, isError = true)
         }
         if (err == null) _prepay.value = 0L

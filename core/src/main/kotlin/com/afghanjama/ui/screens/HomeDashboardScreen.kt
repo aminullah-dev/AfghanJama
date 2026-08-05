@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.AssignmentInd
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.FactCheck
 import androidx.compose.material.icons.filled.Checkroom
+import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
@@ -35,6 +36,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Monitor
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material.icons.filled.Settings
@@ -68,6 +70,8 @@ import com.afghanjama.prefs.BackupPrefs
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.components.BrandCard
+import com.afghanjama.ui.components.StageChip
+import com.afghanjama.ui.components.WarningLine
 import com.afghanjama.ui.theme.Brand
 import com.afghanjama.ui.components.IconBadge
 import com.afghanjama.ui.format.PersianDate
@@ -211,7 +215,7 @@ fun HomeDashboardScreen(
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 Text(
-                    "$greeting 👋",
+                    greeting,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -326,16 +330,20 @@ fun HomeDashboardScreen(
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(
-                            "🕐 ${insideNow.size.fa()} کارمند در کارگاه — قدیمی‌ترین ورود: ${elapsedHm(oldest.checkIn, nowTick)} ساعت پیش",
+                        WarningLine(
+                            "${insideNow.size.fa()} کارمند در کارگاه — قدیمی‌ترین ورود: " +
+                                "${elapsedHm(oldest.checkIn, nowTick)} ساعت پیش",
+                            icon = Icons.Default.Schedule,
                             style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
                             color = if (nearEnd) MaterialTheme.colorScheme.onErrorContainer
                             else MaterialTheme.colorScheme.onSecondaryContainer
                         )
-                        Text(
-                            if (nearEnd) "⚠ شیفت ۸ ساعته رو به پایان است — خروج‌ها را ثبت کنید"
-                            else "یادآور پایان شیفت (۸ ساعت) فعال است؛ ۳۰ دقیقه قبل با لرزش خبر می‌دهد.",
+                        if (nearEnd) WarningLine(
+                            "شیفت ۸ ساعته رو به پایان است — خروج‌ها را ثبت کنید",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        ) else Text(
+                            "یادآور پایان شیفت (۸ ساعت) فعال است؛ ۳۰ دقیقه قبل با لرزش خبر می‌دهد.",
                             style = MaterialTheme.typography.labelSmall,
                             color = if (nearEnd) MaterialTheme.colorScheme.onErrorContainer
                             else MaterialTheme.colorScheme.onSecondaryContainer
@@ -365,12 +373,7 @@ fun HomeDashboardScreen(
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                     if (s.lowStockCount > 0) {
-                        Text(
-                            "⚠ ${s.lowStockCount.fa()} قلم موجودی کم دارد",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.error,
-                            fontWeight = FontWeight.Bold
-                        )
+                        WarningLine("${s.lowStockCount.fa()} قلم موجودی کم دارد")
                     }
                 }
             }
@@ -449,17 +452,17 @@ fun HomeDashboardScreen(
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Text(
-                            "✂ برش ${s.cutting.fa()}   🧵 دوخت ${s.sewing.fa()}   🛡 نظارت ${s.review.fa()}",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            StageChip(Icons.Default.ContentCut, "برش", s.cutting.fa())
+                            StageChip(Icons.Default.Checkroom, "دوخت", s.sewing.fa())
+                            StageChip(Icons.Default.FactCheck, "نظارت", s.review.fa())
+                        }
                         if (s.stuck > 0) {
-                            Text(
-                                "⚠ ${s.stuck.fa()} سفارش بیش از حد معطل مانده — بررسی کنید",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.error,
-                                fontWeight = FontWeight.Bold
+                            WarningLine(
+                                "${s.stuck.fa()} سفارش بیش از حد معطل مانده — بررسی کنید"
                             )
                         }
                     }
