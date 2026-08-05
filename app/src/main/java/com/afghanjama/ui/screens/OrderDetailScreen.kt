@@ -619,8 +619,8 @@ fun OrderDetailScreen(
                                             deliveryReceipt(CompanyPrefs.shopName(settings), o, payments.sumOf { it.amount })
                                         )
                                     }
-                                    context.startActivity(
-                                        android.content.Intent.createChooser(intent, "اشتراک رسید تحویل")
+                                    ShareUtil.launchChooser(
+                                        context, intent, "اشتراک رسید تحویل"
                                     )
                                 },
                                 modifier = Modifier.fillMaxWidth()

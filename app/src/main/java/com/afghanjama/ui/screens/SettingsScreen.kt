@@ -59,6 +59,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.material3.Switch
+import com.afghanjama.util.ShareUtil
 import com.afghanjama.AppInfo
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.SalePrefs
@@ -768,15 +769,13 @@ fun SettingsScreen(
                     )
                     OutlinedButton(
                         onClick = {
-                            runCatching {
-                                val intent = Intent(Intent.ACTION_SENDTO).apply {
-                                    data = Uri.parse("mailto:$SUPPORT_EMAIL")
-                                    putExtra(Intent.EXTRA_SUBJECT, "پشتیبانی اپ ${AppInfo.NAME}")
-                                }
-                                context.startActivity(
-                                    Intent.createChooser(intent, "ارسال ایمیل به پشتیبانی")
-                                )
+                            val mail = Intent(Intent.ACTION_SENDTO).apply {
+                                data = Uri.parse("mailto:$SUPPORT_EMAIL")
+                                putExtra(Intent.EXTRA_SUBJECT, "پشتیبانی اپ ${AppInfo.NAME}")
                             }
+                            ShareUtil.launchChooser(
+                                context, mail, "ارسال ایمیل به پشتیبانی"
+                            )
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {

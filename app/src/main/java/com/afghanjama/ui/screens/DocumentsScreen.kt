@@ -5,7 +5,6 @@
 
 package com.afghanjama.ui.screens
 
-import android.content.Intent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
@@ -48,6 +47,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.afghanjama.util.ShareUtil
 import com.afghanjama.data.entities.Document
 import com.afghanjama.data.entities.docTypeLabel
 import com.afghanjama.prefs.LocalSettings
@@ -102,12 +102,12 @@ fun DocumentsScreen(
             onDismissRequest = { if (!working) selected = null },
             confirmButton = {
                 TextButton(onClick = {
-                    val send = Intent(Intent.ACTION_SEND).apply {
-                        type = "text/plain"
-                        putExtra(Intent.EXTRA_SUBJECT, "سند ${d.number}")
-                        putExtra(Intent.EXTRA_TEXT, receiptText(shop, d))
-                    }
-                    context.startActivity(Intent.createChooser(send, "اشتراک‌گذاری متن"))
+                    ShareUtil.shareText(
+                        context,
+                        text = receiptText(shop, d),
+                        chooserTitle = "اشتراک‌گذاری متن",
+                        subject = "سند ${d.number}"
+                    )
                 }) {
                     Icon(Icons.Default.Share, contentDescription = null)
                     Text("  متن")
