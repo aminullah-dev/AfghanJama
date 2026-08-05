@@ -26,6 +26,21 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+/*
+ * جایی که Room طرحِ هر نسخه را می‌نویسد.
+ *
+ * `exportSchema = true` بدونِ این، ساخت را با «Schema export directory
+ * is not provided» می‌شکند.
+ *
+ * پوشه **در گیت می‌مانَد** و این نکتهٔ اصلی است: فایلِ نسخهٔ قبلی تنها
+ * چیزی است که آزمونِ واقعیِ مهاجرت را ممکن می‌کند. اگر ساخته شود ولی
+ * کامیت نشود، دفعهٔ بعد که `DB_VERSION` جلو برود باز هم دستمان خالی
+ * است — همان جایی که امروز برای نسخه‌های ۱۹ تا ۶۰ ایستاده‌ایم.
+ */
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
     implementation(project(":core"))
 

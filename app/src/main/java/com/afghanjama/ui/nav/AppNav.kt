@@ -3,6 +3,8 @@ package com.afghanjama.ui.nav
 
 import android.app.Activity
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Checkroom
 import androidx.compose.material.icons.filled.ContentCut
@@ -15,9 +17,8 @@ import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.Warehouse
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
-import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -31,64 +32,69 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.foundation.layout.padding
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
-import androidx.navigation.navArgument
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.afghanjama.ui.screens.ActionCenterScreen
 import com.afghanjama.ui.screens.AttendanceScreen
 import com.afghanjama.ui.screens.AuditScreen
+import com.afghanjama.ui.screens.BoardScreen
 import com.afghanjama.ui.screens.CustomerDetailScreen
 import com.afghanjama.ui.screens.CustomersScreen
 import com.afghanjama.ui.screens.CuttingScreen
 import com.afghanjama.ui.screens.DailyTradeScreen
 import com.afghanjama.ui.screens.DeliveryQueueScreen
-import com.afghanjama.ui.screens.BoardScreen
-import com.afghanjama.ui.screens.GuideScreen
-import com.afghanjama.ui.screens.WorkshopLinkScreen
-import com.afghanjama.ui.screens.NewSaleScreen
-import com.afghanjama.ui.screens.SelfTestScreen
-import com.afghanjama.ui.screens.FinishedWarehouseScreen
-import com.afghanjama.ui.screens.HomeDashboardScreen
-import com.afghanjama.ui.screens.OrderDetailScreen
+import com.afghanjama.ui.screens.DocumentsScreen
 import com.afghanjama.ui.screens.FinanceHubScreen
+import com.afghanjama.ui.screens.FinishedWarehouseScreen
+import com.afghanjama.ui.screens.GuideScreen
+import com.afghanjama.ui.screens.HomeDashboardScreen
 import com.afghanjama.ui.screens.InventoryScreen
+import com.afghanjama.ui.screens.LedgerScreen
 import com.afghanjama.ui.screens.LoginScreen
 import com.afghanjama.ui.screens.MasterDataScreen
 import com.afghanjama.ui.screens.MaterialWarehouseScreen
-import com.afghanjama.ui.screens.DocumentsScreen
-import com.afghanjama.ui.screens.LedgerScreen
 import com.afghanjama.ui.screens.MoneyMoveScreen
 import com.afghanjama.ui.screens.MyWorkScreen
+import com.afghanjama.ui.screens.NewSaleScreen
+import com.afghanjama.ui.screens.OrderDetailScreen
 import com.afghanjama.ui.screens.OrderSearchScreen
 import com.afghanjama.ui.screens.PayrollScreen
 import com.afghanjama.ui.screens.PerformanceScreen
-import com.afghanjama.ui.screens.PurchasePlanScreen
-import com.afghanjama.ui.screens.PurchaseReturnScreen
 import com.afghanjama.ui.screens.PostLoginQuoteScreen
 import com.afghanjama.ui.screens.ProcurementScreen
 import com.afghanjama.ui.screens.ProductionOrderScreen
+import com.afghanjama.ui.screens.PurchasePlanScreen
+import com.afghanjama.ui.screens.PurchaseReturnScreen
 import com.afghanjama.ui.screens.ReportsScreen
 import com.afghanjama.ui.screens.ReviewScreen
+import com.afghanjama.ui.screens.SelfTestScreen
 import com.afghanjama.ui.screens.SettingsScreen
 import com.afghanjama.ui.screens.SewingScreen
 import com.afghanjama.ui.screens.StockLedgerScreen
+import com.afghanjama.ui.screens.WorkshopLinkScreen
 import com.afghanjama.ui.vm.ActionCenterViewModel
 import com.afghanjama.ui.vm.AttendanceViewModel
 import com.afghanjama.ui.vm.AuditViewModel
 import com.afghanjama.ui.vm.AuthViewModel
 import com.afghanjama.ui.vm.BackupViewModel
+import com.afghanjama.ui.vm.BoardViewModel
+import com.afghanjama.ui.vm.BreakTimeViewModel
 import com.afghanjama.ui.vm.CustomerDetailViewModel
 import com.afghanjama.ui.vm.CustomersViewModel
 import com.afghanjama.ui.vm.CuttingViewModel
 import com.afghanjama.ui.vm.DashboardViewModel
+import com.afghanjama.ui.vm.DeliveryQueueViewModel
 import com.afghanjama.ui.vm.DocumentsViewModel
 import com.afghanjama.ui.vm.FinanceViewModel
 import com.afghanjama.ui.vm.FinishedSaleViewModel
@@ -98,27 +104,23 @@ import com.afghanjama.ui.vm.LedgerViewModel
 import com.afghanjama.ui.vm.MasterDataViewModel
 import com.afghanjama.ui.vm.MoneyMoveViewModel
 import com.afghanjama.ui.vm.MyWorkViewModel
+import com.afghanjama.ui.vm.NewSaleViewModel
 import com.afghanjama.ui.vm.OrderDetailViewModel
 import com.afghanjama.ui.vm.OrderSearchViewModel
 import com.afghanjama.ui.vm.PayrollViewModel
-import com.afghanjama.ui.vm.DeliveryQueueViewModel
-import com.afghanjama.ui.vm.BoardViewModel
-import com.afghanjama.ui.vm.BreakTimeViewModel
-import com.afghanjama.ui.vm.WorkshopLinkViewModel
-import com.afghanjama.ui.vm.NewSaleViewModel
-import com.afghanjama.ui.vm.SelfTestViewModel
 import com.afghanjama.ui.vm.PerformanceViewModel
-import com.afghanjama.ui.vm.PurchasePlanViewModel
-import com.afghanjama.ui.vm.PurchaseReturnViewModel
+import com.afghanjama.ui.vm.Permissions
 import com.afghanjama.ui.vm.ProcurementViewModel
 import com.afghanjama.ui.vm.ProductionViewModel
+import com.afghanjama.ui.vm.PurchasePlanViewModel
+import com.afghanjama.ui.vm.PurchaseReturnViewModel
 import com.afghanjama.ui.vm.ReportsViewModel
 import com.afghanjama.ui.vm.ReviewViewModel
-import com.afghanjama.ui.vm.Permissions
+import com.afghanjama.ui.vm.SelfTestViewModel
 import com.afghanjama.ui.vm.SewingViewModel
-import com.afghanjama.ui.vm.StockViewModel
 import com.afghanjama.ui.vm.UserRole
 import com.afghanjama.ui.vm.WarehouseViewModel
+import com.afghanjama.ui.vm.WorkshopLinkViewModel
 
 /** آیتم نوار پایین. */
 private data class BottomItem(
@@ -167,45 +169,22 @@ private fun bottomItemsFor(role: UserRole): List<BottomItem> = when (role) {
 }
 
 @Composable
-fun AppNav(
-    authVm: AuthViewModel,
-    inventoryVm: InventoryViewModel,
-    cuttingVm: CuttingViewModel,
-    sewingVm: SewingViewModel,
-    reviewVm: ReviewViewModel,
-    financeVm: FinanceViewModel,
-    masterVm: MasterDataViewModel,
-    dashboardVm: DashboardViewModel,
-    searchVm: OrderSearchViewModel,
-    stockVm: StockViewModel,
-    backupVm: BackupViewModel,
-    orderDetailVm: OrderDetailViewModel,
-    procurementVm: ProcurementViewModel,
-    warehouseVm: WarehouseViewModel,
-    homeVm: HomeViewModel,
-    productionVm: ProductionViewModel,
-    ledgerVm: LedgerViewModel,
-    documentsVm: DocumentsViewModel,
-    reportsVm: ReportsViewModel,
-    finishedSaleVm: FinishedSaleViewModel,
-    customerDirVm: CustomersViewModel,
-    customerDetailVm: CustomerDetailViewModel,
-    attendanceVm: AttendanceViewModel,
-    auditVm: AuditViewModel,
-    actionVm: ActionCenterViewModel,
-    payrollVm: PayrollViewModel,
-    performanceVm: PerformanceViewModel,
-    deliveryQueueVm: DeliveryQueueViewModel,
-    newSaleVm: NewSaleViewModel,
-    breakVm: BreakTimeViewModel,
-    linkVm: WorkshopLinkViewModel,
-    boardVm: BoardViewModel,
-    selfTestVm: SelfTestViewModel,
-    purchasePlanVm: PurchasePlanViewModel,
-    myWorkVm: MyWorkViewModel,
-    moneyVm: MoneyMoveViewModel,
-    purchaseReturnVm: PurchaseReturnViewModel
-) {
+fun AppNav(factory: ViewModelProvider.Factory) {
+    /*
+     * صاحبِ ViewModelها **خودِ اکتیویتی** است، نه مقصدِ ناوبری.
+     *
+     * اگر پیش‌فرض را می‌گذاشتیم، هر ViewModel به `NavBackStackEntry`
+     * بسته می‌شد و با بیرون رفتن از صفحه پاک می‌شد — یعنی فرمِ
+     * نیمه‌پرشده سرِ برگشت خالی. آن تغییرِ رفتار است، نه بهینه‌سازی.
+     * اینجا فقط **زمانِ ساخت** عوض می‌شود، نه طولِ عمر.
+     */
+    val vmOwner = checkNotNull(LocalViewModelStoreOwner.current) {
+        "ViewModelStoreOwner نیست — AppNav باید زیرِ setContent اکتیویتی باشد."
+    }
+
+    // تنها ViewModelی که همین‌جا لازم است: مسیرِ شروع و نوارِ پایین به
+    // نقشِ کاربر وابسته‌اند. بقیه داخلِ مقصدِ خودشان ساخته می‌شوند.
+    val authVm = viewModel<AuthViewModel>(vmOwner, factory = factory)
     val navController = rememberNavController()
     val authUi by authVm.ui.collectAsState()
 
@@ -361,6 +340,8 @@ fun AppNav(
             }
 
             composable(Routes.HOME) {
+                val homeVm = viewModel<HomeViewModel>(vmOwner, factory = factory)
+                val actionVm = viewModel<ActionCenterViewModel>(vmOwner, factory = factory)
                 HomeDashboardScreen(
                     vm = homeVm,
                     actionVm = actionVm,
@@ -398,6 +379,7 @@ fun AppNav(
             }
 
             composable(Routes.PRODUCTION_ORDER) {
+                val productionVm = viewModel<ProductionViewModel>(vmOwner, factory = factory)
                 ProductionOrderScreen(
                     vm = productionVm,
                     onBack = { navController.popBackStack() }
@@ -405,6 +387,8 @@ fun AppNav(
             }
 
             composable(Routes.FINISHED_SALES) {
+                val finishedSaleVm = viewModel<FinishedSaleViewModel>(vmOwner, factory = factory)
+                val newSaleVm = viewModel<NewSaleViewModel>(vmOwner, factory = factory)
                 // شمارندهٔ فاکتورِ در دست از همان ViewModelِ فاکتور می‌آید، پس
                 // کالاهایی که اینجا انتخاب می‌شوند همان‌جا پیدا می‌شوند.
                 val invoiceCount by newSaleVm.pickedCount.collectAsState()
@@ -418,6 +402,8 @@ fun AppNav(
             }
 
             composable(Routes.ATTENDANCE) {
+                val attendanceVm = viewModel<AttendanceViewModel>(vmOwner, factory = factory)
+                val breakVm = viewModel<BreakTimeViewModel>(vmOwner, factory = factory)
                 AttendanceScreen(
                     vm = attendanceVm,
                     breakVm = breakVm,
@@ -426,6 +412,7 @@ fun AppNav(
             }
 
             composable(Routes.PAYROLL) {
+                val payrollVm = viewModel<PayrollViewModel>(vmOwner, factory = factory)
                 PayrollScreen(
                     vm = payrollVm,
                     onBack = { navController.popBackStack() }
@@ -433,6 +420,7 @@ fun AppNav(
             }
 
             composable(Routes.PERFORMANCE) {
+                val performanceVm = viewModel<PerformanceViewModel>(vmOwner, factory = factory)
                 PerformanceScreen(
                     vm = performanceVm,
                     onBack = { navController.popBackStack() }
@@ -441,6 +429,7 @@ fun AppNav(
 
             // ورودی‌اش در تنظیمات است — «خودآزمایی و سلامتِ داده»
             composable(Routes.SELF_TEST) {
+                val selfTestVm = viewModel<SelfTestViewModel>(vmOwner, factory = factory)
                 SelfTestScreen(
                     vm = selfTestVm,
                     onBack = { navController.popBackStack() }
@@ -448,6 +437,7 @@ fun AppNav(
             }
 
             composable(Routes.NEW_SALE) {
+                val newSaleVm = viewModel<NewSaleViewModel>(vmOwner, factory = factory)
                 NewSaleScreen(
                     vm = newSaleVm,
                     onBack = { navController.popBackStack() }
@@ -455,6 +445,7 @@ fun AppNav(
             }
 
             composable(Routes.BOARD) {
+                val boardVm = viewModel<BoardViewModel>(vmOwner, factory = factory)
                 BoardScreen(
                     vm = boardVm,
                     onBack = { navController.popBackStack() }
@@ -462,6 +453,7 @@ fun AppNav(
             }
 
             composable(Routes.WORKSHOP_LINK) {
+                val linkVm = viewModel<WorkshopLinkViewModel>(vmOwner, factory = factory)
                 WorkshopLinkScreen(
                     vm = linkVm,
                     isManager = authUi.role == UserRole.MANAGER,
@@ -474,6 +466,7 @@ fun AppNav(
             }
 
             composable(Routes.DELIVERY_QUEUE) {
+                val deliveryQueueVm = viewModel<DeliveryQueueViewModel>(vmOwner, factory = factory)
                 DeliveryQueueScreen(
                     vm = deliveryQueueVm,
                     onBack = { navController.popBackStack() }
@@ -492,6 +485,7 @@ fun AppNav(
             }
 
             composable(Routes.PURCHASE_RETURN) {
+                val purchaseReturnVm = viewModel<PurchaseReturnViewModel>(vmOwner, factory = factory)
                 PurchaseReturnScreen(
                     vm = purchaseReturnVm,
                     onBack = { navController.popBackStack() }
@@ -499,6 +493,7 @@ fun AppNav(
             }
 
             composable(Routes.PAY) {
+                val moneyVm = viewModel<MoneyMoveViewModel>(vmOwner, factory = factory)
                 MoneyMoveScreen(
                     vm = moneyVm,
                     startAsPayment = true,
@@ -507,6 +502,7 @@ fun AppNav(
             }
 
             composable(Routes.RECEIVE) {
+                val moneyVm = viewModel<MoneyMoveViewModel>(vmOwner, factory = factory)
                 MoneyMoveScreen(
                     vm = moneyVm,
                     startAsPayment = false,
@@ -515,6 +511,8 @@ fun AppNav(
             }
 
             composable(Routes.MY_WORK) {
+                val masterVm = viewModel<MasterDataViewModel>(vmOwner, factory = factory)
+                val myWorkVm = viewModel<MyWorkViewModel>(vmOwner, factory = factory)
                 val tailors by masterVm.tailors.collectAsState()
                 val inspectors by masterVm.inspectors.collectAsState()
                 MyWorkScreen(
@@ -526,6 +524,7 @@ fun AppNav(
             }
 
             composable(Routes.PURCHASE_PLAN) {
+                val purchasePlanVm = viewModel<PurchasePlanViewModel>(vmOwner, factory = factory)
                 PurchasePlanScreen(
                     vm = purchasePlanVm,
                     onGoProcurement = { navController.navigate(Routes.PROCUREMENT) },
@@ -534,6 +533,7 @@ fun AppNav(
             }
 
             composable(Routes.CUSTOMERS) {
+                val customerDirVm = viewModel<CustomersViewModel>(vmOwner, factory = factory)
                 CustomersScreen(
                     vm = customerDirVm,
                     onBack = { navController.popBackStack() },
@@ -545,6 +545,8 @@ fun AppNav(
                 route = "${Routes.CUSTOMER_DETAIL}/{customerId}",
                 arguments = listOf(navArgument("customerId") { type = NavType.LongType })
             ) { entry ->
+                val customerDetailVm =
+                    viewModel<CustomerDetailViewModel>(vmOwner, factory = factory)
                 CustomerDetailScreen(
                     vm = customerDetailVm,
                     customerId = entry.arguments?.getLong("customerId") ?: 0L,
@@ -554,6 +556,7 @@ fun AppNav(
             }
 
             composable(Routes.PROCUREMENT) {
+                val procurementVm = viewModel<ProcurementViewModel>(vmOwner, factory = factory)
                 ProcurementScreen(
                     vm = procurementVm,
                     onBack = { navController.popBackStack() }
@@ -561,6 +564,7 @@ fun AppNav(
             }
 
             composable(Routes.WAREHOUSE) {
+                val warehouseVm = viewModel<WarehouseViewModel>(vmOwner, factory = factory)
                 MaterialWarehouseScreen(
                     vm = warehouseVm,
                     canAdjust = Permissions.canAdjustMaterial(authUi.role),
@@ -569,6 +573,7 @@ fun AppNav(
             }
 
             composable(Routes.STOCK_LEDGER) {
+                val warehouseVm = viewModel<WarehouseViewModel>(vmOwner, factory = factory)
                 StockLedgerScreen(
                     vm = warehouseVm,
                     onBack = { navController.popBackStack() }
@@ -576,6 +581,8 @@ fun AppNav(
             }
 
             composable(Routes.INVENTORY) {
+                val financeVm = viewModel<FinanceViewModel>(vmOwner, factory = factory)
+                val inventoryVm = viewModel<InventoryViewModel>(vmOwner, factory = factory)
                 InventoryScreen(
                     onBack = { navController.popBackStack() },
                     vm = inventoryVm,
@@ -592,6 +599,7 @@ fun AppNav(
             }
 
             composable(Routes.LEDGER) {
+                val ledgerVm = viewModel<LedgerViewModel>(vmOwner, factory = factory)
                 LedgerScreen(
                     vm = ledgerVm,
                     onBack = { navController.popBackStack() }
@@ -599,6 +607,7 @@ fun AppNav(
             }
 
             composable(Routes.DOCUMENTS) {
+                val documentsVm = viewModel<DocumentsViewModel>(vmOwner, factory = factory)
                 DocumentsScreen(
                     vm = documentsVm,
                     onBack = { navController.popBackStack() }
@@ -606,6 +615,7 @@ fun AppNav(
             }
 
             composable(Routes.REPORTS) {
+                val reportsVm = viewModel<ReportsViewModel>(vmOwner, factory = factory)
                 ReportsScreen(
                     vm = reportsVm,
                     onBack = { navController.popBackStack() }
@@ -613,6 +623,7 @@ fun AppNav(
             }
 
             composable(Routes.AUDIT) {
+                val auditVm = viewModel<AuditViewModel>(vmOwner, factory = factory)
                 AuditScreen(
                     vm = auditVm,
                     onBack = { navController.popBackStack() }
@@ -620,6 +631,7 @@ fun AppNav(
             }
 
             composable(Routes.ACTION_CENTER) {
+                val actionVm = viewModel<ActionCenterViewModel>(vmOwner, factory = factory)
                 ActionCenterScreen(
                     vm = actionVm,
                     onNavigate = { route -> navController.navigate(route) },
@@ -628,6 +640,8 @@ fun AppNav(
             }
 
             composable(Routes.FINANCE) {
+                val financeVm = viewModel<FinanceViewModel>(vmOwner, factory = factory)
+                val dashboardVm = viewModel<DashboardViewModel>(vmOwner, factory = factory)
                 FinanceHubScreen(
                     onBack = { navController.popBackStack() },
                     financeVm = financeVm,
@@ -636,6 +650,7 @@ fun AppNav(
             }
 
             composable(Routes.MASTER) {
+                val masterVm = viewModel<MasterDataViewModel>(vmOwner, factory = factory)
                 MasterDataScreen(
                     vm = masterVm,
                     onBack = { navController.popBackStack() }
@@ -643,6 +658,8 @@ fun AppNav(
             }
 
             composable(Routes.SETTINGS) {
+                val financeVm = viewModel<FinanceViewModel>(vmOwner, factory = factory)
+                val backupVm = viewModel<BackupViewModel>(vmOwner, factory = factory)
                 SettingsScreen(
                     onBack = { navController.popBackStack() },
                     authVm = authVm,
@@ -663,6 +680,7 @@ fun AppNav(
             }
 
             composable(Routes.SEARCH) {
+                val searchVm = viewModel<OrderSearchViewModel>(vmOwner, factory = factory)
                 OrderSearchScreen(
                     vm = searchVm,
                     onBack = { navController.popBackStack() },
@@ -674,6 +692,8 @@ fun AppNav(
                 route = "${Routes.ORDER_DETAIL}/{orderId}",
                 arguments = listOf(navArgument("orderId") { type = NavType.StringType })
             ) { entry ->
+                val orderDetailVm =
+                    viewModel<OrderDetailViewModel>(vmOwner, factory = factory)
                 OrderDetailScreen(
                     vm = orderDetailVm,
                     orderIdText = entry.arguments?.getString("orderId"),
@@ -684,6 +704,7 @@ fun AppNav(
             }
 
             composable(Routes.CUTTING) {
+                val cuttingVm = viewModel<CuttingViewModel>(vmOwner, factory = factory)
                 CuttingScreen(
                     vm = cuttingVm,
                     onBack = { navController.popBackStack() },
@@ -692,6 +713,7 @@ fun AppNav(
             }
 
             composable(Routes.SEWING) {
+                val sewingVm = viewModel<SewingViewModel>(vmOwner, factory = factory)
                 SewingScreen(
                     vm = sewingVm,
                     onBack = { navController.popBackStack() },
@@ -700,6 +722,7 @@ fun AppNav(
             }
 
             composable(Routes.REVIEW) {
+                val reviewVm = viewModel<ReviewViewModel>(vmOwner, factory = factory)
                 ReviewScreen(
                     vm = reviewVm,
                     onBack = { navController.popBackStack() },
