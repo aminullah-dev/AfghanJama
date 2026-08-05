@@ -266,7 +266,7 @@ private fun WorkCostEditor(
             shape = MaterialTheme.shapes.medium
         )
 
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(12.dp))
 
         Button(
             onClick = {
@@ -317,7 +317,7 @@ private fun WorkCostEditor(
             onDismissRequest = { editItem = null },
             title = { Text("ویرایش خرج کار") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedTextField(
                         value = editTitle,
                         onValueChange = { editTitle = it },
@@ -626,7 +626,7 @@ private fun DesignEditor(
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             categories.forEach { c ->
                                 FilterChip(
                                     selected = cat.trim() == c,
@@ -674,7 +674,7 @@ private fun DesignEditor(
             singleLine = true,
             shape = MaterialTheme.shapes.medium
         )
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(12.dp))
         Button(
             onClick = {
                 val t = title.trim()
@@ -690,7 +690,7 @@ private fun DesignEditor(
         ) { Text("افزودن / اصلاحِ طرح") }
 
         Spacer(Modifier.height(12.dp))
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(items, key = { it.id }) { d ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),

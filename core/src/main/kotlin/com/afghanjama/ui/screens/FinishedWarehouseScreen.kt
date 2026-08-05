@@ -190,7 +190,7 @@ fun FinishedWarehouseScreen(
                     if (ui.prepayOfCustomer > 0 && total > 0) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Checkbox(checked = usePrepay, onCheckedChange = { usePrepay = it })
                             Text(
@@ -351,7 +351,7 @@ fun FinishedWarehouseScreen(
                         color = MaterialTheme.colorScheme.primary
                     )
                     HorizontalDivider(thickness = 0.5.dp)
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(
                             selected = refundCash,
                             onClick = { refundCash = true },
@@ -364,7 +364,7 @@ fun FinishedWarehouseScreen(
                         )
                     }
                     if (refundCash) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             FilterChip(
                                 selected = cashBox == "WALLET",
                                 onClick = { cashBox = "WALLET" },
@@ -413,7 +413,7 @@ fun FinishedWarehouseScreen(
     ) { pad ->
         LazyColumn(
             modifier = Modifier.padding(pad).fillMaxSize().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             ui.message?.let { msg ->
                 item {
@@ -493,7 +493,7 @@ fun FinishedWarehouseScreen(
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                         ) {
                             Row(
-                                Modifier.fillMaxWidth().padding(14.dp),
+                                Modifier.fillMaxWidth().padding(16.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -502,7 +502,7 @@ fun FinishedWarehouseScreen(
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary
                                 )
-                                Spacer(Modifier.width(10.dp))
+                                Spacer(Modifier.width(12.dp))
                                 Column(Modifier.weight(1f)) {
                                     Text(folder.name, fontWeight = FontWeight.SemiBold)
                                     Text(
@@ -537,7 +537,7 @@ fun FinishedWarehouseScreen(
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
                         Row(
-                            Modifier.fillMaxWidth().padding(14.dp),
+                            Modifier.fillMaxWidth().padding(16.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -548,7 +548,7 @@ fun FinishedWarehouseScreen(
                                     onPicked = {},
                                     onCleared = {}
                                 )
-                                Spacer(Modifier.width(10.dp))
+                                Spacer(Modifier.width(12.dp))
                             }
                             Column(Modifier.weight(1f)) {
                                 Text(item.name, fontWeight = FontWeight.SemiBold)

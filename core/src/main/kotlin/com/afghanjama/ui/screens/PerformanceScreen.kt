@@ -65,7 +65,7 @@ fun PerformanceScreen(
     ) { pad ->
         LazyColumn(
             modifier = Modifier.padding(pad).fillMaxSize().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             if (!ui.hasData) {
                 item {
@@ -111,7 +111,7 @@ fun PerformanceScreen(
             if (ui.inspectors.isNotEmpty()) {
                 item {
                     Column(
-                        Modifier.padding(top = 6.dp),
+                        Modifier.padding(top = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
                         Text(
@@ -136,7 +136,7 @@ fun PerformanceScreen(
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
                         Column(
-                            Modifier.padding(14.dp),
+                            Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Text(i.name, fontWeight = FontWeight.SemiBold)
@@ -165,7 +165,7 @@ fun PerformanceScreen(
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
                         Column(
-                            Modifier.padding(14.dp),
+                            Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Text(
@@ -203,7 +203,7 @@ private fun TailorCard(t: TailorScore) {
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,

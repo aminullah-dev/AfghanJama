@@ -124,7 +124,7 @@ fun MoneyMoveScreen(
             // ---------- طرف حساب ----------
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         payeeTypes.take(3).forEach { (key, label) ->
                             FilterChip(
                                 selected = type == key,
@@ -133,7 +133,7 @@ fun MoneyMoveScreen(
                             )
                         }
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         payeeTypes.drop(3).forEach { (key, label) ->
                             FilterChip(
                                 selected = type == key,
@@ -203,7 +203,7 @@ fun MoneyMoveScreen(
                         ),
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
-                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             val onColor = if (settling) MaterialTheme.colorScheme.onPrimaryContainer
                             else MaterialTheme.colorScheme.onTertiaryContainer
                             Text(
@@ -238,7 +238,7 @@ fun MoneyMoveScreen(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(
                             selected = source == "WALLET",
                             onClick = { source = "WALLET" },

@@ -111,7 +111,7 @@ fun MyWorkScreen(
     ) { pad ->
         LazyColumn(
             modifier = Modifier.padding(pad).fillMaxSize().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             if (!ui.identified) {
                 item {
@@ -139,7 +139,7 @@ fun MyWorkScreen(
                     ),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         val onColor = MaterialTheme.colorScheme.onPrimaryContainer
                         Row(
                             Modifier.fillMaxWidth(),
@@ -207,7 +207,7 @@ fun MyWorkScreen(
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Row(
                             Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
@@ -244,7 +244,7 @@ fun MyWorkScreen(
                         "تحویل‌های این هفته",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(top = 6.dp)
+                        modifier = Modifier.padding(top = 8.dp)
                     )
                 }
                 items(ui.doneThisWeek, key = { "d-${it.id}" }) { a ->
@@ -286,7 +286,7 @@ fun MyWorkScreen(
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
-                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text("کارنامهٔ من", fontWeight = FontWeight.SemiBold)
                             Text(
                                 "${sc.deliveries.fa()} تحویل • ${sc.pieces.fa()} عدد • " +

@@ -161,7 +161,7 @@ fun DocumentsScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             if (types.isNotEmpty()) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(
                         selected = typeFilter == null,
                         onClick = { typeFilter = null },
@@ -196,7 +196,7 @@ fun DocumentsScreen(
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                         ) {
                             Row(
-                                Modifier.fillMaxWidth().padding(14.dp),
+                                Modifier.fillMaxWidth().padding(16.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {

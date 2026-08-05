@@ -189,13 +189,13 @@ fun PurchaseReturnScreen(
 
                 // ---------- پول چطور برمی‌گردد؟ ----------
                 item {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
                             "پول چطور برگردد؟",
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             FilterChip(
                                 selected = !refundCash,
                                 onClick = { refundCash = false },
@@ -208,7 +208,7 @@ fun PurchaseReturnScreen(
                             )
                         }
                         if (refundCash) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 FilterChip(
                                     selected = cashBox == "WALLET",
                                     onClick = { cashBox = "WALLET" },

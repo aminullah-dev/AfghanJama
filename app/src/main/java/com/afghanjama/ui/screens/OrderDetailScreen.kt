@@ -334,7 +334,7 @@ fun OrderDetailScreen(
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(
                             Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -554,7 +554,7 @@ fun OrderDetailScreen(
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
                         Column(
-                            Modifier.padding(14.dp),
+                            Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Text(
@@ -601,7 +601,7 @@ fun OrderDetailScreen(
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
                         Column(
-                            Modifier.padding(14.dp),
+                            Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Text(
@@ -639,7 +639,7 @@ fun OrderDetailScreen(
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
-                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(
                                 "پارچه‌های سفارش (${fabrics.size})",
                                 style = MaterialTheme.typography.titleMedium,
@@ -681,7 +681,7 @@ fun OrderDetailScreen(
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
-                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(
                                 "خرج‌کارها (فی‌عدد)",
                                 style = MaterialTheme.typography.titleMedium,
@@ -712,7 +712,7 @@ fun OrderDetailScreen(
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
-                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(
                                 "تحویل به خیاط‌ها",
                                 style = MaterialTheme.typography.titleMedium,
@@ -753,7 +753,7 @@ fun OrderDetailScreen(
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
-                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(
                                 "پرداخت‌های این سفارش",
                                 style = MaterialTheme.typography.titleMedium,
@@ -794,7 +794,7 @@ fun OrderDetailScreen(
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
-                    Column(Modifier.padding(14.dp)) {
+                    Column(Modifier.padding(16.dp)) {
                         OrderPhotoStrip(
                             photos = photos,
                             canEdit = canEdit,
@@ -813,7 +813,7 @@ fun OrderDetailScreen(
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
-                    Column(Modifier.padding(14.dp)) {
+                    Column(Modifier.padding(16.dp)) {
                         MeasurementsBlock(
                             items = measurements,
                             emptyHint = "برای این مشتری اندازه‌ای ثبت نشده — از صفحهٔ " +
@@ -832,7 +832,7 @@ fun OrderDetailScreen(
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
-                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("برش", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             cuttingRecords.forEach { rec ->
                                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -866,7 +866,7 @@ fun OrderDetailScreen(
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
-                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("کنترل کیفیت", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             qcRecords.forEach { rec ->
                                 val approved = rec.result == "APPROVED"
@@ -908,7 +908,7 @@ fun OrderDetailScreen(
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(
                             "تایم‌لاین مراحل",
                             style = MaterialTheme.typography.titleMedium,
@@ -928,7 +928,7 @@ fun OrderDetailScreen(
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.primary
                                     )
-                                    Spacer(Modifier.width(10.dp))
+                                    Spacer(Modifier.width(12.dp))
                                     Column {
                                         Text(
                                             "${statusFa(log.fromStatus)} ← ${statusFa(log.toStatus)}",

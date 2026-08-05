@@ -92,7 +92,7 @@ fun DeliveryQueueScreen(
     AppScreen(title = "آمادهٔ تحویل", onBack = onBack) { pad ->
         LazyColumn(
             modifier = Modifier.padding(pad).fillMaxSize().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             ui.message?.let { msg ->
                 item {
@@ -156,7 +156,7 @@ fun DeliveryQueueScreen(
                         else MaterialTheme.colorScheme.outlineVariant
                     )
                 ) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(
                             Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -222,7 +222,7 @@ fun DeliveryQueueScreen(
                                     modifier = Modifier.weight(1f)
                                 ) {
                                     Icon(Icons.Default.Call, contentDescription = null)
-                                    Spacer(Modifier.width(6.dp))
+                                    Spacer(Modifier.width(8.dp))
                                     Text("تماس")
                                 }
                             }
@@ -234,7 +234,7 @@ fun DeliveryQueueScreen(
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Icon(Icons.Default.CheckCircle, contentDescription = null)
-                                Spacer(Modifier.width(6.dp))
+                                Spacer(Modifier.width(8.dp))
                                 Text("تحویل")
                             }
                         }

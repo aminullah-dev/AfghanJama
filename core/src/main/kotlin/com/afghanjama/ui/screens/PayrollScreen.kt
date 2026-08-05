@@ -88,7 +88,7 @@ fun PayrollScreen(
             onDismissRequest = { addOpen = false; editing = null },
             title = { Text(if (row == null) "کارمند جدید" else "ویرایش ${row.name}") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it },
@@ -141,7 +141,7 @@ fun PayrollScreen(
             onDismissRequest = { paying = null },
             title = { Text("پرداخت حقوق ${row.name}") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
                         "دورهٔ ${ui.monthLabel} • حقوق توافقی: ${row.monthlySalary.afn()}",
                         style = MaterialTheme.typography.bodySmall,
@@ -180,7 +180,7 @@ fun PayrollScreen(
                             else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(
                             selected = source == "WALLET",
                             onClick = { source = "WALLET" },
@@ -225,7 +225,7 @@ fun PayrollScreen(
     ) { pad ->
         LazyColumn(
             modifier = Modifier.padding(pad).fillMaxSize().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // ---------- خلاصهٔ ماه ----------
             item {
@@ -238,7 +238,7 @@ fun PayrollScreen(
                     ),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         val onColor = if (ui.unpaidCount > 0)
                             MaterialTheme.colorScheme.onTertiaryContainer
                         else MaterialTheme.colorScheme.onPrimaryContainer
@@ -284,8 +284,8 @@ fun PayrollScreen(
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
                     Column(
-                        Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                        Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Row(
                             Modifier.fillMaxWidth(),
@@ -339,7 +339,7 @@ fun PayrollScreen(
                             )
                         }
 
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             TextButton(onClick = { editing = row }) { Text("ویرایش") }
                             if (row.monthlySalary > 0 && !row.isPaid) {
                                 Button(onClick = { paying = row }) { Text("پرداخت حقوق") }
@@ -356,7 +356,7 @@ fun PayrollScreen(
                         "تاریخچهٔ پرداخت‌ها",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(top = 6.dp)
+                        modifier = Modifier.padding(top = 8.dp)
                     )
                 }
                 items(ui.payments, key = { "pay-${it.id}" }) { p ->

@@ -146,7 +146,7 @@ private fun DashboardTab(vm: DashboardViewModel) {
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
                             "یادآوری تسویه هفتگی",
                             style = MaterialTheme.typography.titleMedium,
@@ -171,7 +171,7 @@ private fun DashboardTab(vm: DashboardViewModel) {
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             ) {
-                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
                         "وضعیت تولید",
                         style = MaterialTheme.typography.titleMedium,
@@ -228,7 +228,7 @@ private fun DashboardTab(vm: DashboardViewModel) {
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             ) {
-                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
                         "فایده (تغییر خالص)",
                         style = MaterialTheme.typography.titleMedium,
@@ -256,7 +256,7 @@ private fun DashboardTab(vm: DashboardViewModel) {
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .padding(14.dp),
+                        .padding(16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -284,7 +284,7 @@ private fun DashboardTab(vm: DashboardViewModel) {
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
                             "فروش‌های اخیر (سود واقعی)",
                             style = MaterialTheme.typography.titleMedium,
@@ -333,7 +333,7 @@ private fun DashboardTab(vm: DashboardViewModel) {
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
                             "بهره‌وری خیاط‌ها (۳۰ روز)",
                             style = MaterialTheme.typography.titleMedium,
@@ -383,7 +383,7 @@ private fun DashboardTab(vm: DashboardViewModel) {
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .padding(14.dp),
+                        .padding(16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -639,7 +639,7 @@ private fun WalletTab(vm: FinanceViewModel) {
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .padding(14.dp),
+                    .padding(16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
@@ -768,7 +768,7 @@ private fun EmptyHint(text: String) {
     ) {
         Text(
             text,
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.padding(16.dp),
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }

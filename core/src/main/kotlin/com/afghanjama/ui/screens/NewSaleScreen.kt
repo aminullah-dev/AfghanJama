@@ -155,7 +155,7 @@ fun NewSaleScreen(
 
     AppScreen(title = "فروش جدید", onBack = onBack) { pad ->
         LazyColumn(
-            modifier = Modifier.padding(pad).fillMaxSize().padding(14.dp),
+            modifier = Modifier.padding(pad).fillMaxSize().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // ---------------- هدرِ فاکتور ----------------
@@ -165,7 +165,7 @@ fun NewSaleScreen(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
                             "تاریخ فروش: ${PersianDate.shortWithTime(System.currentTimeMillis())}",
                             style = MaterialTheme.typography.labelMedium,
@@ -259,7 +259,7 @@ fun NewSaleScreen(
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         TotalRow("جمع کل", ui.subtotal, bold = true)
 
                         // سودِ کلِ فاکتور، پیش از ثبت. اگر فاکتور روی‌هم
@@ -613,7 +613,7 @@ private fun ItemPickerDialog(
                                 Modifier
                                     .fillMaxWidth()
                                     .clickable { onPick(it0) }
-                                    .padding(vertical = 10.dp),
+                                    .padding(vertical = 12.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(

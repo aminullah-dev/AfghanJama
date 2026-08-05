@@ -81,7 +81,7 @@ fun BrandCard(
         CompositionLocalProvider(LocalContentColor provides Brand.OnCopper) {
             Column(
                 Modifier.padding(contentPadding),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
                 content = content
             )
         }
@@ -189,7 +189,7 @@ fun WarningLine(
 ) {
     Row(
         modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.Top
     ) {
         Icon(
@@ -221,7 +221,7 @@ fun StageChip(
 ) {
     Row(
         modifier,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(

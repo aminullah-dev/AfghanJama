@@ -132,7 +132,7 @@ fun ProductionOrderScreen(
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("مشخصات سفارش", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         OutlinedTextField(
                             value = ui.designTitle,
@@ -253,7 +253,7 @@ fun ProductionOrderScreen(
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             listOf(7L, 15L, 30L).forEach { d ->
                                 FilterChip(
                                     selected = ui.dueDays == d.toString(),
@@ -312,7 +312,7 @@ fun ProductionOrderScreen(
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("مصرف مواد از انبار", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         if (materials.isEmpty()) {
                             Text(
@@ -373,7 +373,7 @@ fun ProductionOrderScreen(
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
-                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(
                                 "مواد این سفارش (${ui.lines.size.toString().toPersianDigits()})",
                                 style = MaterialTheme.typography.titleMedium,
@@ -421,7 +421,7 @@ fun ProductionOrderScreen(
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
-                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(
                                 "خرج کار (اختیاری)",
                                 style = MaterialTheme.typography.titleMedium,
@@ -433,7 +433,7 @@ fun ProductionOrderScreen(
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 workCosts.forEach { w ->
                                     FilterChip(
                                         selected = ui.workItems.any { it.title == w.title },
@@ -455,7 +455,7 @@ fun ProductionOrderScreen(
                                 )
                                 ui.workItems.forEach { line ->
                                     Row(
-                                        Modifier.fillMaxWidth().padding(top = 6.dp),
+                                        Modifier.fillMaxWidth().padding(top = 8.dp),
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
@@ -503,7 +503,7 @@ fun ProductionOrderScreen(
                                     "خرج کار از کجا پرداخت می‌شود؟",
                                     style = MaterialTheme.typography.labelLarge
                                 )
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     listOf(
                                         "WALLET" to "کیف پول",
                                         "BANK" to "بانک",

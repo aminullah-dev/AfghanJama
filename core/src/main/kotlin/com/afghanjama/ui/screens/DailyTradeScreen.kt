@@ -54,7 +54,7 @@ fun DailyTradeScreen(
     AppScreen(title = "معاملات روزمره", onBack = onBack) { pad ->
         LazyColumn(
             modifier = Modifier.padding(pad).fillMaxSize().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
                 TradeCard(
@@ -118,7 +118,7 @@ fun DailyTradeScreen(
                 )
             }
 
-            item { Spacer(Modifier.height(30.dp)) }
+            item { Spacer(Modifier.height(32.dp)) }
         }
     }
 }
@@ -155,9 +155,9 @@ private fun TradeCard(
                     .background(stripe)
             )
             Row(
-                Modifier.fillMaxWidth().padding(14.dp),
+                Modifier.fillMaxWidth().padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)

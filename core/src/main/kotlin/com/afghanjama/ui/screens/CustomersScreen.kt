@@ -105,7 +105,7 @@ fun CustomersScreen(
         val filtered = rows.filter { query.isBlank() || it.customer.name.contains(query.trim(), true) }
         LazyColumn(
             modifier = Modifier.padding(pad).fillMaxSize().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
                 OutlinedTextField(
@@ -132,7 +132,7 @@ fun CustomersScreen(
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
                     Row(
-                        Modifier.fillMaxWidth().padding(14.dp),
+                        Modifier.fillMaxWidth().padding(16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -154,7 +154,7 @@ fun CustomersScreen(
                     }
                 }
             }
-            item { Spacer(Modifier.height(70.dp)) }
+            item { Spacer(Modifier.height(72.dp)) }
         }
     }
 }

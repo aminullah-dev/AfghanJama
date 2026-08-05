@@ -156,7 +156,7 @@ fun LedgerScreen(
                             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                         ) {
                             Column(
-                                Modifier.padding(14.dp),
+                                Modifier.padding(16.dp),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text(
@@ -174,7 +174,7 @@ fun LedgerScreen(
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.onErrorContainer
                                 )
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     listOf(
                                         "WALLET" to "از کیف پول",
                                         "BANK" to "از بانک",
@@ -195,7 +195,7 @@ fun LedgerScreen(
                     } else {
                         LazyColumn(
                             modifier = Modifier.heightIn(max = 360.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             items(rows, key = { it.id }) { e ->
                                 Row(
@@ -246,7 +246,7 @@ fun LedgerScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("نوع طرف", style = MaterialTheme.typography.labelSmall)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf("SUPPLIER", "CUSTOMER", "TAILOR", "INSPECTOR", "EMPLOYEE").forEach { t ->
                             FilterChip(
                                 selected = mType == t,
@@ -263,7 +263,7 @@ fun LedgerScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
                     Text("جهت", style = MaterialTheme.typography.labelSmall)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(
                             selected = mIsPayment,
                             onClick = { mIsPayment = true },
@@ -343,7 +343,7 @@ fun LedgerScreen(
             }
 
             if (types.isNotEmpty()) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(
                         selected = typeFilter == null,
                         onClick = { typeFilter = null },
@@ -378,7 +378,7 @@ fun LedgerScreen(
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                         ) {
                             Row(
-                                Modifier.fillMaxWidth().padding(14.dp),
+                                Modifier.fillMaxWidth().padding(16.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -418,7 +418,7 @@ private fun SummaryCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(title, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(amount.afn(), fontWeight = FontWeight.Bold, color = color)
         }

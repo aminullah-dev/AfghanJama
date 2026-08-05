@@ -139,7 +139,7 @@ fun InventoryScreen(
             dismissButton = { TextButton(onClick = { showAddMoney = false }) { Text("لغو") } },
             title = { Text(if (addTarget == "WALLET") "افزایش کیف پول" else "افزایش فایده") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedTextField(
                         value = addAmountText,
                         onValueChange = { addAmountText = it.digitsOnly() },
@@ -206,7 +206,7 @@ fun InventoryScreen(
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
-                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -265,7 +265,7 @@ fun InventoryScreen(
 
                 LazyColumn(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(orders, key = { it.id }) { o ->
                         OrderCard(
@@ -313,13 +313,13 @@ private fun EmptyInventory(
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(12.dp))
         Text(
             text = "هیچ سفارشی در انبار نیست",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold
         )
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(8.dp))
         Text(
             text = "برای شروع، یک تولید جدید ثبت کن تا وارد خط تولید شود.",
             style = MaterialTheme.typography.bodyMedium,
@@ -327,7 +327,7 @@ private fun EmptyInventory(
         )
 
         if (canAdd) {
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(16.dp))
             Button(onClick = onAdd) {
                 Icon(Icons.Default.Add, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
@@ -354,7 +354,7 @@ private fun OrderCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,

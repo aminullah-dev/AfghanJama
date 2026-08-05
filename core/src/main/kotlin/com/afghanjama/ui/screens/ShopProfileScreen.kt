@@ -69,7 +69,7 @@ fun ShopProfileScreen(onBack: () -> Unit) {
         ) {
             AppCard {
                 // `AppCard` خودش padding دارد؛ اینجا فقط فاصلهٔ عمودی.
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
                         "این نام روی فاکتور، رسید و صورت‌حساب چاپ می‌شود.",
                         style = MaterialTheme.typography.bodySmall,

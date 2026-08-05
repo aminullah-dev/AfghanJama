@@ -98,7 +98,7 @@ fun PinLockScreen(onUnlock: () -> Unit) {
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Column(
-                Modifier.padding(18.dp),
+                Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 OutlinedTextField(

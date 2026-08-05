@@ -214,7 +214,7 @@ fun CuttingScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
                     if (cutters.isNotEmpty()) {
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             cutters.take(8).forEach { name ->
                                 FilterChip(
                                     selected = cutter == name,
@@ -321,7 +321,7 @@ fun CuttingScreen(
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("فعلاً سفارشی برای برش وجود ندارد.", fontWeight = FontWeight.SemiBold)
                         Text(
                             "از انبار «ارسال به برش» را بزن.",
@@ -332,7 +332,7 @@ fun CuttingScreen(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(orders, key = { it.id }) { o ->
                         Card(

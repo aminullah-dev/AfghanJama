@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddAPhoto
@@ -196,17 +197,32 @@ fun OrderPhotoStrip(
                                 .clickable { viewing = p }
                         )
                         if (canEdit) {
+                            /*
+                             * اندازهٔ صریح برداشته شد.
+                             *
+                             * `.size(28.dp)` ناحیهٔ لمسِ پیش‌فرضِ
+                             * `IconButton` را — که ۴۸dp است، همان حدِ
+                             * اندروید — به ۲۸ می‌شکست. برای **دکمهٔ
+                             * حذف** بدترین جا بود: انگشتِ کارگر روی
+                             * گوشیِ کوچک به‌راحتی خطا می‌رفت و عکسِ
+                             * سفارش پاک می‌شد.
+                             *
+                             * حالا ناحیهٔ لمس پیش‌فرض است و اندازهٔ
+                             * **دیده‌شده** با خودِ آیکن کنترل می‌شود:
+                             * نشانِ کوچک می‌ماند، هدف بزرگ می‌شود.
+                             */
                             IconButton(
                                 onClick = { onDelete(p) },
-                                modifier = Modifier.align(Alignment.TopEnd).size(28.dp)
+                                modifier = Modifier.align(Alignment.TopEnd)
                             ) {
                                 Icon(
                                     Icons.Default.Close,
-                                    contentDescription = "حذف",
+                                    contentDescription = "حذف عکس",
                                     tint = Color.White,
                                     modifier = Modifier
-                                        .background(Color(0x99000000), RoundedCornerShape(14.dp))
-                                        .padding(3.dp)
+                                        .size(20.dp)
+                                        .background(Color(0x99000000), CircleShape)
+                                        .padding(4.dp)
                                 )
                             }
                         }
@@ -219,7 +235,7 @@ fun OrderPhotoStrip(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = { openCamera() }, modifier = Modifier.weight(1f)) {
                     Icon(Icons.Default.AddAPhoto, contentDescription = null)
-                    Box(Modifier.width(6.dp))
+                    Box(Modifier.width(8.dp))
                     Text("دوربین")
                 }
                 OutlinedButton(
@@ -233,7 +249,7 @@ fun OrderPhotoStrip(
                     modifier = Modifier.weight(1f)
                 ) {
                     Icon(Icons.Default.PhotoLibrary, contentDescription = null)
-                    Box(Modifier.width(6.dp))
+                    Box(Modifier.width(8.dp))
                     Text("گالری")
                 }
             }

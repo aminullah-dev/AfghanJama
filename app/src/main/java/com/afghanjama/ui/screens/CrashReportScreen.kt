@@ -40,7 +40,7 @@ fun CrashReportScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
                 text = "اپ بارِ قبل بسته شد",
@@ -79,7 +79,7 @@ fun CrashReportScreen(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Button(onClick = onSend, modifier = Modifier.weight(1f)) {
                     Text("فرستادنِ گزارش")

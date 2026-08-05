@@ -41,11 +41,51 @@ import androidx.compose.ui.unit.dp
  * بصریِ واحد داشته باشد و تغییرِ ظاهر از یک نقطه انجام شود.
  */
 
-/** فاصلهٔ داخلیِ استانداردِ کارت‌ها. */
-val CardPadding = 14.dp
+/**
+ * شبکهٔ فاصله‌ها — همه‌چیز مضربِ ۴.
+ *
+ * **وضعی که از آن آمدیم:** ۲۲۵ فاصلهٔ خارج از شبکه در ۴۵ فایل. سه
+ * عددِ ۱۴، ۶ و ۱۰ به‌تنهایی ۲۱۵ تای‌شان بودند — یعنی کسی یک بار
+ * `14.dp` نوشته بود و بقیه از رویش کپی کرده بودند.
+ *
+ * چرا مهم است: چشم فاصله‌ها را **نسبت به هم** می‌سنجد، نه مطلق.
+ * وقتی فاصله‌ها ۶ و ۸ و ۱۰ و ۱۲ و ۱۴ باشند، هیچ‌کدام «یک پله
+ * بزرگ‌تر» از دیگری نیست؛ همه تقریباً یکی‌اند و صفحه ریتم ندارد.
+ * با شبکهٔ ۴، هر پله دیده می‌شود و سلسله‌مراتب خودش را نشان می‌دهد.
+ *
+ * ۱dp و ۲dp عمداً بیرونِ این شبکه مجازند: خطِ مویی و فاصلهٔ بینِ دو
+ * سطرِ یک برچسب، اندازه نیستند — ضخامت و سُربندی‌اند.
+ */
+object Space {
+    /** چسبیده — بینِ برچسب و عددِ خودش. */
+    val xs = 4.dp
+
+    /** فاصلهٔ پیش‌فرضِ بینِ اجزای یک گروه. */
+    val sm = 8.dp
+
+    /** بینِ گروه‌های یک کارت. */
+    val md = 12.dp
+
+    /** فاصلهٔ داخلیِ کارت و بینِ کارت‌ها. */
+    val lg = 16.dp
+
+    /** بینِ بخش‌های صفحه. */
+    val xl = 24.dp
+
+    /** جداییِ بزرگ — بالای صفحه، زیرِ عنوانِ اصلی. */
+    val xxl = 32.dp
+}
+
+/**
+ * فاصلهٔ داخلیِ استانداردِ کارت‌ها.
+ *
+ * از ۱۴ به ۱۶ رفت: ۱۴ روی شبکهٔ ۴ نمی‌نشست و ۹۳ جای دیگر از رویش
+ * کپی شده بود.
+ */
+val CardPadding = Space.lg
 
 /** فاصلهٔ استانداردِ لبهٔ صفحه. */
-val ScreenPadding = 16.dp
+val ScreenPadding = Space.lg
 
 /**
  * کارتِ استانداردِ اپ.
@@ -78,7 +118,7 @@ fun AppCard(
         ) {
             Column(
                 Modifier.padding(contentPadding),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
                 content = content
             )
         }
@@ -91,7 +131,7 @@ fun AppCard(
         ) {
             Column(
                 Modifier.padding(contentPadding),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
                 content = content
             )
         }
@@ -274,7 +314,7 @@ fun EmptyState(
     Box(modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Icon(
                 icon,
@@ -374,7 +414,7 @@ fun MeasurementsBlock(
         items.chunked(2).forEach { pairRow ->
             Row(
                 Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 pairRow.forEach { (label, value) ->
                     Row(

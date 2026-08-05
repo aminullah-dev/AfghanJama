@@ -124,7 +124,7 @@ fun OrderSearchScreen(
                     )
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(results, key = { it.id }) { o ->
                             SearchResultCard(

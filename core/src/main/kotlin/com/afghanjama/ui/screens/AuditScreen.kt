@@ -67,7 +67,7 @@ fun AuditScreen(
     ) { pad ->
         Column(
             modifier = Modifier.padding(pad).fillMaxSize().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             OutlinedTextField(
                 value = query,
@@ -97,7 +97,7 @@ fun AuditScreen(
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                         ) {
                             Column(
-                                Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                                 verticalArrangement = Arrangement.spacedBy(2.dp)
                             ) {
                                 Row(

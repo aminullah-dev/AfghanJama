@@ -87,7 +87,7 @@ fun WorkshopLinkScreen(
                     ),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
                             "یک گوشی دفتر را دارد",
                             fontWeight = FontWeight.Bold,
@@ -166,8 +166,8 @@ fun WorkshopLinkScreen(
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                         ) {
                             Column(
-                                Modifier.padding(14.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                                Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text(
                                     "${syncRequestLabel(r.type)} — ${r.worker}",
@@ -215,7 +215,7 @@ fun WorkshopLinkScreen(
                             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                         ) {
-                            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text("وصل به گوشیِ اصلی", fontWeight = FontWeight.SemiBold)
                                 Text(
                                     ui.host.toPersianDigits(),
@@ -285,7 +285,7 @@ fun WorkshopLinkScreen(
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                             ) {
                                 Column(
-                                    Modifier.padding(14.dp),
+                                    Modifier.padding(16.dp),
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     OrderCodeLine(
@@ -365,7 +365,7 @@ private fun MainCard(vm: WorkshopLinkViewModel, serving: Boolean, ip: String?, c
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
                 if (serving) "اشتراک روشن است" else "اشتراک خاموش است",
                 fontWeight = FontWeight.Bold
@@ -414,7 +414,7 @@ private fun WorkerConnectCard(vm: WorkshopLinkViewModel, busy: Boolean) {
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("این گوشیِ یک کارگر است", fontWeight = FontWeight.SemiBold)
             // **چپ‌به‌راست، حتی وسطِ صفحهٔ راست‌به‌چپ.** نشانیِ عددی در
             // کادرِ راست‌به‌چپ جای مکان‌نما و ترتیبِ نقطه‌ها را گیج

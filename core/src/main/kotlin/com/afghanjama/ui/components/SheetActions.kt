@@ -48,7 +48,7 @@ fun SheetActions(
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Paper.ALL.forEach { p ->
                 FilterChip(
                     selected = p.label == paper.label,

@@ -55,7 +55,7 @@ fun SinglePhotoPicker(
     Row(
         modifier,
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         if (thumb != null) {
             Box(
@@ -71,9 +71,9 @@ fun SinglePhotoPicker(
             }
         }
 
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (canEdit) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = pick) {
                         Icon(Icons.Filled.AddAPhoto, contentDescription = null,
                             modifier = Modifier.size(16.dp))

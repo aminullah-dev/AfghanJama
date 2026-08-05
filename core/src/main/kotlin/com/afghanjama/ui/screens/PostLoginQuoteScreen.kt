@@ -37,7 +37,7 @@ fun PostLoginQuoteScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(Modifier.padding(top = 18.dp))
+            Spacer(Modifier.padding(top = 16.dp))
 
             Button(
                 onClick = onContinue,
