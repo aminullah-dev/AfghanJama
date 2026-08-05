@@ -8,6 +8,7 @@ import androidx.room.Transactor
 import androidx.room.useWriterConnection
 import com.afghanjama.data.Converters
 import com.afghanjama.data.DB_VERSION
+import com.afghanjama.data.SQL_WORKSHOP_TABLES
 import com.afghanjama.data.Db
 import com.afghanjama.data.dao.AttendanceDao
 import com.afghanjama.data.dao.AuditDao
@@ -208,9 +209,10 @@ abstract class DesktopDatabase : RoomDatabase(), Db {
 
     override fun tableNames(): List<String> = runBlocking {
         useWriterConnection { conn: Transactor ->
-            conn.usePrepared(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
-            ) { stmt ->
+            // پرس‌وجو از `:core` می‌آید — پیش‌تر اینجا نسخهٔ خودش را
+            // داشت و `room_master_table` را کنار نمی‌گذاشت، یعنی
+            // «پاک کردنِ داده» مهرِ هویتِ Room را هم پاک می‌کرد.
+            conn.usePrepared(SQL_WORKSHOP_TABLES) { stmt ->
                 buildList { while (stmt.step()) add(stmt.getText(0)) }
             }
         }

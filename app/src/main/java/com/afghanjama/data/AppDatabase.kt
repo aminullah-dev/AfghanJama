@@ -176,11 +176,8 @@ abstract class AppDatabase : RoomDatabase(), Db {
 
     override fun tableNames(): List<String> {
         val names = mutableListOf<String>()
-        openHelper.writableDatabase.query(
-            "SELECT name FROM sqlite_master WHERE type='table' " +
-                "AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'android_metadata' " +
-                "AND name NOT LIKE 'room_master_table'"
-        ).use { c ->
+        // همان رشته‌ای که ویندوز هم می‌خواند — از `:core`.
+        openHelper.writableDatabase.query(SQL_WORKSHOP_TABLES).use { c ->
             while (c.moveToNext()) names += c.getString(0)
         }
         return names

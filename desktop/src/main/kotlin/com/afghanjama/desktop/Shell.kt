@@ -53,6 +53,7 @@ import com.afghanjama.ui.screens.PurchasePlanScreen
 import com.afghanjama.ui.screens.PurchaseReturnScreen
 import com.afghanjama.ui.screens.ReportsScreen
 import com.afghanjama.ui.screens.ReviewScreen
+import com.afghanjama.ui.screens.SelfTestScreen
 import com.afghanjama.ui.screens.ShopProfileScreen
 import com.afghanjama.ui.screens.SewingScreen
 import com.afghanjama.ui.screens.StockLedgerScreen
@@ -79,6 +80,7 @@ import com.afghanjama.ui.vm.PurchasePlanViewModel
 import com.afghanjama.ui.vm.PurchaseReturnViewModel
 import com.afghanjama.ui.vm.ReportsViewModel
 import com.afghanjama.ui.vm.ReviewViewModel
+import com.afghanjama.ui.vm.SelfTestViewModel
 import com.afghanjama.ui.vm.SewingViewModel
 import com.afghanjama.ui.vm.Permissions
 import com.afghanjama.ui.vm.UserRole
@@ -132,6 +134,7 @@ internal enum class Section(val title: String) {
     Audit("رسیدگی"),
     MasterData("اطلاعات پایه"),
     ShopProfile("پروفایل کارگاه"),
+    SelfTest("خودآزمایی و سلامتِ داده"),
     WorkshopLink("اشتراکِ کارگاه"),
     Backup("پشتیبان و بازیابی"),
     Guide("راهنما")
@@ -375,6 +378,13 @@ internal fun SectionContent(
         // `CompanyPrefs.save` تنها در تنظیماتِ اندروید صدا زده می‌شد و
         // ویندوز هیچ راهی برای نوشتنش نداشت.
         Section.ShopProfile -> ShopProfileScreen(onBack = back)
+
+        // `DELIVERY.md` می‌گوید پیش از هر تحویل این باید اجرا شود و همه
+        // سبز باشد. تا امروز روی ویندوز راهی برایش نبود.
+        Section.SelfTest -> {
+            val vm: SelfTestViewModel = viewModel { SelfTestViewModel(repo) }
+            SelfTestScreen(vm, onBack = back)
+        }
 
         // ماشینی که دفترِ حساب است باید بتواند پشتیبان بگیرد.
         // تا دیروز `grep -i backup desktop/src` هیچ نمی‌داد.

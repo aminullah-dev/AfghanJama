@@ -57,7 +57,7 @@ import com.afghanjama.pdf.columnWidths
 import com.afghanjama.pdf.invoiceColumns
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.bareWorkerName
-import com.afghanjama.work.BreakReminderWorker
+import com.afghanjama.work.BreakSchedule
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -65,6 +65,22 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/*
+ * از `:app` به `:core` آمد — و هزینه‌اش یک خطِ ایمپورت بود.
+ *
+ * نقشه می‌گفت این ViewModel به `BackupArchive` و `BreakReminderWorker`
+ * گره خورده و نمی‌آید. وقتی شمرده شد، هیچ‌کدام درست نبود:
+ *
+ *   • `BackupArchive` مدت‌هاست در `:core` است.
+ *   • `BreakReminderWorker.delayUntilNext` فقط یک پوستهٔ سازگاری است؛
+ *     خودِ حساب در `BreakSchedule` است و آن هم در `:core`. یعنی این
+ *     ViewModel هرگز به WorkManager وابسته نبود، فقط از راهِ اسمِ آن
+ *     صدایش می‌زد.
+ *
+ * ارزشش این است که فهرستِ تحویل (`DELIVERY.md`) می‌گوید پیش از دادنِ
+ * نسخه باید «خودآزمایی و سلامتِ داده» اجرا شود و همه سبز باشد — و تا
+ * امروز این روی ویندوز اصلاً ممکن نبود.
+ */
 data class SelfTestUi(
     val running: Boolean = false,
     val results: List<CheckResult> = emptyList(),
@@ -232,7 +248,7 @@ class SelfTestViewModel(private val repo: Repo) : ViewModel() {
                 )
                 addAll(
                     checkBreakSchedule { h, m, now ->
-                        BreakReminderWorker.delayUntilNext(h, m, now)
+                        BreakSchedule.delayUntilNext(h, m, now)
                     }
                 )
                 addAll(

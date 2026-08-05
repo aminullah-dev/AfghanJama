@@ -324,6 +324,33 @@ val migrationSmoke by tasks.registering(JavaExec::class) {
 }
 
 /*
+ * `selfTestRun` — خودآزمایی روی ویندوز اجرا می‌شود و سبز است.
+ *
+ * `screenSmoke` ثابت می‌کند صفحهٔ خودآزمایی **رسم** می‌شود. این ثابت
+ * می‌کند **اجرا** می‌شود و همهٔ بندهایش قبول‌اند.
+ *
+ * بندِ آخرِ فهرستِ تحویل در `DELIVERY.md` همین است — «خودآزمایی و
+ * سلامتِ داده اجرا شود و همه سبز باشد» — و تا امروز فقط برای گوشی
+ * قابلِ انجام بود.
+ */
+val selfTestRun by tasks.registering(JavaExec::class) {
+    group = "verification"
+    description = "خودآزماییِ کامل روی ویندوز اجرا می‌شود و همه سبز است"
+    dependsOn("createDistributable")
+    mainClass.set("com.afghanjama.desktop.SelfTestRunKt")
+    jvmArgs("-Dfile.encoding=UTF-8", "-Dstdout.encoding=UTF-8")
+    doFirst {
+        val appDir = layout.buildDirectory
+            .dir("compose/binaries/main/app/KhayatYar/app").get().asFile
+        val jars = appDir.listFiles { f: JFile -> f.name.endsWith(".jar") } ?: emptyArray()
+        if (jars.isEmpty()) {
+            throw GradleException("پوشهٔ بسته خالی است: $appDir — بررسی پوچ می‌شد")
+        }
+        classpath = files(appDir) + files(*jars)
+    }
+}
+
+/*
  * `backupSmoke` — دفتر از دست نمی‌رود.
  *
  * بازیابی تنها جایی است که دفترِ کارگاه **بازنویسی** می‌شود. اگر فایلِ

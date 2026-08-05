@@ -17,3 +17,30 @@ const val DB_NAME = "afghanjama.db"
  * نمی‌شود. یک عدد، یک جا.
  */
 const val DB_VERSION = 61
+
+/**
+ * پرس‌وجویی که «جدول‌های خودِ کارگاه» را می‌شمارد — بی دفترچه‌های
+ * داخلیِ SQLite و Room.
+ *
+ * **چرا مشترک شد.** این پرس‌وجو دو بار نوشته شده بود و از هم افتاده
+ * بود: اندروید سه چیز را کنار می‌گذاشت (`sqlite_%`، `android_metadata`،
+ * `room_master_table`) و ویندوز فقط اولی را.
+ *
+ * خودآزمایی روی ویندوز همان بارِ اول این را گرفت — بندِ «هر جدول باید
+ * در نقشهٔ پاک‌سازی دسته‌بندی شده باشد» روی `room_master_table` قرمز
+ * شد.
+ *
+ * **و آنچه پشتش بود بدتر از یک بندِ قرمز است.** خروجیِ همین تابع به
+ * `clearTables` می‌رود، یعنی «پاک کردنِ داده» روی ویندوز
+ * `DELETE FROM room_master_table` هم می‌زد. آن جدول مهرِ هویتِ اسکیمای
+ * Room است؛ با خالی شدنش Room دفعهٔ بعد اسکیما را نمی‌شناسد و — چون
+ * روی دسکتاپ عمداً `fallbackToDestructiveMigration` نداریم — **دفتر
+ * دیگر باز نمی‌شود**.
+ *
+ * یک رشته، یک جا، هر دو سکو.
+ */
+const val SQL_WORKSHOP_TABLES: String =
+    "SELECT name FROM sqlite_master WHERE type='table' " +
+        "AND name NOT LIKE 'sqlite_%' " +
+        "AND name NOT LIKE 'android_metadata' " +
+        "AND name NOT LIKE 'room_master_table'"
