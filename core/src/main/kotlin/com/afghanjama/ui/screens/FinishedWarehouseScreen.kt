@@ -21,7 +21,7 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Sell
-import androidx.compose.material3.AlertDialog
+import com.afghanjama.ui.platform.AppAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -58,9 +58,8 @@ import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.format.isShortage
 import com.afghanjama.ui.format.stockText
 import com.afghanjama.ui.format.stockBadge
+import com.afghanjama.platform.LocalPhotos
 import com.afghanjama.ui.components.SinglePhotoPicker
-import com.afghanjama.util.PhotoStore
-import androidx.compose.ui.platform.LocalContext
 import com.afghanjama.ui.vm.FinishedSaleViewModel
 
 @Composable
@@ -74,6 +73,9 @@ fun FinishedWarehouseScreen(
     /** چند قلم تا حالا در فاکتورِ در دست هست. */
     invoiceCount: Int = 0
 ) {
+    // پیش‌تر `LocalContext` بود تا `PhotoStore` را صدا بزند — و همان یک
+    // خط این صفحهٔ ۶۳۰ خطی را در `:app` نگه داشته بود.
+    val photos = LocalPhotos.current
     val items by vm.items.collectAsState()
     val folders by vm.folders.collectAsState()
     val sales by vm.recentSales.collectAsState()
@@ -81,7 +83,6 @@ fun FinishedWarehouseScreen(
     val wallet by vm.wallet.collectAsState()
     val bank by vm.bank.collectAsState()
     val busy by vm.busy.state.collectAsState()
-    val context = LocalContext.current
 
     var sellTarget by remember { mutableStateOf<FinishedStock?>(null) }
     var returnTarget by remember { mutableStateOf<FinishedSale?>(null) }
@@ -108,7 +109,7 @@ fun FinishedWarehouseScreen(
 
         // با تایپِ نامِ مشتری، بیعانهٔ استفاده‌نشده‌اش پیدا می‌شود
         LaunchedEffect(customer) { vm.lookupPrepay(customer) }
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { sellTarget = null },
             title = { Text("فروش «${item.name}»") },
             text = {
@@ -132,10 +133,10 @@ fun FinishedWarehouseScreen(
                         fileName = item.photoFile,
                         canEdit = true,
                         onPicked = { name ->
-                            vm.setPhoto(item, name) { PhotoStore.delete(context, it) }
+                            vm.setPhoto(item, name) { photos.delete(it) }
                         },
                         onCleared = {
-                            vm.setPhoto(item, "") { PhotoStore.delete(context, it) }
+                            vm.setPhoto(item, "") { photos.delete(it) }
                         }
                     )
                     OutlinedTextField(
@@ -255,7 +256,7 @@ fun FinishedWarehouseScreen(
         var note by remember(item.id) { mutableStateOf("") }
         val counted = countedText.toIntOrNull()
         val diff = (counted ?: item.qty) - item.qty
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { countTarget = null },
             title = { Text("شمارش «${item.name}»") },
             text = {
@@ -324,7 +325,7 @@ fun FinishedWarehouseScreen(
         var refundCash by remember(sale.id) { mutableStateOf(true) }
         var cashBox by remember(sale.id) { mutableStateOf("WALLET") }
         val q = qtyText.toIntOrNull() ?: 0
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { returnTarget = null },
             title = { Text("برگشت از فروش «${sale.productName}»") },
             text = {

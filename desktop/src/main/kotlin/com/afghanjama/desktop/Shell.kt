@@ -36,6 +36,7 @@ import com.afghanjama.ui.screens.CustomerDetailScreen
 import com.afghanjama.ui.screens.CustomersScreen
 import com.afghanjama.ui.screens.DeliveryQueueScreen
 import com.afghanjama.ui.screens.FinanceHubScreen
+import com.afghanjama.ui.screens.FinishedWarehouseScreen
 import com.afghanjama.ui.screens.GuideScreen
 import com.afghanjama.ui.screens.InventoryScreen
 import com.afghanjama.ui.screens.LedgerScreen
@@ -65,6 +66,7 @@ import com.afghanjama.ui.vm.CustomersViewModel
 import com.afghanjama.ui.vm.DashboardViewModel
 import com.afghanjama.ui.vm.DeliveryQueueViewModel
 import com.afghanjama.ui.vm.FinanceViewModel
+import com.afghanjama.ui.vm.FinishedSaleViewModel
 import com.afghanjama.ui.vm.InventoryViewModel
 import com.afghanjama.ui.vm.LedgerViewModel
 import com.afghanjama.ui.vm.MasterDataViewModel
@@ -114,6 +116,7 @@ internal enum class Section(val title: String) {
     // انبار و خرید
     Warehouse("انبارِ مواد"),
     StockLedger("گردشِ انبار"),
+    FinishedWarehouse("انبارِ محصول"),
     Procurement("خریدِ مواد"),
     PurchasePlan("برنامهٔ خرید"),
     PurchaseReturn("برگشتِ خرید"),
@@ -377,6 +380,13 @@ internal fun SectionContent(
         // بی این صفحه، هر کاغذی که پی‌سی چاپ می‌کرد نامِ پیش‌فرض داشت:
         // `CompanyPrefs.save` تنها در تنظیماتِ اندروید صدا زده می‌شد و
         // ویندوز هیچ راهی برای نوشتنش نداشت.
+        // با آمدنِ مرزِ `Photos` آزاد شد — تنها چیزی که نگهش داشته
+        // بود `PhotoStore.delete` بود.
+        Section.FinishedWarehouse -> {
+            val vm: FinishedSaleViewModel = viewModel { FinishedSaleViewModel(repo) }
+            FinishedWarehouseScreen(vm, onBack = back)
+        }
+
         Section.ShopProfile -> ShopProfileScreen(onBack = back)
 
         // `DELIVERY.md` می‌گوید پیش از هر تحویل این باید اجرا شود و همه

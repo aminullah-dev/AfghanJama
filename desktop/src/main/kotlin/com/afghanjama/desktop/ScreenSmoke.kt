@@ -21,6 +21,8 @@ import com.afghanjama.desktop.platform.DesktopFileExport
 import com.afghanjama.desktop.platform.DesktopSystemActions
 import com.afghanjama.platform.LocalDocs
 import com.afghanjama.platform.LocalFileExport
+import com.afghanjama.platform.LocalPhotos
+import com.afghanjama.desktop.platform.DesktopPhotos
 import com.afghanjama.platform.LocalSystemActions
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.ui.screens.CustomerDetailScreen
@@ -85,6 +87,7 @@ private fun renderOnce(settings: com.afghanjama.prefs.Settings, body: @Composabl
                 LocalSystemActions provides DesktopSystemActions(),
                 LocalDocs provides DesktopDocsBridge(settings),
                 LocalFileExport provides DesktopFileExport(),
+                LocalPhotos provides DesktopPhotos(),
                 // **هر چیزی که `Main.kt` می‌دهد، اینجا هم باید داده شود.**
                 //
                 // `LocalWidgets` بعد از نوشتنِ این آزمون به `:core` اضافه

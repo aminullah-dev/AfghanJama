@@ -245,86 +245,14 @@ fun OrderPhotoStrip(
  * عکس را در اندازهٔ لازم می‌خواند — رمزگشایی روی نخِ پس‌زمینه، تا اسکرول
  * فهرست نپرد و عکسِ بزرگ حافظه را نبلعد.
  */
-/**
- * یک عکسِ تکی برای کالای انبار: نمایش، گرفتن/انتخاب، و برداشتن.
+/*
+ * `SinglePhotoPicker` از اینجا برداشته شد و به `:core` رفت
+ * (`ui/components/PhotoPicker.kt`)، پشتِ مرزِ `Photos`.
  *
- * کالا برخلافِ سفارش چند عکس لازم ندارد — یک عکسِ درست کافی است تا فروشنده
- * زودتر از خواندنِ نام بفهمد کدام طرح است.
+ * انبارِ محصول و تنظیمات فقط به‌خاطرِ همین ویجت در `:app` مانده بودند.
+ * رفتارِ گوشی عوض نشده — پیاده‌سازیِ اندرویدِ آن مرز همین `PhotoStore`
+ * را صدا می‌زند.
  */
-@Composable
-fun SinglePhotoPicker(
-    fileName: String,
-    canEdit: Boolean,
-    onPicked: (String) -> Unit,
-    onCleared: () -> Unit,
-    modifier: Modifier = Modifier,
-    label: String = "عکس کالا"
-) {
-    val context = LocalContext.current
-    var note by remember { mutableStateOf<String?>(null) }
-
-    val pickLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickVisualMedia()
-    ) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        val name = PhotoStore.newFileName()
-        if (PhotoStore.copyFrom(context, uri, name)) onPicked(name)
-        else {
-            PhotoStore.delete(context, name)
-            note = "عکس کپی نشد."
-        }
-    }
-
-    note?.let { msg ->
-        AlertDialog(
-            onDismissRequest = { note = null },
-            text = { Text(msg) },
-            confirmButton = { TextButton(onClick = { note = null }) { Text("باشه") } }
-        )
-    }
-
-    Row(
-        modifier,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        if (fileName.isNotBlank()) {
-            PhotoImage(
-                fileName = fileName,
-                maxSide = PhotoStore.THUMB_SIDE,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .size(64.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-            )
-        }
-        if (canEdit) {
-            OutlinedButton(
-                onClick = {
-                    pickLauncher.launch(
-                        androidx.activity.result.PickVisualMediaRequest(
-                            ActivityResultContracts.PickVisualMedia.ImageOnly
-                        )
-                    )
-                }
-            ) {
-                Icon(Icons.Default.PhotoLibrary, contentDescription = null)
-                Box(Modifier.width(6.dp))
-                Text(if (fileName.isBlank()) label else "تعویض")
-            }
-            if (fileName.isNotBlank()) {
-                TextButton(onClick = onCleared) { Text("برداشتن") }
-            }
-        } else if (fileName.isBlank()) {
-            Text(
-                "عکسی ثبت نشده",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
 
 @Composable
 private fun PhotoImage(

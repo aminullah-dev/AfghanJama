@@ -39,6 +39,8 @@ import com.afghanjama.ui.vm.ActionCenterViewModel
 import com.afghanjama.ui.vm.AttendanceViewModel
 import com.afghanjama.ui.vm.AuditViewModel
 import com.afghanjama.prefs.settings
+import com.afghanjama.platform.AndroidPhotos
+import com.afghanjama.platform.LocalPhotos
 import com.afghanjama.ui.vm.AuthViewModel
 import com.afghanjama.ui.vm.BackupViewModel
 import com.afghanjama.ui.vm.CustomerDetailViewModel
@@ -107,6 +109,8 @@ class MainActivity : FragmentActivity() {
         val settings = AndroidSettings(applicationContext)
         val system = AndroidSystemActions(applicationContext)
         val docs = AndroidDocs(applicationContext)
+        // پوستهٔ نازکی روی `PhotoStore` — رفتارِ گوشی همان است که بود.
+        val photos = AndroidPhotos(applicationContext)
 
         setContent {
           CompositionLocalProvider(
@@ -115,6 +119,7 @@ class MainActivity : FragmentActivity() {
             LocalDocs provides docs,
             LocalFileExport provides AndroidFileExport,
             LocalScreenBehavior provides AndroidScreenBehavior,
+            LocalPhotos provides photos,
             // بی این خط، هر صفحه‌ای که پنجرهٔ تأیید یا منوی بازشو
             // دارد سرِ باز شدن می‌شکند.
             LocalWidgets provides AndroidWidgets

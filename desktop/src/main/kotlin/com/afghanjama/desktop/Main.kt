@@ -50,6 +50,8 @@ import com.afghanjama.desktop.platform.DesktopFileExport
 import com.afghanjama.desktop.platform.DesktopSystemActions
 import com.afghanjama.platform.LocalDocs
 import com.afghanjama.platform.LocalFileExport
+import com.afghanjama.platform.LocalPhotos
+import com.afghanjama.desktop.platform.DesktopPhotos
 import com.afghanjama.platform.LocalSystemActions
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.ui.format.fa
@@ -103,6 +105,7 @@ fun main() = application {
                 LocalSystemActions provides DesktopSystemActions(),
                 LocalDocs provides DesktopDocsBridge(settings),
                 LocalFileExport provides DesktopFileExport(),
+                LocalPhotos provides DesktopPhotos(),
                 LocalWidgets provides DesktopWidgets
             ) {
                 /*
