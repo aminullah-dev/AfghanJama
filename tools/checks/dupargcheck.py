@@ -16,7 +16,7 @@ import _src
 
 bad=[]
 for f in [str(x) for x in _src.kt_files()]:
-    s=open(f).read()
+    s=open(f, encoding="utf-8").read()
     # named arguments in a multi-line call, and parameters in a signature
     for m in re.finditer(r"\b(\w+)\(\n((?:[^()]|\([^()]*\))*?)\n(\s*)\)", s):
         name, body = m.group(1), m.group(2)

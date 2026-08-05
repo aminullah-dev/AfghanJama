@@ -1,0 +1,29 @@
+# پایانِ خط — یک بار، برای همه.
+#
+# این مخزن روی دو سکو ساخته می‌شود: `apk.yml` روی اوبونتو و
+# `windows.yml` روی ویندوز. بی این فایل، هر کسی با تنظیمِ
+# `core.autocrlf`ِ خودش فایل‌ها را عوض می‌کند و diffها پر می‌شود از
+# تغییرهایی که هیچ‌کس ننوشته.
+#
+# در مخزن همیشه LF ذخیره می‌شود.
+* text=auto
+
+# **`gradlew` باید LF بماند.** با CRLF، لینوکس آن را اجرا نمی‌کند و
+# خطایش گمراه‌کننده است (`bad interpreter: /bin/sh^M`) — کلِ ساختِ APK
+# سرِ اولین گام می‌ایستد.
+gradlew text eol=lf
+*.sh text eol=lf
+
+# و برعکس: فایلِ دستهٔ ویندوز با CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# دودویی‌ها اصلاً دست نخورند — قلمِ وزیرمتن و تصویرها اگر «متن» فرض
+# شوند خراب می‌شوند.
+*.jar binary
+*.png binary
+*.webp binary
+*.ttf binary
+*.otf binary
+*.keystore binary
+*.jks binary

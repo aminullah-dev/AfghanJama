@@ -15,8 +15,11 @@ android {
         applicationId = "com.afghanjama"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        // نسخه از `gradle.properties` می‌آید — یک جا برای اندروید و
+        // ویندوز. پیش‌تر اینجا `"1.0"` بود و در `:desktop` `"1.0.0"`؛
+        // دو عدد برای یک نسخه از یک برنامه.
+        versionCode = providers.gradleProperty("appVersionCode").get().toInt()
+        versionName = providers.gradleProperty("appVersion").get()
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }

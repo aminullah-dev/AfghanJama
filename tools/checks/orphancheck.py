@@ -40,8 +40,8 @@ if len(files) < 50:
     raise SystemExit(f"✗ فقط {len(files)} فایل — مسیر اشتباه، بررسی پوچ بود")
 
 NAV = str(_src.find("ui/nav/AppNav.kt"))
-nav_src = open(NAV).read()
-all_src = "\n".join(open(f).read() for f in files)
+nav_src = open(NAV, encoding="utf-8").read()
+all_src = "\n".join(open(f, encoding="utf-8").read() for f in files)
 
 
 def strip(src):
@@ -59,7 +59,7 @@ problems = []
 # ---- ۱. صفحه‌های تعریف‌شده ولی صدا زده‌نشده ----
 screens = set()
 for f in files:
-    code = strip(open(f).read())
+    code = strip(open(f, encoding="utf-8").read())
     for m in re.finditer(r"@Composable\s+(?:private\s+)?fun\s+(\w*Screen)\s*\(", code):
         screens.add(m.group(1))
 

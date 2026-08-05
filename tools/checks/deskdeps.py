@@ -23,17 +23,43 @@ import sys
 import _src
 
 DESKTOP_SRC = _src.DESKTOP
+CORE_SRC = _src.CORE
 BUILD = _src.REPO / "desktop/build.gradle.kts"
+
+# **چرا `:core` هم اسکن می‌شود — این نسخهٔ اول را از دست داده بود.**
+#
+# بارِ اول فقط فایل‌های خودِ `:desktop` خوانده می‌شد. آن روز درست بود:
+# `:core` هیچ Composeای نداشت. از موجِ ۱ به بعد سی صفحهٔ Compose به
+# `:core` رفت و آنجا وابستگی‌ها **`compileOnly`**اند — عمداً، تا گرافِ
+# اپِ اندروید دست‌نخورده بماند. `compileOnly` یعنی به گرافِ اجرا
+# نمی‌رسد، پس هر بستهٔ Composeای که `:core` ایمپورت می‌کند باید در
+# `:desktop` صریح خواسته شود وگرنه فقط سرِ اجرا معلوم می‌شود.
+#
+# و دقیقاً همین افتاد: آیکن‌ها هیچ‌جا `implementation` نبودند. کامپایل
+# سبز بود، پنجره باز می‌شد، و هر بخشی که کاربر باز می‌کرد با
+# `NoClassDefFoundError` می‌مرد. این بررسی سبز مانده بود چون به `:core`
+# نگاه نمی‌کرد.
 
 # خانواده‌هایی که `compose.desktop.currentOs` با خودش می‌آورد.
 # اینها ایمپورت‌شان وابستگیِ تازه نمی‌خواهد.
 BUNDLED = {"runtime", "ui", "foundation", "animation"}
 
-# خانواده → نامی که باید در فایلِ ساخت باشد.
+# خانواده → نشانه‌هایی که پذیرفته‌اند. هرکدام بود، یعنی خواسته شده.
+#
+# دو شکلِ نوشتن هست و هر دو معتبرند: نامِ DSLِ افزونهٔ Compose
+# (`compose.material3`) و مختصاتِ رشته‌ای
+# (`"org.jetbrains.compose.material:material-icons-extended-desktop:…"`).
+# آیکن‌ها ناچار شکلِ دوم‌اند، چون نسخه‌شان باید روی ۱.۷.۳ قفل بماند —
+# `compose.materialIconsExtended` نسخهٔ افزونه (۱.۸.۰) را می‌خواهد و آن
+# برای دسکتاپ منتشر نشده. پس بررسی باید هر دو شکل را بشناسد، وگرنه
+# وابستگیِ درست را «نبود» گزارش می‌کند.
 NEEDS = {
-    "material3": "compose.material3",
-    "material": "compose.material",
-    "materialIconsExtended": "compose.materialIconsExtended",
+    "material3": ("compose.material3", "compose.material3:material3"),
+    "material": ("compose.material", "compose.material:material"),
+    "materialIconsExtended": (
+        "compose.materialIconsExtended",
+        "material-icons-extended",
+    ),
 }
 
 IMPORT = re.compile(r"^import\s+androidx\.compose\.([A-Za-z0-9_]+)")
@@ -48,9 +74,12 @@ if not BUILD.exists():
     print(f"✗ {BUILD.name} نیست — بررسی پوچ بود، مسیر را ببینید")
     sys.exit(1)
 
-files = sorted(DESKTOP_SRC.rglob("*.kt"))
+# (فایل، ریشه، نامِ ماژول) — نامِ ماژول در گزارش می‌آید تا معلوم باشد
+# ایمپورت از کجاست.
+files = [(p, DESKTOP_SRC, ":desktop") for p in sorted(DESKTOP_SRC.rglob("*.kt"))]
+files += [(p, CORE_SRC, ":core") for p in sorted(CORE_SRC.rglob("*.kt"))]
 if not files:
-    print("✗ هیچ فایلی در :desktop نیست — بررسی پوچ بود، مسیر را ببینید")
+    print("✗ هیچ فایلی در :desktop و :core نیست — بررسی پوچ بود، مسیر را ببینید")
     sys.exit(1)
 
 # **بدونِ حذفِ توضیحات این بررسی پوچ است.** بارِ اول همین‌طور نوشته شد
@@ -73,10 +102,10 @@ declared = {m.group(2) for ln in build_lines for m in DECLARE.finditer(ln)}
 # icons می‌آید؛ برای همین جدا نگاه می‌شود.
 used = {}
 needs_lifecycle = None
-for p in files:
+for p, root, mod in files:
     for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
         if LIFECYCLE.match(line.strip()) and needs_lifecycle is None:
-            needs_lifecycle = (p.relative_to(DESKTOP_SRC), i)
+            needs_lifecycle = (f"{mod}/{p.relative_to(root)}", i)
         m = IMPORT.match(line.strip())
         if not m:
             continue
@@ -85,17 +114,22 @@ for p in files:
             fam = "materialIconsExtended"
         if fam in BUNDLED:
             continue
-        used.setdefault(fam, (p.relative_to(DESKTOP_SRC), i))
+        used.setdefault(fam, (f"{mod}/{p.relative_to(root)}", i))
+
+# متنِ خامِ خطوطِ وابستگی — برای مختصاتِ رشته‌ای که `DECLARE` نمی‌گیرد.
+declared_text = "\n".join(build_lines)
 
 missing = []
 for fam, (f, i) in sorted(used.items()):
-    dep = NEEDS.get(fam)
-    if dep is None:
+    tokens = NEEDS.get(fam)
+    if tokens is None:
         # خانوادهٔ ناشناخته — نه در فهرستِ همراه، نه در فهرستِ شناخته‌شده.
         # بی‌صدا رد نمی‌شود؛ یا واقعاً وابستگی می‌خواهد یا فهرست کهنه است.
         missing.append((f"androidx.compose.{fam}", f, i, f"compose.{fam} (ناشناخته)"))
-    elif dep not in declared:
-        missing.append((f"androidx.compose.{fam}", f, i, dep))
+        continue
+    ok = any(t in declared for t in tokens) or any(t in declared_text for t in tokens)
+    if not ok:
+        missing.append((f"androidx.compose.{fam}", f, i, tokens[0]))
 
 # وابستگی‌های مختصاتی (رشته‌ای) جدا سنجیده می‌شوند، چون `DECLARE`
 # فقط نام‌های DSL مثلِ `compose.material3` را می‌گیرد نه رشته را.

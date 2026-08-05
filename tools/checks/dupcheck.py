@@ -16,7 +16,7 @@ import _src
 
 bad=[]
 for f in [str(x) for x in _src.kt_files()]:
-    s=open(f).read()
+    s=open(f, encoding="utf-8").read()
     # call sites: Foo( ... ) with named args at one indent level
     for m in re.finditer(r"^([ \t]*)([A-Z]\w*)\(\n((?:.*\n)+?)\1\)", s, re.M):
         args=re.findall(r"^" + re.escape(m.group(1)) + r"[ \t]{4}(\w+)\s*=(?!=)", m.group(3), re.M)

@@ -12,7 +12,9 @@ import org.apache.pdfbox.pdmodel.common.PDRectangle
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject
 import java.awt.Font
 import java.awt.font.FontRenderContext
+import java.awt.font.TextAttribute
 import java.awt.font.TextLayout
+import java.text.AttributedString
 import java.awt.geom.AffineTransform
 import java.awt.geom.PathIterator
 import java.io.File
@@ -93,10 +95,33 @@ class SheetPdf(private val fonts: SheetFonts) {
         }
     }
 
+    /**
+     * چیدمانِ یک سطر با **جهتِ پایهٔ راست‌به‌چپ**، صریح.
+     *
+     * **اشکالی که این را لازم کرد.** پیش‌تر اینجا
+     * `TextLayout(text, font, FRC)` بود — سازنده‌ای که جهتِ پایه را از
+     * **اولین حرفِ جهت‌دارِ** رشته حدس می‌زند. ولی اندازه‌گیر
+     * (`AwtTextMeasurer.wrap`) صریح `RUN_DIRECTION_RTL` می‌دهد و
+     * توضیحِ خودش هم دقیقاً همین دام را نوشته بود:
+     *
+     * > بدونِ این، جاوا جهتِ متن را از حروفِ اولش حدس می‌زند و سطری که
+     * > با عدد شروع شود چپ‌به‌راست شکسته می‌شود.
+     *
+     * یعنی یک سطر با **دو جهتِ متفاوت** اندازه گرفته و کشیده می‌شد.
+     * روی سطری که با عدد یا حرفِ لاتین شروع شود — مثلِ مبلغ در ستونِ
+     * فاکتور — جای اجزا با آنچه چیدمان حساب کرده بود یکی نبود.
+     *
+     * منطقِ `align` هم از قبل راست‌به‌چپ فرض شده
+     * (`Align.Start -> op.x - width`)، پس این تازه همان فرض را در
+     * خودِ رسم هم برقرار می‌کند.
+     */
+    private fun rtlLayout(text: String, font: java.awt.Font): TextLayout =
+        RtlText.layout(text, font)
+
     private fun drawText(cs: PDPageContentStream, op: DrawOp.Text, pageH: Float) {
         if (op.text.isBlank()) return
         val font = fonts.of(op.weight).deriveFont(op.size)
-        val layout = TextLayout(op.text, font, FRC)
+        val layout = rtlLayout(op.text, font)
         val width = layout.advance
 
         val startX = when (op.align) {

@@ -87,7 +87,7 @@ ext_pkg  = {}          # extension function -> package (called with a dot)
 pkg_of_file = {}
 body_of = {}
 for f in files:
-    raw = open(f).read()
+    raw = open(f, encoding="utf-8").read()
     pkg = re.search(r"^package\s+([\w.]+)", raw, re.M).group(1)
     pkg_of_file[f] = pkg
     code = strip_code(raw)
@@ -109,7 +109,7 @@ for f in files:
 problems = []
 for f in files:
     pkg = pkg_of_file[f]
-    raw = open(f).read()
+    raw = open(f, encoding="utf-8").read()
     imported = set()
     for m in re.finditer(r"^import\s+([\w.*]+)(?:\s+as\s+(\w+))?", raw, re.M):
         path, alias = m.group(1), m.group(2)

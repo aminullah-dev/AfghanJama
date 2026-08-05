@@ -18,7 +18,7 @@ RECV = "PdfKit."
 NAMED = re.compile(r'^\s*[A-Za-z_]\w*\s*=(?!=)')
 bad=[]
 for path in [str(x) for x in _src.kt_files()]:
-    src=open(path).read()
+    src=open(path, encoding="utf-8").read()
     for fn,pos in SIG.items():
         for m in re.finditer(re.escape(RECV)+fn+r'\s*\(', src):
             i=m.end(); depth=1; instr=False; start=i; args=[]
