@@ -39,9 +39,21 @@ data class ReportData(
     val profitBox: Long = 0,
 
     val salesCount: Int = 0,
+    /** درآمدِ **خالص** — برگشتی‌ها کم شده. */
     val revenue: Long = 0,
+    /** بهای تمام‌شدهٔ **خالص**. */
     val cogs: Long = 0,
     val grossProfit: Long = 0,
+
+    /**
+     * مبلغِ برگشت از فروش در این بازه، جدا نگه داشته شده.
+     *
+     * از درآمد کم شده ولی پنهان نشده: مدیر باید هر سه عدد را ببیند —
+     * فروخته، برگشت، خالص. عددی که بی‌سروصدا از ۲۰ به ۱۸ برود، بعداً
+     * وقتی با فاکتورها مقایسه شود بی‌اعتمادی می‌سازد.
+     */
+    val salesReturned: Long = 0,
+    val returnedQty: Int = 0,
 
     val incomeTotal: Long = 0,
     val expenseTotal: Long = 0,
@@ -116,26 +128,56 @@ data class ReportRange(
     }
 }
 
-/** سودآوریِ یک محصول در بازهٔ گزارش (از فروش‌های انبارِ محصول). */
+/**
+ * سودآوریِ یک محصول در بازهٔ گزارش (از فروش‌های انبارِ محصول).
+ *
+ * **همهٔ عددهای این کلاس خالص‌اند — یعنی برگشتی‌ها کم شده‌اند.**
+ * برگشتی جدا هم نگه داشته می‌شود ([returnedQty]، [returnedAmount]) تا
+ * پنهان نشود: کارگاهی که ۲۰ فروخته و ۲ برگشت خورده باید هر سه عدد را
+ * ببیند، نه اینکه ۲۰ بی‌سروصدا ۱۸ شود.
+ *
+ * این همان چیزی است که در حسابداری «حسابِ کاهنده» می‌گویند: فروشِ
+ * ناخالص می‌ماند، برگشت جدا نوشته می‌شود، و خالص از تفاضل درمی‌آید.
+ * فایده‌اش برای مدیرِ کارگاه این است که **نرخِ برگشتِ هر محصول** دیده
+ * می‌شود؛ محصولی که ۲۰ تا فروش و ۶ تا برگشت دارد مشکلی دارد که با
+ * دیدنِ «۱۴» هرگز معلوم نمی‌شد.
+ */
 data class ProductProfit(
     val name: String,
+    /** تعدادِ **خالص**: فروخته منهای برگشتی. */
     val qty: Int,
+    /** درآمدِ **خالص**. */
     val revenue: Long,
-    val cost: Long
+    /** بهای تمام‌شدهٔ **خالص**. */
+    val cost: Long,
+    val returnedQty: Int = 0,
+    val returnedAmount: Long = 0
 ) {
+    /** تعدادِ ناخالص — آنچه واقعاً از انبار بیرون رفت. */
+    val soldQty: Int get() = qty + returnedQty
+    val grossRevenue: Long get() = revenue + returnedAmount
+    val hasReturns: Boolean get() = returnedQty > 0
+
     val profit: Long get() = revenue - cost
     val marginPercent: Int get() = if (revenue > 0) ((profit * 100) / revenue).toInt() else 0
+
+    /** درصدِ برگشت — علامتِ زودهنگامِ ایرادِ کیفیت یا سایز. */
+    val returnPercent: Int
+        get() = if (soldQty > 0) ((returnedQty * 100) / soldQty) else 0
 }
 
-/** یک ماهِ شمسی در روندِ کسب‌وکار. */
+/** یک ماهِ شمسی در روندِ کسب‌وکار. عددها خالص‌اند. */
 data class MonthPoint(
     val key: String,
     val label: String,
     val revenue: Long,
     val cost: Long,
-    val salesCount: Int
+    val salesCount: Int,
+    /** مبلغِ برگشتی که از درآمدِ همین ماه کم شده. */
+    val returned: Long = 0
 ) {
     val profit: Long get() = revenue - cost
+    val grossRevenue: Long get() = revenue + returned
 }
 
 /**
@@ -258,21 +300,33 @@ class ReportsViewModel(private val repo: Repo) : ViewModel() {
             row("", "متوازن است؟", "", if (bs.balanced) "بله" else "خیر")
             row("")
 
+            // ستون‌های «فروخته» و «برگشت» عمداً کنارِ «تعداد» می‌آیند:
+            // فایلِ CSV اغلب جایی باز می‌شود که توضیحی همراهش نیست، پس
+            // خودِ ستون‌ها باید بگویند عددِ خالص از کجا آمده.
             row("سودآوری محصولات")
-            row("محصول", "تعداد", "درآمد", "بهای تمام‌شده", "سود", "حاشیه (٪)")
+            row(
+                "محصول", "فروخته", "برگشت", "تعداد خالص", "درآمد خالص",
+                "مبلغ برگشتی", "بهای تمام‌شده", "سود", "حاشیه (٪)"
+            )
             tr.products.forEach {
                 row(
-                    it.name, it.qty.toString(), it.revenue.toString(),
+                    it.name, it.soldQty.toString(), it.returnedQty.toString(),
+                    it.qty.toString(), it.revenue.toString(),
+                    it.returnedAmount.toString(),
                     it.cost.toString(), it.profit.toString(), it.marginPercent.toString()
                 )
             }
             row("")
 
             row("روند ماهانه")
-            row("ماه", "تعداد فروش", "درآمد", "بهای تمام‌شده", "سود")
+            row(
+                "ماه", "تعداد فروش", "درآمد ناخالص", "برگشت از فروش",
+                "درآمد خالص", "بهای تمام‌شده", "سود"
+            )
             tr.months.forEach {
                 row(
-                    it.label, it.salesCount.toString(), it.revenue.toString(),
+                    it.label, it.salesCount.toString(), it.grossRevenue.toString(),
+                    it.returned.toString(), it.revenue.toString(),
                     it.cost.toString(), it.profit.toString()
                 )
             }
@@ -318,9 +372,13 @@ class ReportsViewModel(private val repo: Repo) : ViewModel() {
                 MonthPoint(
                     key = key,
                     label = label,
-                    revenue = list.sumOf { it.total },
-                    cost = list.sumOf { it.cost },
-                    salesCount = list.size
+                    revenue = list.sumOf { it.netTotal },
+                    cost = list.sumOf { it.netCost },
+                    // فروشی که تمامش برگشته دیگر فروش نیست و نباید شمرده
+                    // شود؛ وگرنه «۱۲ فروش» می‌گوید در ماهی که عملاً ۱۱ تا
+                    // بوده.
+                    salesCount = list.count { it.returnedQty < it.qty },
+                    returned = list.sumOf { it.total - it.netTotal }
                 )
             }
 
@@ -330,9 +388,11 @@ class ReportsViewModel(private val repo: Repo) : ViewModel() {
                 .map { (name, list) ->
                     ProductProfit(
                         name = name,
-                        qty = list.sumOf { it.qty },
-                        revenue = list.sumOf { it.total },
-                        cost = list.sumOf { it.cost }
+                        qty = list.sumOf { it.qty - it.returnedQty },
+                        revenue = list.sumOf { it.netTotal },
+                        cost = list.sumOf { it.netCost },
+                        returnedQty = list.sumOf { it.returnedQty },
+                        returnedAmount = list.sumOf { it.total - it.netTotal }
                     )
                 }
                 .sortedByDescending { it.profit }
@@ -343,7 +403,10 @@ class ReportsViewModel(private val repo: Repo) : ViewModel() {
                 val prevKey = monthsWanted[monthsWanted.size - 2].first
                 val prevSoFar = byMonth[prevKey].orEmpty()
                     .filter { PersianDate.dayOfMonth(it.createdAt) <= today }
-                val prevProfit = prevSoFar.sumOf { it.total } - prevSoFar.sumOf { it.cost }
+                // خالص در برابرِ خالص. اگر یک طرف ناخالص می‌مانْد، درصدِ
+                // رشد ساختگی می‌شد — و آن عدد همانی است که مدیر بر اساسش
+                // تصمیم می‌گیرد.
+                val prevProfit = prevSoFar.sumOf { it.netTotal } - prevSoFar.sumOf { it.netCost }
                 val currProfit = months.last().profit
                 if (prevProfit <= 0L) null
                 else (((currProfit - prevProfit) * 100) / prevProfit).toInt()
@@ -438,8 +501,15 @@ class ReportsViewModel(private val repo: Repo) : ViewModel() {
 
     private fun build(r: RawData, bal: Triple<Long, Long, Long>, range: ReportRange): ReportData {
         val sales = r.sales.filter { it.createdAt in range }
-        val revenue = sales.sumOf { it.total }
-        val cogs = sales.sumOf { it.cost }
+        // خالص، نه ناخالص. تا دیروز اینجا `total` بود: کارگاهی که ۲۰ عدد
+        // فروخته و ۲ عدد برگشت گرفته بود، در گزارش همان ۲۰ را می‌دید و
+        // سودِ گزارش‌شده از سودِ واقعی بیشتر بود. صورتِ سود و زیان — که
+        // از ژورنال می‌آید — همان موقع هم درست بود، و همین ناهم‌خوانیِ
+        // دو صفحه خطرناک‌ترین بخشِ ماجرا بود.
+        val revenue = sales.sumOf { it.netTotal }
+        val cogs = sales.sumOf { it.netCost }
+        val salesReturned = sales.sumOf { it.total - it.netTotal }
+        val returnedQty = sales.sumOf { it.returnedQty }
 
         val allTx = r.tx.filter { it.createdAt in range }
         // جابه‌جاییِ بینِ صندوق‌های خودمان پولِ کارگاه را کم یا زیاد نمی‌کند،
@@ -475,8 +545,10 @@ class ReportsViewModel(private val repo: Repo) : ViewModel() {
 
         return ReportData(
             wallet = bal.first, bank = bal.second, profitBox = bal.third,
-            salesCount = sales.size, revenue = revenue, cogs = cogs,
+            salesCount = sales.count { it.returnedQty < it.qty },
+            revenue = revenue, cogs = cogs,
             grossProfit = revenue - cogs,
+            salesReturned = salesReturned, returnedQty = returnedQty,
             incomeTotal = income, expenseTotal = expenseTotal, expenseByCategory = byCat,
             internalMoves = internalMoves,
             receivable = receivable, payable = payable,

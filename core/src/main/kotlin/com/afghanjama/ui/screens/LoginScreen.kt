@@ -24,8 +24,6 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -52,6 +50,8 @@ import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.components.IconBadge
 import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.vm.AuthViewModel
+import com.afghanjama.ui.platform.AppDropdownMenu
+import com.afghanjama.ui.platform.AppDropdownMenuItem
 import com.afghanjama.ui.vm.UserRole
 
 /**
@@ -162,12 +162,30 @@ fun LoginScreen(
                         },
                         modifier = Modifier.fillMaxWidth()
                     )
-                    DropdownMenu(
+                    /*
+                     * از مرزِ سکو، نه `DropdownMenu`ِ مستقیم.
+                     *
+                     * این صفحه از `:app` به `:core` آمد و همان دامی را
+                     * دوباره باز کرد که پیش‌تر گرفته شده بود: تابعِ سطحِ
+                     * فایل در جاوا به کلاسی به نامِ **فایل** تبدیل
+                     * می‌شود، و `DropdownMenu` روی دسکتاپ در
+                     * `SkikoMenu.skiko.kt` است و روی اندروید در
+                     * `AndroidMenu.android.kt`.
+                     *
+                     * چون `:core` علیه jarهای دسکتاپ کامپایل می‌شود،
+                     * بایت‌کد به `SkikoMenu_skikoKt` ارجاع می‌داد — کلاسی
+                     * که روی گوشی وجود ندارد.
+                     *
+                     * **و اینجا از همه‌جا بدتر بود:** صفحهٔ ورود اولین
+                     * چیزی است که کاربر می‌بیند، پس اپ سرِ باز شدن
+                     * می‌مرد، نه در صفحه‌ای دورافتاده.
+                     */
+                    AppDropdownMenu(
                         expanded = roleMenu,
                         onDismissRequest = { roleMenu = false }
                     ) {
                         UserRole.entries.forEach { r ->
-                            DropdownMenuItem(
+                            AppDropdownMenuItem(
                                 text = { Text(roleLabel(r)) },
                                 onClick = {
                                     vm.setRole(r)
