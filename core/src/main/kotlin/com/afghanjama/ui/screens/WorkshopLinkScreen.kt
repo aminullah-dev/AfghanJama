@@ -24,6 +24,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -32,16 +33,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import com.afghanjama.ui.components.OrderCodeLine
 import com.afghanjama.data.entities.syncRequestLabel
-import com.afghanjama.prefs.LocalSettings
+import com.afghanjama.lan.HostAddress
 import com.afghanjama.prefs.DeviceMode
+import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.WorkerPrefs
 import com.afghanjama.ui.components.AppScreen
 import com.afghanjama.ui.components.BusyButton
+import com.afghanjama.ui.components.OrderCodeLine
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.digitsOnly
@@ -398,6 +402,12 @@ private fun WorkerConnectCard(vm: WorkshopLinkViewModel, busy: Boolean) {
     val settings = LocalSettings.current
     var host by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
+    // تا وقتی کاربر چیزی ننوشته ایراد نشان نمی‌دهیم؛ کادرِ قرمز سرِ
+    // حرفِ اول آزاردهنده است.
+    val hostCheck = remember(host) {
+        if (host.isBlank()) null else HostAddress.check(host)
+    }
+    val hostBad = (hostCheck as? HostAddress.Result.Bad)?.reason
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -406,13 +416,24 @@ private fun WorkerConnectCard(vm: WorkshopLinkViewModel, busy: Boolean) {
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("این گوشیِ یک کارگر است", fontWeight = FontWeight.SemiBold)
-            OutlinedTextField(
-                value = host,
-                onValueChange = { host = it },
-                label = { Text("نشانیِ گوشیِ اصلی") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
+            // **چپ‌به‌راست، حتی وسطِ صفحهٔ راست‌به‌چپ.** نشانیِ عددی در
+            // کادرِ راست‌به‌چپ جای مکان‌نما و ترتیبِ نقطه‌ها را گیج
+            // می‌کند و همان‌جاست که یک نقطه جا می‌افتد.
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                OutlinedTextField(
+                    value = host,
+                    // ارقامِ فارسی همان‌جا لاتین می‌شوند: گوشیِ اصلی نشانی
+                    // را فارسی نشان می‌دهد، پس کاربر فارسی تایپ می‌کند.
+                    onValueChange = { host = HostAddress.clean(it) },
+                    label = { Text("نشانیِ گوشیِ اصلی") },
+                    placeholder = { Text("10.0.0.101") },
+                    singleLine = true,
+                    isError = hostBad != null,
+                    supportingText = hostBad?.let { { Text(it) } },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
             OutlinedTextField(
                 value = code,
                 onValueChange = { code = it.digitsOnly().take(6) },
@@ -424,7 +445,7 @@ private fun WorkerConnectCard(vm: WorkshopLinkViewModel, busy: Boolean) {
             BusyButton(
                 text = "اتصال",
                 onClick = { vm.becomeWorker(settings, host, code) },
-                enabled = host.isNotBlank() && code.length >= 4,
+                enabled = hostCheck is HostAddress.Result.Ok && code.length >= 4,
                 busy = busy,
                 busyText = "در حال اتصال…",
                 modifier = Modifier.fillMaxWidth()

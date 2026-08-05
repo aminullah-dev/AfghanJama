@@ -46,7 +46,7 @@ import com.afghanjama.data.dao.TailorWageDao
  * اندروید گره می‌خورد. اگر منطق به چنین چیزی نیاز داشت، باید به‌صورتِ
  * یک عملیاتِ نام‌دار تعریف شود نه نشتیِ موتور.
  */
-interface Db {
+interface Db : Tx {
     fun orderDao(): OrderDao
     fun orderCounterDao(): OrderCounterDao
     fun financeDao(): FinanceDao

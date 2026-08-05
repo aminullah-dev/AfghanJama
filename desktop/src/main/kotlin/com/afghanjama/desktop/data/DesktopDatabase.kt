@@ -2,6 +2,7 @@ package com.afghanjama.desktop.data
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import androidx.room.withTransaction
 import androidx.room.TypeConverters
 import androidx.room.PooledConnection
 import androidx.room.Transactor
@@ -148,6 +149,20 @@ import kotlinx.coroutines.runBlocking
 )
 @TypeConverters(Converters::class)
 abstract class DesktopDatabase : RoomDatabase(), Db {
+    /*
+     * مرزِ تراکنش برای این سکو.
+     *
+     * `withTransaction` روی کوروتین کار می‌کند و **تودرتو-امن** است:
+     * اگر عملیاتی داخلِ عملیاتِ دیگری صدا زده شود، در همان تراکنشِ
+     * بیرونی ادغام می‌شود و دو بار commit نمی‌کند. `sellInvoice` که
+     * `addFinishedStock` را صدا می‌زند دقیقاً همین حالت است.
+     *
+     * متدِ **پیاده‌شده** است نه abstract، چون Room فقط برای متدهای
+     * abstract کد تولید می‌کند.
+     */
+    override suspend fun <T> atomic(block: suspend () -> T): T =
+        withTransaction(block)
+
     abstract override fun orderDao(): OrderDao
     abstract override fun orderCounterDao(): OrderCounterDao
     abstract override fun financeDao(): FinanceDao
