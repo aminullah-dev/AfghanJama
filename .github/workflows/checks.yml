@@ -97,6 +97,52 @@ jobs:
       - name: هیچ کلاسِ فقط-دسکتاپی در :core نمانده باشد
         run: python3 tools/checks/platformcall.py --require-bytecode
 
+      # ═══ طرحِ دیتابیس واقعاً صادر شد؟ ═══
+      #
+      # `schemacheck` در بررسی‌های ساختاری می‌گوید که *تنظیمات* درست
+      # است. ولی اینکه Room واقعاً فایل را **بنویسد** فقط بعد از یک
+      # ساختِ واقعی معلوم می‌شود — و همین مرحله تنها جایی است که ساخت
+      # اتفاق افتاده (`testDebugUnitTest` برای اندروید، `compileKotlin`
+      # برای ویندوز).
+      #
+      # اگر این مرحله نبود، می‌شد `exportSchema = true` را گذاشت،
+      # `schemaLocation` را اشتباه نوشت، و هیچ‌کس تا روزِ مهاجرتِ بعدی
+      # نفهمد که هیچ فایلی ساخته نشده.
+      - name: مطمئن شو طرحِ دیتابیس صادر شد
+        run: |
+          python3 - <<'PY'
+          import pathlib, re, sys, json
+          ver = int(re.search(r'const val DB_VERSION\s*=\s*(\d+)',
+                pathlib.Path('core/src/main/kotlin/com/afghanjama/data/DbSchema.kt')
+                .read_text(encoding='utf-8')).group(1))
+          bad = []
+          for mod in ('app', 'desktop'):
+              hits = list(pathlib.Path(mod).glob(f'schemas/**/{ver}.json'))
+              if not hits:
+                  found = sorted(p.name for p in pathlib.Path(mod).glob('schemas/**/*.json'))
+                  bad.append(f'{mod}: طرحِ نسخهٔ {ver} ساخته نشد (موجود: {found or "هیچ"})')
+                  continue
+              d = json.loads(hits[0].read_text(encoding='utf-8'))
+              n = len(d.get('database', {}).get('entities', []))
+              print(f'  {mod}: {hits[0]} — {n} جدول')
+              if n < 40:
+                  bad.append(f'{mod}: فقط {n} جدول در طرح، انتظار دستِ‌کم ۴۰.')
+          if bad:
+              for b in bad: print('✗', b)
+              sys.exit('طرح صادر نشد — بدونِ آن هیچ مهاجرتی آزمودنی نیست.')
+          print('✓ طرحِ هر دو دیتابیس صادر شد')
+          PY
+
+      - name: بارگذاریِ طرحِ صادرشده
+        uses: actions/upload-artifact@v4
+        with:
+          name: room-schemas
+          path: |
+            app/schemas/
+            desktop/schemas/
+          if-no-files-found: error
+          retention-days: 30
+
       # اگر پردازشگرِ Room برای ماژولِ ویندوز اجرا نشود، کامپایل سبز
       # می‌ماند و دیتابیس تازه سرِ اجرا روی پی‌سی باز نمی‌شود.
       - name: مطمئن شو Room برای ویندوز هم کد ساخت
