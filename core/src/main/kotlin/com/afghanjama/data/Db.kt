@@ -2,6 +2,7 @@ package com.afghanjama.data
 
 import com.afghanjama.data.dao.AttendanceDao
 import com.afghanjama.data.dao.AuditDao
+import com.afghanjama.data.dao.DomainEventDao
 import com.afghanjama.data.dao.BreakTimeDao
 import com.afghanjama.data.dao.CatalogDao
 import com.afghanjama.data.dao.CustomerMeasurementDao
@@ -71,6 +72,15 @@ interface Db : Tx {
     fun documentDao(): DocumentDao
     fun journalDao(): JournalDao
     fun auditDao(): AuditDao
+
+    /**
+     * صندوقِ خروجیِ رویدادها.
+     *
+     * اینجا در رابطِ مشترک است نه در یکی از دو سکو: رویداد در همان
+     * تراکنشی نوشته می‌شود که دادهٔ اصلی، و `Repo` — که مشترک است —
+     * باید بتواند صدایش بزند.
+     */
+    fun domainEventDao(): DomainEventDao
     fun salaryDao(): SalaryDao
     fun breakTimeDao(): BreakTimeDao
     fun syncRequestDao(): SyncRequestDao

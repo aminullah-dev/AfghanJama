@@ -18,6 +18,7 @@ import com.afghanjama.data.entities.FinishedSale
 import com.afghanjama.data.entities.FinishedStock
 import com.afghanjama.data.entities.Accounts
 import com.afghanjama.data.entities.AuditLog
+import com.afghanjama.data.entities.DomainEvent
 import com.afghanjama.data.entities.Inspector
 import com.afghanjama.data.entities.JournalEntry
 import com.afghanjama.data.entities.JournalLine
@@ -53,6 +54,16 @@ import kotlinx.coroutines.flow.map
 import java.util.UUID
 
 class Repo(private val db: Db) {
+
+    private companion object {
+        /**
+         * چند ماه رویدادِ پردازش‌شده نگه داشته شود.
+         *
+         * ۲۴ — تصمیمِ کارگاه. دو سالِ مالی کامل برای هر بازبینی یا
+         * اختلافِ حساب کافی است، و جدول بی‌مرز رشد نمی‌کند.
+         */
+        const val RETENTION_MONTHS = 24
+    }
 
     // =========================
     // Orders
@@ -866,6 +877,12 @@ class Repo(private val db: Db) {
         spend(from, amount, note, category = CashPolicy.INTERNAL_MOVE)
         income(to, amount, note, category = CashPolicy.INTERNAL_MOVE)
         audit("انتقال بین صندوق‌ها", "$from → $to — $amount ؋")
+        emit(
+            type = "انتقال بین صندوق‌ها",
+            aggregate = "transaction",
+            aggregateId = "$from→$to",
+            payload = "از=$from؛به=$to؛مبلغ=$amount"
+        )
         postJournal(
             note, "TRANSFER", "",
             listOf(
@@ -890,6 +907,12 @@ class Repo(private val db: Db) {
         val n = note.ifBlank { "دریافتی از $name" }
         income("WALLET", amount, n)
         audit("دریافت از مشتری", "$name — $amount ؋")
+        emit(
+            type = "دریافت از مشتری",
+            aggregate = "party",
+            aggregateId = name,
+            payload = "مشتری=$name؛مبلغ=$amount"
+        )
         addCustomerPayment(
             CustomerPayment(orderId = "", customerName = name, amount = amount, source = "MANUAL", note = n)
         )
@@ -987,6 +1010,12 @@ class Repo(private val db: Db) {
         if (!hasFunds(source, amount)) return false
         spend(source, amount, note, category = category)
         audit("ثبت هزینه", "$category — $amount ؋")
+        emit(
+            type = "ثبت هزینه",
+            aggregate = "transaction",
+            aggregateId = category,
+            payload = "دسته=$category؛مبلغ=$amount"
+        )
         postJournal(
             note.ifBlank { "هزینه: $category" }, "EXPENSE", "",
             listOf(
@@ -1242,6 +1271,56 @@ class Repo(private val db: Db) {
                 detail = detail
             )
         )
+    }
+
+    /**
+     * ثبتِ یک اتفاقِ واقع‌شده در صندوقِ خروجی.
+     *
+     * **باید داخلِ `db.atomic { … }` صدا زده شود.** کلِ ارزشِ این کار
+     * همین است: رویداد و دادهٔ اصلی در یک تراکنش می‌نشینند، پس
+     * نمی‌شود سندی ثبت شود و رویدادش نه — یا برعکس. اگر بیرون از
+     * تراکنش صدا زده شود، همان مسئلهٔ «دو نوشتنِ جدا» برمی‌گردد که
+     * مرزِ `Tx` برای بستنش ساخته شد. بررسیِ `eventtx` این را نگه
+     * می‌دارد.
+     *
+     * فعلاً **هیچ‌کس این جدول را نمی‌خواند.** عمدی است و در نقشهٔ
+     * مهاجرت گام ۳ نوشته شده: اول نوشتن راه بیفتد و چند هفته داده
+     * جمع شود، بعد بازتابِ حسابرسی روی همان سوار شود. این‌طور اگر
+     * شکلِ رویدادها غلط باشد، پیش از آنکه چیزی به آن تکیه کند معلوم
+     * می‌شود.
+     */
+    private suspend fun emit(
+        type: String,
+        aggregate: String,
+        aggregateId: String,
+        payload: String = ""
+    ) {
+        db.domainEventDao().insert(
+            DomainEvent(
+                type = type,
+                aggregate = aggregate,
+                aggregateId = aggregateId,
+                payload = payload,
+                user = CurrentUser.name,
+                role = CurrentUser.role
+            )
+        )
+    }
+
+    /**
+     * هرسِ رویدادهای پردازش‌شدهٔ کهنه.
+     *
+     * [RETENTION_MONTHS] ماه — تصمیمِ کارگاه. دلیلش: دو سالِ مالی
+     * کامل برای هر بازبینی یا اختلافِ حساب کافی است، و جدول بی‌مرز
+     * رشد نمی‌کند.
+     *
+     * رویدادِ **پردازش‌نشده** هرچقدر هم کهنه باشد نگه داشته می‌شود؛
+     * کهنه بودنش یعنی مصرف‌کننده‌ای نچرخیده، و پاک کردنش داده را از
+     * بین می‌برد نه اینکه جا باز کند.
+     */
+    suspend fun pruneEvents(now: Long = System.currentTimeMillis()): Int {
+        val cutoff = now - RETENTION_MONTHS * 30L * 24 * 60 * 60 * 1000
+        return db.domainEventDao().prune(cutoff)
     }
 
     // =========================

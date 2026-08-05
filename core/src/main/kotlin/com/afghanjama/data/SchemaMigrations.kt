@@ -79,8 +79,51 @@ val DESKTOP_STEPS: List<SchemaStep> get() = LEGACY_STEPS + SCHEMA_STEPS
  * آن‌وقت هر دو سکو باید نوشته شوند، نه یکی.
  */
 val SCHEMA_STEPS: List<SchemaStep> = listOf(
-    // هنوز خالی است. `DB_VERSION` برابرِ `DESKTOP_BASELINE` است، پس
-    // چیزی برای مهاجرت نیست. اولین گام اینجا می‌آید.
+
+    /*
+     * ۶۱ → ۶۲ — صندوقِ خروجیِ رویدادها.
+     *
+     * **اولین گامِ مشترک.** تا امروز این فهرست خالی بود و هر دو سکو
+     * روی ۶۱ می‌ایستادند؛ این گام از همین‌جا به هر دو می‌رسد
+     * (`sharedMigrations()` برای اندروید، `desktopMigrations()` برای
+     * ویندوز) — یک تعریف، دو اجرا.
+     *
+     * **چرا بی‌خطر است:** فقط `CREATE TABLE` و ایندکس. هیچ جدولِ
+     * موجودی خوانده یا نوشته نمی‌شود، پس روی دفترِ کارگاه — که
+     * سال‌ها داده دارد — کاری جز اضافه شدنِ یک جدولِ خالی نمی‌کند.
+     * برگشتش هم فقط `DROP TABLE` است.
+     *
+     * **چرا `IF NOT EXISTS`:** اگر مهاجرت نیمه‌کاره بماند و دوباره
+     * اجرا شود، `CREATE TABLE`ِ خالی می‌شکند و کاربر با دفترِ
+     * بازنشدنی می‌ماند. این شرط همان مسیر را بی‌خطر می‌کند.
+     *
+     * ستون‌ها عیناً با `DomainEvent` می‌خوانند. اگر یکی جا بماند،
+     * Room سرِ باز کردن با «اسکیما با انتظار نمی‌خواند» می‌شکند —
+     * و `schemacheck` پیش از آن قرمز می‌شود.
+     */
+    SchemaStep(
+        61, 62,
+        listOf(
+            """
+            CREATE TABLE IF NOT EXISTS domain_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                type TEXT NOT NULL,
+                aggregate TEXT NOT NULL,
+                aggregateId TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                user TEXT NOT NULL,
+                role TEXT NOT NULL,
+                at INTEGER NOT NULL,
+                processedAt INTEGER
+            )
+            """.trimIndent(),
+            "CREATE INDEX IF NOT EXISTS index_domain_events_at ON domain_events (at)",
+            "CREATE INDEX IF NOT EXISTS index_domain_events_processedAt " +
+                "ON domain_events (processedAt)",
+            "CREATE INDEX IF NOT EXISTS index_domain_events_aggregate_aggregateId " +
+                "ON domain_events (aggregate, aggregateId)"
+        )
+    )
 )
 
 /**

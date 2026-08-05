@@ -11,6 +11,41 @@ workflow. اگر همیشه خودتان در Android Studio خروجی می‌�
 
 ---
 
+## ⚠ یک کارِ یک‌باره که همین حالا لازم است
+
+`DB_VERSION` از ۶۱ به ۶۲ رفت (جدولِ `domain_events`). Room طرحِ هر
+نسخه را **هنگام ساخت** در `app/schemas/` و `desktop/schemas/`
+می‌نویسد، و آن فایل‌ها باید در گیت بمانند تا مهاجرتِ ۶۱→۶۲ آزمودنی
+باشد.
+
+تا وقتی این کار نشده، بررسیِ `schemacheck` در CI **قرمز** است. این
+عیبِ کد نیست؛ فایلی است که فقط ساختِ Gradle می‌تواند بسازد و در محیطِ
+عاملِ هوشمند ساخته نمی‌شود.
+
+**کاری که باید بکنید — یک بار:**
+
+1. در Android Studio: **Build → Rebuild Project**
+   (یا در ترمینال: `./gradlew :app:assembleDebug :desktop:compileKotlin`)
+2. بررسی کنید که این دو فایل ساخته شده‌اند:
+   - `app/schemas/com.afghanjama.data.AppDatabase/62.json`
+   - `desktop/schemas/com.afghanjama.desktop.data.DesktopDatabase/62.json`
+3. هر دو را کامیت و پوش کنید:
+
+```
+git add app/schemas desktop/schemas
+git commit -m "طرحِ نسخهٔ ۶۲"
+git push
+```
+
+بعد از این، CI دوباره سبز می‌شود.
+
+**نکتهٔ مهم:** اگر فایل ساخته نشد، `build/` را پاک کنید و دوباره
+بسازید. `DB_VERSION` یک `const val` است و سرِ کامپایل درجا نشانده
+می‌شود؛ ساختِ افزایشی گاهی KSP را دوباره اجرا نمی‌کند و طرح با نسخهٔ
+قدیمی می‌ماند.
+
+---
+
 ## گام ۱ — کلید بسازید (فقط یک بار، برای همیشه)
 
 در Android Studio:

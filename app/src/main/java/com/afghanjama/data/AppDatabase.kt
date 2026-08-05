@@ -9,6 +9,7 @@ import androidx.room.withTransaction
 import androidx.room.TypeConverters
 import com.afghanjama.data.dao.AttendanceDao
 import com.afghanjama.data.dao.AuditDao
+import com.afghanjama.data.dao.DomainEventDao
 import com.afghanjama.data.dao.BreakTimeDao
 import com.afghanjama.data.dao.CatalogDao
 import com.afghanjama.data.dao.CustomerMeasurementDao
@@ -37,6 +38,7 @@ import com.afghanjama.data.dao.SyncRequestDao
 import com.afghanjama.data.dao.TailorWageDao
 import com.afghanjama.data.entities.AttendanceRecord
 import com.afghanjama.data.entities.AuditLog
+import com.afghanjama.data.entities.DomainEvent
 import com.afghanjama.data.entities.BreakTime
 import com.afghanjama.data.entities.Customer
 import com.afghanjama.data.entities.CustomerMeasurement
@@ -114,6 +116,7 @@ import com.afghanjama.data.entities.WorkCost
         JournalEntry::class,
         JournalLine::class,
         AuditLog::class,
+        DomainEvent::class,
         SalaryPayment::class,
         BreakTime::class,
         SyncRequest::class,
@@ -182,6 +185,8 @@ abstract class AppDatabase : RoomDatabase(), Db {
     abstract override fun documentDao(): DocumentDao
     abstract override fun journalDao(): JournalDao
     abstract override fun auditDao(): AuditDao
+
+    abstract override fun domainEventDao(): DomainEventDao
     abstract override fun salaryDao(): SalaryDao
     abstract override fun breakTimeDao(): BreakTimeDao
     abstract override fun syncRequestDao(): SyncRequestDao
