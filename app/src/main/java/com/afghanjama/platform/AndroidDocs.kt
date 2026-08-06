@@ -1,6 +1,11 @@
 package com.afghanjama.platform
 
 import android.content.Context
+import com.afghanjama.data.entities.CustomerPayment
+import com.afghanjama.data.entities.Order
+import com.afghanjama.data.entities.OrderFabric
+import com.afghanjama.data.entities.OrderWorkItem
+import com.afghanjama.pdf.InvoicePdf
 import com.afghanjama.data.entities.Document
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.pdf.DocumentRenderer
@@ -44,6 +49,44 @@ class AndroidDocs(private val ctx: Context) : Docs {
      * نشستنش است — از ViewModel به این‌سوی مرز، تا صفحهٔ اسناد
      * بتواند به `:core` برود و روی ویندوز هم باز شود.
      */
+    /**
+     * فاکتورِ سفارش — همان `InvoicePdf`ی که تا امروز صفحهٔ جزئیات
+     * مستقیم صدا می‌زد. کاغذ عوض نشد؛ فقط از این‌سوی مرز می‌آید.
+     */
+    override suspend fun orderInvoice(
+        order: Order,
+        fabrics: List<OrderFabric>,
+        workItems: List<OrderWorkItem>,
+        payments: List<CustomerPayment>,
+        action: SheetAction
+    ): String? {
+        val file = runCatching {
+            withContext(Dispatchers.IO) {
+                InvoicePdf.create(ctx, order, fabrics, workItems, payments)
+            }
+        }.getOrNull() ?: return "ساخت فاکتور ناموفق بود."
+
+        return when (action) {
+            SheetAction.PDF -> {
+                ShareUtil.shareFile(ctx, file, "application/pdf", "اشتراک فاکتور")
+                null
+            }
+
+            SheetAction.PRINT ->
+                if (PrintKit.print(ctx, file, order.orderCode)) null
+                else "چاپ ممکن نشد؛ PDF یا تصویر را بفرستید."
+
+            SheetAction.IMAGE -> {
+                val jpg = File(ShareUtil.sharedDir(ctx), "${order.orderCode}.jpg")
+                val ok = withContext(Dispatchers.IO) { PrintKit.toImage(file, jpg) }
+                if (ok) {
+                    ShareUtil.shareFile(ctx, jpg, "image/jpeg", "اشتراک تصویر فاکتور")
+                    null
+                } else "تبدیل به تصویر انجام نشد؛ همان PDF را بفرستید."
+            }
+        }
+    }
+
     override suspend fun documentAction(
         repo: Repo,
         doc: Document,

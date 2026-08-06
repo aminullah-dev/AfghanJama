@@ -16,6 +16,10 @@ import com.afghanjama.ui.vm.IncomeStatement
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.prefs.Settings
 import com.afghanjama.pdf.TextMeasurer
+import com.afghanjama.data.entities.CustomerPayment
+import com.afghanjama.data.entities.Order
+import com.afghanjama.data.entities.OrderFabric
+import com.afghanjama.data.entities.OrderWorkItem
 import com.afghanjama.data.entities.Document
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.pdf.Paper
@@ -100,6 +104,42 @@ class DesktopDocsBridge(private val settings: Settings) : Docs {
      * می‌شود، و پیام می‌گوید چه شد — سکوت بدترین حالت است، چون کاربر
      * فکر می‌کند کار انجام شده.
      */
+    /** فاکتورِ سفارش با رندرِ ویندوز — چیدمانِ مشترکِ `invoiceSheets`. */
+    override suspend fun orderInvoice(
+        order: Order,
+        fabrics: List<OrderFabric>,
+        workItems: List<OrderWorkItem>,
+        payments: List<CustomerPayment>,
+        action: SheetAction
+    ): String? = withContext(Dispatchers.IO) {
+        val file = runCatching {
+            DesktopDocs.invoice(order, fabrics, workItems, payments, shop())
+        }.getOrNull() ?: return@withContext "ساخت فاکتور ناموفق بود."
+
+        fun open() = runCatching {
+            if (Desktop.isDesktopSupported()) Desktop.getDesktop().open(file)
+        }
+
+        when (action) {
+            SheetAction.PDF -> { open(); null }
+
+            SheetAction.PRINT -> {
+                val canPrint = Desktop.isDesktopSupported() &&
+                    Desktop.getDesktop().isSupported(Desktop.Action.PRINT)
+                if (canPrint && runCatching { Desktop.getDesktop().print(file) }.isSuccess) null
+                else {
+                    open()
+                    "چاپگری در دسترس نبود — PDF باز شد تا از همان‌جا چاپ کنید."
+                }
+            }
+
+            SheetAction.IMAGE -> {
+                open()
+                "تبدیل به تصویر روی ویندوز هنوز نیست — PDF باز شد."
+            }
+        }
+    }
+
     override suspend fun documentAction(
         repo: Repo,
         doc: Document,

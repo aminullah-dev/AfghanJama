@@ -1,6 +1,10 @@
 package com.afghanjama.platform
 
 import androidx.compose.runtime.staticCompositionLocalOf
+import com.afghanjama.data.entities.CustomerPayment
+import com.afghanjama.data.entities.Order
+import com.afghanjama.data.entities.OrderFabric
+import com.afghanjama.data.entities.OrderWorkItem
 import com.afghanjama.data.entities.Document
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.pdf.Paper
@@ -67,6 +71,23 @@ interface Docs {
      * برمی‌گرداند: `null` اگر انجام شد، وگرنه پیامی که باید به کاربر
      * نشان داده شود.
      */
+    /**
+     * فاکتورِ یک سفارش — همان الگوی [documentAction]، برای سندی که
+     * سطرِ `documents` نیست بلکه از خودِ سفارش ساخته می‌شود.
+     *
+     * جدا ماند و در [documentAction] ادغام نشد چون ورودی‌اش فرق
+     * دارد: اینجا سفارش و پارچه و کارها و پرداخت‌ها لازم است، و
+     * صفحه از قبل هر چهار تا را در دست دارد. گرفتنشان از دفتر یعنی
+     * همان پرس‌وجوها دو بار.
+     */
+    suspend fun orderInvoice(
+        order: Order,
+        fabrics: List<OrderFabric>,
+        workItems: List<OrderWorkItem>,
+        payments: List<CustomerPayment>,
+        action: SheetAction
+    ): String?
+
     suspend fun documentAction(
         repo: Repo,
         doc: Document,

@@ -61,6 +61,8 @@ import com.afghanjama.ui.screens.DailyTradeScreen
 import com.afghanjama.ui.vm.ActionCenterViewModel
 import com.afghanjama.ui.screens.DocumentsScreen
 import com.afghanjama.ui.vm.DocumentsViewModel
+import com.afghanjama.ui.screens.OrderDetailScreen
+import com.afghanjama.ui.vm.OrderDetailViewModel
 import com.afghanjama.ui.screens.ShopProfileScreen
 import com.afghanjama.ui.screens.SewingScreen
 import com.afghanjama.ui.screens.StockLedgerScreen
@@ -171,6 +173,11 @@ fun Shell(repo: Repo?, role: UserRole = UserRole.MANAGER) {
     // «برگشت» بسته. پس یک حالتِ کوچک کنارِ بخشِ جاری کافی است.
     var openCustomer by remember { mutableStateOf<Long?>(null) }
 
+    // سفارش هم مثلِ مشتری بخشِ نوار نیست: از دلِ فهرست باز می‌شود و با
+    // «برگشت» بسته. تا امروز این کلیک روی ویندوز بی‌اثر بود چون صفحهٔ
+    // جزئیات در `:app` گیر کرده بود.
+    var openOrder by remember { mutableStateOf<String?>(null) }
+
     // اگر دفتر باز نشد، فقط «وضعیت» می‌ماند — چون همان است که خطا را
     // نشان می‌دهد. بردنِ کاربر به صفحه‌ای که دادهٔ خالی نشان دهد بدتر
     // از نبودنِ آن صفحه است.
@@ -184,20 +191,29 @@ fun Shell(repo: Repo?, role: UserRole = UserRole.MANAGER) {
         Sidebar(section) {
             section = it
             openCustomer = null
+            openOrder = null
         }
 
         Box(Modifier.fillMaxSize()) {
+            val orderId = openOrder
             val customerId = openCustomer
+            if (orderId != null) {
+                val vm: OrderDetailViewModel = viewModel { OrderDetailViewModel(repo) }
+                OrderDetailScreen(
+                    vm = vm,
+                    orderIdText = orderId,
+                    canReturnSale = role == UserRole.MANAGER,
+                    canEdit = role == UserRole.MANAGER,
+                    onBack = { openOrder = null }
+                )
+            } else
             if (section == Section.Customers && customerId != null) {
                 val vm: CustomerDetailViewModel = viewModel { CustomerDetailViewModel(repo) }
                 CustomerDetailScreen(
                     vm,
                     customerId,
                     onBack = { openCustomer = null },
-                    // صفحهٔ سفارش هنوز در `:app` است (چاپ و عکس نگهش
-                    // داشته). تا آن وقت کلیک بی‌اثر است نه اینکه به جای
-                    // اشتباه برود.
-                    onOpenOrder = {}
+                    onOpenOrder = { openOrder = it.toString() }
                 )
             } else {
                 SectionContent(
@@ -205,7 +221,8 @@ fun Shell(repo: Repo?, role: UserRole = UserRole.MANAGER) {
                     repo = repo,
                     role = role,
                     go = { section = it },
-                    onOpenCustomer = { openCustomer = it }
+                    onOpenCustomer = { openCustomer = it },
+                    onOpenOrder = { openOrder = it }
                 )
             }
         }
@@ -266,8 +283,10 @@ internal fun SectionContent(
     repo: Repo,
     role: UserRole,
     go: (Section) -> Unit,
-    onOpenCustomer: (Long) -> Unit
+    onOpenCustomer: (Long) -> Unit,
+    onOpenOrder: (String) -> Unit = {}
 ) {
+
     val back = { go(Section.Overview) }
 
     when (section) {
@@ -335,14 +354,14 @@ internal fun SectionContent(
                 // `:app`اند. بی‌اثر می‌مانند تا جای اشتباه نبرند.
                 onGoSettings = {},
                 onGoCutting = {},
-                onOpenDetail = {},
+                onOpenDetail = { onOpenOrder(it.id.toString()) },
                 onBack = back
             )
         }
 
         Section.OrderSearch -> {
             val vm: OrderSearchViewModel = viewModel { OrderSearchViewModel(repo) }
-            OrderSearchScreen(vm, onBack = back, onOpenDetail = {})
+            OrderSearchScreen(vm, onBack = back, onOpenDetail = { onOpenOrder(it.id.toString()) })
         }
 
         Section.ProductionOrder -> {

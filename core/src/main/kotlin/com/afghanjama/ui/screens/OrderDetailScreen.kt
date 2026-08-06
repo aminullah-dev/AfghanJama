@@ -21,7 +21,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.PictureAsPdf
-import androidx.compose.material3.AlertDialog
+import com.afghanjama.ui.platform.AppAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -46,7 +46,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.afghanjama.ui.components.OrderCodeLine
@@ -55,8 +54,11 @@ import com.afghanjama.data.entities.OrderStatus
 import com.afghanjama.ui.components.DeliverDialog
 import com.afghanjama.ui.components.MeasurementsBlock
 import com.afghanjama.ui.components.BusyButton
+import com.afghanjama.platform.LocalDocs
+import com.afghanjama.platform.LocalPhotos
+import com.afghanjama.platform.LocalSystemActions
+import com.afghanjama.ui.components.SheetAction
 import com.afghanjama.ui.components.OrderPhotoStrip
-import com.afghanjama.util.PhotoStore
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.format.PersianDate
@@ -67,10 +69,7 @@ import com.afghanjama.ui.format.dueDaysLate
 import com.afghanjama.ui.format.dueDaysLeft
 import com.afghanjama.ui.format.isOverdue
 import com.afghanjama.prefs.SalePrefs
-import com.afghanjama.pdf.InvoicePdf
 import com.afghanjama.ui.vm.OrderDetailViewModel
-import com.afghanjama.util.PrintKit
-import com.afghanjama.util.ShareUtil
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -122,7 +121,10 @@ fun OrderDetailScreen(
     var showEdit by remember { mutableStateOf(false) }
     var showDelete by remember { mutableStateOf(false) }
 
-    val context = LocalContext.current
+    // به‌جای `Context`: مرزهایی که هر دو سکو دارند.
+    val docs = LocalDocs.current
+    val system = LocalSystemActions.current
+    val photos = LocalPhotos.current
 
     val settings = LocalSettings.current
     val scope = rememberCoroutineScope()
@@ -164,7 +166,7 @@ fun OrderDetailScreen(
         }
         var dueDaysText by remember(o.id) { mutableStateOf(initialDueDays) }
 
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showEdit = false },
             title = { Text("ویرایش مشخصات سفارش") },
             text = {
@@ -260,7 +262,7 @@ fun OrderDetailScreen(
 
     // ---------- دیالوگ تأیید حذف ----------
     if (showDelete) order?.let { o ->
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showDelete = false },
             title = { Text("حذف سفارش ${o.shortCode}؟") },
             text = {
@@ -428,30 +430,23 @@ fun OrderDetailScreen(
             }
 
             // ---------- فاکتور سفارش ----------
+            //
+            // ساخت و چاپ و اشتراک از مرزِ `Docs` می‌گذرند. تا دیروز
+            // همین‌جا `InvoicePdf`، `PrintKit` و `ShareUtil` مستقیم صدا
+            // زده می‌شدند و همان سه خط، کلِ این صفحهٔ ۹۹۹ خطی را در
+            // `:app` نگه داشته بود.
+            //
+            // کاغذِ اندروید عوض نشد: آن‌سوی مرز همان `InvoicePdf` اجرا
+            // می‌شود. ویندوز رندرِ خودش را دارد.
             item {
                 var sheetBusy by remember { mutableStateOf(false) }
 
-                /**
-                 * یک بار برگه ساخته می‌شود و هر سه کار روی همان انجام می‌گیرد.
-                 * دکمه تا پایانِ کارِ واقعی قفل می‌ماند — نه تا پایانِ ساختِ
-                 * فایل — وگرنه در حالتِ تصویر زودتر باز می‌شد.
-                 */
-                fun withSheet(then: suspend (java.io.File) -> Unit) {
+                fun run(action: SheetAction) {
                     if (sheetBusy) return
                     sheetBusy = true
                     scope.launch {
-                        runCatching {
-                            val file = withContext(Dispatchers.IO) {
-                                InvoicePdf.create(context, o, fabrics, workItems, payments)
-                            }
-                            then(file)
-                        }.onFailure {
-                            android.widget.Toast.makeText(
-                                context,
-                                "ساخت فاکتور ناموفق بود: ${it.message}",
-                                android.widget.Toast.LENGTH_LONG
-                            ).show()
-                        }
+                        val problem = docs.orderInvoice(o, fabrics, workItems, payments, action)
+                        if (problem != null) vm.showMessage(problem)
                         sheetBusy = false
                     }
                 }
@@ -459,17 +454,7 @@ fun OrderDetailScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     BusyButton(
                         text = "چاپ",
-                        onClick = {
-                            withSheet { file ->
-                                if (!PrintKit.print(context, file, o.orderCode)) {
-                                    android.widget.Toast.makeText(
-                                        context,
-                                        "چاپ ممکن نشد؛ PDF یا تصویر را بفرستید.",
-                                        android.widget.Toast.LENGTH_LONG
-                                    ).show()
-                                }
-                            }
-                        },
+                        onClick = { run(SheetAction.PRINT) },
                         modifier = Modifier.weight(1f),
                         busy = sheetBusy,
                         busyText = "…",
@@ -477,13 +462,7 @@ fun OrderDetailScreen(
                     )
                     BusyButton(
                         text = "PDF",
-                        onClick = {
-                            withSheet { file ->
-                                ShareUtil.shareFile(
-                                    context, file, "application/pdf", "اشتراک فاکتور"
-                                )
-                            }
-                        },
+                        onClick = { run(SheetAction.PDF) },
                         modifier = Modifier.weight(1f),
                         busy = sheetBusy,
                         busyText = "…",
@@ -491,23 +470,7 @@ fun OrderDetailScreen(
                     )
                     BusyButton(
                         text = "تصویر",
-                        onClick = {
-                            withSheet { file ->
-                                val jpg = java.io.File(
-                                    ShareUtil.sharedDir(context), "${o.orderCode}.jpg"
-                                )
-                                val ok = withContext(Dispatchers.IO) {
-                                    PrintKit.toImage(file, jpg)
-                                }
-                                if (ok) ShareUtil.shareFile(
-                                    context, jpg, "image/jpeg", "اشتراک تصویر فاکتور"
-                                ) else android.widget.Toast.makeText(
-                                    context,
-                                    "تبدیل به تصویر انجام نشد؛ همان PDF را بفرستید.",
-                                    android.widget.Toast.LENGTH_LONG
-                                ).show()
-                            }
-                        },
+                        onClick = { run(SheetAction.IMAGE) },
                         modifier = Modifier.weight(1f),
                         busy = sheetBusy,
                         busyText = "…",
@@ -612,15 +575,13 @@ fun OrderDetailScreen(
                             )
                             TextButton(
                                 onClick = {
-                                    val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                                        type = "text/plain"
-                                        putExtra(
-                                            android.content.Intent.EXTRA_TEXT,
-                                            deliveryReceipt(CompanyPrefs.shopName(settings), o, payments.sumOf { it.amount })
+                                    system.shareText(
+                                        title = "اشتراک رسید تحویل",
+                                        text = deliveryReceipt(
+                                            CompanyPrefs.shopName(settings),
+                                            o,
+                                            payments.sumOf { it.amount }
                                         )
-                                    }
-                                    ShareUtil.launchChooser(
-                                        context, intent, "اشتراک رسید تحویل"
                                     )
                                 },
                                 modifier = Modifier.fillMaxWidth()
@@ -799,7 +760,7 @@ fun OrderDetailScreen(
                             photos = photos,
                             canEdit = canEdit,
                             onCaptured = { vm.addPhoto(it) },
-                            onDelete = { p -> vm.deletePhoto(p) { PhotoStore.delete(context, it) } }
+                            onDelete = { p -> vm.deletePhoto(p) { photos.delete(it) } }
                         )
                     }
                 }

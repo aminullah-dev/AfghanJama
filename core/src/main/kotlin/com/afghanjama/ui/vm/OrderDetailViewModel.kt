@@ -114,6 +114,16 @@ class OrderDetailViewModel(private val repo: Repo) : ViewModel() {
     fun clearMessage() = _ui.update { it.copy(message = null, isError = false) }
 
     /**
+     * پیامی که از مرزِ سکو برگشته — مثلاً «چاپ ممکن نشد».
+     *
+     * پیش از این صفحه خودش `Toast` می‌ساخت، که اندرویدی بود و همان
+     * یک خط صفحه را در `:app` نگه می‌داشت. حالا پیام از همان مسیرِ
+     * بقیهٔ پیام‌های این صفحه می‌گذرد و روی هر دو سکو دیده می‌شود.
+     */
+    fun showMessage(text: String) =
+        _ui.update { it.copy(message = text, isError = true) }
+
+    /**
      * ویرایش مشخصات سفارش (فقط مدیر). مرحله، مالیات‌ها و جدول‌های فرزند
      * دست نمی‌خورند — فقط مشخصات ظاهری/قراردادی.
      */
