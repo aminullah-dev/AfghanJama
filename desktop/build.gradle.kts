@@ -483,6 +483,10 @@ val screenSmoke by tasks.registering(JavaExec::class) {
     dependsOn(duplicateClasses)
     mainClass.set("com.afghanjama.desktop.ScreenSmokeKt")
     jvmArgs("-Dfile.encoding=UTF-8", "-Dstdout.encoding=UTF-8")
+    // عکس‌ها در `build/screens` نسبت به همین پوشه نوشته می‌شوند.
+    // صریح گذاشته شد چون پیش‌فرضِ `JavaExec` تضمین‌شده نیست و اگر
+    // جای دیگری بیفتد، مرحلهٔ بارگذاریِ CI بی‌صدا خالی بالا می‌رود.
+    workingDir = projectDir
     // بی این، خروجیِ فارسی روی رانرِ ویندوز `?` می‌شود و گزارشِ خطا
     // ناخواناست — همان چیزی که باید خوانده شود وقتی قرمز شد.
     doFirst {

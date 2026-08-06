@@ -71,7 +71,27 @@ private class Store : ViewModelStoreOwner {
  * می‌گذارد. اگر اینجا کم گذاشته شود، آزمون چیزی را می‌سنجد که برنامه
  * نیست.
  */
-private fun renderOnce(settings: com.afghanjama.prefs.Settings, body: @Composable () -> Unit) {
+/**
+ * پوشه‌ای که عکسِ صفحه‌ها در آن می‌نشیند.
+ *
+ * **چرا عکس گرفته می‌شود.** تا امروز این آزمون فقط می‌گفت «ترکیب شد و
+ * ترکید یا نه». ولی صفحه‌ای می‌تواند بی‌عیب رسم شود و همچنان غلط باشد:
+ * متنِ بریده، ستونِ خفه‌شده، رنگی که خوانده نمی‌شود. هیچ‌کدام استثنا
+ * نمی‌دهند.
+ *
+ * حالا هر فریم روی دیسک می‌نشیند و CI آن را به‌عنوانِ artifact بالا
+ * می‌برد. یعنی بدونِ داشتنِ یک ویندوزِ واقعی می‌شود دید پنجره **چه
+ * شکلی است**، نه فقط اینکه نمرد.
+ */
+private val shotDir: java.io.File by lazy {
+    java.io.File("build/screens").apply { mkdirs() }
+}
+
+private fun renderOnce(
+    settings: com.afghanjama.prefs.Settings,
+    shotName: String? = null,
+    body: @Composable () -> Unit
+) {
     ImageComposeScene(
         width = 1280,
         height = 800,
@@ -107,7 +127,18 @@ private fun renderOnce(settings: com.afghanjama.prefs.Settings, body: @Composabl
     }.use { scene ->
         // رسمِ واقعی، نه فقط ترکیب: چیدمان و کشیدن هم باید جواب بدهند،
         // وگرنه نیمی از خطاها دیده نمی‌شوند.
-        scene.render()
+        val image = scene.render()
+
+        // نوشتنِ عکس عمداً داخلِ `runCatching` است: اگر رمزگذاری روی
+        // رانری شکست بخورد، نباید آزمونی را قرمز کند که کارش سنجیدنِ
+        // **رسم** است نه ذخیره‌سازی.
+        if (shotName != null) {
+            runCatching {
+                image.encodeToData()?.bytes?.let { bytes ->
+                    java.io.File(shotDir, "$shotName.png").writeBytes(bytes)
+                }
+            }
+        }
     }
 }
 
@@ -127,7 +158,7 @@ fun main() {
 
     fun check(id: String, title: String, body: @Composable () -> Unit) {
         try {
-            renderOnce(settings, body)
+            renderOnce(settings, id, body)
             println("OK    ${id.padEnd(16)} ($title)")
         } catch (t: Throwable) {
             failed++
@@ -154,6 +185,8 @@ fun main() {
 
     val total = Section.entries.size + 1
     println("=".repeat(52))
+    val shots = shotDir.listFiles { f: java.io.File -> f.name.endsWith(".png") }?.size ?: 0
+    println("screenshots: $shots in ${shotDir.absolutePath}")
     if (failed == 0) {
         println("all $total screens composed and rendered")
     } else {
