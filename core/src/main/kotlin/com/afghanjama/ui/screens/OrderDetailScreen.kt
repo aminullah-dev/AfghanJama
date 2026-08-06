@@ -124,7 +124,7 @@ fun OrderDetailScreen(
     // به‌جای `Context`: مرزهایی که هر دو سکو دارند.
     val docs = LocalDocs.current
     val system = LocalSystemActions.current
-    val photos = LocalPhotos.current
+    val photoStore = LocalPhotos.current
 
     val settings = LocalSettings.current
     val scope = rememberCoroutineScope()
@@ -760,7 +760,7 @@ fun OrderDetailScreen(
                             photos = photos,
                             canEdit = canEdit,
                             onCaptured = { vm.addPhoto(it) },
-                            onDelete = { p -> vm.deletePhoto(p) { photos.delete(it) } }
+                            onDelete = { p -> vm.deletePhoto(p) { photoStore.delete(it) } }
                         )
                     }
                 }
