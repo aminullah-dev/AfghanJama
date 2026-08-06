@@ -59,6 +59,8 @@ import com.afghanjama.ui.nav.Routes
 import com.afghanjama.ui.screens.ActionCenterScreen
 import com.afghanjama.ui.screens.DailyTradeScreen
 import com.afghanjama.ui.vm.ActionCenterViewModel
+import com.afghanjama.ui.screens.DocumentsScreen
+import com.afghanjama.ui.vm.DocumentsViewModel
 import com.afghanjama.ui.screens.ShopProfileScreen
 import com.afghanjama.ui.screens.SewingScreen
 import com.afghanjama.ui.screens.StockLedgerScreen
@@ -139,6 +141,7 @@ internal enum class Section(val title: String) {
     Performance("کارکرد"),
 
     // بقیه
+    Documents("اسناد"),
     Reports("گزارش‌ها"),
     Audit("رسیدگی"),
     MasterData("اطلاعات پایه"),
@@ -284,6 +287,22 @@ internal fun SectionContent(
                 onNavigate = { route -> sectionForRoute(route)?.let { go(it) } },
                 onBack = back
             )
+        }
+
+        /*
+         * اسناد — فاکتور، رسید، سندِ مالی.
+         *
+         * تا امروز فقط روی گوشی بود، چون ViewModelش `Context`
+         * می‌گرفت و مستقیم PDF می‌کشید. حالا تصمیم در `:core` است و
+         * رسم آن‌سوی مرزِ `Docs` — پس ویندوز با رندرِ **خودش** همان
+         * صفحه را نشان می‌دهد و کاغذِ اندروید دست‌نخورده ماند.
+         *
+         * `qr` داده نمی‌شود: روی پی‌سی کسی رسید را با گوشیِ خودش
+         * اسکن نمی‌کند.
+         */
+        Section.Documents -> {
+            val vm: DocumentsViewModel = viewModel { DocumentsViewModel(repo) }
+            DocumentsScreen(vm = vm, onBack = back)
         }
 
         Section.DailyTrade -> DailyTradeScreen(

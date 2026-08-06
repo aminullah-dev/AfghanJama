@@ -1,6 +1,10 @@
 package com.afghanjama.platform
 
 import androidx.compose.runtime.staticCompositionLocalOf
+import com.afghanjama.data.entities.Document
+import com.afghanjama.data.repo.Repo
+import com.afghanjama.pdf.Paper
+import com.afghanjama.ui.components.SheetAction
 import com.afghanjama.data.entities.LedgerEntry
 import com.afghanjama.pdf.SheetDoc
 import com.afghanjama.pdf.StatementData
@@ -41,6 +45,34 @@ interface Docs {
      * کارگاه باشد — همان چیزی که در واتس‌اپ دیده می‌شود.
      */
     suspend fun share(doc: SheetDoc, fileName: String, title: String)
+
+    /**
+     * یک سندِ دفتر را می‌سازد و کارِ خواسته‌شده را رویش انجام می‌دهد.
+     *
+     * **چرا این یکی `SheetDoc` نمی‌گیرد و خودِ سطرِ سند را می‌گیرد.**
+     * بقیهٔ متدهای این مرز چیدمانِ آماده می‌گیرند، چون چیدمانشان
+     * مشترک است. اسنادِ دفتر این‌طور نیستند: اندروید فاکتور و رسید را
+     * با `PdfKit` می‌کشد و ویندوز با `SheetPdf` — و **ظاهرِ کاغذی که
+     * کارگاه امروز چاپ می‌کند نباید عوض شود**. یکی‌کردنشان تصمیمِ
+     * کارفرماست، نه اثرِ جانبیِ پرتابل کردنِ یک صفحه (در
+     * `docs/WINDOWS.md` نوشته شده).
+     *
+     * پس قرارداد اینجا **کار** است نه چیدمان: «این سند را چاپ کن /
+     * PDF بده / تصویر بده». هر سکو با رندرِ خودش انجامش می‌دهد و
+     * کاغذِ هیچ‌کدام تکان نمی‌خورد.
+     *
+     * [repo] لازم است چون سندِ ردیف‌دار (فاکتورِ فروش و خرید) ردیف‌هایش
+     * را از دفتر می‌خواند، نه از خودِ سطرِ سند.
+     *
+     * برمی‌گرداند: `null` اگر انجام شد، وگرنه پیامی که باید به کاربر
+     * نشان داده شود.
+     */
+    suspend fun documentAction(
+        repo: Repo,
+        doc: Document,
+        paper: Paper,
+        action: SheetAction
+    ): String?
 
     // ---- سندهایی که هنوز چیدمانِ مشترک ندارند ----
     //

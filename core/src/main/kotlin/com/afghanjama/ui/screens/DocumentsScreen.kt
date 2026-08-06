@@ -22,7 +22,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.AlertDialog
+import com.afghanjama.ui.platform.AppAlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -44,10 +44,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.afghanjama.util.ShareUtil
 import com.afghanjama.data.entities.Document
 import com.afghanjama.data.entities.docTypeLabel
 import com.afghanjama.prefs.LocalSettings
@@ -55,8 +53,9 @@ import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.components.SheetActions
+import com.afghanjama.platform.LocalDocs
+import com.afghanjama.platform.LocalSystemActions
 import com.afghanjama.ui.vm.DocumentsViewModel
-import com.afghanjama.util.QrGen
 
 private fun receiptText(shop: String, d: Document): String = buildString {
     appendLine("$shop — ${docTypeLabel(d.type)}")
@@ -71,10 +70,24 @@ private fun receiptText(shop: String, d: Document): String = buildString {
 @Composable
 fun DocumentsScreen(
     vm: DocumentsViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    /**
+     * نشانِ QRِ متنِ رسید — هر سکو خودش می‌کشد.
+     *
+     * ساختِ ماتریسِ QR جاواست و پرتابل، ولی تبدیلش به تصویر نیست:
+     * اندروید `Bitmap` دارد و ویندوز `BufferedImage`. به‌جای آوردنِ
+     * ZXing به `:core` و `:desktop` برای یک نشانِ ۱۲۰ نقطه‌ای، همان
+     * تکه به سکو سپرده شد.
+     *
+     * `null` یعنی این سکو QR ندارد و صفحه بی آن کارش را می‌کند —
+     * روی پی‌سی کسی رسید را با گوشیِ خودش اسکن نمی‌کند.
+     */
+    qr: (@Composable (String) -> Unit)? = null
 ) {
-    val context = LocalContext.current
+    // به‌جای `Context`: سه مرزی که هر دو سکو دارند.
     val settings = LocalSettings.current
+    val docs = LocalDocs.current
+    val system = LocalSystemActions.current
     val documents by vm.documents.collectAsState()
 
     var typeFilter by remember { mutableStateOf<String?>(null) }
@@ -83,7 +96,7 @@ fun DocumentsScreen(
     val message by vm.message.collectAsState()
 
     message?.let { msg ->
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { vm.clearMessage() },
             text = { Text(msg) },
             confirmButton = { TextButton(onClick = { vm.clearMessage() }) { Text("باشه") } }
@@ -96,17 +109,14 @@ fun DocumentsScreen(
     // ---------- دیالوگ سند ----------
     selected?.let { d ->
         val shop = CompanyPrefs.shopName(settings)
-        val qr = remember(d.id, shop) { QrGen.bitmap(receiptText(shop, d)) }
-        var paper by remember(d.id) { mutableStateOf(vm.paperFor(context, d)) }
-        AlertDialog(
+        var paper by remember(d.id) { mutableStateOf(vm.paperFor(settings, d)) }
+        AppAlertDialog(
             onDismissRequest = { if (!working) selected = null },
             confirmButton = {
                 TextButton(onClick = {
-                    ShareUtil.shareText(
-                        context,
-                        text = receiptText(shop, d),
-                        chooserTitle = "اشتراک‌گذاری متن",
-                        subject = "سند ${d.number}"
+                    system.shareText(
+                        title = "اشتراک‌گذاری متن",
+                        text = receiptText(shop, d)
                     )
                 }) {
                     Icon(Icons.Default.Share, contentDescription = null)
@@ -120,11 +130,7 @@ fun DocumentsScreen(
             text = {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     if (qr != null) {
-                        Image(
-                            bitmap = qr.asImageBitmap(),
-                            contentDescription = "QR",
-                            modifier = Modifier.size(120.dp)
-                        )
+                        qr(receiptText(shop, d))
                         Spacer(Modifier.height(8.dp))
                     }
                     Text(receiptText(shop, d), modifier = Modifier.fillMaxWidth())
@@ -133,10 +139,10 @@ fun DocumentsScreen(
                         paper = paper,
                         onPaperChange = {
                             paper = it
-                            vm.rememberPaper(context, d, it)
+                            vm.rememberPaper(settings, d, it)
                         },
                         busy = working,
-                        onAction = { vm.act(context, d, paper, it) }
+                        onAction = { vm.act(docs, d, paper, it) }
                     )
                 }
             }

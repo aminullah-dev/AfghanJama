@@ -54,6 +54,7 @@ import com.afghanjama.ui.screens.CustomersScreen
 import com.afghanjama.ui.screens.CuttingScreen
 import com.afghanjama.ui.screens.DailyTradeScreen
 import com.afghanjama.ui.screens.DeliveryQueueScreen
+import com.afghanjama.ui.components.QrBadge
 import com.afghanjama.ui.screens.DocumentsScreen
 import com.afghanjama.ui.screens.FinanceHubScreen
 import com.afghanjama.ui.screens.FinishedWarehouseScreen
@@ -610,7 +611,10 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                 val documentsVm = viewModel<DocumentsViewModel>(vmOwner, factory = factory)
                 DocumentsScreen(
                     vm = documentsVm,
-                    onBack = { navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    // نشانِ QR فقط روی گوشی معنا دارد و فقط گوشی
+                    // می‌تواند بسازدش.
+                    qr = { text -> QrBadge(text) }
                 )
             }
 

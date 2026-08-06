@@ -23,20 +23,15 @@ import java.io.File
 object DocumentRenderer {
 
     /** نوع‌هایی که ردیف دارند و باید جدول‌دار چاپ شوند. */
-    private val ITEMISED = setOf("SALE", "PURCHASE")
+    private val ITEMISED = DocKinds.ITEMISED
 
-    /** نوع‌هایی که رسیدِ پول‌اند نه فاکتور. */
-    private val RECEIPTS = setOf(
-        "PAYMENT", "RECEIPT", "CUSTOMER_RECEIPT", "SUPPLIER_PAYMENT",
-        "WAGE_RECEIPT", "SALARY_RECEIPT"
-    )
+    private val RECEIPTS = DocKinds.RECEIPTS
 
-    /** رسیدِ پول است یا فاکتور؟ کاغذ و چیدمانِ این دو فرق دارد. */
-    fun isReceipt(type: String): Boolean = type in RECEIPTS
+    /** رسیدِ پول است یا فاکتور؟ حالا یک تعریف، در `:core`. */
+    fun isReceipt(type: String): Boolean = DocKinds.isReceipt(type)
 
     /** کاغذِ منطقی برای هر نوع سند، وقتی کاربر چیزی انتخاب نکرده. */
-    fun defaultPaper(type: String): Paper =
-        if (isReceipt(type)) Paper.ROLL80 else Paper.A5
+    fun defaultPaper(type: String): Paper = DocKinds.defaultPaper(type)
 
     suspend fun render(
         context: Context,

@@ -1,6 +1,13 @@
 package com.afghanjama.platform
 
 import android.content.Context
+import com.afghanjama.data.entities.Document
+import com.afghanjama.data.repo.Repo
+import com.afghanjama.pdf.DocumentRenderer
+import com.afghanjama.pdf.Paper
+import com.afghanjama.util.PrintKit
+import com.afghanjama.ui.components.SheetAction
+import java.io.File
 import com.afghanjama.data.entities.LedgerEntry
 import com.afghanjama.pdf.AndroidTextMeasurer
 import com.afghanjama.pdf.FinancialStatementsPdf
@@ -28,6 +35,45 @@ class AndroidDocs(private val ctx: Context) : Docs {
     private val fonts: PdfKit.Fonts by lazy { PdfKit.fonts(ctx) }
 
     override val measurer: TextMeasurer by lazy { AndroidTextMeasurer(fonts) }
+
+    /**
+     * همان کاری که تا امروز `DocumentsViewModel` مستقیم می‌کرد.
+     *
+     * کد **کلمه‌به‌کلمه** از آنجا آمد و عمداً دست نخورد: خروجی‌اش
+     * کاغذی است که کارگاه هر روز چاپ می‌کند. آنچه عوض شد فقط جای
+     * نشستنش است — از ViewModel به این‌سوی مرز، تا صفحهٔ اسناد
+     * بتواند به `:core` برود و روی ویندوز هم باز شود.
+     */
+    override suspend fun documentAction(
+        repo: Repo,
+        doc: Document,
+        paper: Paper,
+        action: SheetAction
+    ): String? {
+        val file = runCatching {
+            withContext(Dispatchers.IO) { DocumentRenderer.render(ctx, repo, doc, paper) }
+        }.getOrNull() ?: return "ساختِ برگه انجام نشد."
+
+        return when (action) {
+            SheetAction.PDF -> {
+                ShareUtil.shareFile(ctx, file, "application/pdf", "اشتراک‌گذاری فاکتور")
+                null
+            }
+
+            SheetAction.PRINT ->
+                if (PrintKit.print(ctx, file, doc.number)) null
+                else "چاپ ممکن نشد. اگر پرینتری نصب نیست، «PDF» یا «تصویر» را بفرستید."
+
+            SheetAction.IMAGE -> {
+                val jpg = File(ShareUtil.sharedDir(ctx), "${doc.number}.jpg")
+                val ok = withContext(Dispatchers.IO) { PrintKit.toImage(file, jpg) }
+                if (ok) {
+                    ShareUtil.shareFile(ctx, jpg, "image/jpeg", "اشتراک‌گذاری تصویر")
+                    null
+                } else "تبدیل به تصویر انجام نشد؛ همان PDF را بفرستید."
+            }
+        }
+    }
 
     override suspend fun share(doc: SheetDoc, fileName: String, title: String) {
         // ساختِ PDF دیسک می‌نویسد و روی نخِ اصلی رابط را می‌خشکاند —
