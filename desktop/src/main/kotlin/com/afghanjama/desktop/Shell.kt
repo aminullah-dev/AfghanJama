@@ -55,6 +55,10 @@ import com.afghanjama.ui.screens.PurchaseReturnScreen
 import com.afghanjama.ui.screens.ReportsScreen
 import com.afghanjama.ui.screens.ReviewScreen
 import com.afghanjama.ui.screens.SelfTestScreen
+import com.afghanjama.ui.nav.Routes
+import com.afghanjama.ui.screens.ActionCenterScreen
+import com.afghanjama.ui.screens.DailyTradeScreen
+import com.afghanjama.ui.vm.ActionCenterViewModel
 import com.afghanjama.ui.screens.ShopProfileScreen
 import com.afghanjama.ui.screens.SewingScreen
 import com.afghanjama.ui.screens.StockLedgerScreen
@@ -102,6 +106,7 @@ import com.afghanjama.ui.vm.WorkshopLinkViewModel
  */
 internal enum class Section(val title: String) {
     Overview("وضعیت"),
+    ActionCenter("مرکزِ هشدار"),
 
     // کارگاه — از سفارش تا تحویل
     Board("تختهٔ کار"),
@@ -122,6 +127,7 @@ internal enum class Section(val title: String) {
     PurchaseReturn("برگشتِ خرید"),
 
     // فروش و پول
+    DailyTrade("معاملاتِ روزمره"),
     NewSale("فروشِ نو"),
     Customers("خریداران"),
     Ledger("دفترِ حساب"),
@@ -211,6 +217,46 @@ fun Shell(repo: Repo?, role: UserRole = UserRole.MANAGER) {
  * ناچار بود فهرستِ خودش را نگه دارد و آن دو روزی از هم می‌افتادند —
  * یعنی صفحه‌ای اضافه می‌شد و بی‌آزمون به کارگاه می‌رفت.
  */
+/**
+ * ترجمهٔ مسیرِ اندرویدی به بخشِ نوارِ کناری.
+ *
+ * هشدارهای «مرکزِ هشدار» در `:core` ساخته می‌شوند و هرکدام یک
+ * `Routes.…` همراه دارند — رشته‌ای که روی گوشی به `NavController`
+ * می‌رود. ویندوز `NavController` ندارد، پس همان رشته اینجا به بخش
+ * تبدیل می‌شود.
+ *
+ * **`null` یعنی این مقصد روی ویندوز نیست** (حضور و غیاب، و تنظیماتِ
+ * اندرویدی). آن‌وقت کلیک هیچ کاری نمی‌کند — که بهتر از بردنِ کاربر به
+ * صفحهٔ اشتباه است. وقتی آن صفحه‌ها به `:core` بیایند، فقط یک سطر
+ * اینجا اضافه می‌شود.
+ */
+internal fun sectionForRoute(route: String): Section? = when (route) {
+    Routes.PRODUCTION_ORDER -> Section.ProductionOrder
+    Routes.PROCUREMENT -> Section.Procurement
+    Routes.LEDGER -> Section.Ledger
+    Routes.DELIVERY_QUEUE -> Section.DeliveryQueue
+    Routes.PAYROLL -> Section.Payroll
+    Routes.PURCHASE_PLAN -> Section.PurchasePlan
+    Routes.INVENTORY -> Section.Inventory
+    Routes.WAREHOUSE -> Section.Warehouse
+    Routes.STOCK_LEDGER -> Section.StockLedger
+    Routes.FINISHED_SALES -> Section.FinishedWarehouse
+    Routes.CUSTOMERS -> Section.Customers
+    Routes.PERFORMANCE -> Section.Performance
+    Routes.NEW_SALE -> Section.NewSale
+    Routes.PURCHASE_RETURN -> Section.PurchaseReturn
+    Routes.DAILY_TRADE -> Section.DailyTrade
+    Routes.FINANCE -> Section.Finance
+    Routes.REPORTS -> Section.Reports
+    Routes.SEWING -> Section.Sewing
+    Routes.REVIEW -> Section.Review
+    Routes.MY_WORK -> Section.MyWork
+    Routes.ACTION_CENTER -> Section.ActionCenter
+    // روی ویندوز نیستند — حضور و غیاب هنوز در `:app` است، و
+    // «تنظیمات»ِ اندروید اینجا به دو بخشِ جدا شکسته شده.
+    else -> null
+}
+
 @Composable
 internal fun SectionContent(
     section: Section,
@@ -223,6 +269,30 @@ internal fun SectionContent(
 
     when (section) {
         Section.Overview -> Overview()
+
+        /*
+         * مرکزِ هشدار — همان صفحه‌ای که روی گوشی هست.
+         *
+         * تنها تفاوتش با اندروید در `onNavigate` است: آنجا رشتهٔ مسیر
+         * به `NavController` می‌رود، اینجا به بخشِ نوارِ کناری ترجمه
+         * می‌شود. خودِ صفحه و هشدارهایش کلمه‌به‌کلمه یکی‌اند.
+         */
+        Section.ActionCenter -> {
+            val vm: ActionCenterViewModel = viewModel { ActionCenterViewModel(repo) }
+            ActionCenterScreen(
+                vm = vm,
+                onNavigate = { route -> sectionForRoute(route)?.let { go(it) } },
+                onBack = back
+            )
+        }
+
+        Section.DailyTrade -> DailyTradeScreen(
+            onGoPurchase = { go(Section.Procurement) },
+            onGoSale = { go(Section.NewSale) },
+            onGoPurchaseReturn = { go(Section.PurchaseReturn) },
+            onGoSaleReturn = { go(Section.FinishedWarehouse) },
+            onBack = back
+        )
 
         Section.Board -> {
             val vm: BoardViewModel = viewModel { BoardViewModel(repo) }
