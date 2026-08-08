@@ -41,5 +41,21 @@ object DesktopLedger {
 
     @Synchronized
     fun repo(): Result<Repo> =
-        cached ?: db().mapCatching { Repo(it) }.also { cached = it }
+        cached ?: db().mapCatching { Repo(it) }.also { result ->
+            cached = result
+            // تعمیرِ یک‌بارهٔ طبقه‌بندیِ نقدِ دستی — همان کاری که
+            // `App.onCreate` روی گوشی می‌کند.
+            //
+            // اینجا و نه در `Main.kt`، چون دفتر ممکن است از راهِ
+            // دیگری هم باز شود (دودآزمایی‌ها) و تعمیر نباید به یک
+            // مسیرِ خاص گره بخورد. خودش در برابرِ اجرای دوباره
+            // بی‌خطر است.
+            result.getOrNull()?.let { repo ->
+                runCatching {
+                    kotlinx.coroutines.runBlocking {
+                        repo.repairManualCashClassification()
+                    }
+                }
+            }
+        }
 }

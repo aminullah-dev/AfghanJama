@@ -77,4 +77,32 @@ interface JournalDao {
 
     @Query("SELECT * FROM journal_lines WHERE entryId = :entryId")
     suspend fun linesFor(entryId: Long): List<JournalLine>
+
+    /**
+     * شمارشِ سطرهای یک حساب در سندهای یک نوعِ مشخص.
+     *
+     * برای تعمیرِ یک‌بارهٔ طبقه‌بندی لازم است: اول باید معلوم شود
+     * اصلاً چیزی برای تعمیر هست یا نه، وگرنه هر بار بی‌جهت نوشتن
+     * روی دفتر انجام می‌شود.
+     */
+    @Query(
+        "SELECT COUNT(*) FROM journal_lines l " +
+            "JOIN journal_entries e ON e.id = l.entryId " +
+            "WHERE e.refType = :refType AND l.account = :account"
+    )
+    suspend fun countLines(refType: String, account: String): Int
+
+    /**
+     * جابه‌جاییِ حسابِ سطرهای یک نوعِ سند.
+     *
+     * **فقط `refType`ِ داده‌شده را دست می‌زند.** بی این بند، همان
+     * `UPDATE` کلِ دفتر را عوض می‌کرد — از جمله فروش و خریدی که
+     * درست ثبت شده‌اند.
+     */
+    @Query(
+        "UPDATE journal_lines SET account = :to " +
+            "WHERE account = :from AND entryId IN " +
+            "(SELECT id FROM journal_entries WHERE refType = :refType)"
+    )
+    suspend fun moveAccount(refType: String, from: String, to: String): Int
 }

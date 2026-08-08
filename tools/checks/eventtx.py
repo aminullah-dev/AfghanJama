@@ -61,7 +61,17 @@ def enclosing_fun(text: str, pos: int):
 
 
 def body_of(text: str, name: str):
-    """(شروع، پایانِ) بدنهٔ یک تابع با نامِ داده‌شده."""
+    """(شروعِ اعلان، پایانِ بدنه) — عمداً از خودِ `fun` تا آخر.
+
+    **چرا از اعلان و نه از بدنه.** نسخهٔ اولِ این بررسی فقط داخلِ
+    آکولادِ بدنه را می‌گشت و روی تابعِ بدنه‌عبارتی قرمزِ نادرست داد:
+
+        suspend fun repair(): Int = db.atomic { … emit(…) … }
+
+    آنجا `atomic` **پیش از** آکولاد است، نه داخلش. تابع کاملاً درست
+    بود و بررسی می‌گفت نیست — و هشدارِ نادرست همان چیزی است که یک
+    نگهبان را خاموش می‌کند.
+    """
     m = re.search(r"\bfun\s+" + re.escape(name) + r"\s*\(", text)
     if not m:
         return None
@@ -75,7 +85,7 @@ def body_of(text: str, name: str):
         elif text[j] == "}":
             depth -= 1
             if depth == 0:
-                return i, j
+                return m.start(), j
     return None
 
 

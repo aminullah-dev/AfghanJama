@@ -77,7 +77,18 @@ class App : Application() {
             runCatching {
                 val db = buildAppDatabase(this@App)
                 try {
-                    PhotoStore.sweep(this@App, keptPhotoNames(Repo(db)))
+                    val repo = Repo(db)
+                    PhotoStore.sweep(this@App, keptPhotoNames(repo))
+
+                    // تعمیرِ یک‌بارهٔ طبقه‌بندیِ نقدِ دستی.
+                    //
+                    // بی پرچم و بی شرط صدا زده می‌شود چون خودش
+                    // بی‌خطر در برابرِ اجرای دوباره است: بعد از یک
+                    // بار هیچ سطری برای جابه‌جایی نمی‌ماند و دو
+                    // پرس‌وجوی شمارش هزینه‌ای ندارد. پرچمی که
+                    // بتواند از دفتر جدا بیفتد، خودش یک اشکالِ تازه
+                    // است.
+                    repo.repairManualCashClassification()
                 } finally {
                     db.close()
                 }

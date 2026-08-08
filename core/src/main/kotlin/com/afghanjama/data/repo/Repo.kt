@@ -1027,7 +1027,66 @@ class Repo(private val db: Db) {
     }
 
     /**
-     * ورود/خروجِ دستیِ نقد (اصلاحِ صندوق): در برابرِ سایر درآمد/هزینه.
+     * تعمیرِ یک‌بارهٔ سندهای دستیِ قدیمی.
+     *
+     * سندهای `MANUAL_CASH`ی که پیش از اصلاحِ طبقه‌بندی ثبت شده‌اند،
+     * ورودشان روی `4090` (درآمد) و خروجشان روی `5020` (هزینه) نشسته.
+     * هر دو به `3010` (سرمایه) می‌روند.
+     *
+     * **چرا مهاجرتِ اسکیما نشد.** این تغییرِ **داده** است نه ساختار،
+     * و بردنش به `SchemaStep` یعنی `DB_VERSION` یک پله دیگر جلو
+     * برود و یک طرحِ صادرشدهٔ دیگر لازم شود — در حالی که طرحِ ۶۲
+     * هنوز کامیت نشده. اینجا کارِ یکسانی می‌کند بی آنکه چیزی به آن
+     * زنجیره اضافه کند.
+     *
+     * **بی‌خطر در برابرِ اجرای دوباره:** بعد از یک بار، دیگر هیچ
+     * سطرِ `MANUAL_CASH`ی روی آن دو حساب نمی‌ماند و شمارش صفر
+     * می‌شود. پس اگر دو بار صدا زده شود، بارِ دوم هیچ نمی‌کند.
+     *
+     * @return تعداد سطرهایی که جابه‌جا شدند.
+     */
+    suspend fun repairManualCashClassification(): Int = db.atomic {
+        val dao = db.journalDao()
+        val stale = dao.countLines("MANUAL_CASH", Accounts.OTHER_INCOME) +
+            dao.countLines("MANUAL_CASH", Accounts.EXPENSES)
+        if (stale == 0) return@atomic 0
+
+        val moved = dao.moveAccount("MANUAL_CASH", Accounts.OTHER_INCOME, Accounts.EQUITY) +
+            dao.moveAccount("MANUAL_CASH", Accounts.EXPENSES, Accounts.EQUITY)
+
+        audit(
+            "اصلاح طبقه‌بندی نقدِ دستی",
+            "$moved سطر از درآمد/هزینه به سرمایه رفت"
+        )
+        emit(
+            type = "اصلاح طبقه‌بندی نقدِ دستی",
+            aggregate = "journal",
+            aggregateId = "MANUAL_CASH",
+            payload = "سطر=$moved"
+        )
+        moved
+    }
+
+    /**
+     * ورود/خروجِ دستیِ نقد — در برابرِ **سرمایه**، نه درآمد/هزینه.
+     *
+     * **اشکالی که این را عوض کرد.** تا امروز ورودِ دستی `4090`
+     * (سایر درآمد) را بستانکار می‌کرد. هر کدِ حسابی که با `4` شروع
+     * شود در صورتِ سود و زیان «درآمد» شمرده می‌شود، پس پولی که مالک
+     * از جیبِ خودش در صندوق می‌گذاشت **فروش حساب می‌شد**.
+     *
+     * روی دفترِ واقعیِ کارگاه این ۵۰٬۰۰۰ بود روی ۱۶۶٬۵۱۰ فروش:
+     * اپ سودِ ۴۴٬۱۳۱ نشان می‌داد در حالی که کارگاه ۵٬۸۶۹ **زیان**
+     * داشت. علامت برعکس شده بود، نه فقط اندازه.
+     *
+     * پولی که مالک می‌گذارد آورده است و پولی که برمی‌دارد برداشت —
+     * هر دو `3010`. تراز هم به‌هم نمی‌خورد: قبلاً از راهِ سود به
+     * سرمایه می‌رسید، حالا مستقیم.
+     *
+     * **کسریِ واقعیِ صندوق اینجا نیست.** اگر روزی لازم شد، کارِ
+     * جداگانه‌ای می‌خواهد با نامِ خودش؛ این دکمه در رابطِ کاربری
+     * «افزایش کیف پول» است نه «اصلاحِ صندوق».
+     *
      * @return false اگر پرداخت باشد و موجودیِ صندوق کافی نباشد.
      */
     suspend fun recordManualCash(
@@ -1053,7 +1112,7 @@ class Repo(private val db: Db) {
                 note.ifBlank { "دریافت دستی" }, "MANUAL_CASH", "",
                 listOf(
                     jl(Accounts.box(source), debit = amount),
-                    jl(Accounts.OTHER_INCOME, credit = amount)
+                    jl(Accounts.EQUITY, credit = amount)
                 )
             )
         } else {
@@ -1061,7 +1120,7 @@ class Repo(private val db: Db) {
             postJournal(
                 note.ifBlank { "پرداخت دستی" }, "MANUAL_CASH", "",
                 listOf(
-                    jl(Accounts.EXPENSES, debit = amount),
+                    jl(Accounts.EQUITY, debit = amount),
                     jl(Accounts.box(source), credit = amount)
                 )
             )
