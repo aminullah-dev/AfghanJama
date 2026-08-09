@@ -55,14 +55,27 @@ import java.util.UUID
 
 class Repo(private val db: Db) {
 
-    private companion object {
+    companion object {
+        /**
+         * `refType`ِ سندهای مانده افتتاحیه.
+         *
+         * نام‌دار است نه رشتهٔ خام، چون در سه جا نوشته می‌شود (دفترِ
+         * شخص، ژورنال، و روزی گزارش) و یک غلطِ املایی در یکی‌شان یعنی
+         * سندی که دیگر پیدا نمی‌شود. `JournalEntry` هم از قبل این نام
+         * را در فهرستِ نوع‌هایش داشت.
+         */
+        const val OPENING = "OPENING"
+
         /**
          * چند ماه رویدادِ پردازش‌شده نگه داشته شود.
          *
          * ۲۴ — تصمیمِ کارگاه. دو سالِ مالی کامل برای هر بازبینی یا
          * اختلافِ حساب کافی است، و جدول بی‌مرز رشد نمی‌کند.
+         *
+         * `internal` است نه public: عددِ نگه‌داشت تصمیمِ همین لایه
+         * است و کسی بیرون نباید رویش حساب کند.
          */
-        const val RETENTION_MONTHS = 24
+        internal const val RETENTION_MONTHS = 24
     }
 
     // =========================
@@ -1589,6 +1602,101 @@ class Repo(private val db: Db) {
      * ثبت یک سند در دفتر کل و اطمینان از وجودِ طرف در دفترچه. debit/credit
      * از دیدِ دفترِ ما (بدهکار/بستانکارِ حسابِ طرف). یکی از دو مقدار صفر است.
      */
+    /**
+     * مانده افتتاحیهٔ یک شخص — «حسابِ قبلی» هنگام مهاجرت از اپِ دیگر.
+     *
+     * **چرا قلم‌به‌قلم و نه واردکردنِ پشتیبانِ اپِ دیگر.** آن پشتیبان
+     * شناسه‌های دیگری دارد، طرحِ دیگری، و برای یک کلمه معنای دیگری.
+     * وارد کردنش یعنی آشتی دادنِ دو مدل، و هر ناهم‌خوانی **بی‌صدا** به
+     * دادهٔ غلط تبدیل می‌شود. با ورودِ قلم‌به‌قلم آدم تصمیم می‌گیرد هر
+     * عدد چه معنایی دارد و دفتر از سطرِ اول درست است.
+     *
+     * **طرفِ دیگر سرمایه است، نه درآمد و نه هزینه.** این همان تله‌ای
+     * است که در `recordManualCash` گرفته شد — ولی اینجا بزرگ‌تر: اگر
+     * طلبِ خیاطان را هزینه و طلبِ ما از مشتریان را درآمد ثبت کنیم،
+     * روزِ مهاجرت یک سود یا زیانِ ساختگی به اندازهٔ کلِ حسابِ کارگاه
+     * ساخته می‌شود. مانده افتتاحیه هیچ سود و زیانی نیست؛ عکسِ لحظهٔ
+     * شروع است.
+     *
+     * **تاریخ نمی‌گیرد و این عمدی است.** چون طرفِ دیگر سرمایه است،
+     * این سند به سود و زیانِ هیچ دوره‌ای نمی‌خورد؛ پس تاریخ فقط روی
+     * «ترازنامه در فلان روز» اثر دارد و برای مهاجرتی که یک بار انجام
+     * می‌شود، ارزشِ یک فیلدِ اضافه در هر فرم را ندارد. `JournalEntry`
+     * خودش `at` دارد.
+     *
+     * @param owedToThem `true` یعنی **ما به او بدهکاریم** (طلبِ خیاط
+     *        از کارگاه)، `false` یعنی **او به ما بدهکار است**.
+     * @return false اگر مبلغ مثبت نباشد یا نوعِ شخص پشتیبانی نشود.
+     */
+    suspend fun setOpeningBalance(
+        type: String,
+        name: String,
+        amount: Long,
+        owedToThem: Boolean,
+        note: String = ""
+    ): Boolean = db.atomic {
+        setOpeningBalanceTx(type, name, amount, owedToThem, note)
+    }
+
+    private suspend fun setOpeningBalanceTx(
+        type: String,
+        name: String,
+        amount: Long,
+        owedToThem: Boolean,
+        note: String
+    ): Boolean {
+        if (amount <= 0L) return false
+        val nm = name.trim()
+        if (nm.isBlank()) return false
+
+        // حسابِ طرفِ مقابل بر اساسِ نوعِ شخص — همان نگاشتی که
+        // پرداخت و دریافتِ دستی استفاده می‌کند، تا مانده افتتاحیه با
+        // حرکت‌های بعدی روی **یک** حساب جمع شود نه دو تا.
+        val account = when (type) {
+            "TAILOR" -> Accounts.WAGES_PAYABLE
+            "CUSTOMER" -> if (owedToThem) Accounts.CUSTOMER_PREPAY else Accounts.RECEIVABLE
+            "SUPPLIER" -> if (owedToThem) Accounts.PAYABLE else Accounts.RECEIVABLE
+            "EMPLOYEE", "INSPECTOR" ->
+                if (owedToThem) Accounts.WAGES_PAYABLE else Accounts.STAFF_ADVANCE
+            else -> return false
+        }
+
+        val memo = note.ifBlank { "مانده افتتاحیه — $nm" }
+
+        // دفترِ شخص: بستانکار یعنی ما بدهکاریم، بدهکار یعنی او.
+        postLedger(
+            type, nm,
+            debit = if (owedToThem) 0L else amount,
+            credit = if (owedToThem) amount else 0L,
+            refType = OPENING, note = memo
+        )
+
+        postJournal(
+            memo, OPENING, "",
+            if (owedToThem) listOf(
+                // ما بدهکاریم: بدهی بالا می‌رود، سرمایه پایین.
+                jl(Accounts.EQUITY, debit = amount),
+                jl(account, credit = amount)
+            ) else listOf(
+                // او بدهکار است: دارایی بالا می‌رود، سرمایه هم.
+                jl(account, debit = amount),
+                jl(Accounts.EQUITY, credit = amount)
+            )
+        )
+
+        audit(
+            "مانده افتتاحیه",
+            "$nm — $amount ؋ ${if (owedToThem) "طلبِ او از ما" else "بدهیِ او به ما"}"
+        )
+        emit(
+            type = "مانده افتتاحیه",
+            aggregate = "party",
+            aggregateId = nm,
+            payload = "نوع=$type؛مبلغ=$amount؛طلبکار=${if (owedToThem) "او" else "ما"}"
+        )
+        return true
+    }
+
     suspend fun postLedger(
         type: String,
         name: String,
