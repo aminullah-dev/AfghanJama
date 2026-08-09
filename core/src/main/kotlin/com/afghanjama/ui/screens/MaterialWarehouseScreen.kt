@@ -2,6 +2,12 @@
 
 package com.afghanjama.ui.screens
 
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.layout.Box
+import com.afghanjama.ui.format.PersianDate
+import com.afghanjama.ui.platform.AppDropdownMenuItem
+import com.afghanjama.ui.platform.AppDropdownMenu
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -62,6 +68,65 @@ fun MaterialWarehouseScreen(
     val ui by vm.ui.collectAsState()
 
     var editTarget by remember { mutableStateOf<MaterialStock?>(null) }
+
+    // کاردکسِ یک قلم — `null` یعنی بسته است.
+    var historyOf by remember { mutableStateOf<MaterialStock?>(null) }
+
+    historyOf?.let { item ->
+        val moves by vm.movementsOf(item).collectAsState(initial = emptyList())
+        AppAlertDialog(
+            onDismissRequest = { historyOf = null },
+            title = { Text("ورود و خروج — ${item.name}") },
+            text = {
+                if (moves.isEmpty()) {
+                    Text(
+                        "برای این قلم هنوز حرکتی ثبت نشده.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    LazyColumn(
+                        Modifier.height(320.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        items(moves, key = { it.id }) { m ->
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(m.reason, style = MaterialTheme.typography.bodyMedium)
+                                    Text(
+                                        PersianDate.shortWithTime(m.createdAt) +
+                                            (if (m.note.isBlank()) "" else " — ${m.note}"),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                // ورود و خروج باید در نگاهِ اول از هم جدا
+                                // باشند؛ علامتِ تنها کافی نیست چون در
+                                // فهرستِ بلند خوانده نمی‌شود.
+                                Text(
+                                    (if (m.delta >= 0) "+" else "") +
+                                        "${fmtAmount(m.delta)} ${item.unit}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (m.delta >= 0)
+                                        MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.error
+                                )
+                            }
+                            HorizontalDivider(thickness = 0.5.dp)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { historyOf = null }) { Text("بستن") }
+            },
+            dismissButton = null
+        )
+    }
 
     // ---------- دیالوگ اصلاح موجودی ----------
     editTarget?.let { item ->
@@ -244,9 +309,38 @@ fun MaterialWarehouseScreen(
                                 color = if (low) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
                             )
                         }
-                        if (canAdjust) {
-                            IconButton(onClick = { editTarget = item }) {
-                                Icon(Icons.Default.Edit, contentDescription = "اصلاح موجودی")
+                        /*
+                         * «⋮» به‌جای یک آیکنِ تنها.
+                         *
+                         * کاردکسِ هر قلم از روزِ اول ثبت می‌شد ولی هیچ
+                         * راهی برای دیدنش نبود. افزودنِ آیکنِ دوم کنارِ
+                         * ویرایش، سطر را شلوغ می‌کرد و سومی را هم جایی
+                         * نمی‌گذاشت؛ منو هرچقدر کنشِ تازه لازم شود جا
+                         * دارد.
+                         *
+                         * تاریخچه برای همه باز است — دیدنِ اینکه یک قلم
+                         * کِی کم شد اجازه نمی‌خواهد. فقط **تغییر دادن**
+                         * `canAdjust` می‌خواهد.
+                         */
+                        var menu by remember(item.name, item.unit) { mutableStateOf(false) }
+                        Box {
+                            IconButton(onClick = { menu = true }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = "گزینه‌ها")
+                            }
+                            AppDropdownMenu(
+                                expanded = menu,
+                                onDismissRequest = { menu = false }
+                            ) {
+                                if (canAdjust) {
+                                    AppDropdownMenuItem(
+                                        text = { Text("اصلاح موجودی و ضایعات") },
+                                        onClick = { menu = false; editTarget = item }
+                                    )
+                                }
+                                AppDropdownMenuItem(
+                                    text = { Text("لیست ورود و خروج این قلم") },
+                                    onClick = { menu = false; historyOf = item }
+                                )
                             }
                         }
                     }

@@ -113,6 +113,18 @@ class MasterDataViewModel(private val repo: Repo) : ViewModel() {
     fun renameSize(id: Long, title: String) = viewModelScope.launch { repo.renameSize(id, title) }
     fun renameDesign(id: Long, title: String) = viewModelScope.launch { repo.renameDesign(id, title) }
 
+    /**
+     * مانده افتتاحیهٔ یک شخص — «حسابِ قبلی» هنگام مهاجرت.
+     *
+     * `type` همان نوعِ طرفِ حساب است (`TAILOR` / `INSPECTOR` /
+     * `EMPLOYEE`) تا مانده روی همان حسابی بنشیند که پرداخت‌های بعدی
+     * می‌نشینند؛ وگرنه طلب برای همیشه دو تکه می‌ماند.
+     */
+    fun setOpeningBalance(type: String, name: String, amount: Long, owedToThem: Boolean) =
+        viewModelScope.launch {
+            repo.setOpeningBalance(type, name, amount, owedToThem)
+        }
+
     fun deleteTailor(id: Long) = viewModelScope.launch { repo.deleteTailor(id) }
     fun deleteInspector(id: Long) = viewModelScope.launch { repo.deleteInspector(id) }
     fun deleteFabricType(id: Long) = viewModelScope.launch { repo.deleteFabricType(id) }

@@ -1757,6 +1757,16 @@ class Repo(private val db: Db) {
     fun observeMaterialStock(): Flow<List<MaterialStock>> =
         db.materialStockDao().observeAll()
 
+    /**
+     * تاریخچهٔ ورود و خروجِ **یک قلم** — همان «کاردکس».
+     *
+     * دادهٔ آن از روزِ اول ثبت می‌شد ولی هیچ راهی برای دیدنش نبود؛
+     * کاربر برای فهمیدنِ اینکه یک قلم کِی و چرا کم شد، باید کلِ
+     * گردشِ انبار را می‌گشت.
+     */
+    fun observeItemMovements(name: String, unit: String): Flow<List<StockMovement>> =
+        db.stockMovementDao().observeForItem(name.trim(), unit.trim())
+
     fun observeStockMovements(): Flow<List<StockMovement>> =
         db.stockMovementDao().observeRecent()
 

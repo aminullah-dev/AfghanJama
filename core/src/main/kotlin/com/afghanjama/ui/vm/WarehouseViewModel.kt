@@ -34,6 +34,10 @@ class WarehouseViewModel(private val repo: Repo) : ViewModel() {
 
     fun clearMessage() = _ui.update { it.copy(message = null, isError = false) }
 
+    /** کاردکسِ یک قلم — ورود و خروجش به ترتیبِ زمان. */
+    fun movementsOf(item: MaterialStock) =
+        repo.observeItemMovements(item.name, item.unit)
+
     /** اصلاح دستی موجودی (شمارش انبار): مقدار به رقم دقیقِ واردشده تنظیم می‌شود. */
     fun setAmount(item: MaterialStock, newAmount: Double) = viewModelScope.launch {
         val delta = newAmount - item.amount

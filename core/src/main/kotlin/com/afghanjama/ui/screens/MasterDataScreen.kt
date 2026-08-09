@@ -5,6 +5,9 @@
 
 package com.afghanjama.ui.screens
 
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -71,6 +74,10 @@ fun MasterDataScreen(
     val colors by vm.fabricColors.collectAsState()
     val sizes by vm.sizes.collectAsState()
     val tailors by vm.tailors.collectAsState()
+
+    // «حساب قبلی» — نامِ شخص و نوعش تا دیالوگ بداند مانده روی کدام
+    // حساب بنشیند. `null` یعنی بسته است.
+    var opening by remember { mutableStateOf<Pair<String, String>?>(null) }
     val inspectors by vm.inspectors.collectAsState()
     val designs by vm.designs.collectAsState()
     val designCategories by vm.designCategories.collectAsState()
@@ -79,6 +86,16 @@ fun MasterDataScreen(
     val staff by vm.staff.collectAsState()
 
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    opening?.let { (type, name) ->
+        OpeningBalanceDialog(
+            personName = name,
+            onDismiss = { opening = null },
+            onConfirm = { amount, owedToThem ->
+                vm.setOpeningBalance(type, name, amount, owedToThem)
+            }
+        )
+    }
+
     val tabs = listOf("نوع پارچه", "رنگ", "سایز", "خیاط", "ناظر", "طرح", "خریدار", "خرج کار", "کارکنان")
 
     Scaffold(
@@ -162,7 +179,8 @@ fun MasterDataScreen(
                         rows = tailors.map { MasterRow(it.id, "[${it.code}] ${it.name}", it.name) },
                         onAdd = { code, name -> vm.addTailor(code, name, null) },
                         onRename = { id, v -> vm.renameTailor(id, v) },
-                        onDelete = { id -> vm.deleteTailor(id) }
+                        onDelete = { id -> vm.deleteTailor(id) },
+                        onOpening = { name -> opening = "TAILOR" to name }
                     )
 
                     4 -> TwoFieldListEditor(
@@ -172,7 +190,8 @@ fun MasterDataScreen(
                         rows = inspectors.map { MasterRow(it.id, "[${it.code}] ${it.name}", it.name) },
                         onAdd = { code, name -> vm.addInspector(code, name, null) },
                         onRename = { id, v -> vm.renameInspector(id, v) },
-                        onDelete = { id -> vm.deleteInspector(id) }
+                        onDelete = { id -> vm.deleteInspector(id) },
+                        onOpening = { name -> opening = "INSPECTOR" to name }
                     )
 
                     5 -> DesignEditor(
@@ -211,7 +230,8 @@ fun MasterDataScreen(
                                 s.name
                             )
                         },
-                        onAdd = { name, role -> vm.addStaff(name, role) }
+                        onAdd = { name, role -> vm.addStaff(name, role) },
+                        onOpening = { name -> opening = "EMPLOYEE" to name }
                     )
                 }
             }
@@ -374,7 +394,13 @@ data class MasterRow(val id: Long, val label: String, val editValue: String)
 private fun EditableRow(
     row: MasterRow,
     onRename: (Long, String) -> Unit,
-    onDelete: (Long) -> Unit
+    onDelete: (Long) -> Unit,
+    /**
+     * «حساب قبلی» — فقط برای فهرست‌هایی که شخص‌اند (خیاط، ناظر،
+     * کارکنان). `null` یعنی این فهرست حساب ندارد و دکمه‌اش ساخته
+     * نمی‌شود؛ رنگ و سایز مانده افتتاحیه ندارند.
+     */
+    onOpening: ((String) -> Unit)? = null
 ) {
     var editing by remember(row.id) { mutableStateOf(false) }
     var confirmDelete by remember(row.id) { mutableStateOf(false) }
@@ -425,6 +451,14 @@ private fun EditableRow(
         headlineContent = { Text(row.label) },
         trailingContent = {
             Row {
+                if (onOpening != null) {
+                    IconButton(onClick = { onOpening(row.editValue) }) {
+                        Icon(
+                            Icons.Filled.AccountBalanceWallet,
+                            contentDescription = "حساب قبلی"
+                        )
+                    }
+                }
                 IconButton(onClick = { draft = row.editValue; editing = true }) {
                     Icon(Icons.Filled.Edit, contentDescription = "ویرایش")
                 }
@@ -506,7 +540,9 @@ private fun TwoFieldListEditor(
     onAdd: (String, String) -> Unit,
     /** `null` یعنی این فهرست هنوز ویرایش ندارد. */
     onRename: ((Long, String) -> Unit)? = null,
-    onDelete: ((Long) -> Unit)? = null
+    onDelete: ((Long) -> Unit)? = null,
+    /** «حساب قبلی» — فقط فهرست‌های شخص‌محور می‌گیرندش. */
+    onOpening: ((String) -> Unit)? = null
 ) {
     var t1 by remember { mutableStateOf("") }
     var t2 by remember { mutableStateOf("") }
@@ -565,10 +601,23 @@ private fun TwoFieldListEditor(
         LazyColumn(Modifier.fillMaxSize()) {
             items(rows.reversed(), key = { it.id }) { row ->
                 if (onRename != null && onDelete != null) {
-                    EditableRow(row, onRename, onDelete)
+                    EditableRow(row, onRename, onDelete, onOpening)
                 } else {
+                    // فهرستی که ویرایش و حذف ندارد (کارکنان) هم ممکن
+                    // است حساب داشته باشد؛ بی این شاخه، «حساب قبلی»
+                    // برای کارکنان بی‌صدا ناپدید می‌شد.
                     ListItem(
                         headlineContent = { Text(row.label) },
+                        trailingContent = if (onOpening != null) {
+                            {
+                                IconButton(onClick = { onOpening(row.editValue) }) {
+                                    Icon(
+                                        Icons.Filled.AccountBalanceWallet,
+                                        contentDescription = "حساب قبلی"
+                                    )
+                                }
+                            }
+                        } else null,
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
                     HorizontalDivider(
@@ -723,4 +772,70 @@ private fun DesignEditor(
             item { Spacer(Modifier.height(40.dp)) }
         }
     }
+}
+
+/**
+ * «حساب قبلی» — مانده افتتاحیهٔ یک شخص هنگام مهاجرت از اپِ دیگر.
+ *
+ * **چرا دو دکمه و نه یک عددِ علامت‌دار.** «−۵۰۰۰» را کاربر باید
+ * ترجمه کند به «یعنی من بدهکارم یا او؟» و همان‌جا نصفشان اشتباه
+ * می‌کنند. دو دکمهٔ صریح این ابهام را حذف می‌کند — و اشتباهش گران
+ * است: علامتِ برعکس یعنی طلبِ خیاط دو برابر یا صفر.
+ *
+ * پیامِ پایین عمداً هست: این کار **یک بار** انجام می‌شود و اگر دو بار
+ * ثبت شود مانده دو برابر می‌گیرد. اپ نمی‌تواند بفهمد کدام درست است،
+ * پس دستِ‌کم باید بگوید.
+ */
+@Composable
+internal fun OpeningBalanceDialog(
+    personName: String,
+    onDismiss: () -> Unit,
+    onConfirm: (amount: Long, owedToThem: Boolean) -> Unit
+) {
+    var text by remember { mutableStateOf("") }
+    var owedToThem by remember { mutableStateOf(true) }
+    val amount = text.digitsOnly().toLongOrNull() ?: 0L
+
+    AppAlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("حساب قبلی — $personName") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it.digitsOnly() },
+                    label = { Text("مبلغ (افغانی)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = owedToThem,
+                        onClick = { owedToThem = true },
+                        label = { Text("طلبِ او از ما") }
+                    )
+                    FilterChip(
+                        selected = !owedToThem,
+                        onClick = { owedToThem = false },
+                        label = { Text("بدهیِ او به ما") }
+                    )
+                }
+                Text(
+                    "این مانده یک بار ثبت می‌شود و به سود و زیان نمی‌خورد — " +
+                        "سرمایهٔ آغاز است، نه درآمد یا هزینه. اگر دوباره ثبت " +
+                        "شود، حساب دو برابر می‌شود.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = amount > 0L,
+                onClick = { onConfirm(amount, owedToThem); onDismiss() }
+            ) { Text("ثبت") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("لغو") } }
+    )
 }
