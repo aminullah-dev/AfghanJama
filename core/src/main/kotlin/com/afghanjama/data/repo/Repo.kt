@@ -2476,6 +2476,86 @@ class Repo(private val db: Db) {
     }
 
     /**
+     * موجودیِ اولیهٔ انبارِ محصول — نیمهٔ دومِ مهاجرتِ انبار.
+     *
+     * [adjustFinishedStock] عمداً ردیفِ تازه نمی‌سازد (`?: return false`)
+     * چون شمارش، اصلاحِ چیزی است که هست. نتیجه‌اش این بود که کارگاهی با
+     * بیست کتِ دوخته‌شده در انبار، هیچ راهی برای واردکردنشان نداشت جز
+     * جعلِ یک سفارشِ تولید — که خیاط و کارمزد و پارچهٔ ساختگی هم با
+     * خودش می‌آورد.
+     *
+     * همان استدلالِ [setOpeningStock]: پول جابه‌جا نمی‌شود، پس طرفِ
+     * دیگرِ سند سرمایه است نه تولید و نه هزینه. بهای هر عدد اختیاری
+     * است؛ عددِ ساختگی تا ابد در بهای تمام‌شدهٔ فروش می‌مانَد.
+     *
+     * روی ردیفِ موجود جمع می‌شود نه اینکه جایش بنشیند — دو بار زدنِ
+     * همان فرم نباید بی‌صدا موجودی را پاک کند.
+     *
+     * @return false اگر نام خالی یا تعداد مثبت نباشد.
+     */
+    suspend fun setOpeningFinishedStock(
+        name: String,
+        size: String,
+        qty: Int,
+        unitCost: Long,
+        note: String = ""
+    ): Boolean = db.atomic {
+        setOpeningFinishedStockTx(name, size, qty, unitCost, note)
+    }
+
+    private suspend fun setOpeningFinishedStockTx(
+        name: String,
+        size: String,
+        qty: Int,
+        unitCost: Long,
+        note: String
+    ): Boolean {
+        val nm = name.trim()
+        val sz = size.trim()
+        if (nm.isBlank() || qty <= 0 || unitCost < 0L) return false
+
+        val now = System.currentTimeMillis()
+        val cur = db.finishedStockDao().find(nm, sz)
+            ?: FinishedStock(name = nm, size = sz, qty = 0, updatedAt = now)
+        val value = qty * unitCost
+        val newQty = cur.qty + qty
+        val newValue = cur.totalValue + value
+        db.finishedStockDao().upsert(
+            cur.copy(
+                qty = newQty,
+                totalValue = newValue,
+                avgCost = if (newQty > 0) newValue / newQty else cur.avgCost,
+                updatedAt = now
+            )
+        )
+
+        if (value > 0L) {
+            postJournal(
+                "$OPENING_STOCK — $nm" + if (sz.isNotBlank()) " ($sz)" else "",
+                OPENING, "",
+                listOf(
+                    jl(Accounts.FINISHED, debit = value),
+                    jl(Accounts.EQUITY, credit = value)
+                )
+            )
+        }
+
+        audit(
+            "$OPENING_STOCK — محصول",
+            "$nm${if (sz.isNotBlank()) " ($sz)" else ""} — $qty عدد" +
+                (if (value > 0L) " به ارزش $value ؋" else "") +
+                (if (note.isNotBlank()) " • ${note.trim()}" else "")
+        )
+        emit(
+            type = OPENING_STOCK,
+            aggregate = "finished",
+            aggregateId = "$nm|$sz",
+            payload = "تعداد=$qty؛بها=$unitCost"
+        )
+        return true
+    }
+
+    /**
      * ورودِ [batch] عدد از یک سفارش به انبار محصول نهایی — نه کلِ سفارش.
      *
      * این همان جایی است که «۱۰ عدد برش خورد، ۵ تا دوخته شد، ۱۰ تا وارد

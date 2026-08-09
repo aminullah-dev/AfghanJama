@@ -383,7 +383,8 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                 val productionVm = viewModel<ProductionViewModel>(vmOwner, factory = factory)
                 ProductionOrderScreen(
                     vm = productionVm,
-                    onBack = { navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    onGoProcurement = { navController.navigate(Routes.PROCUREMENT) }
                 )
             }
 

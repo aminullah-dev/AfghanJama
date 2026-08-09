@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.RocketLaunch
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Payments
@@ -73,6 +74,23 @@ fun GuideScreen(onBack: () -> Unit) {
                         "انبار مواد: آنچه همین حالا دارید، با تعداد و قیمت.",
                         "اگر چیزی جا افتاد، هر جا لازم شد همان‌جا اضافه می‌شود."
                     )
+                )
+            }
+
+            item {
+                GuideCard(
+                    icon = Icons.Default.AccountBalanceWallet,
+                    title = "اگر قبلاً جای دیگری حساب نگه می‌داشتید",
+                    lines = listOf(
+                        "پشتیبانِ اپِ دیگر وارد نمی‌شود — آن فایل شناسه و طرحِ دیگری دارد و هر ناهم‌خوانی بی‌صدا به عددِ غلط تبدیل می‌شود. به‌جایش هر مانده را همان‌جا که مالِ آن است وارد می‌کنید.",
+                        "طلب و بدهیِ اشخاص: اطلاعات پایه ← خیاط / ناظر / کارکنان ← آیکنِ کیفِ پول کنارِ هر نام ← «حساب قبلی». می‌پرسد او از شما طلبکار است یا شما از او.",
+                        "انبار مواد: صفحهٔ «انبار مواد» ← دکمهٔ + ← نام، واحد، مقدار، و اگر می‌دانید قیمتِ هر واحد.",
+                        "کالای آماده: صفحهٔ «فروش از انبار محصول» ← دکمهٔ + ← نام، سایز، تعداد.",
+                        "پولِ نقد و بانک: داشبورد ← «دریافت» ← مبلغِ داخلِ صندوق، با توضیحِ «مانده اولیه».",
+                        "همهٔ این‌ها به حسابِ سرمایه می‌خورند، نه فروش و نه هزینه — پس سود و زیانِ ماهِ اول را جابه‌جا نمی‌کنند.",
+                        "قیمت را اگر نمی‌دانید خالی بگذارید. عددِ ساختگی تا ابد در ارزشِ انبار می‌مانَد؛ خالی دستِ‌کم پیدا است."
+                    ),
+                    highlight = true
                 )
             }
 

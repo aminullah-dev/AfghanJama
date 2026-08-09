@@ -81,11 +81,24 @@ private enum class ItemOp { RECEIVE, ISSUE, COUNT, ALERT }
 
 private data class ItemTarget(val item: MaterialStock, val op: ItemOp)
 
-/** دلیل‌های آماده برای ورود — کاربر تایپ نکند، انتخاب کند. */
-private val RECEIVE_REASONS = listOf("برگشت از تولید", "اضافیِ انبارگردانی", "ورودِ دستی")
+/*
+ * دلیل‌های آماده — کاربر تایپ نکند، انتخاب کند.
+ *
+ * **چرا «مصرف در تولید» و «برگشت از تولید» اینجا نیستند.** وسوسه‌اش
+ * زیاد بود؛ هر دو کارِ روزمرهٔ انبارند. ولی سندشان با این مسیر فرق
+ * دارد: موادی که به سفارش می‌رود «کار در جریان تولید» را بدهکار
+ * می‌کند، نه هزینه را — و آن سند را خودِ صفحهٔ **برش** می‌زند. اگر
+ * همان کار از اینجا هم شدنی باشد، یک بار مواد از انبار کم می‌شود و
+ * حسابِ تولید بالا می‌رود، بارِ دوم همان مقدار به هزینه می‌رود:
+ * موجودی دو بار کم و سود یک بار غلط.
+ *
+ * پس این مسیر فقط برای چیزهایی است که واقعاً **اصلاحِ انبار**اند و
+ * طرفِ دیگرشان هزینه است. خرید هم از «خرید مواد» می‌آید، چون آنجا
+ * پول جابه‌جا می‌شود.
+ */
+private val RECEIVE_REASONS = listOf("اضافیِ انبارگردانی", "ورودِ دستی")
 
-/** دلیل‌های آماده برای خروج. */
-private val ISSUE_REASONS = listOf("مصرف در تولید", "ضایعات", "کسریِ انبارگردانی", "خروجِ دستی")
+private val ISSUE_REASONS = listOf("ضایعات", "کسریِ انبارگردانی", "مصرفِ متفرقه", "خروجِ دستی")
 
 /**
  * انبار مواد — دیدن، و **کار کردن** روی هر قلم.
@@ -223,7 +236,8 @@ fun MaterialWarehouseScreen(
             ItemOp.RECEIVE -> MoveDialog(
                 item = item,
                 title = "ثبت ورود — ${item.name}",
-                hint = "چه مقدار به انبار اضافه شد؟",
+                hint = "چه مقدار به انبار اضافه شد؟ " +
+                    "خریدِ تازه را از «خرید مواد» ثبت کنید تا پولش هم حساب شود.",
                 reasons = RECEIVE_REASONS,
                 onDismiss = { target = null },
                 onConfirm = { amount, reason, note ->
@@ -236,7 +250,8 @@ fun MaterialWarehouseScreen(
                 item = item,
                 title = "ثبت خروج — ${item.name}",
                 hint = "چه مقدار از انبار خارج شد؟ " +
-                    "(موجودی: ${fmtAmount(item.amount)} ${item.unit})",
+                    "(موجودی: ${fmtAmount(item.amount)} ${item.unit}) " +
+                    "موادی که به سفارش می‌رود از صفحهٔ «برش» کم می‌شود، نه از اینجا.",
                 reasons = ISSUE_REASONS,
                 onDismiss = { target = null },
                 onConfirm = { amount, reason, note ->

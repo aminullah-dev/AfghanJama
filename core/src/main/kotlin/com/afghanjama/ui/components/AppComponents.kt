@@ -303,13 +303,20 @@ fun InfoRow(
 /**
  * حالتِ خالی. به‌جای یک خطِ متنِ خاکستری، می‌گوید «چه خبر است» و
  * «قدمِ بعدی چیست» — تفاوتِ اپِ حرفه‌ای و اپِ نیمه‌کاره معمولاً همین‌جاست.
+ *
+ * **و قدمِ بعدی را هم برمی‌دارد.** گفتنِ «اول از بخش خرید مواد وارد
+ * کنید» بی آنکه راهی به آنجا باشد، کاربر را می‌فرستد دنبالِ منو
+ * بگردد — و کسی که تازه با اپ کار می‌کند اصلاً نمی‌داند آن بخش کجاست.
+ * [onAction] همان جمله را به یک دکمه تبدیل می‌کند.
  */
 @Composable
 fun EmptyState(
     icon: ImageVector,
     title: String,
     hint: String? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null
 ) {
     Box(modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) {
         Column(
@@ -335,6 +342,11 @@ fun EmptyState(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
                 )
+            }
+            if (onAction != null && !actionLabel.isNullOrBlank()) {
+                // همان دکمهٔ اصلیِ اپ — حالتِ خالی هم قدمِ بعدی‌اش را
+                // با همان وزنِ بصری نشان می‌دهد که بقیهٔ صفحه‌ها.
+                BrandButton(text = actionLabel, onClick = onAction)
             }
         }
     }

@@ -63,7 +63,14 @@ private fun fmtNum(v: Double): String =
 @Composable
 fun ProductionOrderScreen(
     vm: ProductionViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    /**
+     * رفتن به «خرید مواد».
+     *
+     * `null` یعنی این صفحه راهی به آنجا ندارد و آن‌وقت فقط جمله را
+     * می‌گوید — نه دکمه‌ای که هیچ نکند.
+     */
+    onGoProcurement: (() -> Unit)? = null
 ) {
     val ui by vm.ui.collectAsState()
     val materials by vm.materials.collectAsState()
@@ -320,6 +327,13 @@ fun ProductionOrderScreen(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.error
                             )
+                            // جمله‌ای که می‌گوید کجا برو، باید ببرد.
+                            if (onGoProcurement != null) {
+                                OutlinedButton(
+                                    onClick = onGoProcurement,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) { Text("رفتن به خرید مواد") }
+                            }
                         }
                         OutlinedButton(onClick = { pickerOpen = true }, modifier = Modifier.fillMaxWidth()) {
                             Text(

@@ -191,6 +191,32 @@ class FinishedSaleViewModel(private val repo: Repo) : ViewModel() {
         }
 
     /**
+     * کالای آماده‌ای که از قبل در انبار است — مهاجرت از دفتر یا اپِ
+     * قبلی. [recount] این کار را نمی‌کند چون ردیفِ تازه نمی‌سازد؛
+     * شمارش اصلاحِ چیزی است که هست.
+     */
+    fun addOpening(
+        name: String,
+        size: String,
+        qty: Int,
+        unitCost: Long,
+        note: String = ""
+    ) = viewModelScope.launch {
+        busy.once {
+            val ok = repo.setOpeningFinishedStock(name, size, qty, unitCost, note)
+            _ui.update {
+                if (ok) it.copy(
+                    message = "«${name.trim()}» با $qty عدد به انبار افزوده شد.",
+                    isError = false
+                ) else it.copy(
+                    message = "نام و تعداد لازم است؛ تعداد هم باید بیشتر از صفر باشد.",
+                    isError = true
+                )
+            }
+        }
+    }
+
+    /**
      * برگشت از فروش: کالا به انبار محصول برمی‌گردد و پولِ مشتری یا نقد
      * پس داده می‌شود یا به‌صورت بستانکاری روی حسابش می‌ماند.
      */

@@ -27,6 +27,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -87,6 +88,20 @@ fun FinishedWarehouseScreen(
     var sellTarget by remember { mutableStateOf<FinishedStock?>(null) }
     var returnTarget by remember { mutableStateOf<FinishedSale?>(null) }
     var countTarget by remember { mutableStateOf<FinishedStock?>(null) }
+
+    // کالای آماده‌ای که از قبل در انبار است — مهاجرت از دفترِ قبلی.
+    var addingOpening by remember { mutableStateOf(false) }
+
+    if (addingOpening) {
+        OpeningFinishedDialog(
+            busy = busy,
+            onDismiss = { addingOpening = false },
+            onConfirm = { name, size, qty, unitCost, note ->
+                vm.addOpening(name, size, qty, unitCost, note)
+                addingOpening = false
+            }
+        )
+    }
 
     // پوشهٔ بازِ فعلی — null یعنی فهرستِ پوشه‌ها. مثلِ فایل‌منیجر: یک طبقه
     // پایین می‌رویم و با دکمهٔ برگشت بالا می‌آییم.
@@ -409,6 +424,14 @@ fun FinishedWarehouseScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
+        },
+        floatingActionButton = {
+            // تنها راهِ واردکردنِ کالای آماده‌ای که از قبل هست. شمارش
+            // این کار را نمی‌کند چون ردیفِ تازه نمی‌سازد، و بدونِ این
+            // دکمه تنها راه جعلِ یک سفارشِ تولید بود.
+            FloatingActionButton(onClick = { addingOpening = true }) {
+                Icon(Icons.Default.Add, contentDescription = "افزودن کالای موجود به انبار")
+            }
         }
     ) { pad ->
         LazyColumn(
@@ -432,7 +455,8 @@ fun FinishedWarehouseScreen(
                 item {
                     Text(
                         "انبار محصول خالی است. هر سفارشی که در مرحلهٔ «نظارت» تأیید شود، " +
-                            "خودکار وارد این انبار می‌شود و از همین‌جا فروخته می‌رود.",
+                            "خودکار وارد این انبار می‌شود و از همین‌جا فروخته می‌رود. " +
+                            "اگر همین حالا کالای آماده‌ای در انبار دارید، با دکمهٔ + واردش کنید.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 24.dp)
                     )
@@ -628,4 +652,101 @@ fun FinishedWarehouseScreen(
             item { Spacer(Modifier.height(60.dp)) }
         }
     }
+}
+
+/**
+ * کالای آماده‌ای که از قبل در انبار است — «انبارِ قبلی» هنگام مهاجرت.
+ *
+ * سایز خالی مجاز است چون خیلی از کارگاه‌ها محصولِ بی‌سایز هم دارند، و
+ * کلیدِ ردیف «نام + سایز» است پس خالی هم یک ردیفِ معتبر می‌سازد.
+ *
+ * بهای هر عدد اختیاری است: کارفرمایی که بهای تمام‌شدهٔ کتِ پارسال را
+ * نمی‌داند نباید مجبور شود عددی از خودش بسازد. عددِ ساختگی تا ابد در
+ * بهای تمام‌شدهٔ فروش می‌مانَد و سودِ هر فروشِ بعدی را کج می‌کند.
+ */
+@Composable
+private fun OpeningFinishedDialog(
+    busy: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: (name: String, size: String, qty: Int, unitCost: Long, note: String) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var size by remember { mutableStateOf("") }
+    var qtyText by remember { mutableStateOf("") }
+    var costText by remember { mutableStateOf("") }
+    var note by remember { mutableStateOf("") }
+
+    val qty = qtyText.toIntOrNull() ?: 0
+    val ready = name.isNotBlank() && qty > 0 && !busy
+
+    AppAlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("افزودن کالای موجود") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "برای کالای آماده‌ای که همین حالا در انبار است ولی در اپ ثبت نشده. " +
+                        "این تولید نیست و پولی جابه‌جا نمی‌کند؛ شمارشِ شروع است. " +
+                        "کالایی که در کارگاه دوخته می‌شود خودش از مرحلهٔ «نظارت» وارد می‌شود.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("نام کالا") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = size,
+                        onValueChange = { size = it },
+                        label = { Text("سایز (اختیاری)") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    OutlinedTextField(
+                        value = qtyText,
+                        onValueChange = { qtyText = it.digitsOnly() },
+                        label = { Text("تعداد") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                OutlinedTextField(
+                    value = costText,
+                    onValueChange = { costText = it.digitsOnly() },
+                    label = { Text("بهای تمام‌شدهٔ هر عدد (اختیاری، افغانی)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    label = { Text("توضیح (اختیاری)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onConfirm(
+                        name.trim(),
+                        size.trim(),
+                        qty,
+                        costText.toLongOrNull() ?: 0L,
+                        note.trim()
+                    )
+                },
+                enabled = ready
+            ) { Text("افزودن") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("لغو") } }
+    )
 }

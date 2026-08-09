@@ -366,7 +366,11 @@ internal fun SectionContent(
 
         Section.ProductionOrder -> {
             val vm: ProductionViewModel = viewModel { ProductionViewModel(repo) }
-            ProductionOrderScreen(vm, onBack = back)
+            ProductionOrderScreen(
+                vm,
+                onBack = back,
+                onGoProcurement = { go(Section.Procurement) }
+            )
         }
 
         Section.Sewing -> {
