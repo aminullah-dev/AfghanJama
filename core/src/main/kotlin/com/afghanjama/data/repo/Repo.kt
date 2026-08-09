@@ -67,6 +67,16 @@ class Repo(private val db: Db) {
         const val OPENING = "OPENING"
 
         /**
+         * دلیلِ حرکتِ انبار برای موجودیِ اولیه.
+         *
+         * در کاردکس باید از «خرید» جدا دیده شود: خرید پول برده و
+         * موجودیِ اولیه نبرده. کسی که شش ماه بعد کاردکس را می‌خواند
+         * باید بتواند این دو را از هم تشخیص دهد بی آنکه ژورنال را
+         * باز کند.
+         */
+        const val OPENING_STOCK = "موجودی اولیه"
+
+        /**
          * چند ماه رویدادِ پردازش‌شده نگه داشته شود.
          *
          * ۲۴ — تصمیمِ کارگاه. دو سالِ مالی کامل برای هر بازبینی یا
@@ -1893,6 +1903,22 @@ class Repo(private val db: Db) {
      *
      * کم‌شدن هزینه است (ضایعات یا کسریِ شمارش) و زیادشدن هزینهٔ منفی
      * (چیزی که پیدا شده و ثبت نبوده) — همان رسمِ استانداردِ اصلاحِ انبار.
+     *
+     * **چرا مقدار برمی‌گرداند.** این تابع مسیرِ **دستی** است: کسی جلوی
+     * صفحه ایستاده و منتظر است. تا امروز `Unit` برمی‌گرداند و اگر
+     * برداشت به موجودی نمی‌خورد — قلم نبود، یا کمتر از خواسته داشت —
+     * فقط یک سطر در لاگِ حسابرسی می‌نشست و صفحه با خیالِ راحت
+     * می‌گفت «ثبت شد». یعنی دقیقاً همان چیزی که کاربر از آن شکایت
+     * دارد: دکمه‌ای که کار می‌کند به‌نظر، ولی کاری نکرده.
+     *
+     * برگشتی **مقدارِ واقعاً جابه‌جاشده** است (علامت‌دار)، پس صفحه
+     * می‌تواند راست بگوید: «۳ متر از ۵ متر خارج شد، بیشتر نبود».
+     *
+     * **اتمی است.** سه دفتر نوشته می‌شود — موجودی، کاردکس، و ژورنال —
+     * و نیمه‌کاره ماندنِ هرکدام یعنی انبار و حساب برای همیشه از هم
+     * می‌افتند. همان چیزی که مرزِ `Tx` برای بستنش ساخته شد.
+     *
+     * @return مقدارِ جابه‌جاشده به همان واحد؛ `0.0` یعنی هیچ اتفاقی نیفتاد.
      */
     suspend fun adjustMaterialStock(
         name: String,
@@ -1900,20 +1926,139 @@ class Repo(private val db: Db) {
         delta: Double,
         reason: String,
         note: String = ""
-    ) {
-        if (delta == 0.0) return
-        val moved = changeMaterialStock(name, unit, delta, reason = reason, note = note)
-        if (moved <= 0L) return
-        postJournal(
-            "$reason — ${name.trim()}", "MATERIAL_ADJUST", "",
-            if (delta < 0) listOf(
-                jl(Accounts.EXPENSES, debit = moved),
-                jl(Accounts.MATERIALS, credit = moved)
-            ) else listOf(
-                jl(Accounts.MATERIALS, debit = moved),
-                jl(Accounts.EXPENSES, credit = moved)
+    ): Double = db.atomic {
+        adjustMaterialStockTx(name, unit, delta, reason, note)
+    }
+
+    private suspend fun adjustMaterialStockTx(
+        name: String,
+        unit: String,
+        delta: Double,
+        reason: String,
+        note: String
+    ): Double {
+        if (delta == 0.0) return 0.0
+        val nm = name.trim()
+        val un = unit.trim()
+
+        /*
+         * مسیرِ دستی از جست‌وجوی «هم‌نام با واحدِ دیگر» استفاده نمی‌کند.
+         *
+         * آن کمک‌رسانی برای مصرفِ سفارش ساخته شد، جایی که واحدِ سفارش
+         * می‌تواند با واحدِ خرید فرق کند. اینجا کاربر روی ردیفِ مشخصی
+         * از همین صفحه زده؛ اگر آن ردیف نباشد، برداشت از ردیفِ دیگری
+         * سورپرایز است نه کمک — و مقدارِ برگشتی هم دیگر مالِ ردیفی
+         * نیست که کاربر نگاهش می‌کند.
+         */
+        val before = db.materialStockDao().find(nm, un)
+        if (before == null && delta < 0) {
+            audit("اصلاح انبار انجام نشد", "«$nm» با واحد «$un» در انبار نیست — $reason")
+            return 0.0
+        }
+
+        val moved = changeMaterialStock(nm, un, delta, reason = reason, note = note)
+        val after = db.materialStockDao().find(nm, un)?.amount ?: 0.0
+        val movedQty = after - (before?.amount ?: 0.0)
+        if (movedQty == 0.0) return 0.0
+
+        // سند فقط وقتی که ارزشی هم جابه‌جا شده باشد. قلمی که هنوز
+        // میانگینِ قیمت ندارد (هیچ‌وقت خریده نشده) مقدارش عوض می‌شود
+        // ولی سندی ندارد — و این درست است، نه یک جای خالی.
+        if (moved > 0L) {
+            postJournal(
+                "$reason — $nm", "MATERIAL_ADJUST", "",
+                if (delta < 0) listOf(
+                    jl(Accounts.EXPENSES, debit = moved),
+                    jl(Accounts.MATERIALS, credit = moved)
+                ) else listOf(
+                    jl(Accounts.MATERIALS, debit = moved),
+                    jl(Accounts.EXPENSES, credit = moved)
+                )
             )
+        }
+        return movedQty
+    }
+
+    /**
+     * موجودیِ اولیهٔ یک قلم — «انبارِ قبلی» هنگام مهاجرت از اپِ دیگر.
+     *
+     * برادرِ [setOpeningBalance] است و همان استدلال را دارد: قلم‌به‌قلم،
+     * چون واردکردنِ پشتیبانِ اپِ دیگر یعنی آشتی دادنِ دو مدلِ داده و هر
+     * ناهم‌خوانی بی‌صدا به عددِ غلط تبدیل می‌شود.
+     *
+     * **چرا [addMaterialPurchase] به دردِ این کار نمی‌خورد.** آن تابع
+     * ورودِ خرید است و از داخلِ فاکتورِ خرید صدا زده می‌شود، جایی که
+     * پول هم از صندوق یا از حسابِ تأمین‌کننده خارج می‌شود. مهاجرت پولی
+     * جابه‌جا نمی‌کند: پارچه‌ای که سالِ پیش خریده شده امروز فقط
+     * **شمرده** می‌شود. اگر از مسیرِ خرید وارد شود، روزِ مهاجرت به
+     * اندازهٔ کلِ انبار یک خریدِ ساختگی ثبت می‌شود و صندوق یا بدهیِ
+     * کارگاه غلط می‌شود.
+     *
+     * پس طرفِ دیگرِ سند **سرمایه** است، نه هزینه و نه خرید — همان
+     * تله‌ای که یک بار در `recordManualCash` گرفته شد و بارِ دوم در
+     * مانده افتتاحیهٔ اشخاص.
+     *
+     * قیمتِ واحد اختیاری است (صفر مجاز است): کارفرمایی که نرخِ خریدِ
+     * پارچهٔ قدیمی را نمی‌داند نباید مجبور شود عددی از خودش بسازد.
+     * آن‌وقت مقدار وارد می‌شود و سندی نمی‌خورد — انبار درست است و
+     * دفتر چیزی از خودش درنیاورده.
+     *
+     * @return false اگر نام خالی یا مقدار مثبت نباشد.
+     */
+    suspend fun setOpeningStock(
+        name: String,
+        unit: String,
+        amount: Double,
+        unitPrice: Long,
+        note: String = ""
+    ): Boolean = db.atomic {
+        setOpeningStockTx(name, unit, amount, unitPrice, note)
+    }
+
+    private suspend fun setOpeningStockTx(
+        name: String,
+        unit: String,
+        amount: Double,
+        unitPrice: Long,
+        note: String
+    ): Boolean {
+        val nm = name.trim()
+        val un = unit.trim()
+        if (nm.isBlank() || un.isBlank() || amount <= 0.0 || unitPrice < 0L) return false
+
+        val now = System.currentTimeMillis()
+        val cur = db.materialStockDao().find(nm, un)
+            ?: MaterialStock(name = nm, unit = un, amount = 0.0, updatedAt = now)
+        val value = (amount * unitPrice).toLong()
+        val newAmount = cur.amount + amount
+        // میانگینِ وزنی، درست مثلِ خرید: اگر قلم از قبل موجودی داشته،
+        // نرخِ اعلامیِ مهاجرت نباید نرخِ قبلی را پاک کند.
+        val newAvg =
+            if (newAmount > 0.0) ((cur.amount * cur.avgPrice) + value) / newAmount
+            else 0.0
+        db.materialStockDao().upsert(
+            cur.copy(amount = newAmount, avgPrice = newAvg, updatedAt = now)
         )
+        logMovement(nm, un, amount, OPENING_STOCK, note)
+
+        if (value > 0L) {
+            postJournal(
+                "$OPENING_STOCK — $nm", OPENING, "",
+                listOf(
+                    jl(Accounts.MATERIALS, debit = value),
+                    jl(Accounts.EQUITY, credit = value)
+                )
+            )
+        }
+
+        audit(OPENING_STOCK, "$nm — $amount $un" + if (value > 0L) " به ارزش $value ؋" else "")
+        emit(
+            type = OPENING_STOCK,
+            aggregate = "material",
+            aggregateId = "$nm|$un",
+            payload = "مقدار=$amount؛نرخ=$unitPrice"
+        )
+        return true
     }
 
     suspend fun setMaterialMinLevel(name: String, unit: String, minLevel: Double) {

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.afghanjama.data.entities.MaterialStock
 import com.afghanjama.data.entities.StockMovement
 import com.afghanjama.data.repo.Repo
+import com.afghanjama.ui.format.toPersianDigits
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -17,7 +18,20 @@ data class WarehouseUi(
     val isError: Boolean = false
 )
 
-/** انبار عمومی مواد خام: نمایش موجودی، اصلاح دستی، حد هشدار. */
+/** رقمِ مقدار برای پیام‌ها: بدونِ اعشارِ بی‌مصرف. */
+private fun qty(v: Double): String =
+    (if (v % 1.0 == 0.0) v.toLong().toString() else v.toString()).toPersianDigits()
+
+/**
+ * انبار عمومی مواد خام.
+ *
+ * **هر کنش می‌گوید واقعاً چه شد.** تا امروز هر تابع بعد از فراخوانِ
+ * مخزن یک پیامِ خوش‌بینانه می‌داد — «ثبت شد» — بی آنکه بپرسد چیزی
+ * ثبت شد یا نه. اگر قلم موجودی نداشت یا کمتر از خواسته داشت، مخزن
+ * بی‌صدا رد می‌شد و کاربر پیامِ سبز می‌دید. حالا [Repo.adjustMaterialStock]
+ * مقدارِ واقعاً جابه‌جاشده را برمی‌گرداند و پیام از روی همان ساخته
+ * می‌شود، نه از روی آنچه کاربر خواسته بود.
+ */
 class WarehouseViewModel(private val repo: Repo) : ViewModel() {
 
     val materials: StateFlow<List<MaterialStock>> =
@@ -34,22 +48,109 @@ class WarehouseViewModel(private val repo: Repo) : ViewModel() {
 
     fun clearMessage() = _ui.update { it.copy(message = null, isError = false) }
 
+    private fun say(text: String, error: Boolean = false) =
+        _ui.update { it.copy(message = text, isError = error) }
+
     /** کاردکسِ یک قلم — ورود و خروجش به ترتیبِ زمان. */
     fun movementsOf(item: MaterialStock) =
         repo.observeItemMovements(item.name, item.unit)
 
-    /** اصلاح دستی موجودی (شمارش انبار): مقدار به رقم دقیقِ واردشده تنظیم می‌شود. */
-    fun setAmount(item: MaterialStock, newAmount: Double) = viewModelScope.launch {
-        val delta = newAmount - item.amount
-        repo.adjustMaterialStock(item.name, item.unit, delta, reason = "اصلاح موجودی")
-        _ui.update { it.copy(message = "موجودی «${item.name}» به‌روزرسانی شد.", isError = false) }
-    }
+    /**
+     * ورودِ تازه بدونِ خرید: برگشت از تولید، یا اضافه‌ای که در
+     * انبارگردانی پیدا شده. خریدِ واقعی از صفحهٔ «خرید مواد» می‌آید
+     * چون آنجا پول هم جابه‌جا می‌شود.
+     */
+    fun receive(item: MaterialStock, amount: Double, reason: String, note: String = "") =
+        viewModelScope.launch {
+            if (amount <= 0.0) {
+                say("مقدارِ ورود باید بیشتر از صفر باشد.", error = true)
+                return@launch
+            }
+            val moved = repo.adjustMaterialStock(item.name, item.unit, amount, reason, note)
+            if (moved > 0.0) {
+                say("${qty(moved)} ${item.unit} به «${item.name}» اضافه شد.")
+            } else {
+                say("ورودِ «${item.name}» ثبت نشد.", error = true)
+            }
+        }
 
-    /** ثبت ضایعات: مقدار مشخص از انبار خارج و در کاردکس با دلیلِ «ضایعات» ثبت می‌شود. */
-    fun recordWaste(item: MaterialStock, amount: Double) = viewModelScope.launch {
-        if (amount <= 0.0) return@launch
-        repo.adjustMaterialStock(item.name, item.unit, -amount, reason = "ضایعات")
-        _ui.update { it.copy(message = "ضایعاتِ «${item.name}» ثبت شد.", isError = false) }
+    /**
+     * خروجِ تازه: مصرف، ضایعات، یا کسریِ انبارگردانی.
+     *
+     * اگر موجودی کمتر از خواسته باشد، هرچه هست خارج می‌شود و پیام
+     * **همان مقدار** را می‌گوید — نه عددی که کاربر تایپ کرده بود.
+     */
+    fun issue(item: MaterialStock, amount: Double, reason: String, note: String = "") =
+        viewModelScope.launch {
+            if (amount <= 0.0) {
+                say("مقدارِ خروج باید بیشتر از صفر باشد.", error = true)
+                return@launch
+            }
+            val moved = -repo.adjustMaterialStock(item.name, item.unit, -amount, reason, note)
+            when {
+                moved <= 0.0 ->
+                    say("«${item.name}» موجودی نداشت؛ چیزی خارج نشد.", error = true)
+                moved < amount ->
+                    say(
+                        "فقط ${qty(moved)} ${item.unit} موجود بود و همان خارج شد " +
+                            "(درخواست: ${qty(amount)}).",
+                        error = true
+                    )
+                else ->
+                    say("${qty(moved)} ${item.unit} از «${item.name}» خارج شد.")
+            }
+        }
+
+    /**
+     * انبارگردانی: موجودی روی رقمِ **شمرده‌شده** تنظیم می‌شود.
+     *
+     * کاربر عددی را که در انبار شمرده وارد می‌کند، نه اختلاف را —
+     * حساب کردنِ اختلاف کارِ اپ است. تفاوت با دلیلِ «انبارگردانی» در
+     * کاردکس می‌نشیند تا شش ماه بعد معلوم باشد چرا موجودی پرید.
+     */
+    fun countTo(item: MaterialStock, counted: Double, note: String = "") =
+        viewModelScope.launch {
+            if (counted < 0.0) {
+                say("مقدارِ شمرده‌شده منفی نمی‌شود.", error = true)
+                return@launch
+            }
+            val delta = counted - item.amount
+            if (delta == 0.0) {
+                say("شمارش با موجودیِ ثبت‌شده یکی است؛ چیزی تغییر نکرد.")
+                return@launch
+            }
+            val moved = repo.adjustMaterialStock(
+                item.name, item.unit, delta, reason = "انبارگردانی", note = note
+            )
+            if (moved == 0.0) {
+                say("انبارگردانیِ «${item.name}» ثبت نشد.", error = true)
+                return@launch
+            }
+            say(
+                "«${item.name}»: از ${qty(item.amount)} به ${qty(item.amount + moved)} " +
+                    "${item.unit} اصلاح شد (${if (moved > 0) "اضافه" else "کسری"} ${qty(kotlin.math.abs(moved))})."
+            )
+        }
+
+    /**
+     * قلمِ تازه با موجودیِ اولیه — مهاجرت از اپ یا دفترِ قبلی.
+     *
+     * جدا از «خرید» است چون پولی جابه‌جا نمی‌شود؛ توضیحش در
+     * [Repo.setOpeningStock].
+     */
+    fun addOpening(
+        name: String,
+        unit: String,
+        amount: Double,
+        unitPrice: Long,
+        note: String = ""
+    ) = viewModelScope.launch {
+        val ok = repo.setOpeningStock(name, unit, amount, unitPrice, note)
+        if (ok) {
+            say("«${name.trim()}» با ${qty(amount)} ${unit.trim()} به انبار افزوده شد.")
+        } else {
+            say("نام، واحد و مقدار لازم است؛ مقدار هم باید بیشتر از صفر باشد.", error = true)
+        }
     }
 
     /**
@@ -59,18 +160,23 @@ class WarehouseViewModel(private val repo: Repo) : ViewModel() {
      */
     fun deleteRow(item: MaterialStock) = viewModelScope.launch {
         val ok = repo.deleteMaterialStockIfEmpty(item)
-        _ui.update {
-            if (ok) it.copy(message = "ردیف «${item.name}» حذف شد.", isError = false)
-            else it.copy(
-                message = "«${item.name}» هنوز ${item.amount} ${item.unit} موجودی دارد. " +
-                    "اول با «ضایعات» صفرش کنید تا سندش هم ثبت شود.",
-                isError = true
+        if (ok) {
+            say("ردیف «${item.name}» حذف شد.")
+        } else {
+            say(
+                "«${item.name}» هنوز ${qty(item.amount)} ${item.unit} موجودی دارد. " +
+                    "اول با «خروج» یا «انبارگردانی» صفرش کنید تا سندش هم ثبت شود.",
+                error = true
             )
         }
     }
 
     fun setMinLevel(item: MaterialStock, minLevel: Double) = viewModelScope.launch {
         repo.setMaterialMinLevel(item.name, item.unit, minLevel)
-        _ui.update { it.copy(message = "حد هشدار «${item.name}» ثبت شد.", isError = false) }
+        say(
+            if (minLevel > 0.0)
+                "هشدارِ «${item.name}» زیر ${qty(minLevel)} ${item.unit} روشن می‌شود."
+            else "هشدارِ کمبودِ «${item.name}» خاموش شد."
+        )
     }
 }
