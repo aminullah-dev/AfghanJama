@@ -432,7 +432,12 @@ private fun HandoutCard(
                 }
                 AppDropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                     if (tailorLabels.isEmpty()) {
-                        AppDropdownMenuItem(text = { Text("هیچ خیاطی ثبت نشده (اطلاعات پایه)") }, onClick = { menuOpen = false })
+                        // پیام است نه فرمان: زدنی نیست، پس خاموش.
+                        AppDropdownMenuItem(
+                            text = { Text("هیچ خیاطی ثبت نشده (اطلاعات پایه)") },
+                            onClick = { menuOpen = false },
+                            enabled = false
+                        )
                     } else {
                         tailorLabels.forEach { label ->
                             AppDropdownMenuItem(text = { Text(label) }, onClick = { tailor = label; menuOpen = false })

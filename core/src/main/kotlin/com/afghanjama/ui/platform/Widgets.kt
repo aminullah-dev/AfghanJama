@@ -64,11 +64,19 @@ interface Widgets {
         content: @Composable ColumnScope.() -> Unit
     )
 
-    /** یک ردیف در منوی بازشو. */
+    /**
+     * یک ردیف در منوی بازشو.
+     *
+     * [enabled] برای ردیف‌هایی است که **پیام‌اند نه فرمان** — مثلِ
+     * «هیچ خیاطی ثبت نشده». آن ردیف‌ها اگر روشن باشند دروغ می‌گویند:
+     * انگشت رویشان می‌رود، منو بسته می‌شود، و هیچ اتفاقی نمی‌افتد.
+     * خاموش که باشند، خودِ ظاهرشان می‌گوید زدنی نیستند.
+     */
     @Composable
     fun MenuItem(
         text: @Composable () -> Unit,
-        onClick: () -> Unit
+        onClick: () -> Unit,
+        enabled: Boolean
     )
 }
 
@@ -118,5 +126,6 @@ fun AppDropdownMenu(
 @Composable
 fun AppDropdownMenuItem(
     text: @Composable () -> Unit,
-    onClick: () -> Unit
-) = LocalWidgets.current.MenuItem(text, onClick)
+    onClick: () -> Unit,
+    enabled: Boolean = true
+) = LocalWidgets.current.MenuItem(text, onClick, enabled)

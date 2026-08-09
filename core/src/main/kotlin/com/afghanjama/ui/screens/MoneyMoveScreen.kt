@@ -153,9 +153,11 @@ fun MoneyMoveScreen(
                         AppDropdownMenu(expanded = pickerOpen, onDismissRequest = { pickerOpen = false }) {
                             val list = ui.of(type)
                             if (list.isEmpty()) {
+                                // پیام است نه فرمان: زدنی نیست، پس خاموش.
                                 AppDropdownMenuItem(
                                     text = { Text("کسی ثبت نشده — نام را دستی بنویسید") },
-                                    onClick = { pickerOpen = false }
+                                    onClick = { pickerOpen = false },
+                                    enabled = false
                                 )
                             }
                             list.forEach { p ->

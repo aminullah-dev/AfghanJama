@@ -46,6 +46,7 @@ object DesktopWidgets : Widgets {
     @Composable
     override fun MenuItem(
         text: @Composable () -> Unit,
-        onClick: () -> Unit
-    ) = DropdownMenuItem(text = text, onClick = onClick)
+        onClick: () -> Unit,
+        enabled: Boolean
+    ) = DropdownMenuItem(text = text, onClick = onClick, enabled = enabled)
 }
