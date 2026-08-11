@@ -22,6 +22,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import com.afghanjama.ui.platform.AppAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -56,6 +57,7 @@ import com.afghanjama.data.entities.partyTypeLabel
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.digitsOnly
+import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.vm.LedgerViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -94,6 +96,20 @@ fun LedgerScreen(
     var typeFilter by remember { mutableStateOf<String?>(null) }
     var selected by remember { mutableStateOf<PartyBalance?>(null) }
 
+    /*
+     * جست‌وجوی نام، و «فقط تسویه‌نشده‌ها».
+     *
+     * دفتر کل پرمراجعه‌ترین صفحهٔ کارگاه است و فهرستش هرگز کوتاه
+     * نمی‌شود: هر مشتری، هر خیاط و هر فروشنده‌ای که یک بار حساب داشته
+     * تا ابد در آن می‌مانَد — حتی وقتی حسابش صفر شده. کارفرمایی که
+     * دنبالِ یک نام است، بینِ صد ردیفِ تسویه‌شده می‌گردد.
+     *
+     * پالایهٔ نوع از قبل بود ولی جوابِ این نیست: «همهٔ مشتریان» هنوز
+     * صد ردیف است.
+     */
+    var query by remember { mutableStateOf("") }
+    var onlyOpen by remember { mutableStateOf(false) }
+
     // ---------- حالتِ سند دستی ----------
     var manualOpen by remember { mutableStateOf(false) }
     var mType by remember { mutableStateOf("SUPPLIER") }
@@ -106,8 +122,11 @@ fun LedgerScreen(
     val payable = balances.filter { it.net < 0 }.sumOf { -it.net }
 
     val types = balances.map { it.type }.distinct()
+    val openCount = balances.count { it.net != 0L }
     val shown = balances
         .filter { typeFilter == null || it.type == typeFilter }
+        .filter { query.isBlank() || it.name.contains(query.trim(), ignoreCase = true) }
+        .filter { !onlyOpen || it.net != 0L }
         .sortedByDescending { if (it.net < 0) -it.net else it.net }
 
     // ---------- دیالوگ گردش حساب ----------
@@ -342,6 +361,23 @@ fun LedgerScreen(
                 }
             }
 
+            if (balances.isNotEmpty()) {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    label = { Text("جستجوی نام") },
+                    singleLine = true,
+                    trailingIcon = if (query.isNotBlank()) {
+                        {
+                            IconButton(onClick = { query = "" }) {
+                                Icon(Icons.Default.Close, contentDescription = "پاک کردنِ جستجو")
+                            }
+                        }
+                    } else null,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
             if (types.isNotEmpty()) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(
@@ -356,12 +392,27 @@ fun LedgerScreen(
                             label = { Text(typeLabel(t)) }
                         )
                     }
+                    // حسابِ تسویه‌شده تا ابد در فهرست می‌مانَد و کارِ
+                    // امروز را شلوغ می‌کند. چیپ فقط وقتی هست که واقعاً
+                    // حسابِ بازی هست.
+                    if (openCount > 0 && openCount < balances.size) {
+                        FilterChip(
+                            selected = onlyOpen,
+                            onClick = { onlyOpen = !onlyOpen },
+                            label = { Text("فقط تسویه‌نشده (${openCount.fa()})") }
+                        )
+                    }
                 }
             }
 
             if (shown.isEmpty()) {
                 Text(
-                    "هنوز حسابی در دفتر کل ثبت نشده.",
+                    when {
+                        balances.isEmpty() -> "هنوز حسابی در دفتر کل ثبت نشده."
+                        query.isNotBlank() -> "حسابی با «${query.trim()}» پیدا نشد."
+                        onlyOpen -> "همهٔ حساب‌های این دسته تسویه‌اند."
+                        else -> "حسابی در این دسته نیست."
+                    },
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else {

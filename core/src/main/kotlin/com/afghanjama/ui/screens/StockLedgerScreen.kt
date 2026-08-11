@@ -14,9 +14,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -24,6 +26,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -45,6 +50,25 @@ fun StockLedgerScreen(
     onBack: () -> Unit
 ) {
     val movements by vm.movements.collectAsState()
+
+    /*
+     * جست‌وجو در گردشِ انبار.
+     *
+     * این صفحه سیصد ردیفِ آخر را نشان می‌دهد و همیشه پر است. سؤالی که
+     * کارفرما با آن می‌آید همیشه یکی است: «این پارچه کِی و چرا کم شد؟»
+     * — یعنی سؤالی دربارهٔ **یک قلم**، در فهرستی از همه‌چیز. بی
+     * جست‌وجو باید سیصد ردیف را با چشم گشت.
+     *
+     * دلیل هم جست‌وجو می‌شود، نه فقط نام: «ضایعات» یا «انبارگردانی»
+     * را نوشتن، همهٔ آن‌ها را یک‌جا می‌آورد.
+     */
+    var query by remember { mutableStateOf("") }
+    val shown = movements.filter {
+        query.isBlank() ||
+            it.name.contains(query.trim(), ignoreCase = true) ||
+            it.reason.contains(query.trim(), ignoreCase = true) ||
+            it.note.contains(query.trim(), ignoreCase = true)
+    }
 
     Scaffold(
         topBar = {
@@ -77,7 +101,34 @@ fun StockLedgerScreen(
             modifier = Modifier.padding(pad).fillMaxSize().padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
-            items(movements, key = { it.id }) { m ->
+            item {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    label = { Text("جستجوی قلم یا دلیل") },
+                    singleLine = true,
+                    trailingIcon = if (query.isNotBlank()) {
+                        {
+                            IconButton(onClick = { query = "" }) {
+                                Icon(Icons.Default.Close, contentDescription = "پاک کردنِ جستجو")
+                            }
+                        }
+                    } else null,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+                )
+            }
+
+            if (shown.isEmpty()) {
+                item {
+                    Text(
+                        "گردشی با «${query.trim()}» پیدا نشد.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 16.dp)
+                    )
+                }
+            }
+
+            items(shown, key = { it.id }) { m ->
                 val incoming = m.delta >= 0
                 Row(
                     Modifier.fillMaxWidth().padding(vertical = 12.dp),

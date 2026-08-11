@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import com.afghanjama.ui.platform.AppAlertDialog
@@ -63,6 +64,7 @@ import com.afghanjama.data.entities.DesignItem
 import com.afghanjama.data.entities.FabricSeasons
 import com.afghanjama.data.entities.WorkCost
 import com.afghanjama.ui.format.digitsOnly
+import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.vm.MasterDataViewModel
 
 @Composable
@@ -482,6 +484,8 @@ private fun SimpleListEditor(
     onDelete: (Long) -> Unit
 ) {
     var text by remember { mutableStateOf("") }
+    var query by remember { mutableStateOf("") }
+    val shown = filterRows(rows, query)
 
     Column(
         Modifier
@@ -523,12 +527,66 @@ private fun SimpleListEditor(
 
         Spacer(Modifier.height(16.dp))
 
+        ListSearchField(rows.size, query) { query = it }
+
         LazyColumn(Modifier.fillMaxSize()) {
-            items(rows.reversed(), key = { it.id }) { row ->
+            if (shown.isEmpty()) item { NoMatch(query) }
+            items(shown.reversed(), key = { it.id }) { row ->
                 EditableRow(row, onRename, onDelete)
             }
         }
     }
+}
+
+/**
+ * آستانهٔ نمایشِ کادرِ جست‌وجو.
+ *
+ * زیرِ این عدد فهرست یک نگاه است و کادرِ جست‌وجو فقط یک ردیفِ اضافه
+ * که فضا می‌گیرد. بالای آن، چشم دیگر یک‌جا نمی‌بیندش. کارگاهی که تازه
+ * مهاجرت کرده ممکن است پنجاه خیاط و دویست مشتری وارد کند.
+ */
+private const val SEARCH_FROM = 8
+
+private fun filterRows(rows: List<MasterRow>, query: String): List<MasterRow> =
+    if (query.isBlank()) rows
+    else rows.filter { it.label.contains(query.trim(), ignoreCase = true) }
+
+@Composable
+private fun ListSearchField(total: Int, query: String, onChange: (String) -> Unit) {
+    if (total < SEARCH_FROM) return
+    OutlinedTextField(
+        value = query,
+        onValueChange = onChange,
+        modifier = Modifier.fillMaxWidth(),
+        placeholder = { Text("جستجو در ${total.fa()} ردیف") },
+        singleLine = true,
+        shape = MaterialTheme.shapes.medium,
+        trailingIcon = if (query.isNotBlank()) {
+            {
+                IconButton(onClick = { onChange("") }) {
+                    Icon(Icons.Filled.Close, contentDescription = "پاک کردنِ جستجو")
+                }
+            }
+        } else null
+    )
+    Spacer(Modifier.height(8.dp))
+}
+
+/**
+ * «پیدا نشد» — فقط وقتی که واقعاً جست‌وجویی شده باشد.
+ *
+ * بی این شرط، فهرستی که هنوز خالی است پیامِ «ردیفی با «» پیدا نشد»
+ * می‌داد: جمله‌ای بی‌معنا، سرِ حالتی که کاملاً عادی است.
+ */
+@Composable
+private fun NoMatch(query: String) {
+    if (query.isBlank()) return
+    Text(
+        "ردیفی با «${query.trim()}» پیدا نشد.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(vertical = 16.dp)
+    )
 }
 
 @Composable
@@ -546,6 +604,8 @@ private fun TwoFieldListEditor(
 ) {
     var t1 by remember { mutableStateOf("") }
     var t2 by remember { mutableStateOf("") }
+    var query by remember { mutableStateOf("") }
+    val shown = filterRows(rows, query)
 
     Column(
         Modifier
@@ -598,8 +658,11 @@ private fun TwoFieldListEditor(
 
         Spacer(Modifier.height(16.dp))
 
+        ListSearchField(rows.size, query) { query = it }
+
         LazyColumn(Modifier.fillMaxSize()) {
-            items(rows.reversed(), key = { it.id }) { row ->
+            if (shown.isEmpty()) item { NoMatch(query) }
+            items(shown.reversed(), key = { it.id }) { row ->
                 if (onRename != null && onDelete != null) {
                     EditableRow(row, onRename, onDelete, onOpening)
                 } else {
