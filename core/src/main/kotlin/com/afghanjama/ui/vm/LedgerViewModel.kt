@@ -8,6 +8,7 @@ import com.afghanjama.data.repo.Repo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -21,6 +22,38 @@ class LedgerViewModel(private val repo: Repo) : ViewModel() {
     val entries: StateFlow<List<LedgerEntry>> =
         repo.observeAllLedgerEntries()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * شمارهٔ تلفنِ هر طرفِ حساب، اگر جایی ثبت شده باشد.
+     *
+     * **چرا از چهار جدول.** شماره‌ها پراکنده‌اند و این تاریخی است:
+     * مشتری، خیاط و ناظر هرکدام جدولِ خودشان را دارند و فروشنده در
+     * `parties` است. دفتر کل هر چهار را کنارِ هم نشان می‌دهد، پس
+     * جست‌وجو هم باید هر چهار را ببیند — وگرنه دکمهٔ تماس برای نصفِ
+     * فهرست بی‌صدا غایب می‌شد و کسی نمی‌فهمید چرا.
+     *
+     * کلید «نوع|نام» است، همان کلیدی که خودِ دفتر با آن کار می‌کند.
+     * نامِ خالی رد می‌شود تا با هم قاتی نشوند.
+     */
+    val phones: StateFlow<Map<String, String>> =
+        combine(
+            repo.observeParties(),
+            repo.observeCustomers(),
+            repo.observeTailors(),
+            repo.observeInspectors()
+        ) { parties, customers, tailors, inspectors ->
+            buildMap {
+                fun put(type: String, name: String, phone: String?) {
+                    val n = name.trim()
+                    val p = phone?.trim().orEmpty()
+                    if (n.isNotBlank() && p.isNotBlank()) put("$type|$n", p)
+                }
+                parties.forEach { put(it.type, it.name, it.phone) }
+                customers.forEach { put("CUSTOMER", it.name, it.phone) }
+                tailors.forEach { put("TAILOR", it.name, it.phone) }
+                inspectors.forEach { put("INSPECTOR", it.name, it.phone) }
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message

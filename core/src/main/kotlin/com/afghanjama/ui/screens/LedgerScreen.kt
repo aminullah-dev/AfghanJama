@@ -22,6 +22,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Close
 import com.afghanjama.ui.platform.AppAlertDialog
 import androidx.compose.material3.Button
@@ -51,6 +52,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.afghanjama.platform.LocalDocs
+import com.afghanjama.platform.LocalSystemActions
 import com.afghanjama.data.dao.PartyBalance
 import com.afghanjama.data.entities.ledgerRefLabel
 import com.afghanjama.data.entities.partyTypeLabel
@@ -103,9 +105,11 @@ fun LedgerScreen(
     onBack: () -> Unit
 ) {
     val docs = LocalDocs.current
+    val system = LocalSystemActions.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val balances by vm.balances.collectAsState()
     val entries by vm.entries.collectAsState()
+    val phones by vm.phones.collectAsState()
     val message by vm.message.collectAsState()
     val orphanWorkCost by vm.orphanWorkCost.collectAsState()
 
@@ -187,6 +191,24 @@ fun LedgerScreen(
             onDismissRequest = { selected = null },
             confirmButton = {
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    /*
+                     * تماس — فقط وقتی شماره‌ای هست.
+                     *
+                     * سنِ طلب می‌گوید سراغِ **کی** باید رفت؛ این دکمه
+                     * همان‌جا کارش را تمام می‌کند. شماره از روزِ اول در
+                     * دفترچه بود و هیچ‌جا جز صفِ تحویل استفاده نمی‌شد،
+                     * پس کارفرما برای یک زنگ باید از اپ بیرون می‌رفت و
+                     * در مخاطبانِ گوشی می‌گشت.
+                     *
+                     * روی پی‌سی شماره در کلیپ‌بورد می‌نشیند — نزدیک‌ترین
+                     * کارِ مفیدی که یک کامپیوتر می‌تواند بکند.
+                     */
+                    phones[p.type + "|" + p.name]?.let { phone ->
+                        TextButton(onClick = { system.dial(phone) }) {
+                            Icon(Icons.Default.Call, contentDescription = null)
+                            Text("  تماس")
+                        }
+                    }
                     TextButton(onClick = {
                         // صورت‌حساب PDF برای اشتراک با خودِ طرف
                         scope.launch {
