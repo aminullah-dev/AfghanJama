@@ -330,6 +330,55 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
     }
 
     /**
+     * حسابی که مانده دارد و ماه‌هاست هیچ اتفاقی در آن نیفتاده.
+     *
+     * هشدارِ «طلب از N مشتری» از قبل بود ولی فقط **مبلغ** را می‌گفت،
+     * و مبلغ به‌تنهایی کاری با کسی نمی‌کند: کارگاهی که هر روز نسیه
+     * می‌دهد همیشه طلبکار است و آن هشدار همیشه روشن. هشداری که همیشه
+     * روشن باشد دیده نمی‌شود.
+     *
+     * چیزی که واقعاً تغییرِ رفتار می‌دهد **زمان** است: طلبی که سه ماه
+     * تکان نخورده همانی است که باید سراغش رفت. این داده از روزِ اول در
+     * دفتر بود و هیچ‌جا خوانده نمی‌شد.
+     *
+     * فقط طلبِ **ما از دیگران** شمرده می‌شود، نه بدهیِ خودمان: بدهیِ
+     * کهنه‌ای که طرف پیگیرش نیست، کارِ امروزِ کارفرما نیست.
+     */
+    private val staleAlerts: Flow<List<Alert>> = combine(
+        repo.observeLedgerBalances(),
+        repo.observeAllLedgerEntries()
+    ) { balances, entries ->
+        val now = System.currentTimeMillis()
+        val lastAt = entries.groupBy { it.partyType + "|" + it.partyName }
+            .mapValues { (_, rows) -> rows.maxOf { it.at } }
+
+        val stale = balances
+            .filter { it.net > 0 }
+            .mapNotNull { p ->
+                val at = lastAt[p.type + "|" + p.name] ?: return@mapNotNull null
+                val days = ((now - at) / 86_400_000L).toInt()
+                if (days >= STALE_DEBT_DAYS) p to days else null
+            }
+            .sortedByDescending { it.second }
+
+        buildList {
+            if (stale.isNotEmpty()) {
+                val (worst, worstDays) = stale.first()
+                add(
+                    Alert(
+                        id = "stale_receivable",
+                        severity = AlertSeverity.WARN,
+                        icon = Icons.Default.AccountBalanceWallet,
+                        title = "طلبِ ${stale.size.fa()} نفر بیش از ${STALE_DEBT_DAYS.fa()} روز بی‌حرکت است",
+                        detail = "کهنه‌ترین: ${worst.name} — ${worst.net.afn()} از ${worstDays.fa()} روز پیش",
+                        route = Routes.LEDGER
+                    )
+                )
+            }
+        }
+    }
+
+    /**
      * زمانِ آخرین بکاپِ خودکار — از تنظیماتِ دستگاه خوانده و از صفحه
      * تزریق می‌شود (ViewModel به Context دسترسی ندارد). ۰ = هرگز.
      */
@@ -374,11 +423,24 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
     }
 
     val ui: StateFlow<ActionCenterUi> =
-        combine(coreAlerts, payrollAlerts, stockAlerts, backupAlerts) { core, payroll, stock, backup ->
-            ActionCenterUi((core + payroll + stock + backup).sortedBy { it.severity.ordinal })
+        combine(
+            coreAlerts, payrollAlerts, stockAlerts, backupAlerts, staleAlerts
+        ) { core, payroll, stock, backup, stale ->
+            ActionCenterUi(
+                (core + payroll + stock + backup + stale).sortedBy { it.severity.ordinal }
+            )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ActionCenterUi())
 
     private companion object {
         const val SHIFT_MS = 8L * 60 * 60 * 1000
+
+        /**
+         * از چند روز بی‌حرکتی، طلب «کهنه» شمرده می‌شود.
+         *
+         * ۳۰ — همان عددی که صفحهٔ دفتر کل هم به کار می‌برد. یک دورهٔ
+         * کاریِ کارگاه: کمتر از آن هنوز جریانِ عادیِ سفارش و تحویل
+         * است، بالای آن یعنی چیزی متوقف شده.
+         */
+        const val STALE_DEBT_DAYS = 30
     }
 }

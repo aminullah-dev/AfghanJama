@@ -74,6 +74,22 @@ private fun balanceText(net: Long): String = when {
     else -> "تسویه"
 }
 
+/**
+ * از چند روز بی‌حرکتی، حساب «کهنه» شمرده می‌شود.
+ *
+ * ۳۰ — یک دورهٔ کاریِ کارگاه. کمتر از آن هنوز جریانِ عادیِ کار است:
+ * سفارشی ثبت شده، بیعانه‌اش آمده، و تا تحویل چند هفته فاصله هست.
+ * بالای آن یعنی چیزی متوقف شده.
+ */
+private const val STALE_DAYS = 30
+
+/** «۴۵ روز بی‌حرکت» — و برای امروز و دیروز، جملهٔ آدمیزاد. */
+private fun idleLabel(days: Int): String = when {
+    days <= 0 -> "امروز"
+    days == 1 -> "دیروز"
+    else -> "${days.fa()} روز بی‌حرکت"
+}
+
 @Composable
 private fun balanceColor(net: Long): Color = when {
     net > 0 -> MaterialTheme.colorScheme.primary
@@ -110,6 +126,38 @@ fun LedgerScreen(
     var query by remember { mutableStateOf("") }
     var onlyOpen by remember { mutableStateOf(false) }
 
+    /*
+     * «چند روز است بی‌حرکت مانده؟»
+     *
+     * دفتر کل تا امروز فقط می‌گفت **چقدر**، و هرگز نمی‌گفت **از کِی**.
+     * ولی سؤالی که کارفرما را نصفِ شب بیدار می‌کند دومی است: طلبِ
+     * ۵۰۰۰ افغانی که هفتهٔ پیش ثبت شده کارِ عادیِ کارگاه است؛ همان
+     * ۵۰۰۰ که شش ماه تکان نخورده یعنی پول رفته.
+     *
+     * تاریخِ این حرکت‌ها از روزِ اول در دفتر بود و هیچ‌جا دیده نمی‌شد.
+     *
+     * **معیار «آخرین حرکت» است، نه سنِ فاکتور.** سنِ دقیقِ بدهی یعنی
+     * تخصیصِ FIFOِ پرداخت‌ها روی فاکتورها — حسابی که این دفتر نگه
+     * نمی‌دارد و حدس زدنش بدتر از نگفتن است. «آخرین حرکت» چیزی است
+     * که واقعاً می‌دانیم، و برای همان تصمیم هم کافی است: حسابی که
+     * مانده دارد و ماه‌هاست هیچ اتفاقی در آن نیفتاده، همانی است که
+     * باید سراغش رفت.
+     */
+    var staleFirst by remember { mutableStateOf(false) }
+    val now = System.currentTimeMillis()
+
+    // یک بار ساخته می‌شود، نه به‌ازای هر ردیف: با دویست طرفِ حساب و
+    // چند هزار سند، جست‌وجوی خطی در هر ردیف صفحه را کند می‌کرد.
+    val lastActivity = remember(entries) {
+        entries.groupBy { it.partyType + "|" + it.partyName }
+            .mapValues { (_, rows) -> rows.maxOf { it.at } }
+    }
+
+    fun idleDays(p: PartyBalance): Int? {
+        val at = lastActivity[p.type + "|" + p.name] ?: return null
+        return ((now - at) / 86_400_000L).toInt()
+    }
+
     // ---------- حالتِ سند دستی ----------
     var manualOpen by remember { mutableStateOf(false) }
     var mType by remember { mutableStateOf("SUPPLIER") }
@@ -127,7 +175,10 @@ fun LedgerScreen(
         .filter { typeFilter == null || it.type == typeFilter }
         .filter { query.isBlank() || it.name.contains(query.trim(), ignoreCase = true) }
         .filter { !onlyOpen || it.net != 0L }
-        .sortedByDescending { if (it.net < 0) -it.net else it.net }
+        .let { list ->
+            if (staleFirst) list.sortedByDescending { idleDays(it) ?: -1 }
+            else list.sortedByDescending { if (it.net < 0) -it.net else it.net }
+        }
 
     // ---------- دیالوگ گردش حساب ----------
     selected?.let { p ->
@@ -161,6 +212,16 @@ fun LedgerScreen(
                         color = balanceColor(p.net),
                         fontWeight = FontWeight.SemiBold
                     )
+                    idleDays(p)?.let { idle ->
+                        if (p.net != 0L) {
+                            Text(
+                                "آخرین حرکتِ این حساب: ${idleLabel(idle)}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (idle >= STALE_DAYS) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                     Spacer(Modifier.height(8.dp))
 
                     // ---------- بدهیِ خرج‌کارِ بی‌صاحبِ گذشته ----------
@@ -402,6 +463,14 @@ fun LedgerScreen(
                             label = { Text("فقط تسویه‌نشده (${openCount.fa()})") }
                         )
                     }
+                    // مرتب‌سازی بر پایهٔ کهنگی — برای وقتی که سؤال
+                    // «کی بیشترین بدهی را دارد» نیست، «کی مدت‌هاست
+                    // خبری ازش نیست» است.
+                    FilterChip(
+                        selected = staleFirst,
+                        onClick = { staleFirst = !staleFirst },
+                        label = { Text("کهنه‌ترین اول") }
+                    )
                 }
             }
 
@@ -435,10 +504,18 @@ fun LedgerScreen(
                             ) {
                                 Column(Modifier.weight(1f)) {
                                     Text(p.name, fontWeight = FontWeight.SemiBold)
+                                    val idle = idleDays(p)
                                     Text(
-                                        typeLabel(p.type),
+                                        typeLabel(p.type) +
+                                            if (idle != null && p.net != 0L) {
+                                                " • " + idleLabel(idle)
+                                            } else "",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        // فقط وقتی قرمز که واقعاً کهنه باشد؛
+                                        // رنگی که همیشه هست، هشدار نیست.
+                                        color = if (idle != null && p.net != 0L && idle >= STALE_DAYS)
+                                            MaterialTheme.colorScheme.error
+                                        else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                                 Text(

@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Share
 import com.afghanjama.ui.platform.AppAlertDialog
 import androidx.compose.material3.Card
@@ -30,6 +31,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -103,8 +105,27 @@ fun DocumentsScreen(
         )
     }
 
+    /*
+     * جست‌وجو در اسناد.
+     *
+     * این فهرست فقط بلندتر می‌شود: هر خرید، فروش و تسویه یک سند
+     * می‌سازد و هیچ‌کدام هرگز پاک نمی‌شوند. کارفرما با شمارهٔ سند یا
+     * نامِ طرفِ حساب سراغش می‌آید — «فاکتورِ فلانی کجاست؟» — و پالایهٔ
+     * نوع فقط دسته را کم می‌کند، نه فهرست را.
+     */
+    var query by remember { mutableStateOf("") }
+
     val types = documents.map { it.type }.distinct()
-    val shown = documents.filter { typeFilter == null || it.type == typeFilter }
+    val shown = documents
+        .filter { typeFilter == null || it.type == typeFilter }
+        .filter { d ->
+            val q = query.trim()
+            q.isBlank() ||
+                d.number.contains(q, ignoreCase = true) ||
+                d.partyName.contains(q, ignoreCase = true) ||
+                d.refId.contains(q, ignoreCase = true) ||
+                d.note.contains(q, ignoreCase = true)
+        }
 
     // ---------- دیالوگ سند ----------
     selected?.let { d ->
@@ -166,6 +187,23 @@ fun DocumentsScreen(
             modifier = Modifier.padding(pad).fillMaxSize().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            if (documents.isNotEmpty()) {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    label = { Text("جستجوی شماره، طرف حساب یا توضیح") },
+                    singleLine = true,
+                    trailingIcon = if (query.isNotBlank()) {
+                        {
+                            IconButton(onClick = { query = "" }) {
+                                Icon(Icons.Default.Close, contentDescription = "پاک کردنِ جستجو")
+                            }
+                        }
+                    } else null,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
             if (types.isNotEmpty()) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(
@@ -185,7 +223,12 @@ fun DocumentsScreen(
 
             if (shown.isEmpty()) {
                 Text(
-                    "هنوز سندی ثبت نشده. با هر خرید، فروش یا تسویه یک سند خودکار ساخته می‌شود.",
+                    when {
+                        documents.isEmpty() ->
+                            "هنوز سندی ثبت نشده. با هر خرید، فروش یا تسویه یک سند خودکار ساخته می‌شود."
+                        query.isNotBlank() -> "سندی با «${query.trim()}» پیدا نشد."
+                        else -> "سندی از این نوع نیست."
+                    },
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else {
