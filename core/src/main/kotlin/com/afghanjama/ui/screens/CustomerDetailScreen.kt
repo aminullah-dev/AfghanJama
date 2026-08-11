@@ -16,7 +16,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Delete
 import com.afghanjama.ui.platform.AppAlertDialog
 import androidx.compose.material3.Button
@@ -45,6 +47,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import com.afghanjama.platform.LocalDocs
+import com.afghanjama.platform.LocalSystemActions
 import com.afghanjama.ui.components.OrderCodeLine
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -70,6 +73,7 @@ fun CustomerDetailScreen(
     val s by vm.summary.collectAsState()
     val designCodeByOrder by vm.designCodeByOrder.collectAsState()
     val docs = LocalDocs.current
+    val system = LocalSystemActions.current
     val scope = rememberCoroutineScope()
     var sharing by remember { mutableStateOf(false) }
     val measurements by vm.measurements.collectAsState()
@@ -180,8 +184,17 @@ fun CustomerDetailScreen(
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        s.customer?.phone?.takeIf { it.isNotBlank() }?.let {
-                            Text("تماس: $it", style = MaterialTheme.typography.bodyMedium)
+                        // شماره نوشته می‌شد و زده نمی‌شد. کارفرما آن را
+                        // می‌خواند، از اپ بیرون می‌رفت و در مخاطبانِ
+                        // گوشی دنبالش می‌گشت — در حالی که همین‌جا بود.
+                        s.customer?.phone?.takeIf { it.isNotBlank() }?.let { phone ->
+                            TextButton(
+                                onClick = { system.dial(phone) },
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
+                                Icon(Icons.Default.Call, contentDescription = null)
+                                Text("  تماس: $phone", style = MaterialTheme.typography.bodyMedium)
+                            }
                         }
                         Text(
                             if (s.balance > 0) "بدهی مشتری: ${s.balance.afn()}"

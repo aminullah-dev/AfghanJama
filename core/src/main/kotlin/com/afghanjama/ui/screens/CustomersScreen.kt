@@ -15,7 +15,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.PersonAdd
+import com.afghanjama.platform.LocalSystemActions
 import com.afghanjama.ui.platform.AppAlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -52,6 +54,7 @@ fun CustomersScreen(
     onOpenCustomer: (Long) -> Unit
 ) {
     val rows by vm.rows.collectAsState()
+    val system = LocalSystemActions.current
     var query by remember { mutableStateOf("") }
     var showAdd by remember { mutableStateOf(false) }
 
@@ -149,6 +152,19 @@ fun CustomersScreen(
                             Column(horizontalAlignment = Alignment.End) {
                                 Text("بدهکار", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
                                 Text(row.balance.afn(), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                        // زنگ زدن از خودِ فهرست — کارِ روزمرهٔ کارگاه
+                        // است («کارت آماده است، بیا ببر») و تا امروز
+                        // یعنی باز کردنِ پرونده، خواندنِ شماره، و رفتن
+                        // به مخاطبانِ گوشی. دکمه فقط وقتی هست که شماره
+                        // هست.
+                        row.customer.phone?.takeIf { it.isNotBlank() }?.let { phone ->
+                            IconButton(onClick = { system.dial(phone) }) {
+                                Icon(
+                                    Icons.Default.Call,
+                                    contentDescription = "تماس با ${row.customer.name}"
+                                )
                             }
                         }
                     }
