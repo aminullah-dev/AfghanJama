@@ -51,6 +51,19 @@ class WarehouseViewModel(private val repo: Repo) : ViewModel() {
     private fun say(text: String, error: Boolean = false) =
         _ui.update { it.copy(message = text, isError = error) }
 
+    /**
+     * فهرست برای فروشنده فرستاده شد.
+     *
+     * **چرا اصلاً پیام لازم دارد.** روی گوشی پنجرهٔ اشتراک بالا می‌آید و
+     * خودش جواب است؛ روی پی‌سی متن **بی هیچ نشانه‌ای** در کلیپ‌بورد
+     * می‌نشیند. بی این خط، کاربرِ ویندوز دکمه را می‌زند و فکر می‌کند
+     * هیچ نشد — همان چیزی که کارفرما از آن شکایت داشت.
+     */
+    fun noteShared(rows: Int) = say(
+        "فهرستِ ${rows.toString().toPersianDigits()} قلم آماده شد. " +
+            "اگر پنجرهٔ اشتراک‌گذاری نیامد، متن در کلیپ‌بورد است و هرجا بچسبانید می‌آید."
+    )
+
     /** کاردکسِ یک قلم — ورود و خروجش به ترتیبِ زمان. */
     fun movementsOf(item: MaterialStock) =
         repo.observeItemMovements(item.name, item.unit)
@@ -152,6 +165,46 @@ class WarehouseViewModel(private val repo: Repo) : ViewModel() {
             say("نام، واحد و مقدار لازم است؛ مقدار هم باید بیشتر از صفر باشد.", error = true)
         }
     }
+
+    /**
+     * اصلاحِ نام یا واحدِ یک قلم.
+     *
+     * برخورد را **پیش از** رفتن به مخزن می‌گیرد تا پیام دقیق باشد:
+     * «قلمی با این نام از قبل هست» خیلی روشن‌تر از «انجام نشد» است.
+     * مخزن هم همان بررسی را دارد؛ آن پشتوانه است، این توضیح.
+     */
+    fun rename(item: MaterialStock, newName: String, newUnit: String) =
+        viewModelScope.launch {
+            val nm = newName.trim()
+            val un = newUnit.trim()
+            if (nm.isBlank() || un.isBlank()) {
+                say("نام و واحد نمی‌توانند خالی باشند.", error = true)
+                return@launch
+            }
+            if (nm == item.name && un == item.unit) {
+                say("چیزی عوض نشد.")
+                return@launch
+            }
+            val clash = materials.value.firstOrNull {
+                it.id != item.id && it.name == nm && it.unit == un
+            }
+            if (clash != null) {
+                say(
+                    "قلمی به نامِ «$nm» با واحد «$un» از قبل هست " +
+                        "(${qty(clash.amount)} ${clash.unit}). دو ردیف خودبه‌خود یکی " +
+                        "نمی‌شوند؛ اگر می‌خواهید یکی شوند، موجودیِ این یکی را با " +
+                        "«خروج» به آن منتقل کنید.",
+                    error = true
+                )
+                return@launch
+            }
+            val ok = repo.renameMaterial(item.id, nm, un)
+            if (ok) {
+                say("«${item.name}» به «$nm» تغییر کرد؛ تاریخچه‌اش هم با آن آمد.")
+            } else {
+                say("تغییرِ نامِ «${item.name}» انجام نشد.", error = true)
+            }
+        }
 
     /**
      * حذفِ ردیفِ خالی — برای ردیف‌های شبحی که با ۰ متر ساخته شده بودند.

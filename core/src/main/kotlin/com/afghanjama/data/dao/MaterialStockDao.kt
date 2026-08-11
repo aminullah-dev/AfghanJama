@@ -23,6 +23,15 @@ interface MaterialStockDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(stock: MaterialStock)
 
+    /**
+     * تغییرِ نام یا واحدِ یک ردیف.
+     *
+     * با `id` کار می‌کند نه با نامِ قدیم: کلیدِ منطقیِ این جدول
+     * «نام + واحد» است و همان چیزی است که دارد عوض می‌شود.
+     */
+    @Query("UPDATE material_stock SET name = :newName, unit = :newUnit, updatedAt = :at WHERE id = :id")
+    suspend fun rename(id: Long, newName: String, newUnit: String, at: Long)
+
     @Query("DELETE FROM material_stock WHERE id = :id")
     suspend fun deleteById(id: Long)
 }

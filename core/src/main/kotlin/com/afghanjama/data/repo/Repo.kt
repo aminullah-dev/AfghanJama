@@ -2061,6 +2061,61 @@ class Repo(private val db: Db) {
         return true
     }
 
+    /**
+     * تغییرِ نام یا واحدِ یک قلمِ انبار — بی آنکه تاریخچه‌اش گم شود.
+     *
+     * **چرا لازم شد.** تا امروز نامِ غلط برای همیشه می‌ماند: حذف فقط
+     * ردیفِ خالی را برمی‌دارد، و قلمی که موجودی دارد باید اول صفر
+     * می‌شد. یعنی برای اصلاحِ یک غلطِ املایی، سندِ ضایعات می‌خورد و
+     * ارزشِ انبار عوض می‌شد. کارفرمایی که پنجاه قلم را تازه وارد کرده،
+     * دستِ‌کم یکی‌شان را غلط تایپ می‌کند.
+     *
+     * **کاردکس هم با آن می‌آید.** گردشِ انبار قلم را با نام و واحد
+     * می‌شناسد، پس بی این‌کار تاریخچه بی‌صاحب می‌ماند.
+     *
+     * **ادغام نمی‌کند و این عمدی است.** اگر نامِ تازه از قبل ردیفی
+     * داشته باشد، کار انجام **نمی‌شود**. ادغامِ دو ردیف یعنی میانگینِ
+     * قیمت‌ها را باید وزنی جمع کرد و حدِ هشدارِ کدام‌یک بماند — تصمیمی
+     * که کاربر باید بگیرد، نه کاری که بی‌صدا اتفاق بیفتد.
+     *
+     * @return false اگر نام خالی باشد یا نامِ تازه از قبل ردیف داشته باشد.
+     */
+    suspend fun renameMaterial(
+        id: Long,
+        newName: String,
+        newUnit: String
+    ): Boolean = db.atomic { renameMaterialTx(id, newName, newUnit) }
+
+    private suspend fun renameMaterialTx(id: Long, newName: String, newUnit: String): Boolean {
+        val nm = newName.trim()
+        val un = newUnit.trim()
+        if (nm.isBlank() || un.isBlank()) return false
+
+        val cur = db.materialStockDao().observeAll().first().firstOrNull { it.id == id }
+            ?: return false
+        if (cur.name == nm && cur.unit == un) return true
+
+        // برخورد با ردیفِ دیگر — ادغام کارِ این تابع نیست.
+        if (db.materialStockDao().find(nm, un) != null) return false
+
+        val oldName = cur.name
+        val oldUnit = cur.unit
+        db.materialStockDao().rename(id, nm, un, System.currentTimeMillis())
+        val moved = db.stockMovementDao().rename(oldName, oldUnit, nm, un)
+
+        audit(
+            "تغییر نامِ قلمِ انبار",
+            "«$oldName ($oldUnit)» ← «$nm ($un)» — $moved ردیفِ کاردکس هم منتقل شد"
+        )
+        emit(
+            type = "تغییر نامِ قلم",
+            aggregate = "material",
+            aggregateId = "$nm|$un",
+            payload = "از=$oldName|$oldUnit؛کاردکس=$moved"
+        )
+        return true
+    }
+
     suspend fun setMaterialMinLevel(name: String, unit: String, minLevel: Double) {
         val now = System.currentTimeMillis()
         val cur = db.materialStockDao().find(name.trim(), unit.trim())

@@ -26,6 +26,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -53,10 +54,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.afghanjama.data.entities.MaterialStock
+import com.afghanjama.platform.LocalSystemActions
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.decimalOnly
 import com.afghanjama.ui.format.digitsOnly
+import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.format.toPersianDigits
 import com.afghanjama.ui.platform.AppAlertDialog
 import com.afghanjama.ui.platform.AppDropdownMenu
@@ -71,13 +74,44 @@ private fun fmtAmountLatin(v: Double): String =
     if (v <= 0.0) "" else if (v % 1.0 == 0.0) v.toLong().toString() else v.toString()
 
 /**
+ * زیرِ حدِ هشدار؟ حدِ صفر یعنی هشدار خواسته نشده، نه اینکه همه‌چیز کم است.
+ *
+ * یک تعریف، سه مصرف‌کننده: رنگِ ردیف، شمارِ چیپِ پالایه، و فهرستی که
+ * برای فروشنده فرستاده می‌شود. سه‌بار نوشتنش یعنی روزی یکی‌شان عقب
+ * می‌مانَد و صفحه با خودش نمی‌خوانَد.
+ */
+private fun isLow(m: MaterialStock): Boolean =
+    m.minLevel > 0.0 && m.amount <= m.minLevel
+
+/**
+ * فهرستِ انبار به‌صورتِ متن — برای فرستادن به فروشنده با واتس‌اپ.
+ *
+ * **اگر کمبودی هست، فقط همان‌ها.** سفارشِ خرید یعنی «این‌ها را
+ * بفرست»، نه «انبارم این شکلی است». فهرستِ صد قلمی به دردِ فروشنده
+ * نمی‌خورد و خطرِ سفارشِ اشتباه دارد. اگر هیچ قلمی زیرِ حد نباشد،
+ * کلِ انبار فرستاده می‌شود — آن‌وقت منظور «موجودیِ من این است».
+ */
+private fun stockReport(items: List<MaterialStock>): String {
+    val low = items.filter { isLow(it) }
+    val rows = low.ifEmpty { items }
+    val head = if (low.isEmpty()) "موجودیِ انبار مواد" else "اقلامِ رو به اتمام"
+    val body = rows
+        .sortedBy { it.name }
+        .joinToString("\n") { m ->
+            "• ${m.name}: ${fmtAmount(m.amount)} ${m.unit}" +
+                if (isLow(m)) " (حدِ هشدار ${fmtAmount(m.minLevel)})" else ""
+        }
+    return "$head\n\n$body"
+}
+
+/**
  * کنشی که روی یک قلمِ انبار باز است.
  *
  * **چرا شمارش و نه چند `Boolean`.** هر کنش یک دیالوگِ خودش دارد و
  * هم‌زمان فقط یکی باز است؛ با پرچم‌های جدا دیر یا زود دو تا با هم باز
  * می‌شوند. یک حالتِ واحد این را غیرممکن می‌کند.
  */
-private enum class ItemOp { RECEIVE, ISSUE, COUNT, ALERT }
+private enum class ItemOp { RECEIVE, ISSUE, COUNT, ALERT, RENAME }
 
 private data class ItemTarget(val item: MaterialStock, val op: ItemOp)
 
@@ -123,6 +157,11 @@ fun MaterialWarehouseScreen(
 ) {
     val materials by vm.materials.collectAsState()
     val ui by vm.ui.collectAsState()
+    val system = LocalSystemActions.current
+
+    // جست‌وجو و پالایه — بی این‌ها انبارِ صد قلمی فقط یک فهرستِ بلند است.
+    var query by remember { mutableStateOf("") }
+    var onlyLow by remember { mutableStateOf(false) }
 
     // کنشِ بازِ فعلی — `null` یعنی هیچ دیالوگی باز نیست.
     var target by remember { mutableStateOf<ItemTarget?>(null) }
@@ -277,6 +316,15 @@ fun MaterialWarehouseScreen(
                     target = null
                 }
             )
+
+            ItemOp.RENAME -> RenameDialog(
+                item = item,
+                onDismiss = { target = null },
+                onConfirm = { name, unit ->
+                    vm.rename(item, name, unit)
+                    target = null
+                }
+            )
         }
     }
 
@@ -287,6 +335,28 @@ fun MaterialWarehouseScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "برگشت")
+                    }
+                },
+                actions = {
+                    /*
+                     * فرستادنِ فهرست — همان کاری که کارفرما با کاغذ
+                     * می‌کرد.
+                     *
+                     * سفارشِ خرید به فروشنده با واتس‌اپ می‌رود. تا امروز
+                     * یعنی نگاه کردن به صفحه و تایپ کردنِ دستیِ اقلام،
+                     * که هم وقت می‌برد و هم یک قلم جا می‌افتد. اگر
+                     * چیزی زیرِ حد باشد فقط همان‌ها فرستاده می‌شوند —
+                     * فهرستِ صد قلمی به دردِ فروشنده نمی‌خورد.
+                     */
+                    IconButton(
+                        enabled = materials.isNotEmpty(),
+                        onClick = {
+                            val rows = materials.filter { isLow(it) }.ifEmpty { materials }
+                            system.shareText("انبار مواد", stockReport(materials))
+                            vm.noteShared(rows.size)
+                        }
+                    ) {
+                        Icon(Icons.Default.Share, contentDescription = "فرستادنِ فهرست")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -322,6 +392,13 @@ fun MaterialWarehouseScreen(
         }
 
         val totalValue = materials.sumOf { it.amount * it.avgPrice }.toLong()
+        val lowCount = materials.count { isLow(it) }
+        val shown = materials.filter { m ->
+            (query.isBlank() ||
+                m.name.contains(query.trim(), ignoreCase = true) ||
+                m.unit.contains(query.trim(), ignoreCase = true)) &&
+                (!onlyLow || isLow(m))
+        }
 
         LazyColumn(
             modifier = Modifier.padding(pad).fillMaxSize().padding(16.dp),
@@ -341,6 +418,36 @@ fun MaterialWarehouseScreen(
                             color = MaterialTheme.colorScheme.onPrimaryContainer)
                         Text(totalValue.afn(), fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    }
+                }
+            }
+
+            // ---- جست‌وجو و پالایه ----
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        label = { Text("جستجوی قلم") },
+                        singleLine = true,
+                        trailingIcon = if (query.isNotBlank()) {
+                            {
+                                IconButton(onClick = { query = "" }) {
+                                    Icon(Icons.Default.Close, contentDescription = "پاک کردنِ جستجو")
+                                }
+                            }
+                        } else null,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    // چیپِ کمبود فقط وقتی هست که کمبودی هست. چیپی که
+                    // همیشه دیده شود ولی هیچ‌وقت نتیجه ندهد، همان
+                    // «نمایش بی‌عمل» است.
+                    if (lowCount > 0) {
+                        FilterChip(
+                            selected = onlyLow,
+                            onClick = { onlyLow = !onlyLow },
+                            label = { Text("فقط کمبودها (${lowCount.fa()})") }
+                        )
                     }
                 }
             }
@@ -381,8 +488,19 @@ fun MaterialWarehouseScreen(
                 }
             }
 
-            items(materials, key = { it.id }) { item ->
-                val low = item.minLevel > 0.0 && item.amount <= item.minLevel
+            if (shown.isEmpty()) {
+                item {
+                    Text(
+                        if (onlyLow) "هیچ قلمی زیرِ حدِ هشدار نیست."
+                        else "قلمی با «${query.trim()}» پیدا نشد.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            items(shown, key = { it.id }) { item ->
+                val low = isLow(item)
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -471,6 +589,13 @@ fun MaterialWarehouseScreen(
                                         onClick = {
                                             menu = false
                                             target = ItemTarget(item, ItemOp.ALERT)
+                                        }
+                                    )
+                                    AppDropdownMenuItem(
+                                        text = { Text("اصلاح نام و واحد") },
+                                        onClick = {
+                                            menu = false
+                                            target = ItemTarget(item, ItemOp.RENAME)
                                         }
                                     )
                                 }
@@ -666,6 +791,72 @@ private fun MinLevelDialog(
         },
         confirmButton = {
             TextButton(onClick = { onConfirm(levelText.toDoubleOrNull() ?: 0.0) }) {
+                Text("ذخیره")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("لغو") } }
+    )
+}
+
+/**
+ * اصلاحِ نام و واحد.
+ *
+ * غلطِ املایی تا امروز برای همیشه می‌ماند: حذف فقط ردیفِ خالی را
+ * برمی‌دارد، پس اصلاحِ یک حرف یعنی اول ضایعات زدن و ارزشِ انبار را
+ * جابه‌جا کردن.
+ */
+@Composable
+private fun RenameDialog(
+    item: MaterialStock,
+    onDismiss: () -> Unit,
+    onConfirm: (name: String, unit: String) -> Unit
+) {
+    var name by remember(item.id) { mutableStateOf(item.name) }
+    var unit by remember(item.id) { mutableStateOf(item.unit) }
+    val changed = name.trim() != item.name || unit.trim() != item.unit
+    val ready = name.isNotBlank() && unit.isNotBlank() && changed
+
+    AppAlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("اصلاح نام و واحد") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "فقط نام و واحد عوض می‌شود؛ موجودی، قیمت و کلِ تاریخچهٔ ورود " +
+                        "و خروج سرِ جایشان می‌مانند و با نامِ تازه دیده می‌شوند.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("نام قلم") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = unit,
+                    onValueChange = { unit = it },
+                    label = { Text("واحد") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (unit.trim() != item.unit && item.amount > 0.0) {
+                    // عوض کردنِ واحد عددِ موجودی را تبدیل نمی‌کند.
+                    // ۳۸ متر با تغییرِ واحد به «یارد» می‌شود ۳۸ یارد،
+                    // که غلط است. باید دیده شود، نه اینکه بعداً کشف شود.
+                    Text(
+                        "واحد عوض می‌شود ولی عددِ موجودی تبدیل نمی‌شود: " +
+                            "${fmtAmount(item.amount)} همان ${fmtAmount(item.amount)} " +
+                            "می‌مانَد، فقط نامِ واحدش فرق می‌کند.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(name.trim(), unit.trim()) }, enabled = ready) {
                 Text("ذخیره")
             }
         },
