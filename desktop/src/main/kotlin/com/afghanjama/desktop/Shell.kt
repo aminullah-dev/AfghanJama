@@ -41,6 +41,7 @@ import com.afghanjama.ui.screens.GuideScreen
 import com.afghanjama.ui.screens.InventoryScreen
 import com.afghanjama.ui.screens.LedgerScreen
 import com.afghanjama.ui.screens.MasterDataScreen
+import com.afghanjama.ui.screens.JournalScreen
 import com.afghanjama.ui.screens.MaterialWarehouseScreen
 import com.afghanjama.ui.screens.MoneyMoveScreen
 import com.afghanjama.ui.screens.MyWorkScreen
@@ -94,6 +95,7 @@ import com.afghanjama.ui.vm.SelfTestViewModel
 import com.afghanjama.ui.vm.SewingViewModel
 import com.afghanjama.ui.vm.Permissions
 import com.afghanjama.ui.vm.UserRole
+import com.afghanjama.ui.vm.JournalViewModel
 import com.afghanjama.ui.vm.WarehouseViewModel
 import com.afghanjama.ui.vm.WorkshopLinkViewModel
 
@@ -145,6 +147,7 @@ internal enum class Section(val title: String) {
     // بقیه
     Documents("اسناد"),
     Reports("گزارش‌ها"),
+    Journal("دفتر روزنامه"),
     Audit("رسیدگی"),
     MasterData("اطلاعات پایه"),
     ShopProfile("پروفایل کارگاه"),
@@ -268,6 +271,7 @@ internal fun sectionForRoute(route: String): Section? = when (route) {
     Routes.DAILY_TRADE -> Section.DailyTrade
     Routes.FINANCE -> Section.Finance
     Routes.REPORTS -> Section.Reports
+    Routes.JOURNAL -> Section.Journal
     Routes.SEWING -> Section.Sewing
     Routes.REVIEW -> Section.Review
     Routes.MY_WORK -> Section.MyWork
@@ -472,6 +476,11 @@ internal fun SectionContent(
         Section.Performance -> {
             val vm: PerformanceViewModel = viewModel { PerformanceViewModel(repo) }
             PerformanceScreen(vm, onBack = back)
+        }
+
+        Section.Journal -> {
+            val vm: JournalViewModel = viewModel { JournalViewModel(repo) }
+            JournalScreen(vm, onBack = back)
         }
 
         Section.Reports -> {

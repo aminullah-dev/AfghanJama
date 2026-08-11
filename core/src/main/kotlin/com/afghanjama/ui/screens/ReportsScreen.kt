@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.FactCheck
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.TableChart
 import com.afghanjama.ui.platform.AppAlertDialog
@@ -226,7 +227,16 @@ private fun JalaliDateRow(
 @Composable
 fun ReportsScreen(
     vm: ReportsViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    /**
+     * رفتن به دفتر روزنامه.
+     *
+     * ورودی‌اش عمداً همین‌جاست: کسی که عددی در این صفحه را باور
+     * نمی‌کند، همان لحظه می‌خواهد ببیند آن عدد از کدام سندها ساخته
+     * شده. `null` یعنی این سکو راهی به آنجا ندارد و دکمه ساخته
+     * نمی‌شود.
+     */
+    onGoJournal: (() -> Unit)? = null
 ) {
     val r by vm.report.collectAsState()
     val range by vm.range.collectAsState()
@@ -308,6 +318,14 @@ fun ReportsScreen(
                     }
                 },
                 actions = {
+                    if (onGoJournal != null) {
+                        IconButton(onClick = onGoJournal) {
+                            Icon(
+                                Icons.Default.FactCheck,
+                                contentDescription = "دفتر روزنامه"
+                            )
+                        }
+                    }
                     IconButton(onClick = {
                         scope.launch {
                             docs.financials(

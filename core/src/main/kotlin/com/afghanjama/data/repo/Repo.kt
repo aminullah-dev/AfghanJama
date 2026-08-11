@@ -1440,6 +1440,10 @@ class Repo(private val db: Db) {
     fun observeJournalEntries(): Flow<List<JournalEntry>> =
         db.journalDao().observeRecentEntries()
 
+    /** سطرهای همان سندها — برای صفحهٔ «دفتر روزنامه». */
+    fun observeJournalLines(): Flow<List<JournalLine>> =
+        db.journalDao().observeRecentLines()
+
     /** یک سطرِ سند (کمکی برای خوانایی). */
     private fun jl(account: String, debit: Long = 0, credit: Long = 0) =
         JournalLine(entryId = 0, account = account, debit = debit, credit = credit)

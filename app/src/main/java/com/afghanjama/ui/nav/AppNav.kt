@@ -64,6 +64,7 @@ import com.afghanjama.ui.screens.InventoryScreen
 import com.afghanjama.ui.screens.LedgerScreen
 import com.afghanjama.ui.screens.LoginScreen
 import com.afghanjama.ui.screens.MasterDataScreen
+import com.afghanjama.ui.screens.JournalScreen
 import com.afghanjama.ui.screens.MaterialWarehouseScreen
 import com.afghanjama.ui.screens.MoneyMoveScreen
 import com.afghanjama.ui.screens.MyWorkScreen
@@ -120,6 +121,7 @@ import com.afghanjama.ui.vm.ReviewViewModel
 import com.afghanjama.ui.vm.SelfTestViewModel
 import com.afghanjama.ui.vm.SewingViewModel
 import com.afghanjama.ui.vm.UserRole
+import com.afghanjama.ui.vm.JournalViewModel
 import com.afghanjama.ui.vm.WarehouseViewModel
 import com.afghanjama.ui.vm.WorkshopLinkViewModel
 
@@ -623,6 +625,15 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                 val reportsVm = viewModel<ReportsViewModel>(vmOwner, factory = factory)
                 ReportsScreen(
                     vm = reportsVm,
+                    onBack = { navController.popBackStack() },
+                    onGoJournal = { navController.navigate(Routes.JOURNAL) }
+                )
+            }
+
+            composable(Routes.JOURNAL) {
+                val journalVm = viewModel<JournalViewModel>(vmOwner, factory = factory)
+                JournalScreen(
+                    vm = journalVm,
                     onBack = { navController.popBackStack() }
                 )
             }

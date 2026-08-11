@@ -36,6 +36,9 @@ object Routes {
     const val DOCUMENTS = "documents"
     const val REPORTS = "reports"
     const val AUDIT = "audit"
+
+    /** دفتر روزنامه — ورودی‌اش کنارِ «گزارش‌ها» است. */
+    const val JOURNAL = "journal"
     const val MASTER = "master"
     const val SETTINGS = "settings"
     const val GUIDE = "guide"

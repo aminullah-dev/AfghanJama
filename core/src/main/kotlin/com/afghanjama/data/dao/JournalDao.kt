@@ -55,6 +55,22 @@ interface JournalDao {
     @Query("SELECT * FROM journal_entries ORDER BY at DESC LIMIT 200")
     fun observeRecentEntries(): Flow<List<JournalEntry>>
 
+    /**
+     * سطرهای همان ۲۰۰ سندِ اخیر — در **یک** پرس‌وجو.
+     *
+     * صفحه سند به سند سطرهایش را نمی‌گیرد: دویست سند یعنی دویست
+     * پرس‌وجو، و روی گوشیِ کارگاه دیده می‌شود. یک بار همه می‌آیند و
+     * گروه‌بندی در حافظه انجام می‌شود.
+     *
+     * `LIMIT` عمداً با [observeRecentEntries] یکی است؛ اگر یکی‌شان
+     * عوض شود، سندهایی بی‌سطر یا سطرهایی بی‌سند می‌مانند.
+     */
+    @Query(
+        "SELECT * FROM journal_lines WHERE entryId IN " +
+            "(SELECT id FROM journal_entries ORDER BY at DESC LIMIT 200)"
+    )
+    fun observeRecentLines(): Flow<List<JournalLine>>
+
     /** فقط برای خودآزمایی: هر سند با جمعِ بدهکار و بستانکارش. */
     @Query(
         "SELECT entryId AS entryId, SUM(debit) AS debit, SUM(credit) AS credit " +
