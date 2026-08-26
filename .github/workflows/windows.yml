@@ -242,12 +242,26 @@ jobs:
 
       # فهرستِ ماژول‌های JVMِ همراه — مدرک، نه حدس. اگر روزی دوباره
       # چیزی کم بود، همین‌جا دیده می‌شود.
+      #
+      # این پله **هرگز نباید خودش قرمز شود**. `if: always()` یعنی وقتی
+      # ساخت شکسته هم می‌دود، و آن وقت پوشهٔ `binaries` اصلاً وجود ندارد:
+      # `find` با کدِ ۱ برمی‌گردد و چون `shell: bash` با `-eo pipefail`
+      # اجرا می‌شود، همین پله را می‌کشت. نتیجه‌اش این بود که **آخرین
+      # پلهٔ قرمزِ لاگ یک پلهٔ بی‌ربط بود**، نه خطای واقعی — همان
+      # گمراهیِ قاعدهٔ ۲.۵ در tools/checks/README.md.
+      #
+      # پس هر سه مسیر بی‌خطا تمام می‌شوند؛ نبودنِ فایل خودش گزارش است.
+      # نگهبانِ واقعیِ وجودِ exe پلهٔ «مطمئن شو exe واقعاً ساخته شد» است.
       - name: فهرستِ ماژول‌های JVMِ همراه
         if: always()
         shell: bash
         run: |
-          rel=$(find desktop/build/compose/binaries -name release -path '*runtime*' | head -1)
-          [ -n "$rel" ] && grep -o 'MODULES=.*' "$rel" | tr ' ' '\n' | head -40 || echo "فایلِ release پیدا نشد"
+          rel=$(find desktop/build/compose/binaries -name release -path '*runtime*' 2>/dev/null | head -1 || true)
+          if [ -z "$rel" ]; then
+            echo "فایلِ release پیدا نشد — پوشهٔ اجرایی ساخته نشده است."
+          else
+            grep -o 'MODULES=.*' "$rel" | tr ' ' '\n' | head -40 || echo "خطِ MODULES در $rel نبود"
+          fi
 
       - name: بارگذاری پوشهٔ اجرایی
         uses: actions/upload-artifact@v4
