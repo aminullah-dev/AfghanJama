@@ -44,7 +44,9 @@ class SampleWorkshopViewModel(private val repo: Repo) : ViewModel() {
             .map { it.isNotEmpty() }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
-    fun clearMessage() = _ui.value = _ui.value.copy(message = null, isError = false)
+    fun clearMessage() {
+        _ui.value = _ui.value.copy(message = null, isError = false)
+    }
 
     fun create() {
         if (_ui.value.busy) return
