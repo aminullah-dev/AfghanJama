@@ -47,6 +47,9 @@ object Routes {
 
     /** ورودی‌اش در تنظیمات است — «خودآزمایی و سلامتِ داده». */
     const val SELF_TEST = "self_test"
+
+    /** کارگاهِ نمونه — ورودی‌اش در تنظیمات است. */
+    const val SAMPLE_WORKSHOP = "sample_workshop"
     const val SEARCH = "search"
     const val ORDER_DETAIL = "order_detail"
 }

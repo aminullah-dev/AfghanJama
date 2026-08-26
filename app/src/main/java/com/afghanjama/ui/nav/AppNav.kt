@@ -65,6 +65,7 @@ import com.afghanjama.ui.screens.LedgerScreen
 import com.afghanjama.ui.screens.LoginScreen
 import com.afghanjama.ui.screens.MasterDataScreen
 import com.afghanjama.ui.screens.JournalScreen
+import com.afghanjama.ui.screens.SampleWorkshopScreen
 import com.afghanjama.ui.screens.MaterialWarehouseScreen
 import com.afghanjama.ui.screens.MoneyMoveScreen
 import com.afghanjama.ui.screens.MyWorkScreen
@@ -122,6 +123,7 @@ import com.afghanjama.ui.vm.SelfTestViewModel
 import com.afghanjama.ui.vm.SewingViewModel
 import com.afghanjama.ui.vm.UserRole
 import com.afghanjama.ui.vm.JournalViewModel
+import com.afghanjama.ui.vm.SampleWorkshopViewModel
 import com.afghanjama.ui.vm.WarehouseViewModel
 import com.afghanjama.ui.vm.WorkshopLinkViewModel
 
@@ -630,6 +632,14 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                 )
             }
 
+            composable(Routes.SAMPLE_WORKSHOP) {
+                val sampleVm = viewModel<SampleWorkshopViewModel>(vmOwner, factory = factory)
+                SampleWorkshopScreen(
+                    vm = sampleVm,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
             composable(Routes.JOURNAL) {
                 val journalVm = viewModel<JournalViewModel>(vmOwner, factory = factory)
                 JournalScreen(
@@ -686,6 +696,7 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                     canResetData = Permissions.canResetData(authUi.role),
                     onGoMaster = { navController.navigate(Routes.MASTER) },
                     onGoSelfTest = { navController.navigate(Routes.SELF_TEST) },
+                    onGoSampleWorkshop = { navController.navigate(Routes.SAMPLE_WORKSHOP) },
                     onLoggedOut = {
                         navController.navigate(Routes.LOGIN) {
                             popUpTo(0) { inclusive = true }

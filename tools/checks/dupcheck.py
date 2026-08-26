@@ -3,6 +3,18 @@
 A scripted edit that inserts a parameter or argument without checking
 whether one already exists produces "Argument already passed for this
 parameter" — invisible to brace balance and to import checking.
+
+**نیمهٔ «اعلان»ِ این بررسی همان دو اشکالِ `paramcheck` را داشت**، چون
+الگویش از همان‌جا کپی شده بود:
+
+  • پرانتزِ بسته باید در ستونِ صفر می‌بود، پس هیچ تابعِ **عضوِ** کلاسی
+    دیده نمی‌شد — یعنی بیشترِ کدِ این پروژه.
+  • `[ \\t]+` و `[^\\n)]*` هر دو فاصله می‌گرفتند، پس موتورِ regex روی
+    فایلی با رشتهٔ بلندِ خط‌های بی‌پرانتز نمایی عقب‌گرد می‌کرد و
+    بررسی معلق می‌ماند.
+
+هر دو با هم درست شدند: هر خط یک کمیت‌سنجِ یکتا دارد، و پرانتزِ بسته
+حق دارد تورفته باشد.
 """
 # --- ریشهٔ مخزن از محلِ خودِ این فایل پیدا می‌شود ---
 # نه از پوشهٔ اجرا (که یک بار همهٔ بررسی‌ها را بی‌سروصدا پوچ کرد) و نه
@@ -22,8 +34,8 @@ for f in [str(x) for x in _src.kt_files()]:
         args=re.findall(r"^" + re.escape(m.group(1)) + r"[ \t]{4}(\w+)\s*=(?!=)", m.group(3), re.M)
         for a in set(args):
             if args.count(a)>1: bad.append((f.split("/")[-1], f"{m.group(2)}(...)", f"argument '{a}'"))
-    # declarations: fun foo( ... )
-    for m in re.finditer(r"fun\s+(\w+)\(\n((?:[ \t]+[^\n)]*\n)+?)\)", s):
+    # declarations: fun foo( ... ) — پرانتزِ بسته می‌تواند تورفته باشد
+    for m in re.finditer(r"fun\s+(\w+)\(\n((?:[^\n)]*\n)+?)[ \t]*\)", s):
         ps=re.findall(r"^[ \t]+(\w+)\s*:", m.group(2), re.M)
         for p in set(ps):
             if ps.count(p)>1: bad.append((f.split("/")[-1], f"fun {m.group(1)}", f"parameter '{p}'"))

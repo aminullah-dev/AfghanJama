@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Science
+import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
@@ -96,6 +97,7 @@ fun SettingsScreen(
     canResetData: Boolean,
     onGoMaster: () -> Unit,
     onGoSelfTest: () -> Unit,
+    onGoSampleWorkshop: () -> Unit,
     onLoggedOut: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -817,6 +819,18 @@ fun SettingsScreen(
                             Icon(Icons.Default.Science, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
                             Text("اجرای خودآزمایی")
+                        }
+
+                        // کارگاهِ نمونه کنارِ خودآزمایی نشسته و این عمدی
+                        // است: هر دو ابزارِ «ببین درست کار می‌کند»اند، نه
+                        // کارِ روزمرهٔ کارگاه.
+                        OutlinedButton(
+                            onClick = onGoSampleWorkshop,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Storefront, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("ساختنِ کارگاهِ نمونه")
                         }
                     }
                 }
