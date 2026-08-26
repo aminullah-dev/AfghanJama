@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- فایل‌های موقت برای اشتراک (فاکتور PDF، بکاپ) -->
+    <cache-path name="shared" path="shared/" />
+    <!-- عکس‌های سفارش؛ لازم است تا اپِ دوربین بتواند در آن بنویسد -->
+    <files-path name="order_photos" path="order_photos/" />
+</paths>

@@ -1,0 +1,315 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
+package com.afghanjama.ui.screens
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Delete
+import com.afghanjama.ui.platform.AppAlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import com.afghanjama.platform.LocalDocs
+import com.afghanjama.platform.LocalSystemActions
+import com.afghanjama.ui.components.OrderCodeLine
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.unit.dp
+import com.afghanjama.ui.format.PersianDate
+import com.afghanjama.ui.format.afn
+import com.afghanjama.ui.format.digitsOnly
+import com.afghanjama.ui.vm.CustomerDetailViewModel
+
+@Composable
+fun CustomerDetailScreen(
+    vm: CustomerDetailViewModel,
+    customerId: Long,
+    onBack: () -> Unit,
+    onOpenOrder: (String) -> Unit
+) {
+    LaunchedEffect(customerId) { vm.open(customerId) }
+
+    val s by vm.summary.collectAsState()
+    val designCodeByOrder by vm.designCodeByOrder.collectAsState()
+    val docs = LocalDocs.current
+    val system = LocalSystemActions.current
+    val scope = rememberCoroutineScope()
+    var sharing by remember { mutableStateOf(false) }
+    val measurements by vm.measurements.collectAsState()
+
+    var showMeasure by remember { mutableStateOf(false) }
+    var showPay by remember { mutableStateOf(false) }
+
+    if (showMeasure) {
+        var label by remember { mutableStateOf("") }
+        var value by remember { mutableStateOf("") }
+        AppAlertDialog(
+            onDismissRequest = { showMeasure = false },
+            title = { Text("افزودن اندازه") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = label, onValueChange = { label = it },
+                        label = { Text("عنوان (مثلاً دور سینه)") }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = value, onValueChange = { value = it },
+                        label = { Text("مقدار (مثلاً ۹۸)") }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = label.isNotBlank() && value.isNotBlank(), onClick = {
+                    vm.addMeasurement(label, value); showMeasure = false
+                }) { Text("افزودن") }
+            },
+            dismissButton = { TextButton(onClick = { showMeasure = false }) { Text("لغو") } }
+        )
+    }
+
+    if (showPay) {
+        var amount by remember { mutableStateOf("") }
+        AppAlertDialog(
+            onDismissRequest = { showPay = false },
+            title = { Text("ثبت دریافتی") },
+            text = {
+                OutlinedTextField(
+                    value = amount, onValueChange = { amount = it.digitsOnly() },
+                    label = { Text("مبلغ دریافتی (؋)") }, singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { vm.recordPayment(amount.toLongOrNull() ?: 0L); showPay = false }) {
+                    Text("ثبت")
+                }
+            },
+            dismissButton = { TextButton(onClick = { showPay = false }) { Text("لغو") } }
+        )
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(s.customer?.name ?: "پروندهٔ مشتری") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "برگشت")
+                    }
+                },
+                actions = {
+                    // کارتِ حساب برای فرستادن — تا پیگیریِ بدهی شفاهی نمانَد.
+                    // فقط وقتی معنا دارد که گردشی ثبت شده باشد.
+                    val name = s.customer?.name.orEmpty()
+                    if (name.isNotBlank()) {
+                        IconButton(
+                            enabled = !sharing,
+                            onClick = {
+                                sharing = true
+                                scope.launch {
+                                    val data = vm.statementData(name)
+                                    docs.statement(
+                                        data,
+                                        "hesab-${name.trim()}.pdf",
+                                        "فرستادن کارت حساب"
+                                    )
+                                    sharing = false
+                                }
+                            }
+                        ) {
+                            Icon(Icons.Default.Share, contentDescription = "فرستادن کارت حساب")
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+            )
+        }
+    ) { pad ->
+        LazyColumn(
+            modifier = Modifier.padding(pad).fillMaxSize().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // ---------- مشخصات + مانده ----------
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (s.balance > 0) MaterialTheme.colorScheme.errorContainer
+                        else MaterialTheme.colorScheme.primaryContainer
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        // شماره نوشته می‌شد و زده نمی‌شد. کارفرما آن را
+                        // می‌خواند، از اپ بیرون می‌رفت و در مخاطبانِ
+                        // گوشی دنبالش می‌گشت — در حالی که همین‌جا بود.
+                        s.customer?.phone?.takeIf { it.isNotBlank() }?.let { phone ->
+                            TextButton(
+                                onClick = { system.dial(phone) },
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
+                                Icon(Icons.Default.Call, contentDescription = null)
+                                Text("  تماس: $phone", style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                        Text(
+                            if (s.balance > 0) "بدهی مشتری: ${s.balance.afn()}"
+                            else "حساب تسویه است",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "مجموع سفارش‌ها: ${s.totalDue.afn()} • دریافتی: ${s.totalPaid.afn()}",
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
+                }
+            }
+
+            item {
+                OutlinedButton(onClick = { showPay = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("ثبت دریافتی از مشتری")
+                }
+            }
+
+            // ---------- اندازه‌ها ----------
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                ) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("اندازه‌ها", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Button(onClick = { showMeasure = true }) {
+                                Icon(Icons.Default.Add, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("افزودن")
+                            }
+                        }
+                        if (measurements.isEmpty()) {
+                            Text(
+                                "اندازه‌ای ثبت نشده.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else {
+                            measurements.forEach { m ->
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(m.label, style = MaterialTheme.typography.bodyMedium)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(m.value, fontWeight = FontWeight.SemiBold)
+                                        IconButton(onClick = { vm.deleteMeasurement(m.id) }) {
+                                            Icon(
+                                                Icons.Default.Delete, contentDescription = "حذف",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ---------- تاریخچهٔ سفارش‌ها ----------
+            item {
+                Text("سفارش‌های این مشتری", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            }
+            if (s.orders.isEmpty()) {
+                item {
+                    Text(
+                        "سفارشی برای این مشتری ثبت نشده.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                items(s.orders, key = { it.id }) { o ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                    ) {
+                        Column(
+                            Modifier.fillMaxWidth().padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(o.designTitle.ifBlank { o.orderCode }, fontWeight = FontWeight.Medium)
+                                Text(
+                                    (if (o.agreedPrice > 0) o.agreedPrice else o.fabricPrice + o.workCost).afn(),
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            OrderCodeLine(
+                                designCode = designCodeByOrder[o.orderCode].orEmpty(),
+                                orderCode = o.orderCode,
+                                trailing = PersianDate.short(o.createdAt)
+                            )
+                            TextButton(onClick = { onOpenOrder(o.id.toString()) }) { Text("مشاهدهٔ سفارش") }
+                        }
+                    }
+                }
+            }
+
+            item { Spacer(Modifier.height(60.dp)) }
+        }
+    }
+}

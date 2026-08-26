@@ -1,0 +1,232 @@
+name: ساخت APK
+
+# **فقط دستی.** خروجی یک APK دیباگ است که مستقیم روی گوشی نصب می‌شود —
+# برای آزمایشِ خودتان، نه برای انتشار.
+#
+# تا امروز با هر push هم اجرا می‌شد و حدود دوازده دقیقه وقت می‌گرفت:
+# ساختِ debug، ساختِ release، و شبیه‌ساز. بیشترِ pushها کدی را عوض
+# می‌کنند که با همان بررسی‌های سریع سنجیده می‌شود، پس آن دوازده دقیقه
+# بی‌فایده می‌سوخت. بررسی‌های سریع حالا در `checks.yml`اند و با هر push
+# می‌دوند؛ این یکی وقتی اجرا می‌شود که **APK بخواهید**.
+#
+# راهِ اجرا: در گیت‌هاب ← Actions ← «ساخت APK» ← Run workflow
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: کشِ Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # این فایل به مسیرِ SDK روی کامپیوترِ شخصی اشاره می‌کند و روی
+      # ماشینِ CI وجود ندارد؛ اگر بماند، Gradle همان اول شکست می‌خورد.
+      # ANDROID_HOME روی رانر از قبل تنظیم است.
+      - name: برداشتنِ local.properties
+        run: rm -f local.properties
+
+      # چند ثانیه طول می‌کشد و پیش از هر چیزِ دیگر می‌آید: ایمپورتِ
+      # جامانده، پرانتزِ نبسته و صفحهٔ بی‌راه را همین‌جا می‌گیرد. دو بار
+      # خطای کامپایلِ ساده تا اینجا آمد و ساختِ ده‌دقیقه‌ای را سوزاند.
+      - name: بررسی‌های ساختاری
+        run: python3 tools/checks/run_all.py
+
+      # عمداً پیش از ساختِ APK: اگر ریاضیِ پول بشکند، اصلاً نباید فایلی
+      # ساخته شود که کسی روی گوشیِ کارگاه نصبش کند.
+      - name: آزمون‌های ریاضیِ پول
+        run: ./gradlew --no-daemon testDebugUnitTest
+
+      # سبزبودنِ مرحلهٔ بالا کافی نیست: اگر Gradle هیچ کلاسِ تستی پیدا
+      # نکند هم موفق گزارش می‌دهد و لاگش با اجرای واقعی یک شکل است.
+      # اینجا از خروجیِ XML شمرده می‌شود که واقعاً چیزی اجرا شده باشد.
+      - name: مطمئن شو تست‌ها واقعاً اجرا شدند
+        run: |
+          python3 - <<'PY'
+          import glob, sys, xml.etree.ElementTree as ET
+          files = glob.glob('app/build/test-results/testDebugUnitTest/*.xml')
+          if not files:
+              sys.exit('هیچ فایلِ نتیجه‌ای تولید نشد — یعنی هیچ تستی اجرا نشده.')
+          tests = failures = errors = 0
+          for f in files:
+              r = ET.parse(f).getroot()
+              tests    += int(r.get('tests', 0))
+              failures += int(r.get('failures', 0))
+              errors   += int(r.get('errors', 0))
+          print(f'{tests} تست در {len(files)} کلاس — {failures} شکست، {errors} خطا')
+          if tests == 0:
+              sys.exit('صفر تست اجرا شد. پوشهٔ src/test دیده نشده است.')
+          if failures or errors:
+              sys.exit('تست شکست خورد.')
+          PY
+
+      - name: گزارشِ تست وقتی شکست
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: app/build/reports/tests/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: کامپایلِ نسخهٔ ویندوز
+        # فقط کامپایل، نه بسته‌بندی: MSI را باید خودِ ویندوز بسازد و
+        # این رانر لینوکس است. همین‌قدر ثابت می‌کند کدِ مشترک روی
+        # دسکتاپ هم می‌سازد و اگر روزی چیزی آنجا بشکند، همین‌جا
+        # می‌فهمیم نه ماه‌ها بعد.
+        run: ./gradlew --no-daemon :desktop:compileKotlin
+
+      # ═══ گران‌ترین اشکالِ این پروژه، و تنها بررسیِ قطعی‌اش ═══
+      #
+      # اپ روی گوشیِ کارگاه سرِ باز کردنِ صفحهٔ سفارش می‌ترکید:
+      #
+      #     NoClassDefFoundError: androidx/compose/material3/SkikoMenu_skikoKt
+      #
+      # `:core` علیه jarهای دسکتاپ کامپایل می‌شود و برای صدها تابع این
+      # بی‌خطر است، چون نامِ کلاس یکی است. ولی تابعِ سطحِ فایل به کلاسی
+      # به نامِ همان **فایل** تبدیل می‌شود، و `DropdownMenu` روی دسکتاپ
+      # در `SkikoMenu.skiko.kt` است و روی اندروید در
+      # `AndroidMenu.android.kt`. کامپایل سبز می‌ماند و کرش فقط وقتی
+      # می‌آید که آن صفحه باز شود.
+      #
+      # اینجا خودِ بایت‌کدِ `:core` خوانده می‌شود، پس به فهرست و به نسخهٔ
+      # Compose وابسته نیست. `--require-bytecode` یعنی اگر کلاس‌ها نبودند
+      # مرحله **شکست بخورد**، نه اینکه بی‌صدا رد شود.
+      - name: هیچ کلاسِ فقط-دسکتاپی در :core نمانده باشد
+        run: python3 tools/checks/platformcall.py --require-bytecode
+
+      # همان دامِ سمتِ اندروید، اینجا هم هست: اگر پردازشگرِ Room برای
+      # ماژولِ ویندوز اجرا نشود، کامپایل سبز می‌ماند و دیتابیس تازه سرِ
+      # اجرا روی پی‌سی باز نمی‌شود.
+      - name: مطمئن شو Room برای ویندوز هم کد ساخت
+        run: |
+          python3 - <<'PY'
+          import pathlib, sys
+          root = pathlib.Path('desktop/build/generated/ksp')
+          if not root.is_dir():
+              sys.exit('پوشهٔ خروجیِ KSP در :desktop نیست — پردازشگر اجرا نشده.')
+          impl = list(root.rglob('DesktopDatabase_Impl.*'))
+          daos = list(root.rglob('*Dao_Impl.*'))
+          print(f'{len(impl)} پیاده‌سازیِ دیتابیس، {len(daos)} پیاده‌سازیِ DAO')
+          if not impl:
+              sys.exit('DesktopDatabase_Impl ساخته نشده.')
+          if len(daos) < 28:
+              sys.exit(f'فقط {len(daos)} DAO ساخته شد، انتظار دستِ‌کم ۲۸.')
+          PY
+
+      - name: Build
+        run: ./gradlew --no-daemon assembleDebug
+
+      # سبزبودنِ کامپایل ثابت نمی‌کند که Room کد ساخته باشد.
+      #
+      # `Room.databaseBuilder` کلاسِ `AppDatabase_Impl` را سرِ **اجرا** با
+      # بازتاب پیدا می‌کند، نه سرِ کامپایل. یعنی اگر پردازشگر بی‌سروصدا
+      # اجرا نشود، ساخت سبز می‌ماند و اپ تازه وقتی کارفرما بازش می‌کند
+      # می‌ترکد — بدترین جای ممکن برای دیدنِ این خطا.
+      #
+      # با رفتن از kapt به KSP این خطر واقعی شد، پس از همان‌جا به بعد
+      # وجودِ خروجیِ Room صریح وارسی می‌شود.
+      - name: مطمئن شو Room واقعاً کد ساخت
+        run: |
+          python3 - <<'PY'
+          import pathlib, sys
+          root = pathlib.Path('app/build/generated/ksp')
+          if not root.is_dir():
+              sys.exit('پوشهٔ خروجیِ KSP نیست — یعنی پردازشگر اصلاً اجرا نشده.')
+          impl = [p for p in root.rglob('AppDatabase_Impl.*')]
+          daos = [p for p in root.rglob('*Dao_Impl.*')]
+          print(f'{len(impl)} پیاده‌سازیِ دیتابیس، {len(daos)} پیاده‌سازیِ DAO')
+          if not impl:
+              sys.exit('AppDatabase_Impl ساخته نشده — Room کد تولید نکرده است.')
+          # ۲۸ DAO در `Db` نام برده شده؛ کمترش یعنی چیزی از قلم افتاده.
+          if len(daos) < 28:
+              sys.exit(f'فقط {len(daos)} DAO ساخته شد، انتظار دستِ‌کم ۲۸.')
+          PY
+
+      # نسخهٔ release اینجا فقط **ساخته** می‌شود تا مطمئن شویم کامپایل
+      # می‌شود؛ امضا نمی‌شود و اینجا هیچ کلیدی وجود ندارد.
+      #
+      # کلیدِ امضا عمداً به GitHub نمی‌آید — نه در مخزن و نه در Secrets.
+      # نسخهٔ نصبیِ کارفرما در Android Studio روی کامپیوترِ خودتان ساخته
+      # و امضا می‌شود. راهش در DELIVERY.md است.
+      - name: ساختِ release (فقط بررسیِ کامپایل، بی‌امضا)
+        run: ./gradlew --no-daemon assembleRelease
+
+      - name: نامِ فایل با شمارهٔ کامیت
+        id: name
+        run: echo "tag=$(date +%Y%m%d-%H%M)-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: بارگذاری APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: khayatyar-${{ steps.name.outputs.tag }}
+          # فقط دیباگ بارگذاری می‌شود: برای آزمایشِ خودتان.
+          # نسخهٔ release اینجا بی‌امضاست و روی گوشی نصب نمی‌شود، پس
+          # گذاشتنش فقط اشتباه‌انداز بود. نسخهٔ نصبی از Android Studio.
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+  # ═══════════════════════════════════════════════════════════════
+  # آزمونِ راه‌اندازی روی شبیه‌ساز.
+  #
+  # جدا از `build` است تا اگر شبیه‌ساز روزی کند یا ناپایدار شد، ساختِ
+  # APK همچنان انجام و تحویل شود.
+  #
+  # **چرا اصلاً هست:** تا امروز CI فقط ثابت می‌کرد APK ساخته می‌شود. اپ
+  # روی گوشیِ واقعی سرِ باز شدن کرش کرد و هیچ‌کدام از ۲۷ بررسی و هیچ
+  # مرحله‌ای از CI چیزی نگفت — چون هیچ‌کدام اپ را *اجرا* نمی‌کردند.
+  # ═══════════════════════════════════════════════════════════════
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: کشِ Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: برداشتنِ local.properties
+        run: rm -f local.properties
+
+      # بدونِ این، شبیه‌ساز روی رانرِ لینوکس شتابِ سخت‌افزاری ندارد و
+      # آن‌قدر کند می‌شود که آزمون بی‌فایده است.
+      - name: روشن کردنِ KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: اجرای اپ روی شبیه‌ساز
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          # `default` و نه `google_apis`: ایمیجِ گوگل ده‌ها سرویسِ پس‌زمینه
+          # دارد و در اجرای قبلی همان‌ها شبیه‌ساز را چنان کند کردند که یک
+          # فریم ۳۰ ثانیه طول کشید و سیستم خودش هشدارِ ANR داد. اپِ ما به
+          # هیچ سرویسِ گوگلی کار ندارد (QR با zxing، اثر انگشت با
+          # androidx.biometric)، پس این ایمیجِ سبک‌تر هم درست‌تر است هم
+          # سریع‌تر.
+          target: default
+          arch: x86_64
+          disable-animations: true
+          emulator-options: >-
+            -no-window -gpu swiftshader_indirect -no-snapshot -noaudio
+            -no-boot-anim -camera-back none -memory 4096
+          script: bash tools/ci/smoke.sh

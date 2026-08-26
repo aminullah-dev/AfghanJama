@@ -1,0 +1,752 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
+package com.afghanjama.ui.screens
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Sell
+import com.afghanjama.ui.platform.AppAlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.unit.dp
+import com.afghanjama.data.entities.FinishedSale
+import com.afghanjama.data.entities.FinishedStock
+import com.afghanjama.ui.format.afn
+import com.afghanjama.ui.format.digitsOnly
+import com.afghanjama.ui.format.fa
+import com.afghanjama.ui.format.isShortage
+import com.afghanjama.ui.format.stockText
+import com.afghanjama.ui.format.stockBadge
+import com.afghanjama.platform.LocalPhotos
+import com.afghanjama.ui.components.SinglePhotoPicker
+import com.afghanjama.ui.vm.FinishedSaleViewModel
+
+@Composable
+fun FinishedWarehouseScreen(
+    vm: FinishedSaleViewModel,
+    onBack: () -> Unit,
+    /** رفتن به صفحهٔ فاکتورِ چندقلمی. */
+    onOpenInvoice: () -> Unit = {},
+    /** افزودنِ یک کالا به فاکتورِ در دست، بی ترکِ این صفحه. */
+    onAddToInvoice: (FinishedStock) -> Unit = {},
+    /** چند قلم تا حالا در فاکتورِ در دست هست. */
+    invoiceCount: Int = 0
+) {
+    // پیش‌تر `LocalContext` بود تا `PhotoStore` را صدا بزند — و همان یک
+    // خط این صفحهٔ ۶۳۰ خطی را در `:app` نگه داشته بود.
+    val photos = LocalPhotos.current
+    val items by vm.items.collectAsState()
+    val folders by vm.folders.collectAsState()
+    val sales by vm.recentSales.collectAsState()
+    val ui by vm.ui.collectAsState()
+    val wallet by vm.wallet.collectAsState()
+    val bank by vm.bank.collectAsState()
+    val busy by vm.busy.state.collectAsState()
+
+    var sellTarget by remember { mutableStateOf<FinishedStock?>(null) }
+    var returnTarget by remember { mutableStateOf<FinishedSale?>(null) }
+    var countTarget by remember { mutableStateOf<FinishedStock?>(null) }
+
+    // کالای آماده‌ای که از قبل در انبار است — مهاجرت از دفترِ قبلی.
+    var addingOpening by remember { mutableStateOf(false) }
+
+    if (addingOpening) {
+        OpeningFinishedDialog(
+            busy = busy,
+            onDismiss = { addingOpening = false },
+            onConfirm = { name, size, qty, unitCost, note ->
+                vm.addOpening(name, size, qty, unitCost, note)
+                addingOpening = false
+            }
+        )
+    }
+
+    // پوشهٔ بازِ فعلی — null یعنی فهرستِ پوشه‌ها. مثلِ فایل‌منیجر: یک طبقه
+    // پایین می‌رویم و با دکمهٔ برگشت بالا می‌آییم.
+    var openFolder by remember { mutableStateOf<String?>(null) }
+    // اگر پوشهٔ باز خالی شد (آخرین کالایش فروخته شد) خودش بسته می‌شود،
+    // وگرنه کاربر در صفحه‌ای خالی گیر می‌کرد.
+    LaunchedEffect(folders, openFolder) {
+        if (openFolder != null && folders.none { it.name == openFolder }) openFolder = null
+    }
+    val shown = openFolder?.let { vm.itemsOf(it) } ?: emptyList()
+
+    // ---------- دیالوگ فروش جزئی ----------
+    sellTarget?.let { item ->
+        var qtyText by remember(item.id) { mutableStateOf("") }
+        var priceText by remember(item.id) { mutableStateOf("") }
+        var customer by remember(item.id) { mutableStateOf("") }
+        var receivedText by remember(item.id) { mutableStateOf("") }
+        var discountText by remember(item.id) { mutableStateOf("") }
+        var usePrepay by remember(item.id) { mutableStateOf(true) }
+
+        // با تایپِ نامِ مشتری، بیعانهٔ استفاده‌نشده‌اش پیدا می‌شود
+        LaunchedEffect(customer) { vm.lookupPrepay(customer) }
+        AppAlertDialog(
+            onDismissRequest = { sellTarget = null },
+            title = { Text("فروش «${item.name}»") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        stockText(item.qty) +
+                            if (item.size.isNotBlank()) " • سایز ${item.size}" else "",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isShortage(item.qty)) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (isShortage(item.qty)) {
+                        Text(
+                            "این طرح کسری دارد. فروشِ تازه کسری را بیشتر می‌کند؛ " +
+                                "با ورودِ بعدیِ همین کالا خودش تسویه می‌شود.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                    SinglePhotoPicker(
+                        fileName = item.photoFile,
+                        canEdit = true,
+                        onPicked = { name ->
+                            vm.setPhoto(item, name) { photos.delete(it) }
+                        },
+                        onCleared = {
+                            vm.setPhoto(item, "") { photos.delete(it) }
+                        }
+                    )
+                    OutlinedTextField(
+                        value = qtyText,
+                        onValueChange = { qtyText = it.digitsOnly() },
+                        label = { Text("تعداد فروش") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = priceText,
+                        onValueChange = { priceText = it.digitsOnly() },
+                        label = { Text("قیمت هر عدد (؋)") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = discountText,
+                        onValueChange = { discountText = it.digitsOnly() },
+                        label = { Text("تخفیف روی کلِ این ردیف (؋) — اختیاری") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = customer,
+                        onValueChange = { customer = it },
+                        label = { Text("نام مشتری (اختیاری)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    val q = qtyText.toIntOrNull() ?: 0
+                    val p = priceText.toLongOrNull() ?: 0L
+                    val gross = q.toLong() * p
+                    // تخفیف هرگز بیشتر از خودِ ردیف نمی‌شود، وگرنه فروشِ منفی می‌شد
+                    val disc = (discountText.toLongOrNull() ?: 0L).coerceIn(0L, gross)
+                    val total = gross - disc
+                    if (q > 0 && p > 0) {
+                        Text(
+                            if (disc > 0) "جمع فروش: ${total.afn()} (پس از ${disc.afn()} تخفیف)"
+                            else "جمع فروش: ${total.afn()}",
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    // ---------- بیعانهٔ قبلیِ همین مشتری ----------
+                    val prepay = if (usePrepay) minOf(ui.prepayOfCustomer, total) else 0L
+                    if (ui.prepayOfCustomer > 0 && total > 0) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Checkbox(checked = usePrepay, onCheckedChange = { usePrepay = it })
+                            Text(
+                                "بیعانهٔ قبلی: ${ui.prepayOfCustomer.afn()} — کم شود",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+
+                    if (total > 0) {
+                        OutlinedTextField(
+                            value = receivedText,
+                            onValueChange = { receivedText = it.digitsOnly() },
+                            label = { Text("نقدِ دریافتی همین حالا (خالی = باقی‌مانده کامل)") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        val due = total - prepay
+                        val cash = (receivedText.toLongOrNull() ?: due).coerceIn(0L, due)
+                        val credit = due - cash
+                        Text(
+                            buildString {
+                                if (prepay > 0) append("از بیعانه ${prepay.afn()} • ")
+                                append("نقد ${cash.afn()}")
+                                if (credit > 0) append(" • باقی‌ماندهٔ طلب ${credit.afn()}")
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (credit > 0) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val q = qtyText.toIntOrNull() ?: 0
+                    val p = priceText.toLongOrNull() ?: 0L
+                    val gross = q.toLong() * p
+                    val disc = (discountText.toLongOrNull() ?: 0L).coerceIn(0L, gross)
+                    val total = gross - disc
+                    val prepay = if (usePrepay) minOf(ui.prepayOfCustomer, total) else 0L
+                    val due = total - prepay
+                    vm.sell(
+                        item, q, p, customer,
+                        receivedNow = (receivedText.toLongOrNull() ?: due).coerceIn(0L, due),
+                        applyPrepay = prepay,
+                        discount = disc
+                    )
+                    sellTarget = null
+                }) { Text("ثبت فروش") }
+            },
+            dismissButton = { TextButton(onClick = { sellTarget = null }) { Text("لغو") } }
+        )
+    }
+
+    // ---------- دیالوگ شمارش انبار ----------
+    //
+    // برای عددهایی که در انبار ثبت‌اند ولی در واقعیت نیستند. تا امروز
+    // هیچ راهی برای اصلاحشان نبود و برای همیشه در فهرستِ فروش می‌ماندند.
+    countTarget?.let { item ->
+        var countedText by remember(item.id) { mutableStateOf(item.qty.toString()) }
+        var note by remember(item.id) { mutableStateOf("") }
+        val counted = countedText.toIntOrNull()
+        val diff = (counted ?: item.qty) - item.qty
+        AppAlertDialog(
+            onDismissRequest = { countTarget = null },
+            title = { Text("شمارش «${item.name}»") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "در انبار ثبت است: ${item.qty.fa()} عدد" +
+                            (if (item.size.isNotBlank()) " • سایز ${item.size}" else "") +
+                            " • بهای هر عدد ${item.avgCost.afn()}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = countedText,
+                        onValueChange = { countedText = it.digitsOnly() },
+                        label = { Text("واقعاً چند عدد در انبار است؟") },
+                        singleLine = true,
+                        isError = counted == null,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = note,
+                        onValueChange = { note = it },
+                        label = { Text("توضیح (اختیاری)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (diff != 0 && counted != null) {
+                        Text(
+                            if (diff < 0)
+                                "${(-diff).fa()} عدد کم می‌شود — بهایش به هزینهٔ کسری می‌رود، " +
+                                    "پس دفتر و انبار با هم می‌خوانند."
+                            else
+                                "${diff.fa()} عدد اضافه می‌شود، با بهای هر عدد ${item.avgCost.afn()}.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (diff < 0) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    if (counted == 0) {
+                        Text(
+                            "با صفر شدن، این کالا از فهرستِ انبار برداشته می‌شود. " +
+                                "تاریخچهٔ فروش‌هایش سرِ جایش می‌مانَد.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = counted != null && diff != 0 && !busy,
+                    onClick = {
+                        vm.recount(item, counted ?: item.qty, note)
+                        countTarget = null
+                    }
+                ) { Text("ثبت شمارش") }
+            },
+            dismissButton = { TextButton(onClick = { countTarget = null }) { Text("لغو") } }
+        )
+    }
+
+    // ---------- دیالوگ برگشت از فروش ----------
+    returnTarget?.let { sale ->
+        var qtyText by remember(sale.id) { mutableStateOf(sale.returnableQty.toString()) }
+        var refundCash by remember(sale.id) { mutableStateOf(true) }
+        var cashBox by remember(sale.id) { mutableStateOf("WALLET") }
+        val q = qtyText.toIntOrNull() ?: 0
+        AppAlertDialog(
+            onDismissRequest = { returnTarget = null },
+            title = { Text("برگشت از فروش «${sale.productName}»") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "فروش ${sale.code} • ${sale.qty.fa()} عدد • هر عدد ${sale.unitPrice.afn()}" +
+                            (if (sale.returnedQty > 0) " • قبلاً ${sale.returnedQty.fa()} عدد برگشته" else ""),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = qtyText,
+                        onValueChange = { qtyText = it.digitsOnly() },
+                        label = { Text("تعداد برگشتی (حداکثر ${sale.returnableQty.fa()})") },
+                        singleLine = true,
+                        isError = q !in 1..sale.returnableQty,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        "مبلغ برگشتی: ${(q.coerceAtLeast(0) * sale.unitPrice).afn()}",
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    HorizontalDivider(thickness = 0.5.dp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = refundCash,
+                            onClick = { refundCash = true },
+                            label = { Text("پول نقد پس داده شد") }
+                        )
+                        FilterChip(
+                            selected = !refundCash,
+                            onClick = { refundCash = false },
+                            label = { Text("به حساب مشتری") }
+                        )
+                    }
+                    if (refundCash) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = cashBox == "WALLET",
+                                onClick = { cashBox = "WALLET" },
+                                label = { Text("صندوق (${wallet.afn()})") }
+                            )
+                            FilterChip(
+                                selected = cashBox == "BANK",
+                                onClick = { cashBox = "BANK" },
+                                label = { Text("بانک (${bank.afn()})") }
+                            )
+                        }
+                    } else {
+                        Text(
+                            "مبلغ به‌صورت بستانکاری روی حساب مشتری می‌ماند و بعداً قابل تسویه است.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = q in 1..sale.returnableQty,
+                    onClick = {
+                        vm.returnSale(sale, q, refundCash, cashBox)
+                        returnTarget = null
+                    }
+                ) { Text("ثبت برگشت") }
+            },
+            dismissButton = { TextButton(onClick = { returnTarget = null }) { Text("لغو") } }
+        )
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("فروش از انبار محصول") },
+                navigationIcon = {
+                    androidx.compose.material3.IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "برگشت")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+            )
+        },
+        floatingActionButton = {
+            // تنها راهِ واردکردنِ کالای آماده‌ای که از قبل هست. شمارش
+            // این کار را نمی‌کند چون ردیفِ تازه نمی‌سازد، و بدونِ این
+            // دکمه تنها راه جعلِ یک سفارشِ تولید بود.
+            FloatingActionButton(onClick = { addingOpening = true }) {
+                Icon(Icons.Default.Add, contentDescription = "افزودن کالای موجود به انبار")
+            }
+        }
+    ) { pad ->
+        LazyColumn(
+            modifier = Modifier.padding(pad).fillMaxSize().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            ui.message?.let { msg ->
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (ui.isError) MaterialTheme.colorScheme.errorContainer
+                            else MaterialTheme.colorScheme.primaryContainer
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    ) { Text(msg, modifier = Modifier.padding(12.dp)) }
+                }
+            }
+
+            if (items.isEmpty()) {
+                item {
+                    Text(
+                        "انبار محصول خالی است. هر سفارشی که در مرحلهٔ «نظارت» تأیید شود، " +
+                            "خودکار وارد این انبار می‌شود و از همین‌جا فروخته می‌رود. " +
+                            "اگر همین حالا کالای آماده‌ای در انبار دارید، با دکمهٔ + واردش کنید.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 24.dp)
+                    )
+                }
+            } else {
+                // ---------- دکمهٔ فاکتور فروش ----------
+                item {
+                    Button(
+                        onClick = onOpenInvoice,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.ReceiptLong, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            if (invoiceCount > 0)
+                                "ادامهٔ فاکتور فروش (${invoiceCount.fa()} قلم)"
+                            else "ایجاد فاکتور فروش"
+                        )
+                    }
+                }
+                item {
+                    Text(
+                        "برای فروشِ چند کالا به یک مشتری، فاکتور بسازید و از هر پوشه " +
+                            "هرچه خواستید داخلش بریزید. دکمهٔ «فروش» کنارِ هر کالا برای " +
+                            "فروشِ همان یک قلم است.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                // ---------- مسیرِ پوشه ----------
+                item {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            openFolder?.let { "موجودی انبار ‹ $it" } ?: "موجودی انبار محصول",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        if (openFolder != null) {
+                            TextButton(onClick = { openFolder = null }) {
+                                Text("همهٔ پوشه‌ها")
+                            }
+                        }
+                    }
+                }
+
+                // ---------- فهرستِ پوشه‌ها ----------
+                if (openFolder == null) {
+                    items(folders, key = { it.name }) { folder ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                        ) {
+                            Row(
+                                Modifier.fillMaxWidth().padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.Folder,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(folder.name, fontWeight = FontWeight.SemiBold)
+                                    Text(
+                                        "${folder.designs.fa()} طرح • ${folder.totalQty.fa()} عدد",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                TextButton(onClick = { openFolder = folder.name }) {
+                                    Text("باز کردن")
+                                }
+                            }
+                        }
+                    }
+                    item {
+                        Text(
+                            "پوشه‌ها از «دستهٔ طرح» در اطلاعات پایه ساخته می‌شوند. هر " +
+                                "محصولی که از نظارت تأیید شود خودکار سرِ پوشهٔ طرحش " +
+                                "می‌نشیند؛ طرحِ بی‌دسته زیرِ «دسته‌بندی‌نشده» می‌مانَد.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // ---------- کالاهای پوشهٔ باز ----------
+                items(if (openFolder == null) emptyList() else shown, key = { it.id }) { item ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (item.photoFile.isNotBlank()) {
+                                SinglePhotoPicker(
+                                    fileName = item.photoFile,
+                                    canEdit = false,
+                                    onPicked = {},
+                                    onCleared = {}
+                                )
+                                Spacer(Modifier.width(12.dp))
+                            }
+                            Column(Modifier.weight(1f)) {
+                                Text(item.name, fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    stockBadge(item.qty) + " عدد" +
+                                        (if (item.size.isNotBlank()) " • سایز ${item.size}" else "") +
+                                        " • بهای هر عدد ${item.avgCost.afn()}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    // ردیفِ کسری باید در نگاهِ اول قرمز دیده شود
+                                    color = if (isShortage(item.qty)) MaterialTheme.colorScheme.error
+                                    else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Button(onClick = { sellTarget = item }) {
+                                    Icon(Icons.Default.Sell, contentDescription = null)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("فروش")
+                                }
+                                TextButton(onClick = { onAddToInvoice(item) }) {
+                                    Icon(Icons.Default.Add, contentDescription = null)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("به فاکتور")
+                                }
+                                // اصلاحِ تعداد — برای عددهایی که ثبت‌اند
+                                // ولی در انبار نیستند
+                                TextButton(onClick = { countTarget = item }) {
+                                    Icon(Icons.Default.Inventory2, contentDescription = null)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("شمارش")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (sales.isNotEmpty()) {
+                item {
+                    Spacer(Modifier.height(8.dp))
+                    HorizontalDivider(thickness = 0.5.dp)
+                    Text(
+                        "فروش‌های اخیر",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+                items(sales, key = { it.id }) { sale ->
+                    Row(
+                        Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("${sale.qty.fa()} عدد «${sale.productName}»", style = MaterialTheme.typography.bodyMedium)
+                            val sub = listOfNotNull(
+                                sale.customerName.takeIf { it.isNotBlank() },
+                                if (sale.returnedQty > 0) "${sale.returnedQty.fa()} عدد برگشت خورده" else null
+                            ).joinToString(" • ")
+                            if (sub.isNotBlank()) {
+                                Text(
+                                    sub,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Text(sale.total.afn(), fontWeight = FontWeight.SemiBold)
+                        if (sale.returnableQty > 0) {
+                            TextButton(onClick = { returnTarget = sale }) { Text("برگشت") }
+                        }
+                    }
+                }
+            }
+
+            item { Spacer(Modifier.height(60.dp)) }
+        }
+    }
+}
+
+/**
+ * کالای آماده‌ای که از قبل در انبار است — «انبارِ قبلی» هنگام مهاجرت.
+ *
+ * سایز خالی مجاز است چون خیلی از کارگاه‌ها محصولِ بی‌سایز هم دارند، و
+ * کلیدِ ردیف «نام + سایز» است پس خالی هم یک ردیفِ معتبر می‌سازد.
+ *
+ * بهای هر عدد اختیاری است: کارفرمایی که بهای تمام‌شدهٔ کتِ پارسال را
+ * نمی‌داند نباید مجبور شود عددی از خودش بسازد. عددِ ساختگی تا ابد در
+ * بهای تمام‌شدهٔ فروش می‌مانَد و سودِ هر فروشِ بعدی را کج می‌کند.
+ */
+@Composable
+private fun OpeningFinishedDialog(
+    busy: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: (name: String, size: String, qty: Int, unitCost: Long, note: String) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var size by remember { mutableStateOf("") }
+    var qtyText by remember { mutableStateOf("") }
+    var costText by remember { mutableStateOf("") }
+    var note by remember { mutableStateOf("") }
+
+    val qty = qtyText.toIntOrNull() ?: 0
+    val ready = name.isNotBlank() && qty > 0 && !busy
+
+    AppAlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("افزودن کالای موجود") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "برای کالای آماده‌ای که همین حالا در انبار است ولی در اپ ثبت نشده. " +
+                        "این تولید نیست و پولی جابه‌جا نمی‌کند؛ شمارشِ شروع است. " +
+                        "کالایی که در کارگاه دوخته می‌شود خودش از مرحلهٔ «نظارت» وارد می‌شود.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("نام کالا") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = size,
+                        onValueChange = { size = it },
+                        label = { Text("سایز (اختیاری)") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    OutlinedTextField(
+                        value = qtyText,
+                        onValueChange = { qtyText = it.digitsOnly() },
+                        label = { Text("تعداد") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                OutlinedTextField(
+                    value = costText,
+                    onValueChange = { costText = it.digitsOnly() },
+                    label = { Text("بهای تمام‌شدهٔ هر عدد (اختیاری، افغانی)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    label = { Text("توضیح (اختیاری)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onConfirm(
+                        name.trim(),
+                        size.trim(),
+                        qty,
+                        costText.toLongOrNull() ?: 0L,
+                        note.trim()
+                    )
+                },
+                enabled = ready
+            ) { Text("افزودن") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("لغو") } }
+    )
+}

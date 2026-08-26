@@ -1,0 +1,228 @@
+name: بررسی
+
+# هر push روی شاخهٔ کاری. **عمداً APK نمی‌سازد.**
+#
+# تا امروز هر push یک ساختِ کاملِ APK + نسخهٔ release + شبیه‌ساز را راه
+# می‌انداخت: حدود دوازده دقیقه. آنچه واقعاً از آن یاد می‌گرفتیم در هفت
+# دقیقهٔ اولش بود. APK حالا در `apk.yml` است و فقط دستی اجرا می‌شود.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/**
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: کشِ Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # این فایل به مسیرِ SDK روی کامپیوترِ شخصی اشاره می‌کند و روی
+      # ماشینِ CI وجود ندارد؛ اگر بماند، Gradle همان اول شکست می‌خورد.
+      - name: برداشتنِ local.properties
+        run: rm -f local.properties
+
+      # چند ثانیه طول می‌کشد و پیش از هر چیزِ دیگر می‌آید: ایمپورتِ
+      # جامانده، پرانتزِ نبسته و صفحهٔ بی‌راه را همین‌جا می‌گیرد.
+      # **شکستش دیگر بقیهٔ کار را متوقف نمی‌کند — و این یک بن‌بست را
+      # باز می‌کند.**
+      #
+      # `schemacheck` طرحِ نسخهٔ تازهٔ دیتابیس را می‌خواهد. آن فایل را
+      # پله‌های پایین‌ترِ همین کار می‌سازند (`testDebugUnitTest` برای
+      # اندروید، `:desktop:compileKotlin` برای ویندوز) و در آرتیفکتِ
+      # `room-schemas` بارگذاری می‌کنند.
+      #
+      # ولی این پله اولین بود و با شکستش کارِ تمام می‌شد — یعنی
+      # پله‌هایی که طرح را می‌سازند هرگز اجرا نمی‌شدند. پس
+      # `schemacheck` جلوی ساختهٔ‌شدنِ همان چیزی را می‌گرفت که
+      # نبودنش را گزارش می‌کرد. حلقه‌ای که خودش را می‌بست.
+      #
+      # نگهبان ضعیف نشده: پلهٔ آخر نتیجه را برمی‌گرداند و کار قرمز
+      # می‌شود. فرقش این است که حالا آرتیفکتِ طرح هم ساخته می‌شود و
+      # می‌شود از حلقه بیرون آمد.
+      - name: بررسی‌های ساختاری
+        id: checks
+        continue-on-error: true
+        run: python3 tools/checks/run_all.py
+
+      # اگر ریاضیِ پول بشکند هیچ چیزِ دیگری اهمیت ندارد.
+      - name: آزمون‌های ریاضیِ پول
+        run: ./gradlew --no-daemon testDebugUnitTest
+
+      # سبزبودنِ مرحلهٔ بالا کافی نیست: اگر Gradle هیچ کلاسِ تستی پیدا
+      # نکند هم موفق گزارش می‌دهد و لاگش با اجرای واقعی یک شکل است.
+      - name: مطمئن شو تست‌ها واقعاً اجرا شدند
+        run: |
+          python3 - <<'PY'
+          import glob, sys, xml.etree.ElementTree as ET
+          files = glob.glob('app/build/test-results/testDebugUnitTest/*.xml')
+          if not files:
+              sys.exit('هیچ فایلِ نتیجه‌ای تولید نشد — یعنی هیچ تستی اجرا نشده.')
+          tests = failures = errors = 0
+          for f in files:
+              r = ET.parse(f).getroot()
+              tests    += int(r.get('tests', 0))
+              failures += int(r.get('failures', 0))
+              errors   += int(r.get('errors', 0))
+          print(f'{tests} تست در {len(files)} کلاس — {failures} شکست، {errors} خطا')
+          if tests == 0:
+              sys.exit('صفر تست اجرا شد. پوشهٔ src/test دیده نشده است.')
+          if failures or errors:
+              sys.exit('تست شکست خورد.')
+          PY
+
+      - name: گزارشِ تست وقتی شکست
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: app/build/reports/tests/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      # کدِ مشترک روی دسکتاپ هم باید بسازد. این مرحله `:core` را هم
+      # کامپایل می‌کند، که مرحلهٔ بعدی لازمش دارد.
+      - name: کامپایلِ نسخهٔ ویندوز
+        run: ./gradlew --no-daemon :desktop:compileKotlin
+
+      # ═══ گران‌ترین اشکالِ این پروژه، و تنها بررسیِ قطعی‌اش ═══
+      #
+      # اپ روی گوشیِ کارگاه سرِ باز کردنِ صفحهٔ سفارش می‌ترکید:
+      #
+      #     NoClassDefFoundError: androidx/compose/material3/SkikoMenu_skikoKt
+      #
+      # `:core` علیه jarهای دسکتاپ کامپایل می‌شود و برای صدها تابع
+      # بی‌خطر است، چون نامِ کلاس یکی است. ولی تابعِ سطحِ فایل به کلاسی
+      # به نامِ همان **فایل** تبدیل می‌شود، و `DropdownMenu` روی دسکتاپ
+      # در `SkikoMenu.skiko.kt` است و روی اندروید در
+      # `AndroidMenu.android.kt`. کامپایل سبز می‌مانَد و کرش فقط وقتی
+      # می‌آید که آن صفحه باز شود.
+      #
+      # اینجا خودِ بایت‌کدِ `:core` خوانده می‌شود، پس به فهرست و به نسخهٔ
+      # Compose وابسته نیست. `--require-bytecode` یعنی اگر کلاس‌ها نبودند
+      # مرحله **شکست بخورد**، نه اینکه بی‌صدا رد شود.
+      - name: هیچ کلاسِ فقط-دسکتاپی در :core نمانده باشد
+        run: python3 tools/checks/platformcall.py --require-bytecode
+
+      # ═══ طرحِ دیتابیس واقعاً صادر شد؟ ═══
+      #
+      # `schemacheck` در بررسی‌های ساختاری می‌گوید که *تنظیمات* درست
+      # است. ولی اینکه Room واقعاً فایل را **بنویسد** فقط بعد از یک
+      # ساختِ واقعی معلوم می‌شود — و همین مرحله تنها جایی است که ساخت
+      # اتفاق افتاده (`testDebugUnitTest` برای اندروید، `compileKotlin`
+      # برای ویندوز).
+      #
+      # اگر این مرحله نبود، می‌شد `exportSchema = true` را گذاشت،
+      # `schemaLocation` را اشتباه نوشت، و هیچ‌کس تا روزِ مهاجرتِ بعدی
+      # نفهمد که هیچ فایلی ساخته نشده.
+      - name: مطمئن شو طرحِ دیتابیس صادر شد
+        run: |
+          python3 - <<'PY'
+          import pathlib, re, sys, json
+          ver = int(re.search(r'const val DB_VERSION\s*=\s*(\d+)',
+                pathlib.Path('core/src/main/kotlin/com/afghanjama/data/DbSchema.kt')
+                .read_text(encoding='utf-8')).group(1))
+          bad = []
+          for mod in ('app', 'desktop'):
+              hits = list(pathlib.Path(mod).glob(f'schemas/**/{ver}.json'))
+              if not hits:
+                  found = sorted(p.name for p in pathlib.Path(mod).glob('schemas/**/*.json'))
+                  bad.append(f'{mod}: طرحِ نسخهٔ {ver} ساخته نشد (موجود: {found or "هیچ"})')
+                  continue
+              d = json.loads(hits[0].read_text(encoding='utf-8'))
+              n = len(d.get('database', {}).get('entities', []))
+              print(f'  {mod}: {hits[0]} — {n} جدول')
+              if n < 40:
+                  bad.append(f'{mod}: فقط {n} جدول در طرح، انتظار دستِ‌کم ۴۰.')
+          if bad:
+              for b in bad: print('✗', b)
+              sys.exit('طرح صادر نشد — بدونِ آن هیچ مهاجرتی آزمودنی نیست.')
+          print('✓ طرحِ هر دو دیتابیس صادر شد')
+          PY
+
+      - name: بارگذاریِ طرحِ صادرشده
+        uses: actions/upload-artifact@v4
+        with:
+          name: room-schemas
+          path: |
+            app/schemas/
+            desktop/schemas/
+          if-no-files-found: error
+          retention-days: 30
+
+      # ═══ راهِ بیرون آمدن از بن‌بستِ طرح ═══
+      #
+      # `schemacheck` طرحِ نسخهٔ جاری را **کامیت‌شده** می‌خواهد. تنها جایی
+      # که ساخته می‌شود همین کار است، و آرتیفکتش همیشه در دسترس نیست:
+      # شبکهٔ محیطی که این مخزن در آن ویرایش می‌شود به میزبانِ آرتیفکتِ
+      # گیت‌هاب راه ندارد (۴۰۳ روی CONNECT).
+      #
+      # و طرح دست‌ساز هم نیست: `identityHash` را خودِ Room حساب می‌کند و
+      # اگر یک نویسه غلط باشد، اپ سرِ باز کردنِ دیتابیس می‌ترکد — نه سرِ
+      # کامپایل. پس بایتِ دقیق لازم است، نه چیزی شبیهش.
+      #
+      # این پله بسته را در لاگ می‌گذارد تا برداشته و کامیت شود، و
+      # **خودش را خاموش می‌کند**: روزی که طرح کامیت شد فقط یک خط
+      # می‌گوید و می‌گذرد؛ اگر روزی `DB_VERSION` بالا رفت، دوباره
+      # خودبه‌خود روشن می‌شود.
+      #
+      # هیچ مسیری در آن خطا برنمی‌گرداند — پلهٔ گزارش‌گر نباید خودش
+      # کار را قرمز کند (قاعدهٔ ۲.۵ در tools/checks/README.md).
+      - name: طرحِ کامیت‌نشده را در لاگ بگذار
+        if: always()
+        run: |
+          ver=$(sed -n 's/.*const val DB_VERSION *= *\([0-9]\+\).*/\1/p' \
+                core/src/main/kotlin/com/afghanjama/data/DbSchema.kt | head -1)
+          if [ -z "$ver" ]; then
+            echo "DB_VERSION خوانده نشد — چیزی چاپ نمی‌شود."
+          elif git ls-files --error-unmatch "app/schemas/*/$ver.json" >/dev/null 2>&1; then
+            echo "طرحِ نسخهٔ $ver کامیت شده — چیزی چاپ نمی‌شود."
+          else
+            files=$(ls app/schemas/*/"$ver".json desktop/schemas/*/"$ver".json 2>/dev/null || true)
+            if [ -z "$files" ]; then
+              echo "طرحِ نسخهٔ $ver ساخته نشده — احتمالاً ساخت پیش‌تر شکسته است."
+            else
+              echo "طرحِ نسخهٔ $ver کامیت نشده. بستهٔ زیر را بردارید:"
+              echo "----8<---- SCHEMA-BUNDLE-BASE64 ----8<----"
+              tar czf - $files | base64 -w 120
+              echo "----8<---- END-SCHEMA-BUNDLE ----8<----"
+            fi
+          fi
+
+      # اگر پردازشگرِ Room برای ماژولِ ویندوز اجرا نشود، کامپایل سبز
+      # می‌ماند و دیتابیس تازه سرِ اجرا روی پی‌سی باز نمی‌شود.
+      - name: مطمئن شو Room برای ویندوز هم کد ساخت
+        run: |
+          python3 - <<'PY'
+          import pathlib, sys
+          root = pathlib.Path('desktop/build/generated/ksp')
+          if not root.is_dir():
+              sys.exit('پوشهٔ خروجیِ KSP در :desktop نیست — پردازشگر اجرا نشده.')
+          impl = list(root.rglob('DesktopDatabase_Impl.*'))
+          daos = list(root.rglob('*Dao_Impl.*'))
+          print(f'{len(impl)} پیاده‌سازیِ دیتابیس، {len(daos)} پیاده‌سازیِ DAO')
+          if not impl:
+              sys.exit('DesktopDatabase_Impl ساخته نشده.')
+          if len(daos) < 28:
+              sys.exit(f'فقط {len(daos)} DAO ساخته شد، انتظار دستِ‌کم ۲۸.')
+          PY
+
+      # نگهبانِ بررسی‌های ساختاری، در انتها — همان الگوی `windows.yml`.
+      # سبز گرفتن بی گذشتن از بررسی‌ها ممکن نیست، ولی یک بررسیِ قرمز
+      # دیگر جلوی ساخت و آرتیفکت را نمی‌گیرد.
+      - name: نتیجهٔ بررسی‌های ساختاری
+        if: always() && steps.checks.outcome == 'failure'
+        run: |
+          echo "::error::بررسی‌های ساختاری شکست خورد — متنش بالای همین لاگ، پلهٔ «بررسی‌های ساختاری»."
+          exit 1

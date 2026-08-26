@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  اشتراکِ کارگاه روی وای‌فایِ محلی با http ساده کار می‌کند، چون گوشی‌ها
+  گواهیِ TLS ندارند و نشانی‌شان هم فقط یک IPِ خصوصی است. بیرون از شبکهٔ
+  محلی هیچ ارتباطی برقرار نمی‌شود — اپ هیچ آدرسِ اینترنتی صدا نمی‌زند.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">10.0.0.0</domain>
+        <domain includeSubdomains="false">192.168.0.0</domain>
+        <domain includeSubdomains="false">172.16.0.0</domain>
+    </domain-config>
+</network-security-config>
