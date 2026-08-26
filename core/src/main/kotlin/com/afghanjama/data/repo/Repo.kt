@@ -265,7 +265,14 @@ class Repo(private val db: Db) {
                 orderCode = order.orderCode,
                 fromStatus = order.status,
                 toStatus = newStatus,
-                at = now
+                at = now,
+                // «چه کسی» از همین‌جا می‌آید و نه از پارامتر، چون هر
+                // نُه مسیرِ تغییرِ مرحله از همین تابع می‌گذرد. اگر
+                // پارامتر می‌شد، یکی از آن نُه جا روزی فراموشش می‌کرد
+                // و آن یک مورد دقیقاً همانی می‌بود که کسی سراغش را
+                // می‌گیرد.
+                user = CurrentUser.name,
+                role = CurrentUser.role
             )
         )
     }

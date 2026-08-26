@@ -896,8 +896,16 @@ fun OrderDetailScreen(
                                             style = MaterialTheme.typography.bodyMedium,
                                             fontWeight = FontWeight.Medium
                                         )
+                                        // «چه کسی» فقط وقتی می‌آید که واقعاً
+                                        // ثبت شده باشد. سفارش‌های پیش از
+                                        // نسخهٔ ۶۳ نام ندارند و جای خالی
+                                        // بهتر از نامِ حدسی است — این
+                                        // تایم‌لاین ممکن است سرِ اختلافِ
+                                        // حساب خوانده شود.
+                                        val who = log.user.trim()
                                         Text(
-                                            fmtDate(log.at),
+                                            if (who.isEmpty()) fmtDate(log.at)
+                                            else "${fmtDate(log.at)} — $who",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )

@@ -123,6 +123,32 @@ val SCHEMA_STEPS: List<SchemaStep> = listOf(
             "CREATE INDEX IF NOT EXISTS index_domain_events_aggregate_aggregateId " +
                 "ON domain_events (aggregate, aggregateId)"
         )
+    ),
+
+    /**
+     * «چه کسی» به تایم‌لاینِ سفارش اضافه می‌شود.
+     *
+     * `order_stage_logs` از روزِ اول هر تغییرِ مرحله را ثبت می‌کرد و
+     * صفحهٔ جزئیاتِ سفارش هم نشانش می‌داد — ولی فقط «از کجا به کجا» و
+     * «کِی». نامِ کسی که مرحله را جلو برد هیچ‌جا نبود.
+     *
+     * در کارگاه همین یک ستون است که اختلاف را تمام می‌کند: وقتی
+     * سفارشی زودتر از موعد «تحویل شد» خورده، سؤال این نیست که کِی —
+     * سؤال این است که **چه کسی**.
+     *
+     * `DEFAULT ''` لازم است، نه سلیقه: سطرهای تاریخی نامی ندارند و
+     * ستونِ `NOT NULL` بی مقدارِ پیش‌فرض روی جدولِ پر اصلاً اضافه
+     * نمی‌شود. موجودیت هم `@ColumnInfo(defaultValue = "")` دارد تا
+     * انتظارِ Room با همین بخواند — همان الگوی `QcRecord` و
+     * `OrderPhoto`. اگر یکی از این دو جا بماند، Room سرِ باز کردنِ
+     * دفتر می‌شکند.
+     */
+    SchemaStep(
+        62, 63,
+        listOf(
+            "ALTER TABLE `order_stage_logs` ADD COLUMN `user` TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE `order_stage_logs` ADD COLUMN `role` TEXT NOT NULL DEFAULT ''"
+        )
     )
 )
 

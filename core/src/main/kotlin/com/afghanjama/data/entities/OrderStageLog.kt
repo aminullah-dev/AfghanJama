@@ -1,5 +1,6 @@
 package com.afghanjama.data.entities
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -15,5 +16,14 @@ data class OrderStageLog(
     val orderCode: String,
     val fromStatus: String,       // "NEW" برای ایجاد سفارش
     val toStatus: String,
-    val at: Long = System.currentTimeMillis()
+    val at: Long = System.currentTimeMillis(),
+
+    /**
+     * چه کسی مرحله را جلو برد — نام و نقشِ کاربرِ آن لحظه.
+     *
+     * سطرهای پیش از نسخهٔ ۶۳ خالی‌اند و صفحه برایشان چیزی نشان
+     * نمی‌دهد؛ نبودنِ نام بهتر از نامِ حدسی است.
+     */
+    @ColumnInfo(defaultValue = "") val user: String = "",
+    @ColumnInfo(defaultValue = "") val role: String = ""
 )
