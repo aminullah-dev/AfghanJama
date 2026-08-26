@@ -7,6 +7,7 @@ import com.afghanjama.prefs.BackupPrefs
 import com.afghanjama.prefs.settings
 import com.afghanjama.AppInfo
 import com.afghanjama.data.buildAppDatabase
+import com.afghanjama.data.repo.Repo
 import com.afghanjama.util.DownloadsWriter
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -29,9 +30,20 @@ class AutoBackupWorker(
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        // WAL را یکپارچه کن تا فایل اصلی دیتابیس کامل باشد
         val db = buildAppDatabase(applicationContext)
         try {
+            // هرسِ رویدادهای کهنه **پیش از** checkpoint.
+            //
+            // ترتیبش عمدی است: اگر بعد از checkpoint هرس شود، حذف در
+            // WAL می‌ماند و فایلی که همین حالا کپی می‌شود هنوز همهٔ
+            // سطرهای کهنه را دارد. این‌طور هم دیتابیسِ زنده کوچک
+            // می‌شود هم خودِ پشتیبان.
+            //
+            // شکستنش نباید جلوی پشتیبان‌گیری را بگیرد؛ پشتیبان مهم‌تر
+            // از خانه‌تکانی است.
+            runCatching { Repo(db).pruneEvents() }
+
+            // WAL را یکپارچه کن تا فایل اصلی دیتابیس کامل باشد
             db.openHelper.writableDatabase
                 .query("PRAGMA wal_checkpoint(FULL)")
                 .use { it.moveToFirst() }

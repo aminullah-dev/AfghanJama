@@ -54,4 +54,25 @@ interface DomainEventDao {
      */
     @Query("DELETE FROM domain_events WHERE processedAt IS NOT NULL AND at < :before")
     suspend fun prune(before: Long): Int
+
+    /**
+     * آیا این صندوقِ خروجی **تا به حال** مصرف‌کننده‌ای داشته؟
+     *
+     * شرطِ `processedAt IS NOT NULL` در [prune] برای محافظت از
+     * مصرف‌کننده است. ولی اگر هیچ مصرف‌کننده‌ای وجود نداشته باشد،
+     * `processedAt` هرگز پر نمی‌شود و آن شرط یعنی **هیچ سطری هرگز
+     * پاک نمی‌شود** — یعنی نگهبانی که همیشه هیچ می‌کند.
+     */
+    @Query("SELECT COUNT(*) FROM domain_events WHERE processedAt IS NOT NULL")
+    suspend fun processedCount(): Int
+
+    /**
+     * هرس فقط بر اساسِ سن.
+     *
+     * این را تنها وقتی صدا بزنید که ثابت شده باشد هیچ مصرف‌کننده‌ای
+     * وجود ندارد ([processedCount] برابرِ صفر). با وجودِ مصرف‌کننده،
+     * [prune] درست است نه این.
+     */
+    @Query("DELETE FROM domain_events WHERE at < :before")
+    suspend fun pruneByAge(before: Long): Int
 }

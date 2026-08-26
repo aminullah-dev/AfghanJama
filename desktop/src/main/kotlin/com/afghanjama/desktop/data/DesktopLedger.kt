@@ -54,6 +54,11 @@ object DesktopLedger {
                 runCatching {
                     kotlinx.coroutines.runBlocking {
                         repo.repairManualCashClassification()
+                        // خانه‌تکانیِ صندوقِ خروجی. روی گوشی این کار را
+                        // کارگرِ روزانه می‌کند؛ ویندوز کارگرِ زمان‌بندی‌شده
+                        // ندارد، پس یک بار سرِ باز شدنِ دفتر انجام می‌شود.
+                        // یک DELETEِ نمایه‌دار است و باز شدن را کند نمی‌کند.
+                        repo.pruneEvents()
                     }
                 }
             }
