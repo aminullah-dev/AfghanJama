@@ -69,6 +69,11 @@ Cash in, cash out, customer credit, supplier accounts. Receivables are aged,
 so a debt that has been sitting for a month tells you so instead of waiting
 to be noticed.
 
+**Every order's history**
+Each order shows when it moved from one stage to the next — and **who
+moved it**. When there's a disagreement about an order, that one screen
+ends the argument.
+
 **Printing**
 Order slips, receipts, and reports laid out for the paper you actually use.
 
@@ -157,5 +162,8 @@ with it, week after week.
 2. The Windows build is not code-signed yet, so Windows SmartScreen /
    Smart App Control will warn on first run. Worth a one-line note next to
    the download so it doesn't look broken.
-3. If you want this in Dari for an Afghan-facing version of the page, say
-   so and I'll write it — not translated, written.
+3. A Dari version of this page exists in `site-copy-tailor-erp-dari.md`.
+   It is written, not translated: it opens with the shop's paper notebook
+   rather than with a feature list, uses Afghan vocabulary, and drops the
+   accounting jargon. If both pages go up, give them separate URLs and
+   link each one to the other.
