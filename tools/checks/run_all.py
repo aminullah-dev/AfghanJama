@@ -9,9 +9,25 @@
 هر بررسی مستقل اجرا می‌شود تا اگر یکی شکست، بقیه هم گزارش شوند و همه در
 یک رفت‌وبرگشت دیده شوند، نه یکی‌یکی.
 """
+import os
 import subprocess
 import sys
 from pathlib import Path
+
+# خروجیِ خودِ این گزارش‌گر هم باید UTF-8 باشد. روی ویندوز، خطِ
+# «✗ N بررسی شکست خورد» با cp1252 می‌ترکید — یعنی گزارشِ شکست، خودش
+# شکست می‌خورد و آنچه به لاگ می‌رسید تراکِ پایتون بود نه نامِ بررسی‌ها.
+# داستانِ کامل در `_src.py`.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
+# و برای بچه‌ها: `_src` خروجی‌شان را درست می‌کند، ولی این خط تضمین
+# می‌کند که حتی بررسیِ تازه‌ای که روزی `_src` را ایمپورت نکند هم سالم
+# بماند. ارزان است و یک دامِ خاموش را می‌بندد.
+CHILD_ENV = {**os.environ, "PYTHONIOENCODING": "utf-8"}
 
 HERE = Path(__file__).resolve().parent
 # فایل‌های زیرخط‌دار کمکی‌اند نه بررسی — مثلِ _src.py که فقط
@@ -40,6 +56,7 @@ for s in scripts:
         text=True,
         encoding="utf-8",
         errors="replace",
+        env=CHILD_ENV,
     )
     out = ((r.stdout or "") + (r.stderr or "")).strip()
     last = out.splitlines()[-1] if out else "(بی‌خروجی)"
