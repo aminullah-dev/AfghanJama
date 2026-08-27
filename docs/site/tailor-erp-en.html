@@ -1,0 +1,217 @@
+<!--
+  Tailor ERP — page body for linumic.com/what-we-do/tailor-erp/
+
+  This is a FRAGMENT, not a whole page: paste it into a "Custom HTML"
+  block (WordPress) or an embed/code block in whatever builder the site
+  uses. It has no <html>, <head> or <body>, so it drops into an existing
+  page template without fighting it.
+
+  Styles are scoped under .ty-page so they cannot leak into the rest of
+  the site. Fonts and colours are inherited from the theme on purpose —
+  the page should look like the rest of linumic.com, not like a
+  stranger.
+
+  Download links are already filled in (GitHub release v1.7.0).
+  Still to replace: #REPLACE-WITH-CONTACT-URL and the cross-language
+  page link.
+-->
+
+<style>
+.ty-page{max-width:60rem;margin:0 auto;line-height:1.65}
+.ty-page h2{margin:2.5rem 0 .75rem;font-size:1.6rem;line-height:1.25}
+.ty-page h3{margin:1.75rem 0 .4rem;font-size:1.1rem}
+.ty-page p{margin:0 0 1rem}
+.ty-lede{font-size:1.2rem;opacity:.85}
+.ty-cta{display:flex;flex-wrap:wrap;gap:.75rem;margin:1.5rem 0 2rem}
+.ty-btn{display:inline-block;padding:.7rem 1.4rem;border-radius:.4rem;
+  text-decoration:none;font-weight:600;border:2px solid currentColor}
+.ty-btn--solid{background:currentColor}
+.ty-btn--solid span{color:#fff;mix-blend-mode:normal}
+.ty-list{margin:0 0 1rem;padding-inline-start:1.25rem}
+.ty-list li{margin:.4rem 0}
+.ty-feature{margin:1.5rem 0}
+.ty-feature h3{margin-bottom:.25rem}
+.ty-note{padding:1rem 1.25rem;border-inline-start:3px solid currentColor;
+  opacity:.85;font-size:.95rem;margin:1.5rem 0}
+.ty-cols{display:grid;gap:1.5rem;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));margin:1.5rem 0}
+.ty-small{font-size:.9rem;opacity:.75}
+</style>
+
+<div class="ty-page">
+
+  <p class="ty-lede">
+    Workshop management for tailoring businesses — built in Dari,
+    right-to-left, and built to work when the internet doesn't.
+  </p>
+
+  <p>
+    Every order, every cut, every tailor's assignment, every afghani in
+    and out of the drawer — in one book that balances itself.
+  </p>
+
+  <div class="ty-cta">
+    <!-- Download link: GitHub release asset. Re-point when you cut a new version. -->
+    <a class="ty-btn ty-btn--solid" href="https://github.com/aminullah-dev/AfghanJama/releases/download/v1.7.0/KhayatYar-1.7.0.apk"><span>Download the Android demo</span></a>
+    <!-- Download link: GitHub release asset. Re-point when you cut a new version. -->
+    <a class="ty-btn" href="https://github.com/aminullah-dev/AfghanJama/releases/download/v1.7.0/KhayatYar-1.7.0.msi">Get the Windows version</a>
+  </div>
+
+  <h2>The problem it solves</h2>
+  <p>
+    Most tailoring workshops run on a paper notebook and memory. That
+    works until it doesn't:
+  </p>
+  <ul class="ty-list">
+    <li>A customer's measurements are on a page nobody can find.</li>
+    <li>A tailor finished six pieces last week — or was it seven?</li>
+    <li>Fabric ran out mid-order, and nobody knew it was low.</li>
+    <li>The cash drawer and the notebook disagree, and there's no way to
+      tell which one is wrong.</li>
+  </ul>
+  <p>
+    Tailor ERP replaces the notebook without asking anyone to become an
+    accountant.
+  </p>
+
+  <h2>What it does</h2>
+
+  <div class="ty-feature">
+    <h3>Orders, from measurement to delivery</h3>
+    <p>Take the order with the customer's measurements, cut the fabric,
+    hand the pieces to a tailor, send them to review, deliver. Each stage
+    is a step the app tracks — so at any moment you know exactly how many
+    orders are on which bench.</p>
+  </div>
+
+  <div class="ty-feature">
+    <h3>Tailors and piece work</h3>
+    <p>Assign work, record what came back finished, and calculate pay per
+    piece. Partial deliveries are handled properly: a number moves
+    forward once, never twice.</p>
+  </div>
+
+  <div class="ty-feature">
+    <h3>Material warehouse</h3>
+    <p>Fabric, buttons, thread, lining. Receive stock, issue it, run a
+    count, set a minimum level and get told before you run out. Every
+    movement is recorded with its reason, so a discrepancy has a history
+    you can read.</p>
+  </div>
+
+  <div class="ty-feature">
+    <h3>Books that balance</h3>
+    <p>Behind the simple screens is real double-entry accounting.
+    Material consumed by an order moves into work-in-progress, not into
+    expenses. Opening balances land in equity, not revenue. You never see
+    a journal entry unless you want to — but it's there, and it
+    balances.</p>
+  </div>
+
+  <div class="ty-feature">
+    <h3>Money and debts</h3>
+    <p>Cash in, cash out, customer credit, supplier accounts. Receivables
+    are aged, so a debt that has been sitting for a month tells you so
+    instead of waiting to be noticed.</p>
+  </div>
+
+  <div class="ty-feature">
+    <h3>Every order's history</h3>
+    <p>Each order shows when it moved from one stage to the next — and
+    <strong>who moved it</strong>. When there's a disagreement about an
+    order, that one screen ends the argument.</p>
+  </div>
+
+  <div class="ty-feature">
+    <h3>Printing</h3>
+    <p>Order slips, receipts, and reports laid out for the paper you
+    actually use.</p>
+  </div>
+
+  <h2>Works offline</h2>
+  <p>
+    The workshop is the server. The app keeps its own database on the
+    device — no account, no subscription check, no internet required to
+    open it or use it. When several people need the same book, one
+    machine shares it over the local network.
+  </p>
+  <p>
+    Backups are a file you can copy to a USB stick, and restoring one is
+    one screen.
+  </p>
+
+  <h2>Two ways to run it</h2>
+  <div class="ty-cols">
+    <div>
+      <h3>Android</h3>
+      <p>For the phone or tablet at the cutting table. Take measurements,
+      photograph the fabric, hand out work, mark deliveries.</p>
+    </div>
+    <div>
+      <h3>Windows desktop</h3>
+      <p>For the office machine. Same data, same book, a bigger screen
+      for reports and printing.</p>
+    </div>
+  </div>
+  <p>
+    Both are built from one shared core, so a rule fixed in one is fixed
+    in both.
+  </p>
+
+  <h2>Try it before you decide</h2>
+  <p>The demo is the real app — not a slideshow, not a video.</p>
+  <p>
+    Install it, open <strong>Settings → Create Sample Workshop</strong>,
+    and it builds a complete working shop for you in a few seconds:
+    customers with measurements and phone numbers, tailors and
+    inspectors, stocked material with one item deliberately below its
+    minimum level, and six orders each sitting at a different stage — one
+    waiting to be cut, one out with a tailor, one in review, one
+    delivered.
+  </p>
+  <p>
+    Nothing is faked. The sample data is created through the same code
+    paths your real orders would use, so what you're clicking is what
+    you'd get.
+  </p>
+
+  <div class="ty-cta">
+    <!-- Download link: GitHub release asset. Re-point when you cut a new version. -->
+    <a class="ty-btn ty-btn--solid" href="https://github.com/aminullah-dev/AfghanJama/releases/download/v1.7.0/KhayatYar-1.7.0.apk"><span>Download the Android demo (APK)</span></a>
+  </div>
+
+  <p class="ty-small">
+    Installing an APK outside the Play Store: Android will ask you to
+    allow installation from this source once. That's expected — it's the
+    same prompt any direct download gets.
+  </p>
+
+  <h2>Licensing</h2>
+  <p>
+    Tailor ERP is licensed per workshop, not per user or per device. One
+    licence covers the shop's phones and its office computer.
+  </p>
+  <p>
+    The demo runs without a licence so you can evaluate it properly.
+    Licensing applies when you start keeping real books.
+  </p>
+
+  <div class="ty-cta">
+    <a class="ty-btn ty-btn--solid" href="#REPLACE-WITH-CONTACT-URL"><span>Request a licence</span></a>
+    <a class="ty-btn" href="#REPLACE-WITH-CONTACT-URL">Talk to us about your workshop</a>
+  </div>
+
+  <h2>Built for Dari, not translated into it</h2>
+  <p>
+    The interface is Persian/Dari throughout and laid out right-to-left
+    from the ground up — dates, numbers, forms, and printed paper. It was
+    written for an Afghan workshop, with the owner of that workshop
+    telling us what was wrong with it, week after week.
+  </p>
+
+  <div class="ty-note">
+    <!-- REPLACE with the Dari page URL once it exists -->
+    این صفحه به دری هم هست —
+    <a href="#REPLACE-WITH-DARI-PAGE-URL">نسخهٔ دری</a>
+  </div>
+
+</div>
