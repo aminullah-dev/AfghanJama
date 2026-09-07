@@ -520,7 +520,10 @@ internal fun SectionContent(
             FinishedWarehouseScreen(vm, onBack = back)
         }
 
-        Section.ShopProfile -> ShopProfileScreen(onBack = back)
+        Section.ShopProfile -> {
+            val financeVm: FinanceViewModel = viewModel { FinanceViewModel(repo) }
+            ShopProfileScreen(financeVm = financeVm, onBack = back)
+        }
 
         // `DELIVERY.md` می‌گوید پیش از هر تحویل این باید اجرا شود و همه
         // سبز باشد. تا امروز روی ویندوز راهی برایش نبود.

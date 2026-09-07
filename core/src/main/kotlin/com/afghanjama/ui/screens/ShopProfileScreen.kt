@@ -22,6 +22,8 @@ import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.ui.components.AppCard
 import com.afghanjama.ui.components.AppScreen
+import com.afghanjama.ui.components.CapitalTopUpCard
+import com.afghanjama.ui.vm.FinanceViewModel
 
 /**
  * پروفایلِ کارگاه — نام، تلفن و آدرسی که روی کاغذ می‌نشیند.
@@ -50,7 +52,7 @@ import com.afghanjama.ui.components.AppScreen
  * نمی‌توانند از هم بیفتند.
  */
 @Composable
-fun ShopProfileScreen(onBack: () -> Unit) {
+fun ShopProfileScreen(financeVm: FinanceViewModel, onBack: () -> Unit) {
     val settings = LocalSettings.current
 
     var name by remember { mutableStateOf(CompanyPrefs.name(settings)) }
@@ -116,6 +118,15 @@ fun ShopProfileScreen(onBack: () -> Unit) {
                     }
                 }
             }
+
+            // سرمایهٔ اولیه و هر پولی که از بیرون می‌آید.
+            //
+            // در اندروید این کارت در «تنظیمات» است، ولی آن صفحه در
+            // `:app` مانده و به ویندوز نمی‌رسد. تا امروز کارفرما روی
+            // ویندوز جایی برای ثبتِ سرمایه نداشت. کارت مشترک شد و
+            // اینجا نشست — نزدیک‌ترین جای موجود به «پروفایل کارگاه» که
+            // خودِ کارفرما سراغش می‌رود.
+            CapitalTopUpCard(financeVm)
         }
     }
 }
