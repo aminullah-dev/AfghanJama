@@ -38,6 +38,7 @@ import com.afghanjama.ui.screens.DeliveryQueueScreen
 import com.afghanjama.ui.screens.FinanceHubScreen
 import com.afghanjama.ui.screens.FinishedWarehouseScreen
 import com.afghanjama.ui.screens.GuideScreen
+import com.afghanjama.ui.screens.QuoteCalculatorScreen
 import com.afghanjama.ui.screens.InventoryScreen
 import com.afghanjama.ui.screens.LedgerScreen
 import com.afghanjama.ui.screens.MasterDataScreen
@@ -157,6 +158,7 @@ internal enum class Section(val title: String) {
     SampleShop("کارگاهِ نمونه"),
     WorkshopLink("اشتراکِ کارگاه"),
     Backup("پشتیبان و بازیابی"),
+    QuoteCalc("قیمت‌دهی"),
     Guide("راهنما")
 }
 
@@ -543,6 +545,7 @@ internal fun SectionContent(
 
         Section.Backup -> BackupScreen(onBack = back)
 
+        Section.QuoteCalc -> QuoteCalculatorScreen(onBack = back)
         Section.Guide -> GuideScreen(onBack = back)
     }
 }

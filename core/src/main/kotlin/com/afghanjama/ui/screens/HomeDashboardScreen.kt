@@ -121,6 +121,7 @@ fun HomeDashboardScreen(
     onGoAudit: () -> Unit,
     onGoSearch: () -> Unit,
     onGoSettings: () -> Unit,
+    onGoQuoteCalc: () -> Unit,
     onGoGuide: () -> Unit,
     onGoWorkshopLink: () -> Unit,
     onGoBoard: () -> Unit
@@ -178,6 +179,7 @@ fun HomeDashboardScreen(
         if (isManager) add(HomeAction("رویدادها", Icons.Default.FactCheck, onGoAudit))
         add(HomeAction("جستجو", Icons.Default.Search, onGoSearch))
         add(HomeAction("تنظیمات", Icons.Default.Settings, onGoSettings))
+        add(HomeAction("قیمت‌دهی", Icons.Default.Sell, onGoQuoteCalc))
         add(HomeAction("راهنما", Icons.AutoMirrored.Filled.HelpOutline, onGoGuide))
         add(HomeAction("اشتراک کارگاه", Icons.Default.Wifi, onGoWorkshopLink))
     }
