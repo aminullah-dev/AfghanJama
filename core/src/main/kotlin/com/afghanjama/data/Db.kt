@@ -6,6 +6,7 @@ import com.afghanjama.data.dao.DomainEventDao
 import com.afghanjama.data.dao.BreakTimeDao
 import com.afghanjama.data.dao.CatalogDao
 import com.afghanjama.data.dao.CustomerMeasurementDao
+import com.afghanjama.data.dao.CustomerInstallmentDao
 import com.afghanjama.data.dao.CustomerPaymentDao
 import com.afghanjama.data.dao.CuttingRecordDao
 import com.afghanjama.data.dao.DocumentDao
@@ -55,6 +56,7 @@ interface Db : Tx {
     fun catalogDao(): CatalogDao
     fun tailorWageDao(): TailorWageDao
     fun customerPaymentDao(): CustomerPaymentDao
+    fun customerInstallmentDao(): CustomerInstallmentDao
     fun orderStageLogDao(): OrderStageLogDao
     fun orderFabricDao(): OrderFabricDao
     fun sewingAssignmentDao(): SewingAssignmentDao

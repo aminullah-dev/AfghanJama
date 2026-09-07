@@ -149,6 +149,43 @@ val SCHEMA_STEPS: List<SchemaStep> = listOf(
             "ALTER TABLE `order_stage_logs` ADD COLUMN `user` TEXT NOT NULL DEFAULT ''",
             "ALTER TABLE `order_stage_logs` ADD COLUMN `role` TEXT NOT NULL DEFAULT ''"
         )
+    ),
+
+    /**
+     * قسط‌بندیِ بدهیِ مشتری.
+     *
+     * اپ می‌دانست مشتری **چقدر** بدهکار است ولی نه **کِی** باید بدهد.
+     * قرارِ «چهار قسط» شفاهی بود و پیگیری‌اش از حافظه.
+     *
+     * **این جدول نمی‌گوید چه چیزی پرداخت شده.** فقط مبلغ و روز. تسویه
+     * از `customer_payments` مشتق می‌شود (`Installments.allocate`) تا دو
+     * جا دربارهٔ یک بدهی نظر ندهند.
+     *
+     * **چرا بی‌خطر است:** فقط `CREATE TABLE` و ایندکس، مثلِ گامِ ۶۱→۶۲.
+     * هیچ جدولِ موجودی خوانده یا نوشته نمی‌شود، پس روی دفترِ کارگاه جز
+     * اضافه شدنِ یک جدولِ خالی کاری نمی‌کند.
+     *
+     * `note` مقدارِ پیش‌فرض دارد چون موجودیت `@ColumnInfo(defaultValue = "")`
+     * دارد؛ Room سرِ وارسی هر دو را با هم می‌سنجد.
+     */
+    SchemaStep(
+        63, 64,
+        listOf(
+            """
+            CREATE TABLE IF NOT EXISTS customer_installments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                customerName TEXT NOT NULL,
+                amount INTEGER NOT NULL,
+                dueDate INTEGER NOT NULL,
+                note TEXT NOT NULL DEFAULT '',
+                createdAt INTEGER NOT NULL
+            )
+            """.trimIndent(),
+            "CREATE INDEX IF NOT EXISTS index_customer_installments_customerName " +
+                "ON customer_installments (customerName)",
+            "CREATE INDEX IF NOT EXISTS index_customer_installments_dueDate " +
+                "ON customer_installments (dueDate)"
+        )
     )
 )
 

@@ -17,6 +17,7 @@ import com.afghanjama.data.dao.DomainEventDao
 import com.afghanjama.data.dao.BreakTimeDao
 import com.afghanjama.data.dao.CatalogDao
 import com.afghanjama.data.dao.CustomerMeasurementDao
+import com.afghanjama.data.dao.CustomerInstallmentDao
 import com.afghanjama.data.dao.CustomerPaymentDao
 import com.afghanjama.data.dao.CuttingRecordDao
 import com.afghanjama.data.dao.DocumentDao
@@ -46,6 +47,7 @@ import com.afghanjama.data.entities.DomainEvent
 import com.afghanjama.data.entities.BreakTime
 import com.afghanjama.data.entities.Customer
 import com.afghanjama.data.entities.CustomerMeasurement
+import com.afghanjama.data.entities.CustomerInstallment
 import com.afghanjama.data.entities.CustomerPayment
 import com.afghanjama.data.entities.CuttingRecord
 import com.afghanjama.data.entities.DesignItem
@@ -118,6 +120,7 @@ import kotlinx.coroutines.runBlocking
         Customer::class,
         WorkCost::class,
         GarmentDesign::class,
+        CustomerInstallment::class,
         CustomerPayment::class,
         TailorWage::class,
         OrderStageLog::class,
@@ -195,6 +198,7 @@ abstract class DesktopDatabase : RoomDatabase(), Db {
     abstract override fun masterDataDao(): MasterDataDao
     abstract override fun catalogDao(): CatalogDao
     abstract override fun tailorWageDao(): TailorWageDao
+    abstract override fun customerInstallmentDao(): CustomerInstallmentDao
     abstract override fun customerPaymentDao(): CustomerPaymentDao
     abstract override fun orderStageLogDao(): OrderStageLogDao
     abstract override fun orderFabricDao(): OrderFabricDao
