@@ -90,13 +90,15 @@ check(
 )
 
 # ── ۳) هر دو تم از مشترک بخوانند ─────────────────────────────────
-for rel in ("app/src/main/java/com/afghanjama/ui/theme/Theme.kt",
-            "desktop/src/main/kotlin/com/afghanjama/desktop/Theme.kt"):
-    p = _src.ROOTS[0].parents[3] / rel
-    if not p.exists():
+# مسیرها از `_src` می‌آیند، نه دستی — `purecheck` همین را می‌خواهد و
+# بارِ اول همین‌جا مرا گرفت: مسیرِ ماژول را در بررسی سفت کرده بودم،
+# یعنی ماژولِ تازه از دیدش می‌افتاد.
+for rel in ("ui/theme/Theme.kt", "desktop/Theme.kt"):
+    try:
+        t = _src.read(rel)
+    except FileNotFoundError:
         fails.append(f"{rel} پیدا نشد")
         continue
-    t = p.read_text(encoding="utf-8")
     check("appTypography(" in t, f"{rel} از مقیاسِ مشترک نمی‌خواند")
 
 # ── ۴) ارتفاعِ خط برای فارسی ─────────────────────────────────────
