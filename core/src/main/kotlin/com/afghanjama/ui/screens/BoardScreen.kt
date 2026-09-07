@@ -35,6 +35,7 @@ import com.afghanjama.platform.LocalScreenBehavior
 import com.afghanjama.ui.components.OrderCodeLine
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.CompanyPrefs
+import com.afghanjama.ui.theme.Motion
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.format.toPersianDigits
@@ -194,7 +195,7 @@ fun BoardScreen(
                 AnimatedContent(
                     targetState = page,
                     transitionSpec = {
-                        fadeIn(tween(500)) togetherWith fadeOut(tween(500))
+                        fadeIn(Motion.ambient()) togetherWith fadeOut(Motion.ambient())
                     },
                     label = "board-page"
                 ) { p ->

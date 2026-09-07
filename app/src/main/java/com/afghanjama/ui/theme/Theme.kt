@@ -9,7 +9,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
+import android.provider.Settings
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -70,7 +73,23 @@ private val AppShapes = Shapes(
 fun KhayatYarTheme(content: @Composable () -> Unit) {
     val dark = isSystemInDarkTheme()
     // چیدمان همیشه راست‌به‌چپ، مستقل از زبان دستگاه
-    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+    // کاربری که در تنظیماتِ گوشی انیمیشن را خاموش کرده، همان را از اپ
+    // هم می‌خواهد. بعضی‌ها با حرکت سرگیجه می‌گیرند؛ این حقِ اوست، نه
+    // سلیقه. `ANIMATOR_DURATION_SCALE` همان کلیدی است که خودِ اندروید
+    // برای «Remove animations» می‌نویسد.
+    val context = LocalContext.current
+    val reducedMotion = remember(context) {
+        Settings.Global.getFloat(
+            context.contentResolver,
+            Settings.Global.ANIMATOR_DURATION_SCALE,
+            1f
+        ) == 0f
+    }
+
+    CompositionLocalProvider(
+        LocalLayoutDirection provides LayoutDirection.Rtl,
+        LocalReducedMotion provides reducedMotion
+    ) {
         MaterialTheme(
             colorScheme = if (dark) DarkColors else LightColors,
             typography = AppTypography,
