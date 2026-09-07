@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.WatchLater
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.afghanjama.data.Installments
 import com.afghanjama.data.entities.OrderStatus
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.ui.format.PersianDate
@@ -261,6 +262,42 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
     }
 
     /**
+     * قسط‌هایی که روزشان گذشته و هنوز پولشان نرسیده.
+     *
+     * سهمِ هر قسط از `observePaidByCustomer` می‌آید — همان عددی که
+     * پروندهٔ مشتری نشان می‌دهد. اگر اینجا حسابِ جداگانه‌ای می‌داشت،
+     * یک صفحه می‌گفت «تسویه شد» و این یکی می‌گفت «سررسید گذشته».
+     */
+    private val installmentAlerts: Flow<List<Alert>> = combine(
+        repo.observeInstallments(),
+        repo.observePaidByCustomer()
+    ) { all, paidBy ->
+        val now = System.currentTimeMillis()
+        val late = all
+            .groupBy { it.customerName.trim() }
+            .flatMap { (name, rows) ->
+                Installments.allocate(rows, paidBy[name] ?: 0L).filter { it.overdue(now) }
+            }
+        buildList {
+            if (late.isNotEmpty()) {
+                val worst = late.maxByOrNull { dueDaysLate(it.plan.dueDate, now) }!!
+                add(
+                    Alert(
+                        id = "installment_overdue",
+                        severity = AlertSeverity.URGENT,
+                        icon = Icons.Default.EventBusy,
+                        title = "${late.size.fa()} قسط از سررسید گذشته",
+                        detail = "جمعاً ${late.sumOf { it.remaining }.afn()} — بدترین: " +
+                            "${worst.plan.customerName} با " +
+                            "${dueDaysLate(worst.plan.dueDate, now).fa()} روز تأخیر",
+                        route = Routes.CUSTOMERS
+                    )
+                )
+            }
+        }
+    }
+
+    /**
      * هشدارِ حقوقِ پرداخت‌نشدهٔ ماهِ جاری. جدا از [coreAlerts] است چون
      * combine بیش از پنج جریانِ نوع‌دار نمی‌پذیرد.
      */
@@ -424,10 +461,16 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
 
     val ui: StateFlow<ActionCenterUi> =
         combine(
-            coreAlerts, payrollAlerts, stockAlerts, backupAlerts, staleAlerts
-        ) { core, payroll, stock, backup, stale ->
+            coreAlerts,
+            payrollAlerts,
+            stockAlerts,
+            backupAlerts,
+            // `combine` بیش از پنج جریانِ نوع‌دار نمی‌پذیرد، پس این دو
+            // پیش از رسیدن به آنجا یکی می‌شوند.
+            combine(staleAlerts, installmentAlerts) { stale, inst -> stale + inst }
+        ) { core, payroll, stock, backup, rest ->
             ActionCenterUi(
-                (core + payroll + stock + backup + stale).sortedBy { it.severity.ordinal }
+                (core + payroll + stock + backup + rest).sortedBy { it.severity.ordinal }
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ActionCenterUi())
 

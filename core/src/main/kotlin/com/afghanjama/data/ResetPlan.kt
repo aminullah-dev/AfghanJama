@@ -55,6 +55,7 @@ object ResetPlan {
         // پول
         "finance_transactions",
         "customer_payments",
+        "customer_installments",
         "tailor_wages",
         "salary_payments",
         // دفتر کل و اسناد

@@ -59,6 +59,9 @@ import androidx.compose.ui.unit.dp
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.digitsOnly
+import com.afghanjama.ui.format.dueDaysLate
+import com.afghanjama.ui.format.dueDaysLeft
+import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.vm.CustomerDetailViewModel
 
 @Composable
@@ -80,6 +83,8 @@ fun CustomerDetailScreen(
 
     var showMeasure by remember { mutableStateOf(false) }
     var showPay by remember { mutableStateOf(false) }
+    var showInstallment by remember { mutableStateOf(false) }
+    val installments by vm.installments.collectAsState()
 
     if (showMeasure) {
         var label by remember { mutableStateOf("") }
@@ -107,6 +112,57 @@ fun CustomerDetailScreen(
                 }) { Text("افزودن") }
             },
             dismissButton = { TextButton(onClick = { showMeasure = false }) { Text("لغو") } }
+        )
+    }
+
+    if (showInstallment) {
+        var amount by remember { mutableStateOf("") }
+        var days by remember { mutableStateOf("30") }
+        var note by remember { mutableStateOf("") }
+        AppAlertDialog(
+            onDismissRequest = { showInstallment = false },
+            title = { Text("بستنِ قسط") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = amount, onValueChange = { amount = it.digitsOnly() },
+                        label = { Text("مبلغِ قسط (؋)") }, singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    // مهلت با «چند روز از امروز» گرفته می‌شود، همان‌طور
+                    // که مهلتِ تحویلِ سفارش گرفته می‌شود. انتخابگرِ
+                    // تاریخِ شمسی جای دیگری در اپ نیست و ساختنش برای
+                    // همین یک کادر، راهِ دومِ وارد کردنِ تاریخ می‌شد.
+                    OutlinedTextField(
+                        value = days, onValueChange = { days = it.digitsOnly() },
+                        label = { Text("سررسید: چند روز از امروز") }, singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = note, onValueChange = { note = it },
+                        label = { Text("یادداشت (اختیاری)") }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = (amount.toLongOrNull() ?: 0L) > 0L,
+                    onClick = {
+                        vm.addInstallment(
+                            amount.toLongOrNull() ?: 0L,
+                            days.toLongOrNull() ?: 0L,
+                            note
+                        )
+                        showInstallment = false
+                    }
+                ) { Text("ثبت") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showInstallment = false }) { Text("لغو") }
+            }
         )
     }
 
@@ -213,6 +269,90 @@ fun CustomerDetailScreen(
             item {
                 OutlinedButton(onClick = { showPay = true }, modifier = Modifier.fillMaxWidth()) {
                     Text("ثبت دریافتی از مشتری")
+                }
+            }
+
+            // ---------- اقساط ----------
+            //
+            // «پرداخت‌شده» اینجا هیچ‌جا ثبت نمی‌شود: سهمِ هر قسط از
+            // همان دریافتی‌های بالا می‌آید (`Installments.allocate`).
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                ) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "اقساط",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Button(onClick = { showInstallment = true }) {
+                                Icon(Icons.Default.Add, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("بستنِ قسط")
+                            }
+                        }
+                        if (installments.isEmpty()) {
+                            Text(
+                                "قسطی بسته نشده. اگر قرارِ پرداختِ مرحله‌ای دارید، همین‌جا ثبتش کنید.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else {
+                            installments.forEach { row ->
+                                val late = row.overdue()
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(
+                                            row.plan.amount.afn(),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                        Text(
+                                            when {
+                                                row.remaining <= 0L ->
+                                                    "تسویه شد • ${PersianDate.short(row.plan.dueDate)}"
+                                                late ->
+                                                    "${dueDaysLate(row.plan.dueDate).fa()} روز تأخیر • " +
+                                                        "مانده ${row.remaining.afn()}"
+                                                else ->
+                                                    "${dueDaysLeft(row.plan.dueDate).fa()} روز مانده • " +
+                                                        "مانده ${row.remaining.afn()}"
+                                            },
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = if (late) MaterialTheme.colorScheme.error
+                                            else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        if (row.plan.note.isNotBlank()) {
+                                            Text(
+                                                row.plan.note,
+                                                style = MaterialTheme.typography.labelMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                    IconButton(onClick = { vm.deleteInstallment(row.plan) }) {
+                                        Icon(
+                                            Icons.Default.Delete, contentDescription = "حذف",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
 

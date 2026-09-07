@@ -7,6 +7,7 @@ import com.afghanjama.data.entities.AttendanceRecord
 import com.afghanjama.data.entities.Customer
 import com.afghanjama.data.dao.NamedMeasurement
 import com.afghanjama.data.entities.CustomerMeasurement
+import com.afghanjama.data.entities.CustomerInstallment
 import com.afghanjama.data.entities.CustomerPayment
 import com.afghanjama.data.entities.CuttingRecord
 import com.afghanjama.data.entities.DesignItem
@@ -3660,6 +3661,43 @@ class Repo(private val db: Db) {
 
     suspend fun deleteMeasurement(id: Long) =
         db.customerMeasurementDao().deleteById(id)
+
+    // =========================
+    //   اقساطِ مشتری
+    // =========================
+    //
+    // فقط قول را نگه می‌دارند: مبلغ و روز. تسویه در
+    // `Installments.allocate` از `customer_payments` مشتق می‌شود، پس
+    // اینجا هیچ عملیاتی برای «پرداخت‌شده کردنِ قسط» نیست و نباید باشد.
+
+    fun observeInstallments(): Flow<List<CustomerInstallment>> =
+        db.customerInstallmentDao().observeAll()
+
+    fun observeInstallmentsFor(name: String): Flow<List<CustomerInstallment>> =
+        db.customerInstallmentDao().observeFor(name.trim())
+
+    suspend fun addInstallment(row: CustomerInstallment) =
+        db.customerInstallmentDao().insert(row.copy(customerName = row.customerName.trim()))
+
+    suspend fun deleteInstallment(row: CustomerInstallment) =
+        db.customerInstallmentDao().delete(row)
+
+    /**
+     * هر مشتری تا امروز چقدر داده — یک جا، برای هر کسی که بپرسد.
+     *
+     * پرداختِ وصل به سفارش نامِ مشتری را خالی می‌گذارد و نامش را باید از
+     * خودِ سفارش گرفت. این قاعده جای دیگری هم لازم است (پروندهٔ مشتری،
+     * هشدارِ قسط)؛ اگر هر کدام نسخهٔ خودش را می‌داشت، یکی می‌گفت قسط
+     * تسویه شده و دیگری می‌گفت سررسید گذشته — برای یک پول.
+     */
+    fun observePaidByCustomer(): Flow<Map<String, Long>> =
+        combine(observeCustomerPayments(), observeAllOrders()) { payments, orders ->
+            val nameOf = orders.associate { it.id.toString() to it.customerName }
+            payments
+                .groupBy { (it.customerName.ifBlank { nameOf[it.orderId].orEmpty() }).trim() }
+                .filterKeys { it.isNotBlank() }
+                .mapValues { (_, rows) -> rows.sumOf { it.amount } }
+        }
 
     /**
      * اندازه‌ها به تفکیکِ نامِ مشتری. کلید نامِ trim‌شده است تا با
