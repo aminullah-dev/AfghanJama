@@ -57,14 +57,37 @@ for name, ms in durations.items():
 
 # ── ۲) کاهشِ حرکت واقعاً وصل باشد ────────────────────────────────
 check("LocalReducedMotion" in SRC, "LocalReducedMotion تعریف نشده")
-scale = re.search(r"fun scale\(ms: Int\): Int = (.+)", SRC)
+scale = re.search(r"fun scale\(ms: Int, reduced: Boolean\): Int = (.+)", SRC)
 check(scale is not None, "تابعِ scale پیدا نشد — کاهشِ حرکت به مدت وصل نیست")
 if scale:
     body = scale.group(1)
     check(
-        "LocalReducedMotion.current" in body and "0" in body,
-        "scale باید وقتی LocalReducedMotion روشن است صفر بدهد، "
-        "وگرنه تعریفش تزئینی است",
+        "if (reduced) 0" in body,
+        "scale باید وقتی reduced روشن است صفر بدهد، وگرنه تعریفش تزئینی است",
+    )
+
+# specها نباید @Composable باشند: `transitionSpec` در AnimatedContent
+# لامبدای غیر-composable است و نسخهٔ اولِ این فایل دقیقاً همان‌جا
+# نمی‌کامپایل شد. پرچم باید پارامتر بماند.
+# دنبالِ **حاشیه‌نویسی** می‌گردیم نه هر جای متن: بارِ اول همین بند
+# روی توضیحی که خودِ داستان را می‌گفت قرمز شد.
+check(
+    not re.search(r"^\s*@Composable\s*$", SRC, re.M),
+    "specهای Motion نباید @Composable باشند — در transitionSpec "
+    "صدا زده می‌شوند که غیر-composable است",
+)
+# **هر** تابعِ عمومیِ spec باید پرچم را بگیرد، نه فقط یکی.
+#
+# بارِ اول این بند دنبالِ `reduced: Boolean` در کلِ فایل می‌گشت و
+# تابعِ خصوصیِ `scale` همان را داشت — پس برداشتنِ پرچم از خودِ specها
+# از چشمش می‌افتاد. همان دامِ آشنا: نگهبانِ دیگری که شکلِ درست را دارد.
+specs = re.findall(r"fun <T> (\w+)\(([^)]*)\)", SRC)
+check(specs, "هیچ تابعِ specی در Motion نیست")
+for name, params in specs:
+    check(
+        "reduced: Boolean" in params,
+        f"Motion.{name} پرچمِ reduced را نمی‌گیرد — "
+        "بیرونِ بدنهٔ composable قابلِ استفاده نمی‌مانَد",
     )
 
 # ── ۳) هیچ‌کس مدتِ سرخود ننویسد ──────────────────────────────────

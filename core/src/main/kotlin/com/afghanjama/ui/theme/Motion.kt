@@ -4,8 +4,6 @@ import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.tween
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 
 /**
@@ -79,40 +77,37 @@ object Motion {
 
     // ── نسخه‌های آماده ───────────────────────────────────────────
     //
-    // این‌ها [reducedMotion] را می‌خوانند: اگر کاربر در تنظیماتِ سیستم
-    // انیمیشن را خاموش کرده باشد، مدت صفر می‌شود و همه‌چیز آنی — ولی
-    // **بی‌آنکه کد جای دیگری شرط بگذارد**. کسی که حرکت را آزاردهنده
-    // می‌داند یا سرگیجه می‌گیرد، حقِ خاموش کردنش را دارد.
+    // **چرا `reduced` پارامتر است و نه خوانده‌شده از داخل.** نسخهٔ اولِ
+    // این‌ها `@Composable` بودند و خودشان `LocalReducedMotion` را
+    // می‌خواندند. تمیزتر به نظر می‌رسید و کامپایل نمی‌شد: `transitionSpec`
+    // در `AnimatedContent` یک لامبدای **غیر-composable** است، یعنی
+    // دقیقاً همان‌جایی که به این specها نیاز است، صدا زدنشان ممنوع بود.
+    //
+    // پس پرچم بیرون آمد. صفحه یک بار [LocalReducedMotion] را می‌خواند و
+    // همان `Boolean` را می‌دهد — هم در بدنهٔ composable کار می‌کند هم
+    // داخلِ لامبداهای انتقال.
 
-    @Composable
-    @ReadOnlyComposable
-    fun <T> quick(): FiniteAnimationSpec<T> =
-        tween(durationMillis = scale(QUICK_MS), easing = StandardEasing)
+    /** تغییرِ کوچک و موضعی. */
+    fun <T> quick(reduced: Boolean = false): FiniteAnimationSpec<T> =
+        tween(scale(QUICK_MS, reduced), easing = StandardEasing)
 
-    @Composable
-    @ReadOnlyComposable
-    fun <T> normal(): FiniteAnimationSpec<T> =
-        tween(durationMillis = scale(NORMAL_MS), easing = StandardEasing)
+    /** پیش‌فرض. */
+    fun <T> normal(reduced: Boolean = false): FiniteAnimationSpec<T> =
+        tween(scale(NORMAL_MS, reduced), easing = StandardEasing)
 
-    @Composable
-    @ReadOnlyComposable
-    fun <T> enter(): FiniteAnimationSpec<T> =
-        tween(durationMillis = scale(NORMAL_MS), easing = EnterEasing)
+    /** ورود — تند شروع، نرم بایست. */
+    fun <T> enter(reduced: Boolean = false): FiniteAnimationSpec<T> =
+        tween(scale(NORMAL_MS, reduced), easing = EnterEasing)
 
-    @Composable
-    @ReadOnlyComposable
-    fun <T> exit(): FiniteAnimationSpec<T> =
-        tween(durationMillis = scale(QUICK_MS), easing = ExitEasing)
+    /** خروج — نرم شروع، تند برو. */
+    fun <T> exit(reduced: Boolean = false): FiniteAnimationSpec<T> =
+        tween(scale(QUICK_MS, reduced), easing = ExitEasing)
 
     /** محوِ نمایشِ محیطی — فقط برای تختهٔ دیواری. */
-    @Composable
-    @ReadOnlyComposable
-    fun <T> ambient(): FiniteAnimationSpec<T> =
-        tween(durationMillis = scale(AMBIENT_MS), easing = StandardEasing)
+    fun <T> ambient(reduced: Boolean = false): FiniteAnimationSpec<T> =
+        tween(scale(AMBIENT_MS, reduced), easing = StandardEasing)
 
-    @Composable
-    @ReadOnlyComposable
-    private fun scale(ms: Int): Int = if (LocalReducedMotion.current) 0 else ms
+    private fun scale(ms: Int, reduced: Boolean): Int = if (reduced) 0 else ms
 }
 
 /**

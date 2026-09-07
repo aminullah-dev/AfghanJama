@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import com.afghanjama.ui.format.afn
+import com.afghanjama.ui.theme.LocalReducedMotion
 import com.afghanjama.ui.theme.Motion
 
 /**
@@ -43,22 +44,27 @@ fun AnimatedAfn(
     style: TextStyle = LocalTextStyle.current,
     color: Color = Color.Unspecified
 ) {
+    // یک بار خوانده می‌شود و به specها داده می‌شود: `transitionSpec`
+    // لامبدای غیر-composable است و خواندنِ CompositionLocal داخلش
+    // ممنوع.
+    val reduced = LocalReducedMotion.current
+
     AnimatedContent(
         targetState = amount,
         transitionSpec = {
             val grew = targetState > initialState
             val height: (Int) -> Int = { if (grew) it else -it }
             (
-                slideInVertically(Motion.enter(), initialOffsetY = height) +
-                    fadeIn(Motion.enter())
+                slideInVertically(Motion.enter(reduced), initialOffsetY = height) +
+                    fadeIn(Motion.enter(reduced))
                 ) togetherWith (
-                slideOutVertically(Motion.exit(), targetOffsetY = { -height(it) }) +
-                    fadeOut(Motion.exit())
+                slideOutVertically(Motion.exit(reduced), targetOffsetY = { -height(it) }) +
+                    fadeOut(Motion.exit(reduced))
                 ) using
                 // بی این، قاب سرِ عوض شدنِ تعدادِ رقم‌ها می‌پرد و
                 // چیزهای کنارش را هل می‌دهد. اندازه هم با همان ریتم
                 // عوض می‌شود.
-                SizeTransform(clip = false) { _, _ -> Motion.normal() }
+                SizeTransform(clip = false) { _, _ -> Motion.normal(reduced) }
         },
         modifier = modifier,
         label = "afn"
