@@ -78,7 +78,7 @@ gradlew.bat :desktop:packageMsi
 # آزمون‌های ریاضیِ پول
 ./gradlew testDebugUnitTest
 
-# ۵۰ بررسیِ ساختاری — چند ثانیه، بی‌نیاز به Gradle
+# ۵۲ بررسیِ ساختاری — چند ثانیه، بی‌نیاز به Gradle
 python3 tools/checks/run_all.py
 ```
 
@@ -96,7 +96,7 @@ python3 tools/checks/run_all.py
 app/       نسخهٔ اندروید — Activity، ناوبری، مهاجرت‌های تاریخی
 core/      مشترکِ هر دو سکو — صفحه‌ها، ViewModelها، Room، منطقِ پول
 desktop/   نسخهٔ ویندوز — پنجره، فهرستِ کنار، بسته‌بندیِ MSI
-tools/     ۵۰ بررسیِ ساختاری، ناشرِ وردپرس، اسکریپت‌های امضای ویندوز
+tools/     ۵۲ بررسیِ ساختاری، ناشرِ وردپرس، اسکریپت‌های امضای ویندوز
 docs/      معماری، راهنمای ویندوز، مسئله‌های شناخته‌شده
 ```
 
@@ -105,7 +105,7 @@ docs/      معماری، راهنمای ویندوز، مسئله‌های شن
 
 ### بررسی‌های ساختاری
 
-`tools/checks/` پنجاه بررسیِ پایتونی دارد که در چند ثانیه می‌دوند و
+`tools/checks/` پنجاه‌ودو بررسیِ پایتونی دارد که در چند ثانیه می‌دوند و
 چیزهایی را می‌گیرند که کامپایلر نمی‌گیرد: ایمپورتِ جاافتاده، مهاجرتِ
 گم‌شده، عملیاتِ غیراتمیک، صفحهٔ بی‌مسیر، فاصله‌های خارج از شبکهٔ ۴dp،
 و منطقِ پول که با شبیه‌سازیِ مستقل سنجیده می‌شود.
@@ -137,7 +137,7 @@ comes from a single formula, so the quote calculator and the ledger can
 never disagree. *One definition, two platforms*: a schema migration is
 written once and reaches both Android and Windows.
 
-Alongside the code, `tools/checks/` holds 50 Python checks that run in
+Alongside the code, `tools/checks/` holds 52 Python checks that run in
 seconds and catch what the compiler cannot — missing imports, absent
 migrations, non-atomic operations, unreachable screens, and money logic
 verified against an independent simulation. Every check must be proven
