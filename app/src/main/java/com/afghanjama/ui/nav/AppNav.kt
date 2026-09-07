@@ -59,6 +59,7 @@ import com.afghanjama.ui.screens.DocumentsScreen
 import com.afghanjama.ui.screens.FinanceHubScreen
 import com.afghanjama.ui.screens.FinishedWarehouseScreen
 import com.afghanjama.ui.screens.GuideScreen
+import com.afghanjama.ui.screens.QuoteCalculatorScreen
 import com.afghanjama.ui.screens.HomeDashboardScreen
 import com.afghanjama.ui.screens.InventoryScreen
 import com.afghanjama.ui.screens.LedgerScreen
@@ -377,6 +378,7 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                     onGoAudit = { navController.navigate(Routes.AUDIT) },
                     onGoSearch = { navController.navigate(Routes.SEARCH) },
                     onGoSettings = { navController.navigate(Routes.SETTINGS) },
+                    onGoQuoteCalc = { navController.navigate(Routes.QUOTE_CALC) },
                     onGoGuide = { navController.navigate(Routes.GUIDE) },
                     onGoWorkshopLink = { navController.navigate(Routes.WORKSHOP_LINK) },
                     onGoBoard = { navController.navigate(Routes.BOARD) }
@@ -465,6 +467,10 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                     isManager = authUi.role == UserRole.MANAGER,
                     onBack = { navController.popBackStack() }
                 )
+            }
+
+            composable(Routes.QUOTE_CALC) {
+                QuoteCalculatorScreen(onBack = { navController.popBackStack() })
             }
 
             composable(Routes.GUIDE) {

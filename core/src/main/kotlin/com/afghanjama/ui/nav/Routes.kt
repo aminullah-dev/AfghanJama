@@ -42,6 +42,9 @@ object Routes {
     const val MASTER = "master"
     const val SETTINGS = "settings"
     const val GUIDE = "guide"
+
+    /** قیمت‌دهی — ورودی‌اش در داشبورد است. */
+    const val QUOTE_CALC = "quote_calc"
     const val WORKSHOP_LINK = "workshop_link"
     const val BOARD = "board"
 
