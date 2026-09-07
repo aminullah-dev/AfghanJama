@@ -51,8 +51,8 @@ import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.components.BrandButton
 import com.afghanjama.ui.theme.Brand
-import com.afghanjama.ui.theme.CopperBrush
-import com.afghanjama.ui.theme.EmeraldBrush
+import com.afghanjama.ui.theme.CoralBrush
+import com.afghanjama.ui.theme.PetrolBrush
 import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.vm.AuthViewModel
 import com.afghanjama.ui.platform.AppDropdownMenu
@@ -113,7 +113,7 @@ fun LoginScreen(
     Box(
         Modifier
             .fillMaxSize()
-            .background(EmeraldBrush)
+            .background(PetrolBrush)
     ) {
     Column(
         modifier = Modifier
@@ -128,13 +128,13 @@ fun LoginScreen(
             Modifier
                 .size(72.dp)
                 .clip(CircleShape)
-                .background(CopperBrush),
+                .background(CoralBrush),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 Icons.Default.Checkroom,
                 contentDescription = null,
-                tint = Brand.OnCopper,
+                tint = Brand.OnCoral,
                 modifier = Modifier.size(36.dp)
             )
         }
@@ -145,12 +145,12 @@ fun LoginScreen(
             AppInfo.NAME,
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
-            color = Brand.OnEmerald
+            color = Brand.OnPetrol
         )
         Text(
             coName.ifBlank { "سامانهٔ مدیریتِ کارگاه خیاطی" },
             style = MaterialTheme.typography.bodyMedium,
-            color = Brand.OnEmeraldMuted,
+            color = Brand.OnPetrolMuted,
             textAlign = TextAlign.Center
         )
 
@@ -263,7 +263,7 @@ fun LoginScreen(
                         Icon(
                             Icons.Default.Lock,
                             contentDescription = null,
-                            tint = Brand.OnCopper
+                            tint = Brand.OnCoral
                         )
                     }
                 )

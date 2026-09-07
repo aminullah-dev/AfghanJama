@@ -38,8 +38,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import com.afghanjama.ui.components.BrandButton
 import com.afghanjama.ui.theme.Brand
-import com.afghanjama.ui.theme.CopperBrush
-import com.afghanjama.ui.theme.EmeraldBrush
+import com.afghanjama.ui.theme.CoralBrush
+import com.afghanjama.ui.theme.PetrolBrush
 import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.util.AppLock
 
@@ -52,7 +52,7 @@ fun PinLockScreen(onUnlock: () -> Unit) {
 
     // زمینهٔ زمردی، مثلِ صفحهٔ ورود — این دو در ذهنِ کاربر یک درِ
     // ورودی‌اند و نباید دو ظاهر داشته باشند.
-    Box(Modifier.fillMaxSize().background(EmeraldBrush)) {
+    Box(Modifier.fillMaxSize().background(PetrolBrush)) {
     Column(
         modifier = Modifier.fillMaxSize().padding(32.dp),
         verticalArrangement = Arrangement.Center,
@@ -61,13 +61,13 @@ fun PinLockScreen(onUnlock: () -> Unit) {
         // قفلِ ایموجی جایش را به نشانِ مسی داد: ایموجی روی هر گوشی
         // شکلِ خودش را دارد و اندازه‌اش با متن می‌پرد.
         Box(
-            Modifier.size(64.dp).clip(CircleShape).background(CopperBrush),
+            Modifier.size(64.dp).clip(CircleShape).background(CoralBrush),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 Icons.Default.Lock,
                 contentDescription = null,
-                tint = Brand.OnCopper,
+                tint = Brand.OnCoral,
                 modifier = Modifier.size(30.dp)
             )
         }
@@ -76,7 +76,7 @@ fun PinLockScreen(onUnlock: () -> Unit) {
             "رمز ورود را وارد کنید",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
-            color = Brand.OnEmerald
+            color = Brand.OnPetrol
         )
         Spacer(Modifier.height(20.dp))
 

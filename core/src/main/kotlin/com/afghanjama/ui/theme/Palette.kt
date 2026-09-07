@@ -13,69 +13,71 @@ import androidx.compose.ui.graphics.Color
  * ۵۸ …). آن چهارده نقشِ دیگر روی ویندوز از پالتِ **پیش‌فرضِ بنفشِ
  * متریال** می‌آمدند.
  *
- * یعنی همان صفحه، با همان کد، روی گوشی سبز-برنزی بود و روی پی‌سی
- * بنفش-خاکستری. کسی هم تا دیدنِ پنجره نمی‌فهمید، چون کامپایل درست است.
+ * یعنی همان صفحه، با همان کد، روی گوشی یک‌جور بود و روی پی‌سی جورِ
+ * دیگر. کسی هم تا دیدنِ پنجره نمی‌فهمید، چون کامپایل درست است.
  *
  * حالا پالت اینجاست و هر دو سکو از همین می‌خوانند — همان کاری که سرِ
- * دیتابیس و چیدمانِ کاغذ هم شد.
+ * دیتابیس، مقیاسِ قلم و چیدمانِ کاغذ هم شد.
+ *
+ * **رنگ‌های پایه:**
+ *
+ *     نارنجیِ مرجانی  #FF6D41   تأکید
+ *     آبیِ تیره        #004E72   رنگِ اصلی
+ *     سفیدِ روشن       #F9F9F9   زمینهٔ روشن
+ *     آبیِ نفتیِ تیره   #0A2735   زمینهٔ تاریک
+ *
+ * سایه‌های میانی از همین چهار تا **حساب** شده‌اند، نه انتخاب: هر ۶۲
+ * جفتِ متن-روی-زمینه پیش از نوشته شدن اینجا اندازه‌گیری شد و همه از
+ * حدِ WCAG گذشتند. بررسیِ `contrast` همان‌ها را نگه می‌دارد و رنگ‌ها
+ * را از همین فایل می‌خواند — نه از نسخه‌ای دستی — تا اولین باری که
+ * کسی پالت را عوض کند، سبزِ دروغ ندهد.
  */
 
 // هر نقشی که در اپ استفاده می‌شود اینجا **صریح** تعریف شده. نقشِ
 // تعریف‌نشده به پالتِ پیش‌فرضِ متریال برمی‌گردد که رنگ‌های خودش را
 // دارد و به این پالت ربطی ندارد — همان اتفاقی که برای
-// `tertiaryContainer` افتاده بود: در اپی با پالتِ سبز و برنزی، بنرِ
-// «مرکز هشدار» صورتیِ پیش‌فرضِ متریال (#FFD8E4) درمی‌آمد.
-//
-// طبقه‌های `surfaceContainer*` هم تعریف شده‌اند تا عمقِ صفحه با
-// اختلافِ روشناییِ ملایم ساخته شود، نه با سایه و خط.
+// `tertiaryContainer` افتاده بود: بنرِ «مرکز هشدار» صورتیِ پیش‌فرضِ
+// متریال (#FFD8E4) درمی‌آمد.
 // ======================================================
 val LightColors = lightColorScheme(
-    primary = Color(0xFF1F6E5C),           // سبز عمیق (رنگ اصلی)
+    primary = Color(0xFF004E72),
     onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFFD3EDE3),
-    onPrimaryContainer = Color(0xFF07352A),
-
-    // مسِ گرم — هم‌خانوادهٔ `Brand.Copper`، فقط تیره‌تر تا روی زمینهٔ
-    // روشن به‌اندازهٔ کافی کنتراست داشته باشد. حالتِ روشن و تاریک باید
-    // یک لهجه داشته باشند، وگرنه اپ در دو حالت دو محصولِ متفاوت است.
-    secondary = Color(0xFF8F5F31),
+    primaryContainer = Color(0xFFD0E7F1),
+    onPrimaryContainer = Color(0xFF002D42),
+        // مرجانی برای **متن و آیکن** باید تیره‌تر از رنگِ پایه باشد:
+        // #FF6D41 روی زمینهٔ روشن فقط ۲٫۶۵ می‌دهد، زیرِ حدِ ۴٫۵. این
+        // سایه ۴٫۵۳ می‌دهد و همان لهجه را نگه می‌دارد.
+    secondary = Color(0xFFD93200),
     onSecondary = Color(0xFFFFFFFF),
-    secondaryContainer = Color(0xFFF6E5D2),
-    onSecondaryContainer = Color(0xFF3B2413),
-
-    tertiary = Color(0xFF41616D),          // آبیِ خاکستری — برای خبر، نه هشدار
+    secondaryContainer = Color(0xFFFFD8CC),
+    onSecondaryContainer = Color(0xFF4B1606),
+    tertiary = Color(0xFF375B6C),
     onTertiary = Color(0xFFFFFFFF),
-    tertiaryContainer = Color(0xFFDCE8EE),
-    onTertiaryContainer = Color(0xFF16323D),
-
-    background = Color(0xFFF7F6F3),        // زمینه گرم و آرام
-    onBackground = Color(0xFF1B1C1A),
-
+    tertiaryContainer = Color(0xFFDEE8ED),
+    onTertiaryContainer = Color(0xFF162F3B),
+    background = Color(0xFFF9F9F9),
+    onBackground = Color(0xFF0C2531),
     surface = Color(0xFFFFFFFF),
-    onSurface = Color(0xFF1B1C1A),
-    surfaceVariant = Color(0xFFEEECE6),
-    onSurfaceVariant = Color(0xFF5F5E58),
-
-    // طبقه‌های سطح: از روشن‌ترین (کارتِ روی زمینه) تا تیره‌ترین
+    onSurface = Color(0xFF0C2531),
+    surfaceVariant = Color(0xFFEBEEF0),
+    onSurfaceVariant = Color(0xFF4B626C),
+        // طبقه‌های سطح: از روشن‌ترین (کارتِ روی زمینه) تا تیره‌ترین.
+        // عمق با اختلافِ روشنایی ساخته می‌شود، نه با سایه و خط.
     surfaceContainerLowest = Color(0xFFFFFFFF),
-    surfaceContainerLow = Color(0xFFFBFAF7),
-    surfaceContainer = Color(0xFFF2F0EB),
-    surfaceContainerHigh = Color(0xFFECEAE4),
-    surfaceContainerHighest = Color(0xFFE6E4DD),
+    surfaceContainerLow = Color(0xFFFAFBFC),
+    surfaceContainer = Color(0xFFF1F4F6),
+    surfaceContainerHigh = Color(0xFFEAEEF0),
+    surfaceContainerHighest = Color(0xFFE3E8EA),
     surfaceBright = Color(0xFFFFFFFF),
-    surfaceDim = Color(0xFFE0DED7),
-
-    inverseSurface = Color(0xFF30322E),
-    inverseOnSurface = Color(0xFFF2F1EC),
-    inversePrimary = Color(0xFF87D6BE),
-
-    outline = Color(0xFF87867F),
-    // خطِ مویی که لبهٔ کارت را تعریف می‌کند. #E2E0D9 روی سفید فقط
-    // نسبتِ ۱٫۳۲ می‌داد — یعنی همان خطی که `AppCard` رویش حساب کرده
-    // بود تا کارت را بدونِ سایه از زمینه جدا کند، عملاً دیده نمی‌شد.
-    outlineVariant = Color(0xFFD2D0C6),
+    surfaceDim = Color(0xFFDCE2E5),
+    inverseSurface = Color(0xFF1F3A47),
+    inverseOnSurface = Color(0xFFF0F3F5),
+    inversePrimary = Color(0xFF51BBEC),
+    outline = Color(0xFF738B96),
+        // خطِ مویی که لبهٔ کارت را تعریف می‌کند — `AppCard` رویش حساب
+        // کرده تا کارت را بی‌سایه از زمینه جدا کند. حدش ۱٫۵ است.
+    outlineVariant = Color(0xFFCCD3D7),
     scrim = Color(0xFF000000),
-
     error = Color(0xFFB3261E),
     onError = Color(0xFFFFFFFF),
     errorContainer = Color(0xFFF9DEDC),
@@ -83,66 +85,59 @@ val LightColors = lightColorScheme(
 )
 
 /*
- * حالتِ تاریک: میدانِ زمردی، تأکیدِ مسی.
+ * حالتِ تاریک: میدانِ نفتی، تأکیدِ مرجانی.
  *
- * تا دیروز خاکستریِ خنثی بود (`#121412`) با لهجهٔ سبز. حالا خودِ
- * زمینه زمرد است. دو نکته که در انتخابِ این عددها تعیین‌کننده بود:
+ * دو نکته که در انتخابِ این عددها تعیین‌کننده بود:
  *
  *  • **پله‌های سطح باید از هم جدا دیده شوند.** کارتِ روی زمینه فقط با
- *    اختلافِ روشنایی تعریف می‌شود، نه با سایه. اگر همه‌شان یک سبزِ
+ *    اختلافِ روشنایی تعریف می‌شود، نه با سایه. اگر همه‌شان یک آبیِ
  *    نزدیک به هم باشند، صفحه یکدست و بی‌عمق می‌شود.
- *  • **متن باید بخواند.** `onSurface` روی `surface` نسبتِ کنتراستِ
- *    بالای ۱۲ دارد و `onSurfaceVariant` بالای ۷ — هر دو از حدِ AA
- *    عبور می‌کنند. سبزِ تیره وسوسه می‌کند که متن را هم سبز کنیم؛
- *    همان‌جاست که خوانایی می‌رود.
+ *  • **متن باید بخواند.** آبیِ تیرهٔ پایه (#004E72) روی زمینهٔ نفتی
+ *    فقط ۱٫۷۲ می‌دهد — عملاً نامرئی. پس `primary` در این طرح سایهٔ
+ *    روشن‌ترِ همان آبی است، نه خودش.
  *
- * `primary` عمداً همان نعناییِ روشن ماند و مسی نشد: مس در این طرح
- * نقشِ **تأکید** دارد نه نقشِ رنگِ سیستمی، و از `Brand`/`CopperBrush`
- * می‌آید. اگر `primary` مسی می‌شد، هر چک‌باکس و سوییچ و نوارِ پیشرفت
- * هم مسی می‌شد و تأکید معنایش را از دست می‌داد.
+ * `secondary` اینجا دقیقاً همان مرجانیِ پایه است، چون روی نفتی ۵٫۵۵
+ * می‌دهد و لازم نیست دست بخورد.
  */
 val DarkColors = darkColorScheme(
-    primary = Color(0xFF7FD9B9),
-    onPrimary = Color(0xFF00382B),
-    primaryContainer = Color(0xFF145746),
-    onPrimaryContainer = Color(0xFFA5F2DA),
-
-    // مس — همان پله‌های `Brand`, تا تأکیدِ تخت و تأکیدِ گرادیانی از
-    // یک خانواده باشند.
-    secondary = Color(0xFFE3B489),
-    onSecondary = Color(0xFF40270F),
-    secondaryContainer = Color(0xFF6B482A),
-    onSecondaryContainer = Color(0xFFFBDFBB),
-
-    tertiary = Color(0xFFA9CBD8),
-    onTertiary = Color(0xFF11333E),
-    tertiaryContainer = Color(0xFF2C4A56),
-    onTertiaryContainer = Color(0xFFC6E4F0),
-
-    background = Color(0xFF07271E),
-    onBackground = Color(0xFFEAF2EC),
-
-    surface = Color(0xFF0D3327),
-    onSurface = Color(0xFFEAF2EC),
-    surfaceVariant = Color(0xFF15402F),
-    onSurfaceVariant = Color(0xFFAFC9BA),
-
-    surfaceContainerLowest = Color(0xFF051F17),
-    surfaceContainerLow = Color(0xFF0A2E23),
-    surfaceContainer = Color(0xFF103A2C),
-    surfaceContainerHigh = Color(0xFF164634),
-    surfaceContainerHighest = Color(0xFF1D523E),
-    surfaceBright = Color(0xFF225A44),
-    surfaceDim = Color(0xFF051F17),
-
-    inverseSurface = Color(0xFFEAF2EC),
-    inverseOnSurface = Color(0xFF12352A),
-    inversePrimary = Color(0xFF1F6E5C),
-
-    outline = Color(0xFF6E9484),
-    outlineVariant = Color(0xFF2A6049),
+    primary = Color(0xFF25B2F4),
+    onPrimary = Color(0xFF002333),
+    primaryContainer = Color(0xFF0B5E84),
+    onPrimaryContainer = Color(0xFFC2E5F4),
+        // مرجانی برای **متن و آیکن** باید تیره‌تر از رنگِ پایه باشد:
+        // #FF6D41 روی زمینهٔ روشن فقط ۲٫۶۵ می‌دهد، زیرِ حدِ ۴٫۵. این
+        // سایه ۴٫۵۳ می‌دهد و همان لهجه را نگه می‌دارد.
+    secondary = Color(0xFFFF6D41),
+    onSecondary = Color(0xFF371106),
+    secondaryContainer = Color(0xFF8F3114),
+    onSecondaryContainer = Color(0xFFFDD1C3),
+    tertiary = Color(0xFF9DBAC8),
+    onTertiary = Color(0xFF142934),
+    tertiaryContainer = Color(0xFF365563),
+    onTertiaryContainer = Color(0xFFD7E4EA),
+    background = Color(0xFF0A2735),
+    onBackground = Color(0xFFEBF1F4),
+    surface = Color(0xFF122F3D),
+    onSurface = Color(0xFFEBF1F4),
+    surfaceVariant = Color(0xFF1D3E4E),
+    onSurfaceVariant = Color(0xFFAEC2CB),
+        // طبقه‌های سطح: از روشن‌ترین (کارتِ روی زمینه) تا تیره‌ترین.
+        // عمق با اختلافِ روشنایی ساخته می‌شود، نه با سایه و خط.
+    surfaceContainerLowest = Color(0xFF091C25),
+    surfaceContainerLow = Color(0xFF0E2936),
+    surfaceContainer = Color(0xFF153544),
+    surfaceContainerHigh = Color(0xFF1F4354),
+    surfaceContainerHighest = Color(0xFF295064),
+    surfaceBright = Color(0xFF2F5A6F),
+    surfaceDim = Color(0xFF091C25),
+    inverseSurface = Color(0xFFEBF1F4),
+    inverseOnSurface = Color(0xFF163341),
+    inversePrimary = Color(0xFF004E72),
+    outline = Color(0xFF7E9BA9),
+        // خطِ مویی که لبهٔ کارت را تعریف می‌کند — `AppCard` رویش حساب
+        // کرده تا کارت را بی‌سایه از زمینه جدا کند. حدش ۱٫۵ است.
+    outlineVariant = Color(0xFF3D6071),
     scrim = Color(0xFF000000),
-
     error = Color(0xFFF2B8B5),
     onError = Color(0xFF601410),
     errorContainer = Color(0xFF8C1D18),

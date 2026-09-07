@@ -589,16 +589,16 @@ private fun StatCard(title: String, value: String, sub: String, money: Boolean =
      */
     if (money) {
         BrandCard(contentPadding = 14.dp) {
-            Text(title, style = MaterialTheme.typography.labelMedium, color = Brand.OnCopperMuted)
+            Text(title, style = MaterialTheme.typography.labelMedium, color = Brand.OnCoralMuted)
             Text(
                 value,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                color = Brand.OnCopper
+                color = Brand.OnCoral
             )
-            Text(sub, style = MaterialTheme.typography.labelSmall, color = Brand.OnCopperMuted)
+            Text(sub, style = MaterialTheme.typography.labelSmall, color = Brand.OnCoralMuted)
         }
         return
     }
