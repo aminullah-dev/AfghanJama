@@ -40,6 +40,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.runtime.Composable
+import com.afghanjama.ui.components.WorkStage
+import com.afghanjama.ui.components.StageTabs
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -70,7 +72,14 @@ import com.journeyapps.barcodescanner.ScanOptions
 fun CuttingScreen(
     vm: CuttingViewModel,
     onBack: () -> Unit,
-    onGoSewing: () -> Unit
+    onGoSewing: () -> Unit,
+    /**
+     * جابه‌جایی به مرحلهٔ دیگر — فقط روی گوشی.
+     *
+     * `null` یعنی تب کشیده نشود. پنجرهٔ ویندوز فهرستِ کنار
+     * دارد و هر سه مرحله آنجا جداگانه‌اند.
+     */
+    onGoStage: ((WorkStage) -> Unit)? = null
 ) {
     val orders by vm.ordersCutting.collectAsState(initial = emptyList())
     val designCodeByOrder by vm.designCodeByOrder.collectAsState()
@@ -289,6 +298,7 @@ fun CuttingScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            StageTabs(WorkStage.CUT, onGoStage)
             androidx.compose.material3.Button(
                 onClick = { startScan() },
                 modifier = Modifier.fillMaxWidth()

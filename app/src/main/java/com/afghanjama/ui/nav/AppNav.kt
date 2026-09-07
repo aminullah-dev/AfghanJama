@@ -51,6 +51,7 @@ import com.afghanjama.ui.screens.AuditScreen
 import com.afghanjama.ui.screens.BoardScreen
 import com.afghanjama.ui.screens.CustomerDetailScreen
 import com.afghanjama.ui.screens.CustomersScreen
+import com.afghanjama.ui.components.WorkStage
 import com.afghanjama.ui.screens.CuttingScreen
 import com.afghanjama.ui.screens.DailyTradeScreen
 import com.afghanjama.ui.screens.DeliveryQueueScreen
@@ -132,17 +133,42 @@ import com.afghanjama.ui.vm.WorkshopLinkViewModel
 private data class BottomItem(
     val route: String,
     val label: String,
-    val icon: ImageVector
-)
+    val icon: ImageVector,
+    /**
+     * مسیرهای دیگری که همین خانه نمایندگی‌شان می‌کند.
+     *
+     * «کارگاه» سه مرحله را زیرِ خودش دارد؛ بی این، کاربر روی دوخت
+     * می‌رفت و نوارِ پایین هیچ خانه‌ای را روشن نشان نمی‌داد — یعنی
+     * «کجا هستم؟» بی‌جواب می‌مانْد.
+     */
+    val alsoOwns: List<String> = emptyList()
+) {
+    fun owns(route: String?): Boolean = route == this.route || route in alsoOwns
+}
 
 /** آیتم‌های نوار پایین بر اساس نقش کاربر. */
 private fun bottomItemsFor(role: UserRole): List<BottomItem> = when (role) {
+    // **پنج خانه، نه هفت.**
+    //
+    // تا امروز هفت تا بود: خانه، تولید، برش، دوخت، نظارت، فروش، مالی.
+    // متریال سه تا پنج می‌گوید. اول فکر کردم دلیلش هدفِ لمس است، ولی
+    // اندازه گرفتم و نبود: روی باریک‌ترین گوشیِ رایج (۳۶۰dp) هفت خانه
+    // ۵۱٫۴dp می‌دهد، بالای حدِ ۴۸dp.
+    //
+    // مسئله خواندن است. برچسبِ فارسی در ۵۱ نقطه جا می‌شود ولی جایی
+    // برای نفس کشیدن ندارد، و چشم برای پیدا کردنِ یکی همهٔ هفت تا را
+    // می‌خواند. با پنج خانه همان برچسب‌ها ۷۲ نقطه دارند.
+    //
+    // برش و دوخت و نظارت یک کارند که پشتِ سرِ هم می‌آیند. حالا زیرِ
+    // «کارگاه» جمع شده‌اند و در خودِ آن صفحه‌ها با چیپ از هم جدا
+    // می‌شوند. هیچ صفحه‌ای حذف نشد — فقط راهِ رسیدن یکی شد.
     UserRole.MANAGER -> listOf(
         BottomItem(Routes.HOME, "خانه", Icons.Default.Home),
-        BottomItem(Routes.INVENTORY, "تولید", Icons.Default.Inventory2),
-        BottomItem(Routes.CUTTING, "برش", Icons.Default.ContentCut),
-        BottomItem(Routes.SEWING, "دوخت", Icons.Default.Checkroom),
-        BottomItem(Routes.REVIEW, "نظارت", Icons.Default.VerifiedUser),
+        BottomItem(Routes.INVENTORY, "سفارش‌ها", Icons.Default.Inventory2),
+        BottomItem(
+            Routes.CUTTING, "کارگاه", Icons.Default.ContentCut,
+            alsoOwns = listOf(Routes.SEWING, Routes.REVIEW)
+        ),
         BottomItem(Routes.FINISHED_SALES, "فروش", Icons.Default.Storefront),
         BottomItem(Routes.FINANCE, "مالی", Icons.Default.Payments)
     )
@@ -289,9 +315,9 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                     ) {
                         bottomItems.forEach { item ->
                             NavigationBarItem(
-                                selected = currentRoute == item.route,
+                                selected = item.owns(currentRoute),
                                 onClick = {
-                                    if (currentRoute != item.route) {
+                                    if (!item.owns(currentRoute)) {
                                         navController.navigate(item.route) {
                                             popUpTo(navController.graph.findStartDestination().id) {
                                                 saveState = true
@@ -741,7 +767,23 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                 CuttingScreen(
                     vm = cuttingVm,
                     onBack = { navController.popBackStack() },
-                    onGoSewing = { navController.navigate(Routes.SEWING) }
+                    onGoSewing = { navController.navigate(Routes.SEWING) },
+                    onGoStage = { stage ->
+                        navController.navigate(
+                            when (stage) {
+                                WorkStage.CUT -> Routes.CUTTING
+                                WorkStage.SEW -> Routes.SEWING
+                                WorkStage.CHECK -> Routes.REVIEW
+                            }
+                        ) {
+                            // مرحله‌ها هم‌سطح‌اند، نه تودرتو: رفتن از
+                            // دوخت به نظارت نباید پشته را بلندتر کند،
+                            // وگرنه دکمهٔ برگشتِ گوشی کاربر را در
+                            // زنجیره‌ای از مرحله‌ها عقب می‌بَرد.
+                            popUpTo(Routes.CUTTING) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    }
                 )
             }
 
@@ -750,7 +792,23 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                 SewingScreen(
                     vm = sewingVm,
                     onBack = { navController.popBackStack() },
-                    onGoReview = { navController.navigate(Routes.REVIEW) } // ✅ دوخت → نظارت
+                    onGoReview = { navController.navigate(Routes.REVIEW) } // ✅ دوخت → نظارت,
+                    onGoStage = { stage ->
+                        navController.navigate(
+                            when (stage) {
+                                WorkStage.CUT -> Routes.CUTTING
+                                WorkStage.SEW -> Routes.SEWING
+                                WorkStage.CHECK -> Routes.REVIEW
+                            }
+                        ) {
+                            // مرحله‌ها هم‌سطح‌اند، نه تودرتو: رفتن از
+                            // دوخت به نظارت نباید پشته را بلندتر کند،
+                            // وگرنه دکمهٔ برگشتِ گوشی کاربر را در
+                            // زنجیره‌ای از مرحله‌ها عقب می‌بَرد.
+                            popUpTo(Routes.CUTTING) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    }
                 )
             }
 
@@ -759,7 +817,23 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                 ReviewScreen(
                     vm = reviewVm,
                     onBack = { navController.popBackStack() },
-                    onGoSewing = { navController.navigate(Routes.SEWING) }
+                    onGoSewing = { navController.navigate(Routes.SEWING) },
+                    onGoStage = { stage ->
+                        navController.navigate(
+                            when (stage) {
+                                WorkStage.CUT -> Routes.CUTTING
+                                WorkStage.SEW -> Routes.SEWING
+                                WorkStage.CHECK -> Routes.REVIEW
+                            }
+                        ) {
+                            // مرحله‌ها هم‌سطح‌اند، نه تودرتو: رفتن از
+                            // دوخت به نظارت نباید پشته را بلندتر کند،
+                            // وگرنه دکمهٔ برگشتِ گوشی کاربر را در
+                            // زنجیره‌ای از مرحله‌ها عقب می‌بَرد.
+                            popUpTo(Routes.CUTTING) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    }
                 )
             }
 
