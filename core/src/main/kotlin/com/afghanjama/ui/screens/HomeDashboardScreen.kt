@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Monitor
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Schedule
@@ -293,9 +294,31 @@ fun HomeDashboardScreen(
                     ) {
                         val onColor = if (urgent) MaterialTheme.colorScheme.onErrorContainer
                         else MaterialTheme.colorScheme.onTertiaryContainer
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // **ایموجی نبود که آیکن شود.**
+                            //
+                            // تا امروز اینجا «🚨» و «🔔» بود. ایموجی روی هر
+                            // گوشی و هر نسخهٔ اندروید شکلِ خودش را دارد، با
+                            // تم رنگ نمی‌شود، و در اندازهٔ متن هم‌تراز
+                            // نمی‌مانَد. همین را `BrandComponents` ماه‌ها
+                            // پیش برای «⚠» نوشته بود و همان‌جا کنارش
+                            // گذاشت؛ این یکی جا مانده بود.
+                            //
+                            // آیکنِ برداری با `onColor` رنگ می‌شود، پس در
+                            // حالتِ بحرانی و عادی خودش را با کارت هماهنگ
+                            // می‌کند — کاری که ایموجی هرگز نمی‌کند.
+                            Icon(
+                                if (urgent) Icons.Default.NotificationsActive
+                                else Icons.Default.Notifications,
+                                contentDescription = null,
+                                tint = onColor
+                            )
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(
-                                "${if (urgent) "🚨" else "🔔"} مرکز هشدار",
+                                "مرکز هشدار",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = onColor
@@ -307,6 +330,7 @@ fun HomeDashboardScreen(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = onColor
                             )
+                            }
                         }
                         Icon(
                             Icons.AutoMirrored.Filled.KeyboardArrowLeft,
