@@ -48,13 +48,19 @@
 
 ## نصب
 
-**اندروید ۷ به بالا** (API ۲۴) — فایلِ APK را از
-[صفحهٔ Releases](https://github.com/aminullah-dev/AfghanJama/releases)
-بگیرید و نصب کنید. چون از بازار نمی‌آید، گوشی یک بار اجازه می‌خواهد:
+**اندروید ۷ به بالا** (API ۲۴) —
+[دانلودِ `KhayatYar-1.7.0.apk`](https://github.com/aminullah-dev/AfghanJama/releases/download/v1.7.0/KhayatYar-1.7.0.apk)
+(۱۵ مگابایت). چون از بازار نمی‌آید، گوشی یک بار اجازه می‌خواهد:
 «نصب از منابع ناشناس» را برای مرورگر یا فایل‌منیجر روشن کنید.
 
-**ویندوز ۱۰ به بالا** — فایلِ MSI را از همان صفحه بگیرید. راهنمای
-کامل در [`docs/WINDOWS-NASB.md`](docs/WINDOWS-NASB.md).
+**ویندوز ۱۰ به بالا (۶۴-بیتی)** —
+[دانلودِ `KhayatYar-1.7.0.msi`](https://github.com/aminullah-dev/AfghanJama/releases/download/v1.7.0/KhayatYar-1.7.0.msi)
+(۱۳۵ مگابایت). راهنمای کامل در
+[`docs/WINDOWS-NASB.md`](docs/WINDOWS-NASB.md).
+
+هر دو فایل امضای رسمی ندارند، پس ویندوز و اندروید یک بار هشدار
+می‌دهند. همهٔ نسخه‌ها در
+[صفحهٔ Releases](https://github.com/aminullah-dev/AfghanJama/releases).
 
 راهنمای کارِ روزمره: [`RAHNAMA.md`](RAHNAMA.md)
 
@@ -83,6 +89,8 @@ python3 tools/checks/run_all.py
 ```
 
 مراحلِ کاملِ انتشار: [`DELIVERY.md`](DELIVERY.md)
+
+**پیش از ادغامِ هر شاخه‌ای، [`docs/BRANCHES.md`](docs/BRANCHES.md) را بخوانید.** یک شاخهٔ کهنه در مخزن هست که ادغامش ۳۷ هزار خط را پاک می‌کند.
 
 </div>
 
@@ -147,4 +155,10 @@ Build with JDK 17: `./gradlew testDebugUnitTest` for the money tests,
 `python3 tools/checks/run_all.py` for the structural checks, and
 `gradlew.bat :desktop:packageMsi` on Windows for the installer.
 
-Downloads: [Releases](https://github.com/aminullah-dev/AfghanJama/releases)
+Downloads —
+[Android APK](https://github.com/aminullah-dev/AfghanJama/releases/download/v1.7.0/KhayatYar-1.7.0.apk)
+(15 MB) ·
+[Windows MSI](https://github.com/aminullah-dev/AfghanJama/releases/download/v1.7.0/KhayatYar-1.7.0.msi)
+(135 MB) ·
+[all releases](https://github.com/aminullah-dev/AfghanJama/releases).
+Neither file is code-signed, so both platforms warn once on first run.
