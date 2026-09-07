@@ -6,7 +6,6 @@ import com.afghanjama.data.entities.Customer
 import com.afghanjama.data.entities.CustomerMeasurement
 import com.afghanjama.data.Installments
 import com.afghanjama.data.entities.CustomerInstallment
-import com.afghanjama.data.entities.CustomerPayment
 import com.afghanjama.data.entities.Order
 import com.afghanjama.pdf.StatementData
 import com.afghanjama.pdf.StatementRow
@@ -95,19 +94,18 @@ class CustomerDetailViewModel(private val repo: Repo) : ViewModel() {
             customerId,
             repo.observeCustomers(),
             repo.observeAllOrders(),
-            repo.observeCustomerPayments()
-        ) { id, customers, orders, payments ->
+            repo.observePaidByCustomer()
+        ) { id, customers, orders, paidBy ->
             val customer = customers.firstOrNull { it.id == id } ?: return@combine CustomerSummary()
             val myOrders = orders.filter { it.customerName == customer.name }
-            val orderName = orders.associate { it.id.toString() to it.customerName }
-            val myPayments = payments.filter {
-                (it.customerName.ifBlank { orderName[it.orderId] ?: "" }) == customer.name
-            }
             CustomerSummary(
                 customer = customer,
                 orders = myOrders.sortedByDescending { it.createdAt },
                 totalDue = myOrders.sumOf { o -> if (o.agreedPrice > 0) o.agreedPrice else o.fabricPrice + o.workCost },
-                totalPaid = myPayments.sumOf { it.amount }
+                // قاعدهٔ «نامِ پرداختِ وصل به سفارش از خودِ سفارش می‌آید»
+                // حالا در `Repo` است، تا هشدارِ قسط هم دقیقاً همین عدد را
+                // ببیند و دو صفحه دربارهٔ یک پول دو حرف نزنند.
+                totalPaid = paidBy[customer.name.trim()] ?: 0L
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CustomerSummary())
 

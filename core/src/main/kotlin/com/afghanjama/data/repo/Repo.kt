@@ -3683,6 +3683,23 @@ class Repo(private val db: Db) {
         db.customerInstallmentDao().delete(row)
 
     /**
+     * هر مشتری تا امروز چقدر داده — یک جا، برای هر کسی که بپرسد.
+     *
+     * پرداختِ وصل به سفارش نامِ مشتری را خالی می‌گذارد و نامش را باید از
+     * خودِ سفارش گرفت. این قاعده جای دیگری هم لازم است (پروندهٔ مشتری،
+     * هشدارِ قسط)؛ اگر هر کدام نسخهٔ خودش را می‌داشت، یکی می‌گفت قسط
+     * تسویه شده و دیگری می‌گفت سررسید گذشته — برای یک پول.
+     */
+    fun observePaidByCustomer(): Flow<Map<String, Long>> =
+        combine(observeCustomerPayments(), observeAllOrders()) { payments, orders ->
+            val nameOf = orders.associate { it.id.toString() to it.customerName }
+            payments
+                .groupBy { (it.customerName.ifBlank { nameOf[it.orderId].orEmpty() }).trim() }
+                .filterKeys { it.isNotBlank() }
+                .mapValues { (_, rows) -> rows.sumOf { it.amount } }
+        }
+
+    /**
      * اندازه‌ها به تفکیکِ نامِ مشتری. کلید نامِ trim‌شده است تا با
      * `Order.customerName` که کاربر تایپ کرده جور در بیاید.
      *
