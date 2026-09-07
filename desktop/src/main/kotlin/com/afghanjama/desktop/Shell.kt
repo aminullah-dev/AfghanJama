@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -567,9 +568,10 @@ private fun Sidebar(current: Section, onPick: (Section) -> Unit) {
         ) {
             Text(
                 "خیاط‌یار",
-                fontFamily = Vazirmatn,
+                // از مقیاسِ مشترک، نه عددِ خام: وگرنه فهرستِ کنار روزی
+                // که مقیاس عوض شود از بقیهٔ پنجره می‌افتد.
+                style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                fontSize = 20.sp,
                 color = Brand
             )
         }
@@ -586,8 +588,7 @@ private fun Sidebar(current: Section, onPick: (Section) -> Unit) {
             ) {
                 Text(
                     s.title,
-                    fontFamily = Vazirmatn,
-                    fontSize = 14.sp,
+                    style = MaterialTheme.typography.bodyMedium,
                     fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                     color = if (selected) Brand else Ink
                 )
@@ -596,8 +597,7 @@ private fun Sidebar(current: Section, onPick: (Section) -> Unit) {
 
         Text(
             "این صفحه‌ها همان کدی‌اند که روی گوشی اجرا می‌شود.",
-            fontFamily = Vazirmatn,
-            fontSize = 11.sp,
+            style = MaterialTheme.typography.labelSmall,
             color = Muted,
             modifier = Modifier.padding(top = 18.dp, start = 8.dp, end = 8.dp)
         )
