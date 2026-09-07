@@ -91,7 +91,14 @@ fun ActionCenterScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(ui.alerts, key = { it.id }) { alert ->
-                        AlertCard(alert = alert, onClick = { alert.route?.let(onNavigate) })
+                        // هشداری که رفع می‌شود از فهرست می‌رود و بقیه
+                        // بالا می‌آیند. بی حرکت، کارفرما نمی‌داند کدام
+                        // رفت — فقط می‌بیند فهرست عوض شد.
+                        AlertCard(
+                            alert = alert,
+                            onClick = { alert.route?.let(onNavigate) },
+                            modifier = Modifier.animateItem()
+                        )
                     }
                 }
             }
@@ -115,7 +122,7 @@ private fun SummaryHeader(urgent: Int, total: Int) {
 }
 
 @Composable
-private fun AlertCard(alert: Alert, onClick: () -> Unit) {
+private fun AlertCard(alert: Alert, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val container = when (alert.severity) {
         AlertSeverity.URGENT -> MaterialTheme.colorScheme.errorContainer
         AlertSeverity.WARN -> MaterialTheme.colorScheme.tertiaryContainer
@@ -134,7 +141,7 @@ private fun AlertCard(alert: Alert, onClick: () -> Unit) {
 
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = container),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {

@@ -35,6 +35,8 @@ import com.afghanjama.platform.LocalScreenBehavior
 import com.afghanjama.ui.components.OrderCodeLine
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.CompanyPrefs
+import com.afghanjama.ui.theme.LocalReducedMotion
+import com.afghanjama.ui.theme.Motion
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.format.toPersianDigits
@@ -72,6 +74,7 @@ fun BoardScreen(
     val ui by vm.ui.collectAsState()
     val designCodeByOrder by vm.designCodeByOrder.collectAsState()
     val screen = LocalScreenBehavior.current
+    val reduced = LocalReducedMotion.current
 
     LaunchedEffect(Unit) { vm.start(settings) }
 
@@ -194,7 +197,8 @@ fun BoardScreen(
                 AnimatedContent(
                     targetState = page,
                     transitionSpec = {
-                        fadeIn(tween(500)) togetherWith fadeOut(tween(500))
+                        fadeIn(Motion.ambient(reduced)) togetherWith
+                            fadeOut(Motion.ambient(reduced))
                     },
                     label = "board-page"
                 ) { p ->
