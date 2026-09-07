@@ -70,6 +70,7 @@ import com.afghanjama.data.ShiftPolicy
 import com.afghanjama.prefs.BackupPrefs
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.CompanyPrefs
+import com.afghanjama.ui.components.AnimatedAfn
 import com.afghanjama.ui.components.BrandCard
 import com.afghanjama.ui.components.StageChip
 import com.afghanjama.ui.components.WarningLine
@@ -436,8 +437,8 @@ fun HomeDashboardScreen(
 
         item { StatCard("در تولید", s.inProduction.fa(), "سفارش در جریان") }
         item { StatCard("انبار محصول", s.finishedPieces.fa(), "عدد آماده فروش") }
-        item { StatCard("کیف پول", s.wallet.afn(), "موجودی نقد", money = true) }
-        item { StatCard("بانک", s.bank.afn(), "موجودی بانک", money = true) }
+        item { StatCard("کیف پول", s.wallet.afn(), "موجودی نقد", money = true, amount = s.wallet) }
+        item { StatCard("بانک", s.bank.afn(), "موجودی بانک", money = true, amount = s.bank) }
 
         // ---------- ضربان خط تولید ----------
         if (isManager && s.inProduction > 0) {
@@ -576,7 +577,20 @@ private fun ActionCard(action: HomeAction) {
 }
 
 @Composable
-private fun StatCard(title: String, value: String, sub: String, money: Boolean = false) {
+private fun StatCard(
+    title: String,
+    value: String,
+    sub: String,
+    money: Boolean = false,
+    /**
+     * مبلغ، وقتی کارت پولی است — تا تغییرش دیده شود.
+     *
+     * `value` برای کارت‌های شمارشی می‌ماند (عددِ سفارش و عدد
+     * انبار). آن‌ها هم عوض می‌شوند ولی هر بار یک-دو واحد؛ پول
+     * جهشی عوض می‌شود و همان است که باید دیده شود.
+     */
+    amount: Long? = null
+) {
     /*
      * کارتِ پول رویهٔ مسی می‌گیرد، کارتِ شمارش نه.
      *
@@ -590,14 +604,23 @@ private fun StatCard(title: String, value: String, sub: String, money: Boolean =
     if (money) {
         BrandCard(contentPadding = 14.dp) {
             Text(title, style = MaterialTheme.typography.labelMedium, color = Brand.OnCoralMuted)
-            Text(
-                value,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                color = Brand.OnCoral
-            )
+            if (amount != null) {
+                AnimatedAfn(
+                    amount = amount,
+                    style = MaterialTheme.typography.titleLarge
+                        .copy(fontWeight = FontWeight.Bold),
+                    color = Brand.OnCoral
+                )
+            } else {
+                Text(
+                    value,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = Brand.OnCoral
+                )
+            }
             Text(sub, style = MaterialTheme.typography.labelSmall, color = Brand.OnCoralMuted)
         }
         return

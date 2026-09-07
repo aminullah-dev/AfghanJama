@@ -147,7 +147,9 @@ fun DeliveryQueueScreen(
                 val o = row.order
                 val slow = row.waitingDays >= WAIT_WARN_DAYS
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
+                    // کارِ تحویل‌شده از صف بیرون می‌رود و بقیه بالا
+                    // می‌آیند — همان چیزی که روی میزِ واقعی می‌افتد.
+                    modifier = Modifier.fillMaxWidth().animateItem(),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     border = BorderStroke(

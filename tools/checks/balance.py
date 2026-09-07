@@ -44,4 +44,16 @@ for p in _src.kt_files():
             i += 1
     if any(v != 0 for v in depth.values()):
         print("UNBALANCED", p, depth); bad += 1
-print("✓ brace/paren balance clean" if not bad else f"{bad} unbalanced files")
+if bad:
+    # **این خط از روزِ اول نبود، و نبودنش بررسی را پوچ کرده بود.**
+    #
+    # فایلِ نامتوازن پیدا می‌شد، پیامش هم چاپ می‌شد — ولی کدِ خروج صفر
+    # می‌ماند و `run_all` فقط `returncode` را می‌خواند. پس نگهبانی که
+    # درست کار می‌کرد هرگز جلوی چیزی را نگرفت.
+    #
+    # امروز ثابت شد: یک `)` اضافه در Theme.kt را دید (`{'(': -1}`)،
+    # چاپش کرد، و سبز رد شد. کامپایلِ CI دو دقیقه بعد گرفتش.
+    print(f"{bad} unbalanced files")
+    sys.exit(1)
+
+print("✓ brace/paren balance clean")

@@ -1,6 +1,7 @@
 package com.afghanjama.desktop
 
 import androidx.compose.material3.Typography
+import com.afghanjama.ui.theme.appTypography
 import com.afghanjama.ui.theme.LightColors
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -47,25 +48,14 @@ internal val Vazirmatn: FontFamily = runCatching {
  * ویندوز فقط متن‌های خودش را داشت و هر کدام دستی `fontFamily` می‌گرفت،
  * پس این کمبود دیده نمی‌شد. با آمدنِ صفحه‌های واقعی، بدونِ این خط کلِ
  * فاکتور و انبار با قلمِ پیش‌فرضِ ویندوز و حروفِ نچسبیده نوشته می‌شد.
+ *
+ * **و نیمهٔ دومِ همان اشکال، که تا امروز نمانده بود.** آن اصلاح قلم را
+ * درست کرد ولی **اندازه** را نه: اینجا `Typography()`ِ پیش‌فرضِ متریال
+ * گرفته می‌شد و فقط `fontFamily`اش عوض. یعنی همان صفحه با همان کد دو
+ * مقیاس داشت — `titleLarge` روی گوشی ۲۰ و روی پی‌سی ۲۲، `bodyLarge` با
+ * ارتفاعِ خطِ ۲۶ و ۲۴. برای خطِ فارسی که زیر-خط و اعراب دارد، همان دو
+ * واحد یعنی سطرهایی که به هم می‌چسبند.
+ *
+ * حالا هر دو از `appTypography` در `:core` می‌خوانند.
  */
-internal fun vazirTypography(): Typography {
-    val d = Typography()
-    fun f(s: androidx.compose.ui.text.TextStyle) = s.copy(fontFamily = Vazirmatn)
-    return Typography(
-        displayLarge = f(d.displayLarge),
-        displayMedium = f(d.displayMedium),
-        displaySmall = f(d.displaySmall),
-        headlineLarge = f(d.headlineLarge),
-        headlineMedium = f(d.headlineMedium),
-        headlineSmall = f(d.headlineSmall),
-        titleLarge = f(d.titleLarge),
-        titleMedium = f(d.titleMedium),
-        titleSmall = f(d.titleSmall),
-        bodyLarge = f(d.bodyLarge),
-        bodyMedium = f(d.bodyMedium),
-        bodySmall = f(d.bodySmall),
-        labelLarge = f(d.labelLarge),
-        labelMedium = f(d.labelMedium),
-        labelSmall = f(d.labelSmall)
-    )
-}
+internal fun vazirTypography(): Typography = appTypography(Vazirmatn)
