@@ -792,7 +792,8 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                 SewingScreen(
                     vm = sewingVm,
                     onBack = { navController.popBackStack() },
-                    onGoReview = { navController.navigate(Routes.REVIEW) } // ✅ دوخت → نظارت,
+                    // دوخت → نظارت
+                    onGoReview = { navController.navigate(Routes.REVIEW) },
                     onGoStage = { stage ->
                         navController.navigate(
                             when (stage) {
