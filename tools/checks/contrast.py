@@ -6,9 +6,9 @@
 «کار کردن» می‌توانند کاملاً از هم جدا بیفتند. رمپِ اولِ مسِ این پروژه
 روی صفحه خوش‌رنگ بود، ولی وقتی نسبتِ کنتراستش اندازه گرفته شد:
 
-    OnCopper روی CopperDeep      = ۲٫۸۷   (حد: ۴٫۵)
-    OnCopperMuted روی Copper     = ۲٫۶۷   (حد: ۳٫۰)
-    OnCopperMuted روی CopperDeep = ۱٫۵۷   (حد: ۳٫۰)
+    OnCoral روی CoralDeep      = ۲٫۸۷   (حد: ۴٫۵)
+    OnCoralMuted روی Coral     = ۲٫۶۷   (حد: ۳٫۰)
+    OnCoralMuted روی CoralDeep = ۱٫۵۷   (حد: ۳٫۰)
     outlineVariant روی surface   = ۱٫۴۰   (حد: ۱٫۵)
 
 یعنی عددِ موجودیِ نقد روی لبهٔ تیرهٔ گرادیان سخت خوانده می‌شد و
@@ -92,17 +92,17 @@ if not brand or not dark or not light:
 PAIRS = []
 
 # ── مس: هر چهار پله، چون گرادیان از همه‌شان می‌گذرد ──────────────
-for stop in ("CopperDeep", "Copper", "CopperSheen", "CopperLight"):
-    PAIRS.append((("brand", "OnCopper"), ("brand", stop), AA_TEXT,
+for stop in ("CoralDeep", "Coral", "CoralSheen", "CoralLight"):
+    PAIRS.append((("brand", "OnCoral"), ("brand", stop), AA_TEXT,
                   f"عددِ روی کارتِ مسی، جایی که گرادیان {stop} است"))
-    PAIRS.append((("brand", "OnCopperMuted"), ("brand", stop), AA_LARGE,
+    PAIRS.append((("brand", "OnCoralMuted"), ("brand", stop), AA_LARGE,
                   f"برچسبِ روی کارتِ مسی، جایی که گرادیان {stop} است"))
 
 # ── زمرد: صفحهٔ ورود و قفل ───────────────────────────────────────
-for stop in ("EmeraldDeep", "Emerald", "EmeraldLight"):
-    PAIRS.append((("brand", "OnEmerald"), ("brand", stop), AA_TEXT,
+for stop in ("PetrolDeep", "Petrol", "PetrolLight"):
+    PAIRS.append((("brand", "OnPetrol"), ("brand", stop), AA_TEXT,
                   f"عنوانِ صفحهٔ ورود روی {stop}"))
-    PAIRS.append((("brand", "OnEmeraldMuted"), ("brand", stop), AA_LARGE,
+    PAIRS.append((("brand", "OnPetrolMuted"), ("brand", stop), AA_LARGE,
                   f"زیرنویسِ صفحهٔ ورود روی {stop}"))
 
 # ── سطح‌های هر دو طرح ────────────────────────────────────────────

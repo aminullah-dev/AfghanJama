@@ -208,14 +208,14 @@ private fun DashboardTab(vm: DashboardViewModel) {
                     "فروش",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = Brand.OnCopper
+                    color = Brand.OnCoral
                 )
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    MoneyBlock("۷ روز اخیر", s.sales7.afn(), onCopper = true)
-                    MoneyBlock("۳۰ روز اخیر", s.sales30.afn(), onCopper = true)
+                    MoneyBlock("۷ روز اخیر", s.sales7.afn(), onCoral = true)
+                    MoneyBlock("۳۰ روز اخیر", s.sales30.afn(), onCoral = true)
                 }
             }
         }
@@ -445,13 +445,13 @@ private fun MoneyBlock(
      * محو می‌شود، و در حالتِ روشن تقریباً سیاه که آن هم رنگِ درستِ
      * این سطح نیست. رویهٔ مسی رنگ‌های خودش را دارد.
      */
-    onCopper: Boolean = false
+    onCoral: Boolean = false
 ) {
     Column {
         Text(
             label,
             style = MaterialTheme.typography.labelMedium,
-            color = if (onCopper) Brand.OnCopperMuted
+            color = if (onCoral) Brand.OnCoralMuted
             else MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
@@ -459,7 +459,7 @@ private fun MoneyBlock(
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
             color = when {
-                onCopper -> Brand.OnCopper
+                onCoral -> Brand.OnCoral
                 highlight -> MaterialTheme.colorScheme.primary
                 else -> MaterialTheme.colorScheme.onSurface
             }

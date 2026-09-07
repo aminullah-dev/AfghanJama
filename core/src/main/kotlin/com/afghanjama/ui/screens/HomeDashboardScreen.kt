@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Monitor
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Schedule
@@ -293,9 +294,31 @@ fun HomeDashboardScreen(
                     ) {
                         val onColor = if (urgent) MaterialTheme.colorScheme.onErrorContainer
                         else MaterialTheme.colorScheme.onTertiaryContainer
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // **ایموجی نبود که آیکن شود.**
+                            //
+                            // تا امروز اینجا «🚨» و «🔔» بود. ایموجی روی هر
+                            // گوشی و هر نسخهٔ اندروید شکلِ خودش را دارد، با
+                            // تم رنگ نمی‌شود، و در اندازهٔ متن هم‌تراز
+                            // نمی‌مانَد. همین را `BrandComponents` ماه‌ها
+                            // پیش برای «⚠» نوشته بود و همان‌جا کنارش
+                            // گذاشت؛ این یکی جا مانده بود.
+                            //
+                            // آیکنِ برداری با `onColor` رنگ می‌شود، پس در
+                            // حالتِ بحرانی و عادی خودش را با کارت هماهنگ
+                            // می‌کند — کاری که ایموجی هرگز نمی‌کند.
+                            Icon(
+                                if (urgent) Icons.Default.NotificationsActive
+                                else Icons.Default.Notifications,
+                                contentDescription = null,
+                                tint = onColor
+                            )
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(
-                                "${if (urgent) "🚨" else "🔔"} مرکز هشدار",
+                                "مرکز هشدار",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = onColor
@@ -307,6 +330,7 @@ fun HomeDashboardScreen(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = onColor
                             )
+                            }
                         }
                         Icon(
                             Icons.AutoMirrored.Filled.KeyboardArrowLeft,
@@ -603,13 +627,13 @@ private fun StatCard(
      */
     if (money) {
         BrandCard(contentPadding = 14.dp) {
-            Text(title, style = MaterialTheme.typography.labelMedium, color = Brand.OnCopperMuted)
+            Text(title, style = MaterialTheme.typography.labelMedium, color = Brand.OnCoralMuted)
             if (amount != null) {
                 AnimatedAfn(
                     amount = amount,
                     style = MaterialTheme.typography.titleLarge
                         .copy(fontWeight = FontWeight.Bold),
-                    color = Brand.OnCopper
+                    color = Brand.OnCoral
                 )
             } else {
                 Text(
@@ -618,10 +642,10 @@ private fun StatCard(
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    color = Brand.OnCopper
+                    color = Brand.OnCoral
                 )
             }
-            Text(sub, style = MaterialTheme.typography.labelSmall, color = Brand.OnCopperMuted)
+            Text(sub, style = MaterialTheme.typography.labelSmall, color = Brand.OnCoralMuted)
         }
         return
     }

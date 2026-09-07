@@ -36,7 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.afghanjama.ui.theme.Brand
-import com.afghanjama.ui.theme.CopperBrush
+import com.afghanjama.ui.theme.CoralBrush
 import com.afghanjama.ui.theme.disabledContent
 import com.afghanjama.ui.theme.disabledSurface
 
@@ -52,7 +52,7 @@ import com.afghanjama.ui.theme.disabledSurface
 /**
  * کارتِ قهرمان با رویهٔ مسی.
  *
- * رنگِ محتوا خودش [Brand.OnCopper] می‌شود، پس متن‌های داخلش لازم نیست
+ * رنگِ محتوا خودش [Brand.OnCoral] می‌شود، پس متن‌های داخلش لازم نیست
  * رنگ بگیرند — و مهم‌تر، **نمی‌توانند اشتباه بگیرند**. اگر این کار را
  * نمی‌کرد، هر متنِ داخلِ کارت `onSurface` را به ارث می‌برد که در
  * حالتِ تاریک تقریباً سفید است و روی مس خوانده نمی‌شود.
@@ -60,7 +60,7 @@ import com.afghanjama.ui.theme.disabledSurface
 @Composable
 fun BrandCard(
     modifier: Modifier = Modifier,
-    brush: Brush = CopperBrush,
+    brush: Brush = CoralBrush,
     shape: RoundedCornerShape = RoundedCornerShape(20.dp),
     contentPadding: Dp = 16.dp,
     onClick: (() -> Unit)? = null,
@@ -78,7 +78,7 @@ fun BrandCard(
             .background(brush)
             .then(clickable)
     ) {
-        CompositionLocalProvider(LocalContentColor provides Brand.OnCopper) {
+        CompositionLocalProvider(LocalContentColor provides Brand.OnCoral) {
             Column(
                 Modifier.padding(contentPadding),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -113,8 +113,8 @@ fun BrandButton(
     leading: (@Composable () -> Unit)? = null
 ) {
     val live = enabled && !busy
-    val surface = if (live) CopperBrush else SolidColor(disabledSurface())
-    val ink = if (live) Brand.OnCopper else disabledContent()
+    val surface = if (live) CoralBrush else SolidColor(disabledSurface())
+    val ink = if (live) Brand.OnCoral else disabledContent()
 
     /*
      * `role = Role.Button` و `enabled` صریح‌اند، نه تزئینی.
@@ -258,13 +258,13 @@ fun BrandStat(
             Text(
                 label,
                 style = MaterialTheme.typography.labelMedium,
-                color = Brand.OnCopperMuted
+                color = Brand.OnCoralMuted
             )
             Text(
                 value,
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
-                color = Brand.OnCopper
+                color = Brand.OnCoral
             )
         }
         if (trailing != null) trailing()
