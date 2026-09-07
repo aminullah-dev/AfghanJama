@@ -42,6 +42,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import com.afghanjama.ui.components.WorkStage
+import com.afghanjama.ui.components.StageTabs
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
@@ -69,7 +71,14 @@ import java.util.UUID
 fun ReviewScreen(
     vm: ReviewViewModel,
     onBack: () -> Unit,
-    onGoSewing: () -> Unit
+    onGoSewing: () -> Unit,
+    /**
+     * جابه‌جایی به مرحلهٔ دیگر — فقط روی گوشی.
+     *
+     * `null` یعنی تب کشیده نشود. پنجرهٔ ویندوز فهرستِ کنار
+     * دارد و هر سه مرحله آنجا جداگانه‌اند.
+     */
+    onGoStage: ((WorkStage) -> Unit)? = null
 ) {
     val system = LocalSystemActions.current
     val settings = LocalSettings.current
@@ -195,6 +204,7 @@ fun ReviewScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            StageTabs(WorkStage.CHECK, onGoStage)
             if (orders.isEmpty()) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),

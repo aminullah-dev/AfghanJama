@@ -44,6 +44,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import com.afghanjama.ui.components.WorkStage
+import com.afghanjama.ui.components.StageTabs
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -76,7 +78,14 @@ import com.afghanjama.ui.vm.SewingViewModel
 fun SewingScreen(
     vm: SewingViewModel,
     onBack: () -> Unit,
-    onGoReview: () -> Unit
+    onGoReview: () -> Unit,
+    /**
+     * جابه‌جایی به مرحلهٔ دیگر — فقط روی گوشی.
+     *
+     * `null` یعنی تب کشیده نشود. پنجرهٔ ویندوز فهرستِ کنار
+     * دارد و هر سه مرحله آنجا جداگانه‌اند.
+     */
+    onGoStage: ((WorkStage) -> Unit)? = null
 ) {
     val shop = CompanyPrefs.shopName(LocalSettings.current)
     val handouts by vm.handouts.collectAsState()
@@ -122,6 +131,7 @@ fun SewingScreen(
                 .padding(pad)
                 .fillMaxSize()
         ) {
+            StageTabs(WorkStage.SEW, onGoStage)
             ScrollableTabRow(
                 selectedTabIndex = tab,
                 edgePadding = 16.dp,
