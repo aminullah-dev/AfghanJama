@@ -275,7 +275,11 @@ fun InventoryScreen(
                             onSendToCutting = {
                                 vm.sendToCutting(o.id, o.designTitle)
                             },
-                            onClick = { onOpenDetail(o) }
+                            onClick = { onOpenDetail(o) },
+                            // سفارشی که مرحله عوض می‌کند از این فهرست
+                            // به فهرستِ بعدی می‌رود. حرکت می‌گوید کدام
+                            // سطر رفت؛ بی آن، فهرست فقط «فرق کرده».
+                            modifier = Modifier.animateItem()
                         )
                     }
                     item { Spacer(Modifier.height(80.dp)) }
@@ -343,13 +347,14 @@ private fun OrderCard(
     designCode: String,
     canSend: Boolean,
     onSendToCutting: () -> Unit,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val total = order.fabricPrice + order.workCost
 
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
