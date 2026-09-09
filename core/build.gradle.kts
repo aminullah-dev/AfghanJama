@@ -73,8 +73,20 @@ kotlin {
      * و کارگاه و ما هر دو روی Apple Silicon هستیم. هر هدفِ اضافه یک
      * بارِ ساختِ کامل است که هیچ‌کس خروجی‌اش را اجرا نمی‌کند.
      */
-    iosArm64()
-    iosSimulatorArm64()
+    /*
+     * هر دو هدفِ iOS یک framework می‌سازند به نامِ `KhayatYarKit`، و
+     * Xcode همان را پیوند می‌زند.
+     *
+     * `isStatic` عمداً روشن است: framework پویا روی iOS باید سرِ اجرا
+     * امضا و بار شود و برای اپی که فقط یک مصرف‌کننده دارد هیچ سودی
+     * ندارد — فقط یک قدمِ دیگر که می‌تواند بشکند.
+     */
+    listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
+        target.binaries.framework {
+            baseName = "KhayatYarKit"
+            isStatic = true
+        }
+    }
 
     /*
      * **صریح، چون `dependsOn`ِ دستیِ پایین خاموشش می‌کند.**
