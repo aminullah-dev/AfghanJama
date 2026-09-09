@@ -104,9 +104,27 @@ def check_bytecode():
     return files, bad
 
 
+#: منبع‌هایی که کدشان فقط برای **یک** سکو ساخته می‌شود.
+#:
+#: **و چرا استثنا دقیقاً همین‌جا و نه جای دیگر.** خطری که این بررسی
+#: می‌گیرد از دو کلاسِ بایت‌کد با یک نامِ کاتلینی می‌آید — و آن فقط وقتی
+#: ممکن است که یک فایل برای بیش از یک سکو کامپایل شود. `iosMain` هرگز
+#: روی اندروید یا دسکتاپ ساخته نمی‌شود، پس `IosWidgets` که پیاده‌سازیِ
+#: خودِ مرزِ `Widgets` است حق دارد `AlertDialog` را مستقیم صدا بزند —
+#: همان‌طور که `DesktopWidgets` و `AndroidWidgets` در ماژول‌های خودشان
+#: می‌زنند.
+#:
+#: `jvmAndroidMain` **استثنا نیست**: کدش هم روی گوشی ساخته می‌شود هم
+#: روی پی‌سی، یعنی دقیقاً همان حالتی که کرشِ بالا را داد.
+SINGLE_PLATFORM = ("iosMain",)
+
+
 def check_source(symbols):
     """سریع: ایمپورتِ `androidx.compose.*`ی که در فهرست است."""
-    files = sorted(_src.CORE.rglob("*.kt"))
+    files = [
+        p for p in sorted(_src.CORE.rglob("*.kt"))
+        if not any(f"/{d}/" in p.as_posix() for d in SINGLE_PLATFORM)
+    ]
     if not files:
         print("✗ هیچ فایلی در :core نیست — بررسی پوچ بود، مسیر را ببینید")
         sys.exit(1)

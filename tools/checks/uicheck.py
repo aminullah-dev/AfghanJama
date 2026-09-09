@@ -48,10 +48,24 @@ def strip_code(src):
 
 
 # ---- ۱. نامِ هر نمادِ کتابخانه‌ای که جایی ایمپورت شده ----
+#
+# **از متنِ پاک‌شده، نه خام — و این یک اشکالِ واقعی بود.**
+#
+# تا دیروز این حلقه فایل را خام می‌خواند. یعنی نامی که فقط در یک
+# **توضیح** آمده بود هم «نمادِ شناخته» می‌شد. اشکالش وقتی بیرون زد که
+# در `util/Time.kt` نوشته شد «`java.lang.System` روی JVM خودکار وارد
+# می‌شود»: همان یک عبارت `System` را شناخته کرد، و بعد هر فایلی که
+# `System.currentTimeMillis()` داشت و — درست — ایمپورتش نکرده بود،
+# «نمادِ ایمپورت‌نشده» گزارش شد. پانزده هشدارِ نادرست از یک جملهٔ توضیح.
+#
+# همان دامِ `deskdeps`، از سرِ دیگرش: آنجا توضیح بررسی را **پوچ** کرد،
+# اینجا **دروغ‌گو**. هر دو یک ریشه دارند — بررسی باید کد را بخواند، نه
+# متن را.
 owner_of = defaultdict(set)      # نامِ ساده → مجموعهٔ مسیرهای کامل
+sources = {f: strip_code(open(f, encoding="utf-8").read()) for f in files}
 for f in files:
     for m in re.finditer(r"^import\s+((?:androidx|kotlinx|java|org|com\.google)[\w.]*)",
-                         open(f, encoding="utf-8").read(), re.M):
+                         sources[f], re.M):
         path = m.group(1)
         simple = path.split(".")[-1]
         if simple == "*":
@@ -64,7 +78,7 @@ for f in files:
     # نمی‌شناختش — بعد جای سومی با نامِ کوتاه نوشته شد و کامپایل شکست.
     for m in re.finditer(
         r"(?<![\w.])((?:androidx|kotlinx|java|org|com\.google)(?:\.[a-z0-9_]+)+\.([A-Z]\w*))",
-        open(f, encoding="utf-8").read()
+        sources[f]
     ):
         owner_of[m.group(2)].add(m.group(1))
 

@@ -17,7 +17,9 @@ import sys
 import _src
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
-CORE = REPO / "core/src/main/kotlin"
+# مسیر از `_src` می‌آید، نه سفت اینجا — همان قانونی که همین فایل پایین
+# بر بقیهٔ بررسی‌ها اعمال می‌کند. `:core` حالا سه پوشهٔ منبع دارد.
+CORE = _src.CORE
 
 BANNED = ("import android.", "import androidx.")
 
@@ -105,7 +107,7 @@ for p in files:
         runtime = runtime or line.startswith(LIFECYCLE_ANDROID)
         runtime = runtime or line.startswith(COMPOSE_ANDROID)
         if runtime or (line.startswith(BANNED) and not line.startswith(ALLOWED)):
-            bad.append((p.relative_to(CORE), i, line.strip()))
+            bad.append((_src.rel_to_core(p), i, line.strip()))
 
 # ---- نشتیِ موتورِ دیتابیس ----
 #
@@ -123,7 +125,7 @@ for p_ in files:
             continue
         for name in ENGINE:
             if f".{name}" in line:
-                leaks.append((p_.relative_to(CORE), i, name, line.strip()))
+                leaks.append((_src.rel_to_core(p_), i, name, line.strip()))
 
 if leaks:
     print(f"✗ {len(leaks)} نشتیِ موتورِ دیتابیس در :core")
@@ -172,7 +174,7 @@ for p_ in files:
         for mm in FQ.finditer(line):
             pkg = "com.afghanjama." + mm.group(1).rstrip(".")
             if pkg not in core_pkgs:
-                fq_bad.append((p_.relative_to(CORE), i, f"{pkg}.{mm.group(2)}"))
+                fq_bad.append((_src.rel_to_core(p_), i, f"{pkg}.{mm.group(2)}"))
 
 if fq_bad:
     print(f"✗ {len(fq_bad)} ارجاعِ کاملاً مقید از :core به بستهٔ بیرونی")
@@ -196,13 +198,13 @@ CORE_INTERNAL = re.compile(
 internals = {}
 for p_ in files:
     for mm in CORE_INTERNAL.finditer(p_.read_text(encoding="utf-8")):
-        internals[mm.group(1)] = p_.relative_to(CORE)
+        internals[mm.group(1)] = _src.rel_to_core(p_)
 
 outside = []
 if internals:
     others = []
     for r in _src.ROOTS:
-        if r.resolve() == CORE.resolve():
+        if r in _src.CORE_ROOTS:
             continue
         others.extend(r.rglob("*.kt"))
     for p_ in others:
@@ -230,7 +232,13 @@ for p in sorted(checks.glob("*.py")):
     if p.name in ("_src.py", "purecheck.py"):
         continue
     for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
-        if "app/src/main/java" in line or "core/src/main/kotlin" in line:
+        # فقط بخشِ کدِ خط. مسیری که در **توضیح** آمده بی‌خطر است و
+        # گرفتنش قرمزِ دروغ می‌دهد: `iconcolor.py` در توضیحش نوشته بود
+        # کدام مسیر عوض شده و چرا، و همین بررسی همان توضیح را «مسیرِ
+        # سفت» شمرد. سومین باری که یک نگهبانِ این پروژه متن را به‌جای کد
+        # خواند — `uicheck` و `deskdeps` هم همین را داشتند.
+        code = line.split("#", 1)[0]
+        if "app/src/main/java" in code or "core/src/" in code:
             hard.append((p.name, i, line.strip()))
 
 if hard:
