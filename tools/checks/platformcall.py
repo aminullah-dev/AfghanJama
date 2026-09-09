@@ -44,7 +44,27 @@ import sys
 import _src
 
 SUFFIXES = ("_skikoKt", "_desktopKt", "_jvmKt", "_awtKt", "_skikoMainKt")
-CLASSES = _src.REPO / "core/build/classes/kotlin/main"
+#: خروجیِ بایت‌کدِ `:core` — **مسیرش با چندسکویی شدن عوض شد.**
+#:
+#: ماژولِ سادهٔ JVM کلاس‌ها را در `classes/kotlin/main` می‌گذاشت؛
+#: چندسکویی هر هدف را جدا می‌کند و سهمِ JVM در `classes/kotlin/jvm/main`
+#: می‌نشیند. مسیرِ کهنه در CI به این خطا رسید:
+#:
+#:     ✗ …/core/build/classes/kotlin/main نیست — :core کامپایل نشده
+#:
+#: هدفِ iOS عمداً اینجا نیست: کلاسِ جاوا ندارد (klib می‌سازد) و خطری هم
+#: که این بررسی می‌گیرد — دو کلاسِ بایت‌کد با یک نامِ کاتلینی — فقط بینِ
+#: اندروید و دسکتاپ معنی دارد.
+#:
+#: ترتیب مهم است: مسیرِ تازه اول، تا اگر ساختِ کهنه‌ای روی دیسک مانده
+#: باشد سراغِ آن نرود.
+CLASSES = next(
+    (p for p in (
+        _src.REPO / "core/build/classes/kotlin/jvm/main",
+        _src.REPO / "core/build/classes/kotlin/main",
+    ) if p.exists()),
+    _src.REPO / "core/build/classes/kotlin/jvm/main",
+)
 LIST = pathlib.Path(__file__).resolve().parent / "platform_symbols.txt"
 
 require_bytecode = "--require-bytecode" in sys.argv
