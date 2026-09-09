@@ -43,6 +43,17 @@ signing.properties
 *.cer
 *.crt
 
+# و همان قاعده برای امضای مک. گواهیِ Developer ID با کلیدِ خصوصی‌اش
+# به‌صورتِ `.p12` بیرون داده می‌شود (که پایین‌تر مسدود است) و
+# `.provisionprofile` / `.mobileprovision` پروفایل‌های اپل‌اند.
+#
+# `*.p8` مهم‌تر از آن است که به نظر می‌آید: کلیدِ App Store Connect API
+# است و **یک بار بیشتر دانلود نمی‌شود**. با آن می‌شود به نامِ شما
+# notarize کرد و در حساب دست برد.
+*.provisionprofile
+*.mobileprovision
+*.p8
+
 # مسیرِ SDK روی کامپیوترِ شخصی — روی هیچ ماشینِ دیگری درست نیست
 local.properties
 
