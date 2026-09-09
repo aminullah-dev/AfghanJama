@@ -157,6 +157,59 @@ trap 'rm -f "$ENT"' EXIT
 # `--force` لازم است چون بعضی کتابخانه‌ها با امضای سازنده‌شان می‌آیند و
 # باید با گواهیِ ما دوباره امضا شوند.
 # ---------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# **اول داخلِ jarها — و این را اپل به ما یاد داد.**
+#
+# اولین ارسالِ واقعی `Invalid` برگشت با سه خطا، هر سه از یک جنس:
+#
+#     …/skiko-awt-runtime-macos-arm64-….jar/libskiko-macos-x64.dylib
+#     …/sqlite-bundled-jvm-….jar/natives/osx_x64/libsqliteJni.dylib
+#     …/sqlite-bundled-jvm-….jar/natives/osx_arm64/libsqliteJni.dylib
+#     "The binary is not signed with a valid Developer ID certificate."
+#
+# سرویسِ اپل jarها را **باز می‌کند** و هر Mach-Oی داخلشان را هم
+# می‌سنجد. حلقهٔ پایین روی فایل‌های روی دیسک راه می‌رود، پس این سه‌تا
+# را اصلاً نمی‌دید — نه خطایی، نه هشداری. `codesign --verify --deep
+# --strict` هم سبز بود، چون برای او jar فقط یک فایلِ داده است.
+#
+# ترتیب مهم است: jar باید **پیش از** امضای بسته دست‌کاری شود، وگرنه
+# مهرِ بیرونی می‌شکند.
+#
+# هر jar باز می‌شود و محتوایش با `file` سنجیده می‌شود، نه با پسوند. در
+# همین بسته `sqlite-bundled-jvm` چهار فایلِ بومی دارد ولی دوتاشان ELFِ
+# لینوکس‌اند؛ امضایشان هم بی‌معنی است و هم شکست می‌خورد. `file` آن دو
+# را خودش کنار می‌گذارد.
+#
+# نوشتنِ دوباره با `zip` روی همان jar است و نه ساختِ jarِ نو: فقط همان
+# یک ورودی جایگزین می‌شود و بقیهٔ بایگانی — از جمله `META-INF` — دست
+# نخورده می‌مانَد.
+# ---------------------------------------------------------------------
+echo "==> امضای فایل‌های بومیِ داخلِ jarها"
+jarcount=0
+UNJAR=$(mktemp -d -t khayatyar-jars)
+trap 'rm -f "$ENT"; rm -rf "$UNJAR"' EXIT
+while IFS= read -r -d '' jar; do
+  d="$UNJAR/$(basename "$jar" .jar)"
+  rm -rf "$d"; mkdir -p "$d"
+  unzip -qq -o "$jar" -d "$d" 2>/dev/null || continue
+  while IFS= read -r -d '' inner; do
+    case "$(file -b "$inner")" in
+      *Mach-O*)
+        codesign --force --timestamp --options runtime \
+          --entitlements "$ENT" --sign "$IDENTITY" "$inner"
+        # مسیرِ نسبی لازم است تا `zip` همان ورودی را جایگزین کند و
+        # ورودیِ تازه‌ای با مسیرِ مطلق نسازد.
+        rel="${inner#"$d"/}"
+        ( cd "$d" && zip -q "$jar" "$rel" )
+        echo "    $(basename "$jar") ← $rel"
+        jarcount=$((jarcount + 1))
+        ;;
+    esac
+  done < <(find "$d" -type f ! -name '*.class' -print0)
+  rm -rf "$d"
+done < <(find "$APP/Contents" -type f -name '*.jar' -print0)
+echo "    $jarcount فایلِ بومیِ داخلِ jar امضا شد"
+
 echo "==> امضای فایل‌های بومیِ داخلِ بسته"
 # چرا `-print0` و `read -d ''`: مسیرها می‌توانند فاصله داشته باشند و
 # حلقهٔ ساده روی فاصله می‌شکند.
@@ -202,7 +255,7 @@ STAGE=$(mktemp -d -t khayatyar-dmg)
 # پوشهٔ میانی یک کپیِ کاملِ بسته است — چند صد مگابایت. اگر `hdiutil`
 # بشکند، خطِ `rm -rf` پایین اجرا نمی‌شود و آن کپی در `/var/folders`
 # می‌مانَد بی اینکه کسی خبردار شود. پس به همان `trap` سپرده می‌شود.
-trap 'rm -f "$ENT"; rm -rf "$STAGE"' EXIT
+trap 'rm -f "$ENT"; rm -rf "$UNJAR" "$STAGE"' EXIT
 mkdir -p "$(dirname "$DMG")"
 rm -f "$DMG"
 
@@ -226,13 +279,37 @@ codesign --force --timestamp --sign "$IDENTITY" "$DMG"
 # notarizeنشده را هم با هشدار باز می‌کند. تأییدِ اپل چند دقیقه طول
 # می‌کشد؛ `--wait` تا آخرش می‌مانَد.
 # ---------------------------------------------------------------------
+#
+# **و چرا خروجی‌اش خوانده می‌شود و به کدِ خروج بسنده نمی‌شود.**
+#
+# `notarytool submit --wait` وقتی اپل بسته را **رد** می‌کند هم با کدِ
+# صفر برمی‌گردد. کدِ خروج فقط می‌گوید «گفت‌وگو با سرور انجام شد»، نه
+# «بسته پذیرفته شد». در اولین اجرای واقعی همین شد: وضعیت `Invalid`
+# بود، `if` نگرفت، و اسکریپت رفت سراغِ `stapler` — که آن‌وقت با
+# `Error 65` مرد. یعنی پیامی که کاربر می‌دید دربارهٔ `stapler` بود، نه
+# دربارهٔ سه dylibِ امضانشده که علتِ واقعی بودند.
+#
+# پس `status: Accepted` صریح خوانده می‌شود، و اگر نبود، خودِ گزارشِ
+# اپل همین‌جا چاپ می‌شود — نه اینکه کاربر را دنبالِ دستورِ بعدی
+# بفرستیم.
+#
 echo "==> ارسال به اپل (چند دقیقه طول می‌کشد)"
-if ! xcrun notarytool submit "$DMG" --keychain-profile "$PROFILE" --wait; then
+SUBMIT_OUT=$(mktemp -t khayatyar-notary)
+trap 'rm -f "$ENT" "$SUBMIT_OUT"; rm -rf "$UNJAR" "$STAGE"' EXIT
+xcrun notarytool submit "$DMG" --keychain-profile "$PROFILE" --wait 2>&1 | tee "$SUBMIT_OUT"
+
+if ! grep -q "status: Accepted" "$SUBMIT_OUT"; then
+  SUBID=$(sed -n 's/.*id: \([0-9a-f][0-9a-f-]\{30,\}\).*/\1/p' "$SUBMIT_OUT" | head -1)
   echo >&2
-  echo "✗ مرحلهٔ اپل نگرفت — یا ردش کرد یا ارتباط برقرار نشد." >&2
-  echo "  (پیامِ بالا می‌گوید کدام. اگر ردش کرده، دلیلِ دقیقش:)" >&2
-  echo "    xcrun notarytool history --keychain-profile $PROFILE" >&2
-  echo "    xcrun notarytool log <submission-id> --keychain-profile $PROFILE" >&2
+  echo "✗ اپل نپذیرفت." >&2
+  if [ -n "$SUBID" ]; then
+    echo >&2
+    echo "گزارشِ اپل برای $SUBID:" >&2
+    xcrun notarytool log "$SUBID" --keychain-profile "$PROFILE" >&2 || true
+  else
+    echo "  شناسهٔ ارسال در خروجی نبود — یعنی چیزی اصلاً به اپل نرسید." >&2
+    echo "  پیامِ بالا علتش را می‌گوید (معمولاً شبکه یا اعتبارنامه)." >&2
+  fi
   exit 1
 fi
 
