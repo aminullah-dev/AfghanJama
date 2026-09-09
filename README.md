@@ -58,8 +58,14 @@
 (۱۳۵ مگابایت). راهنمای کامل در
 [`docs/WINDOWS-NASB.md`](docs/WINDOWS-NASB.md).
 
-هر دو فایل امضای رسمی ندارند، پس ویندوز و اندروید یک بار هشدار
-می‌دهند. همهٔ نسخه‌ها در
+**مک (اپل سیلیکون و اینتل)** — هنوز در Releases نیست. DMG را CI روی
+هر تغییرِ `desktop/` می‌سازد و در
+[Actions ← «بستهٔ مک»](https://github.com/aminullah-dev/AfghanJama/actions/workflows/macos.yml)
+به‌عنوان artifact می‌گذارد.
+
+هر سه فایل امضای رسمی ندارند، پس هر سه سیستم یک بار هشدار
+می‌دهند. برای مک، امضا و notarize روی کمپیوترِ خودِ کارفرما انجام
+می‌شود: [`tools/macos-signing/`](tools/macos-signing/README.md). همهٔ نسخه‌ها در
 [صفحهٔ Releases](https://github.com/aminullah-dev/AfghanJama/releases).
 
 راهنمای کارِ روزمره: [`RAHNAMA.md`](RAHNAMA.md)
@@ -81,10 +87,13 @@
 # نسخهٔ ویندوز — فقط روی خودِ ویندوز (jpackage به WiX نیاز دارد)
 gradlew.bat :desktop:packageMsi
 
+# نسخهٔ مک — فقط روی خودِ مک (jpackage به hdiutil نیاز دارد)
+./gradlew :desktop:packageDmg
+
 # آزمون‌های ریاضیِ پول
 ./gradlew testDebugUnitTest
 
-# ۵۲ بررسیِ ساختاری — چند ثانیه، بی‌نیاز به Gradle
+# ۵۳ بررسیِ ساختاری — چند ثانیه، بی‌نیاز به Gradle
 python3 tools/checks/run_all.py
 ```
 
@@ -103,8 +112,8 @@ python3 tools/checks/run_all.py
 ```
 app/       نسخهٔ اندروید — Activity، ناوبری، مهاجرت‌های تاریخی
 core/      مشترکِ هر دو سکو — صفحه‌ها، ViewModelها، Room، منطقِ پول
-desktop/   نسخهٔ ویندوز — پنجره، فهرستِ کنار، بسته‌بندیِ MSI
-tools/     ۵۲ بررسیِ ساختاری، ناشرِ وردپرس، اسکریپت‌های امضای ویندوز
+desktop/   نسخهٔ ویندوز و مک — پنجره، فهرستِ کنار، MSI و DMG
+tools/     ۵۳ بررسیِ ساختاری، ناشرِ وردپرس، اسکریپت‌های امضای ویندوز و مک
 docs/      معماری، راهنمای ویندوز، مسئله‌های شناخته‌شده
 ```
 
@@ -145,7 +154,7 @@ comes from a single formula, so the quote calculator and the ledger can
 never disagree. *One definition, two platforms*: a schema migration is
 written once and reaches both Android and Windows.
 
-Alongside the code, `tools/checks/` holds 52 Python checks that run in
+Alongside the code, `tools/checks/` holds 53 Python checks that run in
 seconds and catch what the compiler cannot — missing imports, absent
 migrations, non-atomic operations, unreachable screens, and money logic
 verified against an independent simulation. Every check must be proven
@@ -153,7 +162,8 @@ to fail on deliberately broken code before it is accepted.
 
 Build with JDK 17: `./gradlew testDebugUnitTest` for the money tests,
 `python3 tools/checks/run_all.py` for the structural checks, and
-`gradlew.bat :desktop:packageMsi` on Windows for the installer.
+`gradlew.bat :desktop:packageMsi` on Windows for the installer, and
+`./gradlew :desktop:packageDmg` on macOS for the disk image.
 
 Downloads —
 [Android APK](https://github.com/aminullah-dev/AfghanJama/releases/download/v1.7.0/KhayatYar-1.7.0.apk)
@@ -161,4 +171,9 @@ Downloads —
 [Windows MSI](https://github.com/aminullah-dev/AfghanJama/releases/download/v1.7.0/KhayatYar-1.7.0.msi)
 (135 MB) ·
 [all releases](https://github.com/aminullah-dev/AfghanJama/releases).
-Neither file is code-signed, so both platforms warn once on first run.
+The macOS DMG is not published yet; CI builds it on every `desktop/`
+change and attaches it to the
+[macOS workflow run](https://github.com/aminullah-dev/AfghanJama/actions/workflows/macos.yml).
+None of the files are code-signed, so every platform warns once on
+first run. Signing for macOS runs on the owner's own Mac — the
+Developer ID certificate never leaves that machine.
