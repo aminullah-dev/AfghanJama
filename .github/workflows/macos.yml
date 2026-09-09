@@ -1,0 +1,75 @@
+name: بستهٔ مک
+
+# جدا از ویندوز و APK، و این جدایی اجباری است نه سلیقه‌ای:
+#
+# `jpackage` نمی‌تواند بستهٔ سکوی دیگر بسازد. DMG فقط از مک درمی‌آید،
+# همان‌طور که MSI فقط از ویندوز. پس این کار روی `macos-latest` می‌دود.
+#
+# **این کار عمداً امضا نمی‌کند.** گواهیِ Developer ID روی مکِ کارفرماست
+# و همان‌جا می‌مانَد — نه در مخزن، نه در Secrets. همان قاعده‌ای که برای
+# کلیدِ اندروید و ویندوز گذاشتیم. اینجا فقط ساخته می‌شود؛ امضا و
+# notarize با `tools/macos-signing/` روی خودِ مک انجام می‌شود.
+on:
+  workflow_dispatch:
+  push:
+    branches: ["**"]
+    paths:
+      - "desktop/**"
+      - "core/**"
+      - "gradle/**"
+      - "*.gradle.kts"
+      - "gradle.properties"
+      - ".github/workflows/macos.yml"
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: کشِ Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # مسیرِ SDKِ اندروید مالِ کمپیوترِ کارفرماست و روی رانر نیست.
+      - name: برداشتنِ local.properties
+        run: rm -f local.properties
+
+      # پیش از هر ساختی: اگر بررسی‌های ساختاری قرمزند، ساختنِ ۵۰ مگابایت
+      # بسته وقت تلف کردن است.
+      - name: بررسی‌های ساختاری
+        run: python3 tools/checks/run_all.py
+
+      - name: کامپایلِ نسخهٔ دسکتاپ
+        run: ./gradlew --no-daemon :desktop:compileKotlin
+
+      - name: ساختِ DMG
+        run: ./gradlew --no-daemon :desktop:packageDmg
+
+      # `packageDmg` می‌تواند سبز تمام شود و فایلی نساخته باشد — اگر
+      # jpackage چیزی پیدا نکند. پس وجودِ خودِ فایل سنجیده می‌شود، نه
+      # فقط کدِ خروجِ Gradle.
+      - name: مطمئن شو DMG واقعاً ساخته شد
+        run: |
+          dmg=$(find desktop/build/compose/binaries -name '*.dmg' | head -1)
+          if [ -z "$dmg" ]; then
+            echo "::error::هیچ DMGی ساخته نشد — ساخت سبز بود ولی خروجی ندارد."
+            find desktop/build/compose/binaries -maxdepth 3 -type d || true
+            exit 1
+          fi
+          echo "ساخته شد: $dmg ($(du -h "$dmg" | cut -f1))"
+
+      - name: بارگذاریِ DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: KhayatYar-macos-unsigned
+          path: desktop/build/compose/binaries/main/dmg/*.dmg
+          if-no-files-found: error
+          retention-days: 14
