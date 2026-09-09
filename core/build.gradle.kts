@@ -53,6 +53,23 @@ plugins {
      * `compose-bom:2025.04.01` هم همان را می‌آورد — دو نام برای یک چیز.
      */
     id("org.jetbrains.compose")
+    /*
+     * KSP — برای موتورِ Room روی iOS.
+     *
+     * `:core` تا دیروز فقط حاشیه‌نویسی‌های Room را داشت و موتورش در
+     * `:app` و `:desktop` بود. آن دو ماژول جاوایی‌اند و Room آنجا
+     * می‌تواند کلاسِ `_Impl` را با بازتاب پیدا کند. Kotlin/Native بازتاب
+     * ندارد، پس `@Database`ِ iOS باید همین‌جا و کنارِ کدِ خودش ساخته
+     * شود.
+     */
+    id("com.google.devtools.ksp")
+}
+
+ksp {
+    // طرحِ هر نسخه در گیت می‌ماند، مثلِ دو سکوی دیگر. بی این، تنها
+    // چیزی که تضمین می‌کند مهاجرت‌ها به همان طرحی برسند که موجودیت‌ها
+    // توصیف می‌کنند، آدم است.
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 kotlin {
@@ -195,6 +212,19 @@ kotlin {
             api("org.jetbrains.compose.material:material-icons-extended:1.7.3")
         }
 
+        iosMain.dependencies {
+            /*
+             * موتورِ Room و درایورِ SQLite — فقط سمتِ iOS.
+             *
+             * `sqlite-bundled` کتابخانهٔ بومیِ SQLite را با خودش می‌آورد،
+             * پس به نسخه‌ای که خودِ iOS دارد وابسته نیستیم و فایلِ دفتر
+             * بینِ سکوها یکسان می‌مانَد — همان کاری که `:desktop`
+             * می‌کند.
+             */
+            implementation("androidx.room:room-runtime:2.7.1")
+            implementation("androidx.sqlite:sqlite-bundled:2.5.1")
+        }
+
         jvmAndroidMain.dependencies {
             /*
              * JSONِ قراردادِ شبکه — فقط `lan/` استفاده‌اش می‌کند و آن
@@ -220,4 +250,16 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+}
+
+/*
+ * پردازشگرِ Room برای هر دو هدفِ iOS.
+ *
+ * KSP برای هر هدف جدا اجرا می‌شود و پیکربندی‌اش هم نامِ همان هدف را
+ * دارد؛ یک `ksp(...)`ِ ساده مثلِ ماژول‌های تک‌سکویی اینجا به هیچ هدفی
+ * نمی‌رسد و بی‌صدا هیچ کاری نمی‌کند.
+ */
+dependencies {
+    add("kspIosArm64", "androidx.room:room-compiler:2.7.1")
+    add("kspIosSimulatorArm64", "androidx.room:room-compiler:2.7.1")
 }

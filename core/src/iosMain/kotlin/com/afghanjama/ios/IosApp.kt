@@ -2,6 +2,7 @@ package com.afghanjama.ios
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.platform.Font
@@ -11,7 +12,6 @@ import androidx.compose.ui.window.ComposeUIViewController
 import com.afghanjama.prefs.IosSettings
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.ui.platform.LocalWidgets
-import com.afghanjama.ui.screens.LoginScreen
 import com.afghanjama.ui.theme.LightColors
 import com.afghanjama.ui.theme.appTypography
 import com.afghanjama.ui.vm.AuthViewModel
@@ -99,8 +99,8 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
             LocalSettings provides settings,
             LocalWidgets provides IosWidgets,
         ) {
-            val vm = AuthViewModel(settings)
-            LoginScreen(vm = vm, onLoggedIn = {})
+            val auth = remember { AuthViewModel(settings) }
+            IosShell(auth)
         }
     }
 }

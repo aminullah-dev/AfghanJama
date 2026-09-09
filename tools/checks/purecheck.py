@@ -97,10 +97,33 @@ RUNTIME_ONLY = (
     "import androidx.room.util",
 )
 
+#: منبع‌هایی که کدشان فقط برای **یک** سکو ساخته می‌شود.
+#:
+#: **و چرا این استثنا قاعده را سست نمی‌کند.** دلیلِ کلِ این ممنوعیت در
+#: پیامش نوشته است: «`:core` باید روی ویندوز هم کامپایل شود». یعنی
+#: ممنوعیت مالِ کدی است که **همه‌جا** ساخته می‌شود. `iosMain` هرگز روی
+#: ویندوز یا اندروید ساخته نمی‌شود، و موتورِ Room (`room-runtime` و
+#: `sqlite-bundled`) آنجا وابستگیِ واقعی و اعلام‌شده است — نسخهٔ آیفون
+#: دفترِ خودش را باز می‌کند، همان‌طور که `:desktop` و `:app` می‌کنند.
+#:
+#: `commonMain` و `jvmAndroidMain` استثنا **نیستند**: موتورِ دیتابیس
+#: هرگز نباید به کدِ مشترک نشت کند، و همان چیزی است که این بررسی از روزِ
+#: اول نگه داشته.
+#:
+#: و `import android.` حتی اینجا هم ممنوع می‌مانَد — روی iOS بی‌معنی
+#: است و اگر پیدا شود یعنی کسی چیزی را از جای اشتباه کپی کرده.
+SINGLE_PLATFORM = ("iosMain",)
+
 bad = []
 files = sorted(CORE.rglob("*.kt"))
 for p in files:
+    ios_only = any(f"/{d}/" in p.as_posix() for d in SINGLE_PLATFORM)
     for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
+        if ios_only:
+            # فقط اندرویدِ واقعی، نه androidx که آنجا وابستگیِ درست است.
+            if line.startswith("import android."):
+                bad.append((_src.rel_to_core(p), i, line.strip()))
+            continue
         runtime = line.startswith(RUNTIME_ONLY) or line.rstrip() in (
             "import androidx.room.Room",
         )
