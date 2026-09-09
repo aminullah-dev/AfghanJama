@@ -149,6 +149,25 @@ kotlin {
     }
 }
 
+/*
+ * **و همین را برای Java هم باید گفت، وگرنه ساخت روی JDK 21 نمی‌گیرد.**
+ *
+ * بالا فقط هدفِ Kotlin عوض شد؛ `compileJava` همچنان هر JDKی که Gradle
+ * روی آن است را هدف می‌گرفت. روی CI (که JDK 17 می‌گذارد) هر دو ۱۷
+ * می‌شدند و چیزی معلوم نبود، ولی روی مکی که JDK 21 دارد — یعنی هر
+ * کمپیوتری با Android Studioی امروزی — ساخت همان اول می‌ترکید:
+ *
+ *     Inconsistent JVM-target compatibility detected for tasks
+ *     'compileJava' (21) and 'kspKotlin' (17)
+ *
+ * `:core` این بند را از قبل داشت و به همین دلیل سالم می‌ساخت؛ `:desktop`
+ * جا افتاده بود.
+ */
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
 compose.desktop {
     application {
         mainClass = "com.afghanjama.desktop.MainKt"

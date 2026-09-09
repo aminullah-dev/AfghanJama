@@ -78,10 +78,27 @@ private object DesktopViewModelStoreOwner : ViewModelStoreOwner {
     override val viewModelStore = ViewModelStore()
 }
 
+/**
+ * نامی که روی نوارِ پنجره می‌نشیند.
+ *
+ * تا دیروز اینجا «نسخهٔ ویندوز» سفت نوشته شده بود، چون این ماژول فقط
+ * ویندوز را می‌ساخت. حالا همین ماژول DMGِ مک را هم می‌سازد و نتیجه‌اش
+ * پنجره‌ای بود که روی مک خودش را «نسخهٔ ویندوز» معرفی می‌کرد — چیزی که
+ * هیچ بررسیِ خودکاری نمی‌گیرد و فقط با باز کردنِ برنامه دیده می‌شود.
+ */
+private val platformName: String = run {
+    val os = System.getProperty("os.name").orEmpty().lowercase()
+    when {
+        os.contains("mac") || os.contains("darwin") -> "نسخهٔ مک"
+        os.contains("win") -> "نسخهٔ ویندوز"
+        else -> "نسخهٔ رومیزی"
+    }
+}
+
 fun main() = application {
     Window(
         onCloseRequest = ::exitApplication,
-        title = "${AppInfo.NAME} — نسخهٔ ویندوز"
+        title = "${AppInfo.NAME} — $platformName"
     ) {
         MaterialTheme(
             // **همان پالتِ گوشی**، از `:core`. تا دیروز اینجا چهار رنگ

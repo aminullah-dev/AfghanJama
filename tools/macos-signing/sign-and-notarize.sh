@@ -15,9 +15,11 @@
 # اجرا:
 #   ./tools/macos-signing/sign-and-notarize.sh "Developer ID Application: NAME (TEAMID)"
 #
-# **این اسکریپت روی مک آزموده نشده.** منطقش از مستنداتِ اپل نوشته شده و
-# دام‌های شناخته بسته شده‌اند (پایین توضیح داده‌اند)، ولی اولین اجرا
-# احتمالاً چیزی می‌گوید. متنِ خطا را بردارید و بیاورید.
+# **بندهای ۰ تا ۴ روی مک آزموده شده‌اند؛ بندهای ۵ و ۶ نه.** ساخت، امضای
+# ۴۶ فایلِ بومی، امضای بسته، `--verify --strict` و ساخت و امضای DMG همه
+# روی macOS 26.6 گرفتند. `notarytool` و `stapler` آزموده نشدند چون
+# گواهیِ Developer ID روی آن مک نبود. اگر آن دو چیزی گفتند، متنِ خطا را
+# بردارید و بیاورید.
 
 # `-u` هم هست: نامِ متغیرِ غلط باید بترکد، نه اینکه بی‌صدا خالی بماند و
 # مثلاً `codesign` را روی مسیرِ `/` بیندازد.
@@ -37,6 +39,40 @@ fi
 
 cd "$(dirname "$0")/../.."
 REPO="$PWD"
+
+# ---------------------------------------------------------------------
+# ۰. پیش‌وارسیِ دو پیش‌نیاز — **پیش از هر کارِ سنگین.**
+#
+# این بند بعد از اولین اجرای واقعی روی مک اضافه شد. بی آن، نبودنِ نمایهٔ
+# جاکلیدی تازه در بندِ ۵ معلوم می‌شد: یعنی بعد از ساختِ بسته، امضای ۴۶
+# فایل با مهرِ زمانیِ شبکه، ساختِ یک DMGِ ۱۵۰ مگابایتی و امضای آن. همهٔ
+# آن کار برای رسیدن به خطایی که از ثانیهٔ اول معلوم بود.
+#
+# هر دو با خودِ ابزار سنجیده می‌شوند و نه با حدس: `find-identity` همان
+# فهرستی است که `codesign` از آن برمی‌دارد، و `history` همان جاکلیدی‌ای
+# که `notarytool` می‌خوانَد.
+# ---------------------------------------------------------------------
+if ! security find-identity -v -p codesigning | grep -qF "$IDENTITY"; then
+  echo "✗ گواهیِ «${IDENTITY}» در جاکلیدی نیست." >&2
+  echo >&2
+  echo "آنچه هست:" >&2
+  security find-identity -v -p codesigning >&2 || true
+  echo >&2
+  echo "اگر «Developer ID Application» در فهرست نیست، هنوز ساخته نشده؛" >&2
+  echo "ساختنش در README.md کنارِ همین فایل، بندِ پیش‌نیازها." >&2
+  exit 2
+fi
+
+if ! xcrun notarytool history --keychain-profile "$PROFILE" >/dev/null 2>&1; then
+  echo "✗ نمایهٔ جاکلیدیِ «${PROFILE}» ساخته نشده." >&2
+  echo >&2
+  echo "یک بار بسازیدش (رمزِ ویژه لازم است، نه رمزِ اصلیِ اپل):" >&2
+  echo "    xcrun notarytool store-credentials $PROFILE \\" >&2
+  echo "      --apple-id \"ایمیلِ اپلتان\" --team-id \"TEAMID\" --password \"رمزِ-ویژه\"" >&2
+  echo >&2
+  echo "توضیحِ کاملش در README.md کنارِ همین فایل." >&2
+  exit 2
+fi
 
 # ---------------------------------------------------------------------
 # ۱. بسته را بساز
@@ -163,6 +199,10 @@ codesign --verify --deep --strict --verbose=2 "$APP"
 # ---------------------------------------------------------------------
 DMG="$REPO/desktop/build/compose/binaries/main/dmg/KhayatYar-$VERSION.dmg"
 STAGE=$(mktemp -d -t khayatyar-dmg)
+# پوشهٔ میانی یک کپیِ کاملِ بسته است — چند صد مگابایت. اگر `hdiutil`
+# بشکند، خطِ `rm -rf` پایین اجرا نمی‌شود و آن کپی در `/var/folders`
+# می‌مانَد بی اینکه کسی خبردار شود. پس به همان `trap` سپرده می‌شود.
+trap 'rm -f "$ENT"; rm -rf "$STAGE"' EXIT
 mkdir -p "$(dirname "$DMG")"
 rm -f "$DMG"
 
@@ -189,7 +229,8 @@ codesign --force --timestamp --sign "$IDENTITY" "$DMG"
 echo "==> ارسال به اپل (چند دقیقه طول می‌کشد)"
 if ! xcrun notarytool submit "$DMG" --keychain-profile "$PROFILE" --wait; then
   echo >&2
-  echo "✗ اپل ردش کرد. برای دیدنِ دلیل:" >&2
+  echo "✗ مرحلهٔ اپل نگرفت — یا ردش کرد یا ارتباط برقرار نشد." >&2
+  echo "  (پیامِ بالا می‌گوید کدام. اگر ردش کرده، دلیلِ دقیقش:)" >&2
   echo "    xcrun notarytool history --keychain-profile $PROFILE" >&2
   echo "    xcrun notarytool log <submission-id> --keychain-profile $PROFILE" >&2
   exit 1
