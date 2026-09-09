@@ -228,7 +228,23 @@ if outside:
 # برای یک بررسی.
 checks = pathlib.Path(__file__).resolve().parent
 hard = []
-for p in sorted(checks.glob("*.py")):
+HARD_PATH = re.compile(r"app/src/main/java|core/src/(?:main|\w*Main)\b")
+
+# **و فایل‌های کارِ CI هم، نه فقط بررسی‌ها.**
+#
+# این نگهبان تا دیروز فقط `tools/checks/*.py` را می‌دید. با جابه‌جا شدنِ
+# `:core` معلوم شد همان پوسیدگی یک جای دیگر هم بود: `checks.yml` دو بار
+# `core/src/main/kotlin/.../DbSchema.kt` را مستقیم می‌خواند و CI شکست —
+# بعد از اینکه هر ۵۳ بررسی محلی سبز شده بودند.
+#
+# `core/src` تنها (مثلِ `find core/src -path …`) مشکلی ندارد و گرفته
+# نمی‌شود؛ آنچه گرفته می‌شود مسیری است که به یک **منبعِ مشخص** می‌رسد.
+scanned = sorted(checks.glob("*.py"))
+workflows = _src.REPO / ".github/workflows"
+if workflows.is_dir():
+    scanned += sorted(workflows.glob("*.yml"))
+
+for p in scanned:
     if p.name in ("_src.py", "purecheck.py"):
         continue
     for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
@@ -238,7 +254,7 @@ for p in sorted(checks.glob("*.py")):
         # سفت» شمرد. سومین باری که یک نگهبانِ این پروژه متن را به‌جای کد
         # خواند — `uicheck` و `deskdeps` هم همین را داشتند.
         code = line.split("#", 1)[0]
-        if "app/src/main/java" in code or "core/src/" in code:
+        if HARD_PATH.search(code):
             hard.append((p.name, i, line.strip()))
 
 if hard:

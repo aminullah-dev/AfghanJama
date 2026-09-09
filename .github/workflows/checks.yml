@@ -130,9 +130,14 @@ jobs:
         run: |
           python3 - <<'PY'
           import pathlib, re, sys, json
+          # مسیر سفت نوشته نمی‌شود: `:core` چندسکویی است و کدِ مشترکش
+          # در `commonMain` می‌نشیند، نه `main`. با `rglob` هر چیدمانی
+          # کار می‌کند — و اگر فایل نبود، بلند می‌شکند.
+          hits = sorted(pathlib.Path('core/src').rglob('data/DbSchema.kt'))
+          if not hits:
+              sys.exit('✗ DbSchema.kt در core/src پیدا نشد')
           ver = int(re.search(r'const val DB_VERSION\s*=\s*(\d+)',
-                pathlib.Path('core/src/main/kotlin/com/afghanjama/data/DbSchema.kt')
-                .read_text(encoding='utf-8')).group(1))
+                hits[0].read_text(encoding='utf-8')).group(1))
           bad = []
           for mod in ('app', 'desktop'):
               hits = list(pathlib.Path(mod).glob(f'schemas/**/{ver}.json'))
@@ -182,8 +187,9 @@ jobs:
       - name: طرحِ کامیت‌نشده را در لاگ بگذار
         if: always()
         run: |
+          schema=$(find core/src -path '*/data/DbSchema.kt' | head -1)
           ver=$(sed -n 's/.*const val DB_VERSION *= *\([0-9]\+\).*/\1/p' \
-                core/src/main/kotlin/com/afghanjama/data/DbSchema.kt | head -1)
+                "$schema" | head -1)
           if [ -z "$ver" ]; then
             echo "DB_VERSION خوانده نشد — چیزی چاپ نمی‌شود."
           elif git ls-files --error-unmatch "app/schemas/*/$ver.json" >/dev/null 2>&1; then
