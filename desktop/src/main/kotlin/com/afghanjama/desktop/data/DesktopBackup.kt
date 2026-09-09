@@ -4,6 +4,7 @@ import com.afghanjama.data.DB_NAME
 import com.afghanjama.data.DB_VERSION
 import com.afghanjama.data.DESKTOP_BASELINE
 import com.afghanjama.util.BackupArchive
+import com.afghanjama.util.BackupArchiveIo
 import java.io.File
 
 /**
@@ -52,7 +53,7 @@ object DesktopBackup {
     internal fun writeBackup(db: File, target: File) {
         if (!db.exists() || db.length() <= 0L) error("دفتری برای پشتیبان‌گیری نیست.")
         target.outputStream().use { out ->
-            BackupArchive.write(db, null, out)
+            BackupArchiveIo.write(db, null, out)
         }
     }
 
@@ -120,7 +121,7 @@ object DesktopBackup {
         try {
             source.inputStream().use { input ->
                 if (format == BackupArchive.Format.ZIP) {
-                    val res = BackupArchive.extract(input, staged, scratchPhotos)
+                    val res = BackupArchiveIo.extract(input, staged, scratchPhotos)
                     if (!res.dbWritten) error("فایلِ پشتیبان دیتابیس ندارد.")
                 } else {
                     staged.outputStream().use { input.copyTo(it) }
