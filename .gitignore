@@ -54,3 +54,9 @@ local.properties
 wp-credentials.json
 *.p12
 *.pem
+
+# Xcode — پروژه از `iosApp/project.yml` با xcodegen ساخته می‌شود، پس
+# خودِ `.xcodeproj` تولیدشده است و در مخزن جایی ندارد.
+iosApp/KhayatYar.xcodeproj/
+iosApp/build/
+iosApp/KhayatYar/Info.plist

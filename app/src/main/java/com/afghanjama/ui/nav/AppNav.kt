@@ -1,6 +1,7 @@
 // app/src/main/java/com/afghanjama/ui/nav/AppNav.kt
 package com.afghanjama.ui.nav
 
+import com.afghanjama.ui.nav.bottomItemsFor
 import android.app.Activity
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
@@ -128,77 +129,6 @@ import com.afghanjama.ui.vm.JournalViewModel
 import com.afghanjama.ui.vm.SampleWorkshopViewModel
 import com.afghanjama.ui.vm.WarehouseViewModel
 import com.afghanjama.ui.vm.WorkshopLinkViewModel
-
-/** آیتم نوار پایین. */
-private data class BottomItem(
-    val route: String,
-    val label: String,
-    val icon: ImageVector,
-    /**
-     * مسیرهای دیگری که همین خانه نمایندگی‌شان می‌کند.
-     *
-     * «کارگاه» سه مرحله را زیرِ خودش دارد؛ بی این، کاربر روی دوخت
-     * می‌رفت و نوارِ پایین هیچ خانه‌ای را روشن نشان نمی‌داد — یعنی
-     * «کجا هستم؟» بی‌جواب می‌مانْد.
-     */
-    val alsoOwns: List<String> = emptyList()
-) {
-    fun owns(route: String?): Boolean = route == this.route || route in alsoOwns
-}
-
-/** آیتم‌های نوار پایین بر اساس نقش کاربر. */
-private fun bottomItemsFor(role: UserRole): List<BottomItem> = when (role) {
-    // **پنج خانه، نه هفت.**
-    //
-    // تا امروز هفت تا بود: خانه، تولید، برش، دوخت، نظارت، فروش، مالی.
-    // متریال سه تا پنج می‌گوید. اول فکر کردم دلیلش هدفِ لمس است، ولی
-    // اندازه گرفتم و نبود: روی باریک‌ترین گوشیِ رایج (۳۶۰dp) هفت خانه
-    // ۵۱٫۴dp می‌دهد، بالای حدِ ۴۸dp.
-    //
-    // مسئله خواندن است. برچسبِ فارسی در ۵۱ نقطه جا می‌شود ولی جایی
-    // برای نفس کشیدن ندارد، و چشم برای پیدا کردنِ یکی همهٔ هفت تا را
-    // می‌خواند. با پنج خانه همان برچسب‌ها ۷۲ نقطه دارند.
-    //
-    // برش و دوخت و نظارت یک کارند که پشتِ سرِ هم می‌آیند. حالا زیرِ
-    // «کارگاه» جمع شده‌اند و در خودِ آن صفحه‌ها با چیپ از هم جدا
-    // می‌شوند. هیچ صفحه‌ای حذف نشد — فقط راهِ رسیدن یکی شد.
-    UserRole.MANAGER -> listOf(
-        BottomItem(Routes.HOME, "خانه", Icons.Default.Home),
-        BottomItem(Routes.INVENTORY, "سفارش‌ها", Icons.Default.Inventory2),
-        BottomItem(
-            Routes.CUTTING, "کارگاه", Icons.Default.ContentCut,
-            alsoOwns = listOf(Routes.SEWING, Routes.REVIEW)
-        ),
-        BottomItem(Routes.FINISHED_SALES, "فروش", Icons.Default.Storefront),
-        BottomItem(Routes.FINANCE, "مالی", Icons.Default.Payments)
-    )
-
-    UserRole.PURCHASE -> listOf(
-        BottomItem(Routes.HOME, "خانه", Icons.Default.Home),
-        BottomItem(Routes.PROCUREMENT, "خرید مواد", Icons.Default.ShoppingCart),
-        BottomItem(Routes.WAREHOUSE, "انبار", Icons.Default.Warehouse),
-        BottomItem(Routes.SETTINGS, "تنظیمات", Icons.Default.Settings)
-    )
-
-    UserRole.SEWING -> listOf(
-        BottomItem(Routes.HOME, "خانه", Icons.Default.Home),
-        BottomItem(Routes.CUTTING, "برش", Icons.Default.ContentCut),
-        BottomItem(Routes.SEWING, "دوخت", Icons.Default.Checkroom),
-        BottomItem(Routes.SETTINGS, "تنظیمات", Icons.Default.Settings)
-    )
-
-    UserRole.REVIEW -> listOf(
-        BottomItem(Routes.HOME, "خانه", Icons.Default.Home),
-        BottomItem(Routes.REVIEW, "نظارت", Icons.Default.VerifiedUser),
-        BottomItem(Routes.SETTINGS, "تنظیمات", Icons.Default.Settings)
-    )
-
-    UserRole.SALES -> listOf(
-        BottomItem(Routes.HOME, "خانه", Icons.Default.Home),
-        BottomItem(Routes.FINISHED_SALES, "فروش", Icons.Default.Storefront),
-        BottomItem(Routes.SETTINGS, "تنظیمات", Icons.Default.Settings)
-    )
-}
 
 @Composable
 fun AppNav(factory: ViewModelProvider.Factory) {

@@ -17,7 +17,9 @@ import sys
 import _src
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
-CORE = REPO / "core/src/main/kotlin"
+# مسیر از `_src` می‌آید، نه سفت اینجا — همان قانونی که همین فایل پایین
+# بر بقیهٔ بررسی‌ها اعمال می‌کند. `:core` حالا سه پوشهٔ منبع دارد.
+CORE = _src.CORE
 
 BANNED = ("import android.", "import androidx.")
 
@@ -95,17 +97,40 @@ RUNTIME_ONLY = (
     "import androidx.room.util",
 )
 
+#: منبع‌هایی که کدشان فقط برای **یک** سکو ساخته می‌شود.
+#:
+#: **و چرا این استثنا قاعده را سست نمی‌کند.** دلیلِ کلِ این ممنوعیت در
+#: پیامش نوشته است: «`:core` باید روی ویندوز هم کامپایل شود». یعنی
+#: ممنوعیت مالِ کدی است که **همه‌جا** ساخته می‌شود. `iosMain` هرگز روی
+#: ویندوز یا اندروید ساخته نمی‌شود، و موتورِ Room (`room-runtime` و
+#: `sqlite-bundled`) آنجا وابستگیِ واقعی و اعلام‌شده است — نسخهٔ آیفون
+#: دفترِ خودش را باز می‌کند، همان‌طور که `:desktop` و `:app` می‌کنند.
+#:
+#: `commonMain` و `jvmAndroidMain` استثنا **نیستند**: موتورِ دیتابیس
+#: هرگز نباید به کدِ مشترک نشت کند، و همان چیزی است که این بررسی از روزِ
+#: اول نگه داشته.
+#:
+#: و `import android.` حتی اینجا هم ممنوع می‌مانَد — روی iOS بی‌معنی
+#: است و اگر پیدا شود یعنی کسی چیزی را از جای اشتباه کپی کرده.
+SINGLE_PLATFORM = ("iosMain",)
+
 bad = []
 files = sorted(CORE.rglob("*.kt"))
 for p in files:
+    ios_only = any(f"/{d}/" in p.as_posix() for d in SINGLE_PLATFORM)
     for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
+        if ios_only:
+            # فقط اندرویدِ واقعی، نه androidx که آنجا وابستگیِ درست است.
+            if line.startswith("import android."):
+                bad.append((_src.rel_to_core(p), i, line.strip()))
+            continue
         runtime = line.startswith(RUNTIME_ONLY) or line.rstrip() in (
             "import androidx.room.Room",
         )
         runtime = runtime or line.startswith(LIFECYCLE_ANDROID)
         runtime = runtime or line.startswith(COMPOSE_ANDROID)
         if runtime or (line.startswith(BANNED) and not line.startswith(ALLOWED)):
-            bad.append((p.relative_to(CORE), i, line.strip()))
+            bad.append((_src.rel_to_core(p), i, line.strip()))
 
 # ---- نشتیِ موتورِ دیتابیس ----
 #
@@ -123,7 +148,7 @@ for p_ in files:
             continue
         for name in ENGINE:
             if f".{name}" in line:
-                leaks.append((p_.relative_to(CORE), i, name, line.strip()))
+                leaks.append((_src.rel_to_core(p_), i, name, line.strip()))
 
 if leaks:
     print(f"✗ {len(leaks)} نشتیِ موتورِ دیتابیس در :core")
@@ -172,7 +197,7 @@ for p_ in files:
         for mm in FQ.finditer(line):
             pkg = "com.afghanjama." + mm.group(1).rstrip(".")
             if pkg not in core_pkgs:
-                fq_bad.append((p_.relative_to(CORE), i, f"{pkg}.{mm.group(2)}"))
+                fq_bad.append((_src.rel_to_core(p_), i, f"{pkg}.{mm.group(2)}"))
 
 if fq_bad:
     print(f"✗ {len(fq_bad)} ارجاعِ کاملاً مقید از :core به بستهٔ بیرونی")
@@ -196,13 +221,13 @@ CORE_INTERNAL = re.compile(
 internals = {}
 for p_ in files:
     for mm in CORE_INTERNAL.finditer(p_.read_text(encoding="utf-8")):
-        internals[mm.group(1)] = p_.relative_to(CORE)
+        internals[mm.group(1)] = _src.rel_to_core(p_)
 
 outside = []
 if internals:
     others = []
     for r in _src.ROOTS:
-        if r.resolve() == CORE.resolve():
+        if r in _src.CORE_ROOTS:
             continue
         others.extend(r.rglob("*.kt"))
     for p_ in others:
@@ -226,11 +251,33 @@ if outside:
 # برای یک بررسی.
 checks = pathlib.Path(__file__).resolve().parent
 hard = []
-for p in sorted(checks.glob("*.py")):
+HARD_PATH = re.compile(r"app/src/main/java|core/src/(?:main|\w*Main)\b")
+
+# **و فایل‌های کارِ CI هم، نه فقط بررسی‌ها.**
+#
+# این نگهبان تا دیروز فقط `tools/checks/*.py` را می‌دید. با جابه‌جا شدنِ
+# `:core` معلوم شد همان پوسیدگی یک جای دیگر هم بود: `checks.yml` دو بار
+# `core/src/main/kotlin/.../DbSchema.kt` را مستقیم می‌خواند و CI شکست —
+# بعد از اینکه هر ۵۳ بررسی محلی سبز شده بودند.
+#
+# `core/src` تنها (مثلِ `find core/src -path …`) مشکلی ندارد و گرفته
+# نمی‌شود؛ آنچه گرفته می‌شود مسیری است که به یک **منبعِ مشخص** می‌رسد.
+scanned = sorted(checks.glob("*.py"))
+workflows = _src.REPO / ".github/workflows"
+if workflows.is_dir():
+    scanned += sorted(workflows.glob("*.yml"))
+
+for p in scanned:
     if p.name in ("_src.py", "purecheck.py"):
         continue
     for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
-        if "app/src/main/java" in line or "core/src/main/kotlin" in line:
+        # فقط بخشِ کدِ خط. مسیری که در **توضیح** آمده بی‌خطر است و
+        # گرفتنش قرمزِ دروغ می‌دهد: `iconcolor.py` در توضیحش نوشته بود
+        # کدام مسیر عوض شده و چرا، و همین بررسی همان توضیح را «مسیرِ
+        # سفت» شمرد. سومین باری که یک نگهبانِ این پروژه متن را به‌جای کد
+        # خواند — `uicheck` و `deskdeps` هم همین را داشتند.
+        code = line.split("#", 1)[0]
+        if HARD_PATH.search(code):
             hard.append((p.name, i, line.strip()))
 
 if hard:

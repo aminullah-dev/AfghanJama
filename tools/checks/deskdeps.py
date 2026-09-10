@@ -102,10 +102,15 @@ declared = {m.group(2) for ln in build_lines for m in DECLARE.finditer(ln)}
 # icons می‌آید؛ برای همین جدا نگاه می‌شود.
 used = {}
 needs_lifecycle = None
+def rel(p, root):
+    """مسیرِ نسبی — `:core` سه پوشهٔ منبع دارد و ریشه‌اش یکی نیست."""
+    return _src.rel_to_core(p) if root is _src.CORE else p.relative_to(root)
+
+
 for p, root, mod in files:
     for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
         if LIFECYCLE.match(line.strip()) and needs_lifecycle is None:
-            needs_lifecycle = (f"{mod}/{p.relative_to(root)}", i)
+            needs_lifecycle = (f"{mod}/{rel(p, root)}", i)
         m = IMPORT.match(line.strip())
         if not m:
             continue
@@ -114,7 +119,7 @@ for p, root, mod in files:
             fam = "materialIconsExtended"
         if fam in BUNDLED:
             continue
-        used.setdefault(fam, (f"{mod}/{p.relative_to(root)}", i))
+        used.setdefault(fam, (f"{mod}/{rel(p, root)}", i))
 
 # متنِ خامِ خطوطِ وابستگی — برای مختصاتِ رشته‌ای که `DECLARE` نمی‌گیرد.
 declared_text = "\n".join(build_lines)

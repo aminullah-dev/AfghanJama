@@ -44,18 +44,35 @@ for _stream in (sys.stdout, sys.stderr):
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 
+#: ریشه‌های `:core` — از وقتی چندسکویی شد، **سه‌تا**.
+#:
+#: تا دیروز یک پوشه بود (`core/src/main/kotlin`). با آمدنِ iOS، کاتلین
+#: کد را بر اساسِ سکو تقسیم می‌کند و هر سه اینجا واقعی‌اند:
+#:
+#:     commonMain      کدی که هر سه سکو می‌سازند
+#:     jvmAndroidMain  ویندوز و گوشی (شبکه، رمزنگاری، زیپ)
+#:     iosMain         سهمِ آیفون
+#:
+#: **و این تغییر همان دامی را زد که این فایل برای بستنش نوشته شده
+#: بود.** با جابه‌جا شدنِ پوشه، هر ۵۲ بررسی فایل‌ها را گم کردند. خوب
+#: است که قرمز شدند و نه سبز — همان چیزی که توضیحِ بالا وعده‌اش را
+#: داده بود — ولی نشان می‌دهد فهرستِ ریشه‌ها باید با ساختِ ماژول‌ها
+#: هم‌گام بماند.
+CORE_ROOTS = [
+    REPO / "core/src/commonMain/kotlin",
+    REPO / "core/src/jvmAndroidMain/kotlin",
+    REPO / "core/src/iosMain/kotlin",
+]
+
 #: ریشه‌های سورس، به ترتیبِ جست‌وجو
-ROOTS = [
-    REPO / "core/src/main/kotlin",
+ROOTS = CORE_ROOTS + [
     REPO / "app/src/main/java",
     REPO / "desktop/src/main/kotlin",
 ]
 
-#: همان ریشه‌ها با نام — برای بررسی‌هایی که به یک ماژولِ مشخص کار دارند.
-#:
-#: `ROOTS[0]` و `ROOTS[-1]` هم کار می‌کند ولی خوانده نمی‌شود، و اگر روزی
-#: ماژولی به ابتدای فهرست اضافه شود بی‌سروصدا ماژولِ اشتباه را می‌گیرد.
-CORE, APP, DESKTOP = ROOTS
+#: ریشه‌ها با نام — برای بررسی‌هایی که به یک ماژولِ مشخص کار دارند.
+APP = REPO / "app/src/main/java"
+DESKTOP = REPO / "desktop/src/main/kotlin"
 
 #: همان ریشه‌ها، تا سرِ بستهٔ اصلی
 PKG_ROOTS = [r / "com/afghanjama" for r in ROOTS]
@@ -118,3 +135,56 @@ class _AnyRoot:
 
 #: ریشهٔ «هر ماژولی» — جایگزینِ مسیرِ ثابتِ قدیمی
 ANY = _AnyRoot()
+
+
+class _CoreRoot:
+    """`:core` که حالا سه پوشه است ولی مثلِ یکی رفتار می‌کند.
+
+    بررسی‌ها همه به شکلِ ``_src.CORE / "com/afghanjama/…"`` یا
+    ``_src.CORE.rglob("*.kt")`` نوشته شده‌اند و آن نوشتار درست است —
+    آنچه عوض شده این است که کاتلین کدِ یک ماژول را در چند پوشه
+    می‌چیند. پس همان نوشتار می‌مانَد و جست‌وجو در هر سه انجام می‌شود.
+
+    مثلِ [_AnyRoot]، فایلِ نبوده **بلند خطا می‌دهد** نه اینکه بی‌صدا رد
+    شود.
+    """
+
+    def __truediv__(self, rel):
+        rel = str(rel)
+        for r in CORE_ROOTS:
+            p = r / rel
+            if p.exists():
+                return p
+        raise FileNotFoundError(
+            f"{rel} در هیچ‌کدام از منبع‌های :core نیست: "
+            f"{[str(r) for r in CORE_ROOTS]}"
+        )
+
+    def rglob(self, pattern):
+        out = []
+        for r in CORE_ROOTS:
+            out.extend(r.rglob(pattern))
+        return sorted(out)
+
+    def exists(self):
+        return any(r.exists() for r in CORE_ROOTS)
+
+    def __str__(self):
+        return " + ".join(str(r) for r in CORE_ROOTS)
+
+
+#: `:core` — سه پوشه، یک ماژول
+CORE = _CoreRoot()
+
+
+def rel_to_core(path):
+    """مسیرِ نسبیِ یک فایلِ `:core`، از هر کدام از سه پوشه که باشد.
+
+    جایگزینِ `p.relative_to(CORE)` که وقتی ریشه یکی بود کار می‌کرد.
+    """
+    for r in CORE_ROOTS:
+        try:
+            return path.relative_to(r)
+        except ValueError:
+            continue
+    return path

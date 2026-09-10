@@ -1,0 +1,59 @@
+# پروژهٔ Xcode از این فایل ساخته می‌شود، نه دستی.
+#
+# چرا xcodegen: فایلِ `.pbxproj` چند هزار خطِ تولیدشده است که هیچ‌کس
+# نمی‌خوانَدش و هر ادغام رویش تعارض می‌دهد. این چهل خط همان را توصیف
+# می‌کند و با `xcodegen generate` ساخته می‌شود.
+name: KhayatYar
+options:
+  bundleIdPrefix: com.afghanjama
+  deploymentTarget:
+    iOS: "15.0"
+  createIntermediateGroups: true
+
+targets:
+  KhayatYar:
+    type: application
+    platform: iOS
+    sources:
+      - path: KhayatYar
+    resources:
+      # قلمِ وزیر — همان فایل‌هایی که اندروید از `res/font` برمی‌دارد.
+      # کپی نمی‌شوند: مسیرشان به خودِ پوشهٔ اندروید اشاره می‌کند تا دو
+      # نسخه از یک فونت وجود نداشته باشد که روزی یکی به‌روز شود و آن
+      # یکی نه.
+      - path: ../app/src/main/res/font/vazirmatn_regular.ttf
+      - path: ../app/src/main/res/font/vazirmatn_semibold.ttf
+      - path: ../app/src/main/res/font/vazirmatn_bold.ttf
+    info:
+      path: KhayatYar/Info.plist
+      properties:
+        CFBundleDisplayName: خیاط‌یار
+        # **این کلید اختیاری نیست — بی آن برنامه سرِ راه‌اندازی می‌میرد.**
+        #
+        # Compose خودش `Info.plist` را می‌سنجد و اگر نباشد استثنا
+        # می‌اندازد، نه هشدار:
+        #
+        #     Info.plist doesn't have a valid
+        #     CADisableMinimumFrameDurationOnPhone entry
+        #
+        # دلیلش کارایی است: آیفون‌های ProMotion بی این کلید نرخِ
+        # تازه‌سازیِ برنامه را روی ۶۰ هرتز قفل می‌کنند و پیمایشِ فهرستِ
+        # سفارش‌ها نصفِ روانیِ خودش را از دست می‌دهد.
+        CADisableMinimumFrameDurationOnPhone: true
+        UILaunchStoryboardName: ""
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.afghanjama.khayatyar
+        # frameworkِ کاتلین اینجا نشسته و ساختش کارِ Gradle است.
+        FRAMEWORK_SEARCH_PATHS:
+          - $(inherited)
+          - $(SRCROOT)/../core/build/bin/iosSimulatorArm64/debugFramework
+        OTHER_LDFLAGS:
+          - $(inherited)
+          - -framework
+          - KhayatYarKit
+        SWIFT_VERSION: "5.0"

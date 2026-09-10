@@ -13,12 +13,24 @@
 
 هر دو حالا از `PinHash` می‌گذرند (PBKDF2 با نمک و ۱۰۰٬۰۰۰ تکرار).
 
-این بررسی سه چیز را نگه می‌دارد:
+این بررسی چهار چیز را نگه می‌دارد:
 
   ۱ هر جایی که رمز **نوشته** می‌شود از `PinHash.hash` بگذرد
   ۲ هر جایی که رمز **سنجیده** می‌شود از `PinHash.verify` بگذرد، نه از
     `==` روی مقدارِ ذخیره‌شده
   ۳ هیچ‌کدام از این دو فایل `MessageDigest` را مستقیم صدا نزند
+  ۴ **هر سکو واقعاً PBKDF2 داشته باشد**
+
+بندِ ۴ با چندسکویی شدنِ `:core` لازم شد. تا دیروز `PBEKeySpec` و
+`SecureRandom` در خودِ `PinHash.kt` بودند و همین بررسی نامشان را
+می‌دید. حالا `PinHash` منطق را دارد و اولیهٔ رمزنگاری را از سکو
+می‌خواهد (`expect fun pbkdf2`), پس اگر یک سکو `TODO()` یا چیزی
+سرِهم‌بندی برگرداند، این فایل همچنان سالم به‌نظر می‌رسد و قفلِ ورود روی
+آن سکو پوچ است — بی هیچ خطای کامپایلی.
+
+پس هر `actual` جدا سنجیده می‌شود: JVM باید `PBEKeySpec` داشته باشد و
+iOS باید `CCKeyDerivationPBKDF`؛ و هیچ‌کدام حق ندارند `TODO(` داشته
+باشند.
 
 قاعدهٔ ۲ ظریف است و به همین دلیل صریح نوشته شده: برگشتن به `==` هیچ
 خطای کامپایلی نمی‌دهد و اپ **درست کار می‌کند** — فقط رمز دوباره خام
@@ -30,6 +42,12 @@ import sys
 import _src
 
 AUTH = _src.CORE / "com/afghanjama/ui/vm/AuthViewModel.kt"
+
+#: سهمِ هر سکو از رمزنگاری، و نامی که باید در آن باشد.
+CRYPTO = {
+    "com/afghanjama/util/PinCrypto.jvm.kt": ("PBEKeySpec", "SecureRandom"),
+    "com/afghanjama/util/PinCrypto.ios.kt": ("CCKeyDerivationPBKDF", "SecRandomCopyBytes"),
+}
 LOCK = _src.APP / "com/afghanjama/util/AppLock.kt"
 HASH = _src.CORE / "com/afghanjama/util/PinHash.kt"
 
@@ -46,9 +64,26 @@ if not HASH.exists():
     sys.exit(1)
 
 hash_src = strip(HASH.read_text(encoding="utf-8"))
-for need in ("PBEKeySpec", "SecureRandom", "fun verify", "fun needsUpgrade"):
+for need in ("pbkdf2(", "secureRandomBytes(", "fun verify", "fun needsUpgrade"):
     if need not in hash_src:
         fail.append(f"PinHash: «{need}» نیست — نمک یا وارسی برداشته شده.")
+
+# ── سهمِ هر سکو ──
+for rel, needs in CRYPTO.items():
+    try:
+        path = _src.CORE / rel
+    except FileNotFoundError:
+        fail.append(f"{rel.rsplit('/', 1)[-1]} نیست — آن سکو PBKDF2 ندارد.")
+        continue
+    src = strip(path.read_text(encoding="utf-8"))
+    for need in needs:
+        if need not in src:
+            fail.append(
+                f"{path.name}: «{need}» نیست — رمز روی آن سکو با چیزِ "
+                f"دیگری ساخته می‌شود."
+            )
+    if "TODO(" in src:
+        fail.append(f"{path.name}: `TODO(` دارد — قفلِ ورود روی آن سکو پوچ است.")
 # نمک باید تصادفی باشد، نه ثابت
 if re.search(r'salt\s*=\s*"', hash_src):
     fail.append("PinHash: نمکِ ثابت — نمکی که ثابت باشد نمک نیست.")

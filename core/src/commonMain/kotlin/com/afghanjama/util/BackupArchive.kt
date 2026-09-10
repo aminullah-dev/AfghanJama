@@ -1,0 +1,113 @@
+package com.afghanjama.util
+
+import com.afghanjama.util.nowMillis
+
+/**
+ * پشتیبانِ کامل: دیتابیس + عکس‌ها در یک فایل.
+ *
+ * تا امروز فقط فایلِ خامِ دیتابیس کپی می‌شد و عکس‌ها جا می‌ماندند؛ یعنی
+ * بعد از عوض‌کردنِ گوشی، سطرِ عکس برمی‌گشت ولی خودِ عکس نه.
+ *
+ * قالب یک zip ساده است — `java.util.zip` در خودِ JDK هست و هیچ وابستگیِ
+ * تازه‌ای اضافه نمی‌کند، مثلِ بقیهٔ اپ.
+ *
+ * ```
+ * ├── database      ← afghanjama.db
+ * ├── meta.txt      ← تاریخ و تعداد عکس، برای خواندنِ آدمیزاد
+ * └── photos/…      ← محتویاتِ پوشهٔ عکس‌ها
+ * ```
+ */
+object BackupArchive {
+
+    const val ENTRY_DB = "database"
+    const val ENTRY_META = "meta.txt"
+    const val PHOTO_PREFIX = "photos/"
+
+    /** قالبی که یک فایلِ پشتیبان دارد. */
+    enum class Format { ZIP, RAW_DB, UNKNOWN }
+
+    /**
+     * تشخیصِ قالب از روی چند بایتِ اول.
+     *
+     * پشتیبان‌های قدیمی فایلِ خامِ SQLite بودند و باید تا همیشه قابلِ
+     * بازیابی بمانند — کاربر ممکن است پشتیبانِ هفتهٔ پیش را داشته باشد.
+     */
+    fun detect(head: ByteArray): Format = when {
+        head.size >= 4 &&
+            head[0] == 'P'.code.toByte() && head[1] == 'K'.code.toByte() &&
+            head[2] == 3.toByte() && head[3] == 4.toByte() -> Format.ZIP
+
+        head.size >= 15 &&
+            head.decodeToString(0, 15) == "SQLite format 3" -> Format.RAW_DB
+
+        else -> Format.UNKNOWN
+    }
+
+    /** چند بایتِ اول برای تشخیصِ قالب. */
+    const val HEAD_BYTES = 16
+
+    // ------------------------------------------------------------------
+    // آیا این پشتیبان قابلِ بازیابی است؟
+    // ------------------------------------------------------------------
+
+    /** سرنوشتِ یک فایلِ پشتیبان پیش از آنکه جای دیتابیسِ زنده را بگیرد. */
+    enum class Verdict {
+        /** سالم و قابلِ بازکردن — می‌تواند جایگزین شود. */
+        OK,
+
+        /** خالی، بریده، یا خراب — بازکردنی نیست. */
+        CORRUPT,
+
+        /** از نسخهٔ جلوترِ اپ ساخته شده و این نسخه نمی‌تواند بازش کند. */
+        TOO_NEW
+    }
+
+    /**
+     * آیا این پشتیبان می‌تواند جای دیتابیسِ زنده را بگیرد؟
+     *
+     * چرا اصلاً لازم است: `fallbackToDestructiveMigration` روشن است، پس
+     * اگر فایلِ خراب یا جلوتری جایگزین شود، Room در اجرای بعدی نمی‌تواند
+     * بازش کند و **کلِ داده را بی هیچ پیامی پاک می‌کند**. یعنی همان
+     * ویژگی‌ای که برای نجاتِ داده ساخته شده می‌تواند نابودش کند. پس
+     * سنجش باید **پیش از** جایگزینی انجام شود، نه بعدش.
+     *
+     * نسخهٔ عقب‌تر بی‌خطر است: مهاجرت‌ها بالا می‌آورندش.
+     *
+     * تصمیم اینجا خالص نگه داشته شده تا CI بسنجدش؛ خواندنِ واقعیِ فایل
+     * کارِ صداکننده است.
+     */
+    fun verdict(openable: Boolean, integrityOk: Boolean, fileVersion: Int, schemaVersion: Int): Verdict = when {
+        !openable || !integrityOk -> Verdict.CORRUPT
+        // نسخهٔ صفر یعنی هیچ‌وقت Room رویش ننشسته — دیتابیسِ ما نیست
+        fileVersion <= 0 -> Verdict.CORRUPT
+        fileVersion > schemaVersion -> Verdict.TOO_NEW
+        else -> Verdict.OK
+    }
+
+    /** پیامِ آدمیزادِ هر سرنوشت. */
+    fun verdictMessage(v: Verdict, fileVersion: Int, schemaVersion: Int): String = when (v) {
+        Verdict.OK -> ""
+        Verdict.CORRUPT ->
+            "این فایلِ پشتیبان سالم نیست و باز نمی‌شود. دادهٔ فعلی دست‌نخورده ماند."
+        Verdict.TOO_NEW ->
+            "این پشتیبان با نسخهٔ جدیدترِ اپ ساخته شده (نسخهٔ $fileVersion در برابرِ " +
+                "$schemaVersion). اول اپ را به‌روز کنید، بعد بازیابی. دادهٔ فعلی دست‌نخورده ماند."
+    }
+
+    /**
+     * نامِ امنِ یک عکس از روی نامِ ورودیِ zip، یا null اگر نباید بازش کرد.
+     *
+     * فایلِ پشتیبان ممکن است از هر جایی آمده باشد. ورودی‌ای با `../` در
+     * نامش می‌تواند بیرون از پوشهٔ اپ بنویسد (همان Zip Slip). اینجا فقط
+     * نامِ برهنهٔ فایل پذیرفته می‌شود و هر چیزِ دیگری رد.
+     */
+    fun safePhotoName(entryName: String): String? {
+        if (!entryName.startsWith(PHOTO_PREFIX)) return null
+        val raw = entryName.removePrefix(PHOTO_PREFIX)
+        if (raw.isBlank()) return null
+        // نه مسیر، نه بالا رفتن، نه نامِ مطلق
+        if (raw.contains('/') || raw.contains('\\')) return null
+        if (raw == "." || raw == "..") return null
+        return raw
+    }
+}
