@@ -53,6 +53,9 @@
 (۱۵ مگابایت). چون از بازار نمی‌آید، گوشی یک بار اجازه می‌خواهد:
 «نصب از منابع ناشناس» را برای مرورگر یا فایل‌منیجر روشن کنید.
 
+**مک ۱۲ به بالا** — فایلِ DMG. راهنمای امضا در
+[`tools/macos-signing/`](tools/macos-signing/README.md).
+
 **ویندوز ۱۰ به بالا (۶۴-بیتی)** —
 [دانلودِ `KhayatYar-1.7.0.msi`](https://github.com/aminullah-dev/AfghanJama/releases/download/v1.7.0/KhayatYar-1.7.0.msi)
 (۱۳۵ مگابایت). راهنمای کامل در
@@ -81,6 +84,9 @@
 # نسخهٔ ویندوز — فقط روی خودِ ویندوز (jpackage به WiX نیاز دارد)
 gradlew.bat :desktop:packageMsi
 
+# نسخهٔ مک — فقط روی خودِ مک (jpackage بستهٔ سکوی دیگر نمی‌سازد)
+./gradlew :desktop:packageDmg
+
 # آزمون‌های ریاضیِ پول
 ./gradlew testDebugUnitTest
 
@@ -103,7 +109,7 @@ python3 tools/checks/run_all.py
 ```
 app/       نسخهٔ اندروید — Activity، ناوبری، مهاجرت‌های تاریخی
 core/      مشترکِ هر دو سکو — صفحه‌ها، ViewModelها، Room، منطقِ پول
-desktop/   نسخهٔ ویندوز — پنجره، فهرستِ کنار، بسته‌بندیِ MSI
+desktop/   نسخهٔ ویندوز و مک — پنجره، فهرستِ کنار، بسته‌بندیِ MSI و DMG
 tools/     ۵۲ بررسیِ ساختاری، ناشرِ وردپرس، اسکریپت‌های امضای ویندوز
 docs/      معماری، راهنمای ویندوز، مسئله‌های شناخته‌شده
 ```

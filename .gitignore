@@ -43,6 +43,14 @@ signing.properties
 *.cer
 *.crt
 
+# و همان قاعده برای امضای مک. `.p12` گواهیِ Developer ID را با کلیدِ
+# خصوصی‌اش بیرون می‌دهد؛ هر کسی آن را داشته باشد می‌تواند بدافزاری
+# بسازد که اپل هم تأییدش کرده و روی هر مکی بی هشدار باز شود.
+# `.mobileprovision` و `.provisionprofile` هم شناسه و مجوز دارند.
+*.mobileprovision
+*.provisionprofile
+notarize-credentials*
+
 # مسیرِ SDK روی کامپیوترِ شخصی — روی هیچ ماشینِ دیگری درست نیست
 local.properties
 

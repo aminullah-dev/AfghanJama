@@ -153,7 +153,16 @@ compose.desktop {
     application {
         mainClass = "com.afghanjama.desktop.MainKt"
         nativeDistributions {
-            targetFormats(TargetFormat.Msi, TargetFormat.Deb)
+            /*
+             * سه فرمت، ولی هر کدام فقط روی سکوی خودش ساخته می‌شود.
+             *
+             * `jpackage` نمی‌تواند بستهٔ سکوی دیگر بدهد: DMG فقط از
+             * مک درمی‌آید، MSI فقط از ویندوز. نوشتنِ هر سه در این
+             * فهرست چیزی را نمی‌شکند — Gradle روی هر ماشین همان را
+             * می‌سازد که شدنی است — ولی یعنی روی مک دیگر لازم نیست
+             * کسی این فایل را دست بزند.
+             */
+            targetFormats(TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Dmg)
             packageName = "KhayatYar"
             /*
              * با `versionName`ِ اندروید یکی می‌ماند: یک محصول است و اگر
@@ -207,6 +216,38 @@ compose.desktop {
              * معامله بدی نیست.
              */
             includeAllModules = true
+
+            /*
+             * مک — و `bundleID` مهم‌ترین خطِ این بخش است.
+             *
+             * شناسهٔ یکتای برنامه در کلِ سیستمِ مک است: امضا، مجوزها،
+             * و «این همان برنامهٔ قبلی است یا تازه؟» همه به آن گره
+             * می‌خورند. اگر بعداً عوض شود، مکِ کاربر نسخهٔ تازه را
+             * برنامه‌ای دیگر می‌شمارد — همان دامی که `upgradeUuid`
+             * برای ویندوز می‌بندد.
+             *
+             * همان `applicationId`ِ اندروید است تا یک محصول یک شناسه
+             * داشته باشد.
+             */
+            macOS {
+                bundleID = "com.afghanjama"
+                packageName = "KhayatYar"
+                /*
+                 * **امضا اینجا خاموش است و این عمدی است.**
+                 *
+                 * گواهیِ Developer ID روی مکِ کارفرماست و باید همان‌جا
+                 * بماند — همان قاعده‌ای که برای کلیدِ امضای اندروید و
+                 * ویندوز گذاشتیم: کلید هرگز به گیت‌هاب نمی‌رود، نه در
+                 * مخزن نه در Secrets.
+                 *
+                 * پس CI بستهٔ **بی‌امضا** می‌سازد و امضا و notarize
+                 * روی خودِ مک انجام می‌شود، با اسکریپتِ
+                 * `tools/macos-signing/`.
+                 */
+                signing {
+                    sign.set(false)
+                }
+            }
 
             windows {
                 menuGroup = "KhayatYar"
