@@ -182,7 +182,7 @@ ID. خروجی‌اش این است:
 status: Accepted
 KhayatYar-1.7.0.dmg: accepted
 source=Notarized Developer ID
-origin=Developer ID Application: AMINULLAH HASHEMI (27RXPRW77S)
+origin=Developer ID Application: نامِ شما (TEAMID)
 ```
 
 با قرنطینه هم سنجیده شد — یعنی فایل جوری نشانه‌گذاری شد که انگار از
