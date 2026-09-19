@@ -58,14 +58,16 @@
 (۱۳۵ مگابایت). راهنمای کامل در
 [`docs/WINDOWS-NASB.md`](docs/WINDOWS-NASB.md).
 
-**مک (اپل سیلیکون و اینتل)** — هنوز در Releases نیست. DMG را CI روی
-هر تغییرِ `desktop/` می‌سازد و در
-[Actions ← «بستهٔ مک»](https://github.com/aminullah-dev/AfghanJama/actions/workflows/macos.yml)
-به‌عنوان artifact می‌گذارد.
+**مک (اپل سیلیکون)** —
+[دانلودِ `KhayatYar-1.7.0.dmg`](https://github.com/aminullah-dev/AfghanJama/releases/download/v1.7.0/KhayatYar-1.7.0.dmg)
+(۱۵۰ مگابایت). **امضاشده و مهرخوردهٔ اپل** — باز می‌شود بی هیچ هشداری،
+حتی روی کمپیوترِ بی‌اینترنت. مهر هم روی خودِ برنامه نشسته و هم روی
+DMG، پس کشیدنِ برنامه روی `/Applications` مهرش را از بین نمی‌برد.
 
-هر سه فایل امضای رسمی ندارند، پس هر سه سیستم یک بار هشدار
-می‌دهند. برای مک، امضا و notarize روی کمپیوترِ خودِ کارفرما انجام
-می‌شود: [`tools/macos-signing/`](tools/macos-signing/README.md). همهٔ نسخه‌ها در
+نسخهٔ ویندوز و اندروید هنوز امضای رسمی ندارند، پس آن دو سیستم یک بار
+هشدار می‌دهند. امضای مک روی کمپیوترِ خودِ کارفرما انجام می‌شود و
+کلیدش هیچ‌وقت از آن مک بیرون نمی‌رود:
+[`tools/macos-signing/`](tools/macos-signing/README.md). همهٔ نسخه‌ها در
 [صفحهٔ Releases](https://github.com/aminullah-dev/AfghanJama/releases).
 
 راهنمای کارِ روزمره: [`RAHNAMA.md`](RAHNAMA.md)
