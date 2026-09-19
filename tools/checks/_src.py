@@ -58,11 +58,14 @@ REPO = pathlib.Path(__file__).resolve().parents[2]
 #: است که قرمز شدند و نه سبز — همان چیزی که توضیحِ بالا وعده‌اش را
 #: داده بود — ولی نشان می‌دهد فهرستِ ریشه‌ها باید با ساختِ ماژول‌ها
 #: هم‌گام بماند.
-CORE_ROOTS = [
-    REPO / "core/src/commonMain/kotlin",
-    REPO / "core/src/jvmAndroidMain/kotlin",
-    REPO / "core/src/iosMain/kotlin",
-]
+#: و هر کدام نامِ خودش را هم دارد، چون بعضی بررسی‌ها **به همین فرق
+#: کار دارند**: «این صفحه پرتابل است یا فقط آیفون؟» سؤالی است که
+#: `CORE`ِ یکپارچه جوابش را نمی‌دهد، چون هر سه را یکی می‌بیند.
+COMMON = REPO / "core/src/commonMain/kotlin"
+JVM_ANDROID = REPO / "core/src/jvmAndroidMain/kotlin"
+IOS = REPO / "core/src/iosMain/kotlin"
+
+CORE_ROOTS = [COMMON, JVM_ANDROID, IOS]
 
 #: ریشه‌های سورس، به ترتیبِ جست‌وجو
 ROOTS = CORE_ROOTS + [
