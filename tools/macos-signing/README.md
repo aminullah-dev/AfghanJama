@@ -61,12 +61,70 @@ Security → App-Specific Passwords. رمزِ اصلیِ اپل کار نمی‌
 ```bash
 xcrun notarytool store-credentials KhayatYar \
   --apple-id "ایمیلِ اپلتان" \
-  --team-id "TEAMID" \
-  --password "رمزِ-ویژه"
+  --team-id "TEAMID"
 ```
 
+`--password` عمداً نیامده: بی آن، `notarytool` خودش می‌پرسد و ورودی را
+مخفی می‌گیرد، پس رمز نه در تاریخچهٔ شل می‌مانَد و نه در لاگی که بعداً
+کسی می‌خوانَد.
+
 `TEAMID` را در [developer.apple.com/account](https://developer.apple.com/account)
-زیرِ Membership می‌بینید.
+زیرِ Membership می‌بینید. **دقت کنید تیمِ گواهیِ `Developer ID` باشد**،
+نه تیمِ `Apple Development`؛ این دو می‌توانند فرق داشته باشند و روی یک
+مکِ واقعی داشتند:
+
+```
+1) Apple Development: NAME (AAAAAAAAAA)        ← این نه
+2) Developer ID Application: NAME (BBBBBBBBBB) ← این
+```
+
+یعنی `security find-identity | head -1` جوابِ غلط می‌دهد. درستش:
+
+```bash
+security find-identity -v -p codesigning \
+  | grep 'Developer ID Application' \
+  | sed -n 's/.*(\([A-Z0-9]*\))".*/\1/p'
+```
+
+</div>
+
+---
+
+<div dir="rtl">
+
+### اگر ۴۰۱ گرفتید — راهِ دوم، و بهترش
+
+```
+Error: HTTP status code: 401. Invalid credentials.
+```
+
+رمزِ ویژه چند جور بی‌صدا باطل می‌شود؛ شایع‌ترینش این است که **با هر بار
+عوض کردنِ رمزِ خودِ اپل‌آی‌دی، همهٔ رمزهای ویژه باطل می‌شوند** — پس
+رمزی که ماه‌ها پیش ذخیره کرده‌اید ممکن است دیگر کار نکند و پیامِ
+خطایش این را نگوید.
+
+به‌جایش **کلیدِ App Store Connect API**. باطل نمی‌شود، به رمزِ حساب
+گره نخورده، و همین راهی است که در عمل جواب داد:
+
+۱. [appstoreconnect.apple.com](https://appstoreconnect.apple.com) →
+   Users and Access → Integrations → App Store Connect API
+۲. کلیدی با نقشِ **Developer** (یا بالاتر) بسازید
+۳. `AuthKey_XXXXXXXX.p8` را دانلود کنید — **فقط یک بار** دانلود می‌شود
+۴. `Issuer ID` (یک UUID) و `Key ID` را از همان صفحه بردارید
+
+```bash
+xcrun notarytool store-credentials KhayatYar \
+  --key ~/Downloads/AuthKey_XXXXXXXX.p8 \
+  --key-id XXXXXXXX \
+  --issuer xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+
+اسکریپت فرقی نمی‌بیند: همان `--keychain-profile KhayatYar` را می‌خوانَد،
+پشتش رمز باشد یا کلید.
+
+**بعدش فایلِ `.p8` را از `Downloads` بردارید.** `notarytool` کلید را در
+جاکلیدی کپی کرده و دیگر به فایل نیازی نیست؛ یک کلیدِ خصوصی در پوشهٔ
+دانلود همان‌قدر بد است که در مخزن.
 
 </div>
 
@@ -173,29 +231,49 @@ DMG مهر داشت و Gatekeeper قبولش می‌کرد. ولی کاربرِ 
 
 ## هشدارِ صادقانه
 
-**تا آخر اجرا شده و اپل پذیرفته.**
+**ترتیبِ دومرحله‌ای تا آخر اجرا شده و هر دو مهر نشسته.**
 
 روی macOS 26.6، Xcode 26.6، معماری arm64، با گواهیِ واقعیِ Developer
-ID. خروجی‌اش این است:
+ID. دو ارسالِ جدا، هر دو `Accepted`:
 
 ```
-status: Accepted
-KhayatYar-1.7.0.dmg: accepted
+KhayatYar.zip          Accepted
+KhayatYar-1.7.0.dmg    Accepted
+```
+
+و وارسیِ پایانی، **هر دو**:
+
+```
+KhayatYar.app: accepted     source=Notarized Developer ID
+KhayatYar-1.7.0.dmg: accepted   source=Notarized Developer ID
+```
+
+**سنجشی که واقعاً مهم است** و در اجرای پیشین قرمز بود: DMG سوار شد،
+برنامه از داخلش بیرون کشیده شد (همان کاری که کاربر با کشیدن روی
+`/Applications` می‌کند)، و روی آن کپی نشانهٔ قرنطینه گذاشته شد — یعنی
+جوری که انگار از اینترنت دانلود شده:
+
+```
+$ xcrun stapler validate <کپیِ بیرون‌کشیده>
+The validate action worked!
+
+$ spctl -a -vvv -t exec <کپیِ بیرون‌کشیده>
+accepted
 source=Notarized Developer ID
-origin=Developer ID Application: نامِ شما (TEAMID)
 ```
 
-با قرنطینه هم سنجیده شد — یعنی فایل جوری نشانه‌گذاری شد که انگار از
-اینترنت دانلود شده — و همان پاسخ آمد.
+همین خط است که می‌گوید روی کمپیوترِ **بی‌اینترنتِ** کارگاه هشدار
+برنمی‌گردد. پیش از این ترتیبِ دومرحله‌ای، همین کپی هیچ مهری نداشت.
 
-**زمانِ مرحلهٔ اپل تضمینی نیست.** در همان اجراها یک بار ۱۷ دقیقه طول
-کشید و بارِ بعدی ۱ ساعت و ۴۸ دقیقه. صف است، نه خرابی؛ `--wait` تا
-آخرش می‌مانَد. و چون حالا دو بار به اپل می‌رود (برنامه و DMG جدا)، این
-زمان دو برابر می‌شود.
+**زمانِ مرحلهٔ اپل تضمینی نیست، و پراکندگی‌اش زیاد است.** در اجراهای
+ثبت‌شده: ۱۷ دقیقه، ۱ ساعت و ۴۸ دقیقه، و در آخرین اجرا **هر دو ارسال
+در مجموع حدودِ هفت دقیقه**. صف است، نه خرابی؛ `--wait` تا آخرش
+می‌مانَد. حساب کنید که دو بار به اپل می‌رود، نه یک بار.
 
-سه چیز در همان اجراها پیدا و درست شد: نبودنِ نمایهٔ جاکلیدی تا بندِ
-آخر معلوم نمی‌شد، سه فایلِ بومیِ داخلِ jar اصلاً امضا نمی‌شدند، و مهرِ
-تأیید به خودِ برنامه نمی‌چسبید. هر سه در بخشِ بالا توضیح داده‌اند.
+چهار چیز در این اجراها پیدا و درست شد: نبودنِ نمایهٔ جاکلیدی تا بندِ
+آخر معلوم نمی‌شد، سه فایلِ بومیِ داخلِ jar اصلاً امضا نمی‌شدند، مهرِ
+تأیید به خودِ برنامه نمی‌چسبید، و رمزِ ویژهٔ اپل با ۴۰۱ رد شد تا با
+کلیدِ App Store Connect جایش را داد. هر چهار توضیح داده‌اند.
 
 اگر اپل رد کرد، دلیلش را با این می‌بینید:
 
