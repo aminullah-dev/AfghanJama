@@ -88,6 +88,7 @@ import com.afghanjama.ui.screens.SettingsScreen
 import com.afghanjama.ui.screens.SewingScreen
 import com.afghanjama.ui.screens.StockLedgerScreen
 import com.afghanjama.ui.screens.WorkshopLinkScreen
+import com.afghanjama.ui.screens.WorkshopLoadScreen
 import com.afghanjama.ui.vm.ActionCenterViewModel
 import com.afghanjama.ui.vm.AttendanceViewModel
 import com.afghanjama.ui.vm.AuditViewModel
@@ -128,6 +129,7 @@ import com.afghanjama.ui.vm.JournalViewModel
 import com.afghanjama.ui.vm.SampleWorkshopViewModel
 import com.afghanjama.ui.vm.WarehouseViewModel
 import com.afghanjama.ui.vm.WorkshopLinkViewModel
+import com.afghanjama.ui.vm.WorkshopLoadViewModel
 
 /** آیتم نوار پایین. */
 private data class BottomItem(
@@ -405,6 +407,7 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                     onGoSearch = { navController.navigate(Routes.SEARCH) },
                     onGoSettings = { navController.navigate(Routes.SETTINGS) },
                     onGoQuoteCalc = { navController.navigate(Routes.QUOTE_CALC) },
+                    onGoWorkshopLoad = { navController.navigate(Routes.WORKSHOP_LOAD) },
                     onGoGuide = { navController.navigate(Routes.GUIDE) },
                     onGoWorkshopLink = { navController.navigate(Routes.WORKSHOP_LINK) },
                     onGoBoard = { navController.navigate(Routes.BOARD) }
@@ -493,6 +496,11 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                     isManager = authUi.role == UserRole.MANAGER,
                     onBack = { navController.popBackStack() }
                 )
+            }
+
+            composable(Routes.WORKSHOP_LOAD) {
+                val loadVm = viewModel<WorkshopLoadViewModel>(vmOwner, factory = factory)
+                WorkshopLoadScreen(vm = loadVm, onBack = { navController.popBackStack() })
             }
 
             composable(Routes.QUOTE_CALC) {

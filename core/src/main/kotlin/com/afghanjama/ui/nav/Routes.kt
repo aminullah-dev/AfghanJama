@@ -43,6 +43,9 @@ object Routes {
     const val SETTINGS = "settings"
     const val GUIDE = "guide"
 
+    /** بارِ کارگاه — ورودی‌اش در داشبورد است. */
+    const val WORKSHOP_LOAD = "workshop_load"
+
     /** قیمت‌دهی — ورودی‌اش در داشبورد است. */
     const val QUOTE_CALC = "quote_calc"
     const val WORKSHOP_LINK = "workshop_link"
