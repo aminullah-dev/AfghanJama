@@ -51,6 +51,7 @@ signing.properties
 # است و **یک بار بیشتر دانلود نمی‌شود**. با آن می‌شود به نامِ شما
 # notarize کرد و در حساب دست برد.
 *.provisionprofile
+notarize-credentials*
 *.mobileprovision
 *.p8
 
