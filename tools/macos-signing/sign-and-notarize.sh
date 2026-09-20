@@ -13,6 +13,10 @@
 #   ۲. رمزِ ویژهٔ اپل در جاکلیدی با نامِ نمایه‌ای که اینجا می‌آید
 #
 # اجرا:
+#   ./tools/macos-signing/sign-and-notarize.sh
+#
+# بی‌آرگومان، اگر فقط یک گواهیِ Developer ID در جاکلیدی باشد. اگر چند
+# تا دارید، نامش را بدهید:
 #   ./tools/macos-signing/sign-and-notarize.sh "Developer ID Application: NAME (TEAMID)"
 #
 # **این اسکریپت تا آخر روی مک اجرا شده و اپل بسته را پذیرفته.**
@@ -33,12 +37,42 @@ IDENTITY="${1:-}"
 # نامِ نمایهٔ جاکلیدی که `notarytool store-credentials` ساخته.
 PROFILE="${NOTARY_PROFILE:-KhayatYar}"
 
+# بی‌آرگومان هم کار می‌کند: گواهی از جاکلیدی خوانده می‌شود. دلیلش
+# محرمانگی نیست — نامِ گواهی در امضای هر برنامه‌ای هست — بلکه این است
+# که نامِ کارفرما و Team ID در تاریخچهٔ شل و در مستندات ننشیند وقتی
+# لازم نیست.
 if [ -z "$IDENTITY" ]; then
-  echo "استفاده: $0 \"Developer ID Application: NAME (TEAMID)\"" >&2
-  echo >&2
-  echo "نامِ دقیقِ گواهی‌های موجود:" >&2
-  security find-identity -v -p codesigning >&2 || true
-  exit 2
+  # فیلترِ `Developer ID Application` عمدی است: روی یک مکِ واقعی
+  # `Apple Development` هم در فهرست بود و اولِ فهرست می‌آمد. امضا با
+  # آن خطا نمی‌دهد؛ فقط مکِ مشتری بعداً بسته را رد می‌کند.
+  FOUND="$(security find-identity -v -p codesigning 2>/dev/null |
+             grep 'Developer ID Application' || true)"
+  COUNT="$(printf '%s' "$FOUND" | grep -c . || true)"
+
+  if [ "$COUNT" -eq 0 ]; then
+    echo "✗ هیچ گواهیِ «Developer ID Application» در جاکلیدی نیست." >&2
+    echo >&2
+    echo "بسازیدش: Xcode → Settings → Accounts → حسابتان →" >&2
+    echo "         Manage Certificates → + → Developer ID Application" >&2
+    echo >&2
+    echo "آنچه هست:" >&2
+    security find-identity -v -p codesigning >&2 || true
+    exit 2
+  fi
+
+  # **بیش از یکی؟ خودش انتخاب نمی‌کند.** حدسِ اشتباه اینجا خطا
+  # نمی‌دهد و تا مکِ مشتری معلوم نمی‌شود.
+  if [ "$COUNT" -gt 1 ]; then
+    echo "بیش از یک گواهیِ Developer ID پیدا شد. کدام؟" >&2
+    echo "$FOUND" >&2
+    echo >&2
+    echo "نامش را داخلِ گیومه بدهید:" >&2
+    echo "  $0 \"Developer ID Application: NAME (TEAMID)\"" >&2
+    exit 2
+  fi
+
+  IDENTITY="$(printf '%s' "$FOUND" | sed -n 's/.*"\(.*\)"/\1/p')"
+  echo "گواهی از جاکلیدی: $IDENTITY"
 fi
 
 cd "$(dirname "$0")/../.."
