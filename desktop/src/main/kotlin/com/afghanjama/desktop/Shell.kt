@@ -44,6 +44,7 @@ import com.afghanjama.ui.screens.InventoryScreen
 import com.afghanjama.ui.screens.LedgerScreen
 import com.afghanjama.ui.screens.MasterDataScreen
 import com.afghanjama.ui.screens.JournalScreen
+import com.afghanjama.ui.screens.RecurringExpenseScreen
 import com.afghanjama.ui.screens.SampleWorkshopScreen
 import com.afghanjama.ui.screens.MaterialWarehouseScreen
 import com.afghanjama.ui.screens.MoneyMoveScreen
@@ -92,6 +93,7 @@ import com.afghanjama.ui.vm.ProcurementViewModel
 import com.afghanjama.ui.vm.ProductionViewModel
 import com.afghanjama.ui.vm.PurchasePlanViewModel
 import com.afghanjama.ui.vm.PurchaseReturnViewModel
+import com.afghanjama.ui.vm.RecurringExpenseViewModel
 import com.afghanjama.ui.vm.ReportsViewModel
 import com.afghanjama.ui.vm.ReviewViewModel
 import com.afghanjama.ui.vm.SelfTestViewModel
@@ -153,6 +155,7 @@ internal enum class Section(val title: String) {
     Reports("گزارش‌ها"),
     Journal("دفتر روزنامه"),
     Audit("رسیدگی"),
+    Recurring("هزینه‌های ثابت"),
     MasterData("اطلاعات پایه"),
     ShopProfile("پروفایل کارگاه"),
     SelfTest("خودآزمایی و سلامتِ داده"),
@@ -282,6 +285,7 @@ internal fun sectionForRoute(route: String): Section? = when (route) {
     Routes.SEWING -> Section.Sewing
     Routes.REVIEW -> Section.Review
     Routes.MY_WORK -> Section.MyWork
+    Routes.RECURRING -> Section.Recurring
     Routes.ACTION_CENTER -> Section.ActionCenter
     // روی ویندوز نیستند — حضور و غیاب هنوز در `:app` است، و
     // «تنظیمات»ِ اندروید اینجا به دو بخشِ جدا شکسته شده.
@@ -503,6 +507,11 @@ internal fun SectionContent(
         Section.Audit -> {
             val vm: AuditViewModel = viewModel { AuditViewModel(repo) }
             AuditScreen(vm, onBack = back)
+        }
+
+        Section.Recurring -> {
+            val vm: RecurringExpenseViewModel = viewModel { RecurringExpenseViewModel(repo) }
+            RecurringExpenseScreen(vm, onBack = back)
         }
 
         Section.MasterData -> {
