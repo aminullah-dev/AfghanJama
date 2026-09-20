@@ -146,6 +146,14 @@ sourceSets {
 kotlin {
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_17)
+        /*
+         * `Uuid` هنوز آزمایشی است و opt-in می‌خواهد — و اینجا لازم است
+         * نه به‌خاطرِ کدِ خودمان، بلکه به‌خاطرِ کدی که Room **تولید**
+         * می‌کند: `OrderDao_Impl` و بیستِ دیگر شناسه را همان نوع
+         * می‌خوانند و می‌نویسند. آن فایل‌ها دستِ ما نیستند، پس اجازه
+         * باید از سطحِ ماژول بیاید.
+         */
+        optIn.add("kotlin.uuid.ExperimentalUuidApi")
     }
 }
 

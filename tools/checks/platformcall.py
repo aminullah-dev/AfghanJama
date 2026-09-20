@@ -44,7 +44,27 @@ import sys
 import _src
 
 SUFFIXES = ("_skikoKt", "_desktopKt", "_jvmKt", "_awtKt", "_skikoMainKt")
-CLASSES = _src.REPO / "core/build/classes/kotlin/main"
+#: خروجیِ بایت‌کدِ `:core` — **مسیرش با چندسکویی شدن عوض شد.**
+#:
+#: ماژولِ سادهٔ JVM کلاس‌ها را در `classes/kotlin/main` می‌گذاشت؛
+#: چندسکویی هر هدف را جدا می‌کند و سهمِ JVM در `classes/kotlin/jvm/main`
+#: می‌نشیند. مسیرِ کهنه در CI به این خطا رسید:
+#:
+#:     ✗ …/core/build/classes/kotlin/main نیست — :core کامپایل نشده
+#:
+#: هدفِ iOS عمداً اینجا نیست: کلاسِ جاوا ندارد (klib می‌سازد) و خطری هم
+#: که این بررسی می‌گیرد — دو کلاسِ بایت‌کد با یک نامِ کاتلینی — فقط بینِ
+#: اندروید و دسکتاپ معنی دارد.
+#:
+#: ترتیب مهم است: مسیرِ تازه اول، تا اگر ساختِ کهنه‌ای روی دیسک مانده
+#: باشد سراغِ آن نرود.
+CLASSES = next(
+    (p for p in (
+        _src.REPO / "core/build/classes/kotlin/jvm/main",
+        _src.REPO / "core/build/classes/kotlin/main",
+    ) if p.exists()),
+    _src.REPO / "core/build/classes/kotlin/jvm/main",
+)
 LIST = pathlib.Path(__file__).resolve().parent / "platform_symbols.txt"
 
 require_bytecode = "--require-bytecode" in sys.argv
@@ -104,9 +124,27 @@ def check_bytecode():
     return files, bad
 
 
+#: منبع‌هایی که کدشان فقط برای **یک** سکو ساخته می‌شود.
+#:
+#: **و چرا استثنا دقیقاً همین‌جا و نه جای دیگر.** خطری که این بررسی
+#: می‌گیرد از دو کلاسِ بایت‌کد با یک نامِ کاتلینی می‌آید — و آن فقط وقتی
+#: ممکن است که یک فایل برای بیش از یک سکو کامپایل شود. `iosMain` هرگز
+#: روی اندروید یا دسکتاپ ساخته نمی‌شود، پس `IosWidgets` که پیاده‌سازیِ
+#: خودِ مرزِ `Widgets` است حق دارد `AlertDialog` را مستقیم صدا بزند —
+#: همان‌طور که `DesktopWidgets` و `AndroidWidgets` در ماژول‌های خودشان
+#: می‌زنند.
+#:
+#: `jvmAndroidMain` **استثنا نیست**: کدش هم روی گوشی ساخته می‌شود هم
+#: روی پی‌سی، یعنی دقیقاً همان حالتی که کرشِ بالا را داد.
+SINGLE_PLATFORM = ("iosMain",)
+
+
 def check_source(symbols):
     """سریع: ایمپورتِ `androidx.compose.*`ی که در فهرست است."""
-    files = sorted(_src.CORE.rglob("*.kt"))
+    files = [
+        p for p in sorted(_src.CORE.rglob("*.kt"))
+        if not any(f"/{d}/" in p.as_posix() for d in SINGLE_PLATFORM)
+    ]
     if not files:
         print("✗ هیچ فایلی در :core نیست — بررسی پوچ بود، مسیر را ببینید")
         sys.exit(1)

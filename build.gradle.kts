@@ -1,8 +1,13 @@
 // build.gradle.kts (Project)
 plugins {
     id("com.android.application") version "8.9.1" apply false
+    // `:core` از وقتی چندسکویی شد هدفِ اندروید هم دارد — بی این،
+    // `:app` نمی‌تواند از آن وابستگی بردارد.
+    id("com.android.library") version "8.9.1" apply false
     id("org.jetbrains.kotlin.android") version "2.1.20" apply false
     id("org.jetbrains.kotlin.jvm") version "2.1.20" apply false
+    // `:core` — یک کدِ مشترک برای گوشی، پی‌سی و آیفون.
+    id("org.jetbrains.kotlin.multiplatform") version "2.1.20" apply false
     /*
      * KSP جای kapt را گرفت.
      *

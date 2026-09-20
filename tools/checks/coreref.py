@@ -42,11 +42,16 @@ TYPE_DECL = re.compile(
 #
 # `fun Long.afn()` نامش `afn` است نه `Long`. نسخهٔ اول این را نمی‌گرفت و
 # در عوض هر `import …ui.format.afn` را «هیچ‌جا پیدا نشد» اعلام می‌کرد.
+# `expect ` و `actual ` از وقتی `:core` چندسکویی شد لازم شدند.
+# `TYPE_DECL` بالا این دو را از قبل داشت و همین باعث شد شکاف دیر
+# دیده شود: `expect class` شناخته می‌شد ولی `expect fun` نه، و
+# `lanClient` — که تابع است — «هیچ‌جا پیدا نشد» گزارش می‌شد.
 FUN_DECL = re.compile(
-    r"^(?:public |internal |private |inline |suspend |operator |infix )*"
+    r"^(?:public |internal |private |inline |suspend |operator |infix "
+    r"|expect |actual )*"
     r"fun\s+(?:<[^>]*>\s*)?(?:[\w.<>,\s?\[\]]+\.)?([A-Za-z_]\w*)\s*\(", re.M)
 VAL_DECL = re.compile(
-    r"^(?:public |internal |private |const )*"
+    r"^(?:public |internal |private |const |expect |actual )*"
     r"va[lr]\s+(?:<[^>]*>\s*)?(?:[\w.<>,\s?\[\]]+\.)?([A-Za-z_]\w*)\s*[:=]", re.M)
 
 # ایمپورتِ ستاره‌دار عمداً بیرون است: `…entities.*` نامِ مشخصی ندارد که
@@ -86,7 +91,7 @@ if not core_files or not app_names:
 bad = []
 for p in core_files:
     src = p.read_text(encoding="utf-8")
-    rel = p.relative_to(_src.CORE)
+    rel = _src.rel_to_core(p)
 
     # ---- ۱. ایمپورتِ نمادی که در :core نیست ----
     for m in IMPORT_PROJ.finditer(src):

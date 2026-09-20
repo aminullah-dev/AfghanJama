@@ -7,10 +7,16 @@
 `runtime-saveable` است نه `runtime` — یک بستهٔ جدا که آدم فکر می‌کند
 داخلِ runtime است.
 
-**چرا اینجا خطرناک‌تر از :desktop است:** وابستگی‌های Compose در `:core`
-عمداً `compileOnly`اند تا گرافِ وابستگیِ اپِ اندروید دست‌نخورده بماند.
-یعنی اگر یکی جا بیفتد، Gradle خودش جایش را پر نمی‌کند و خطا فقط سرِ
-کامپایل — در CI و بعد از چند دقیقه — پیدا می‌شود.
+**دو شکل، چون فایلِ ساخت عوض شد.** تا دیروز `:core` یک ماژولِ JVM بود
+و Compose را با مختصاتِ رشته‌ایِ `…-desktop` و `compileOnly` می‌گرفت. با
+چندسکویی شدن، همان‌ها از DSLِ افزونهٔ Compose می‌آیند
+(`api(compose.material3)`) و دیگر رشته نیستند. این بررسی هر دو شکل را
+می‌پذیرد، وگرنه با هر بار عوض شدنِ شکلِ اعلام، قرمزِ دروغ می‌داد.
+
+**و یک تفاوتِ واقعی در مرزها:** در دنیای `-desktop`، `ui-text` و
+`ui-unit` و `ui-graphics` هرکدام آرتیفکتِ جدا بودند. در
+Compose Multiplatform هر سه داخلِ `compose.ui` هستند. جدولِ پایین همین
+را می‌گوید.
 
 مرزِ بسته‌ها با شهود جور درنمی‌آید: `ui.text` و `ui.unit` و `ui.graphics`
 هرکدام بستهٔ جدایی‌اند، ولی `ui.draw` داخلِ خودِ `ui` است. این جدول همان
@@ -41,6 +47,26 @@ ARTIFACTS = [
     ("androidx.compose.ui", "ui"),
 ]
 
+#: نامِ آرتیفکت → صداکنندهٔ DSL که تأمینش می‌کند.
+#:
+#: تهی یعنی این آرتیفکت در DSL معادلی ندارد و فقط با مختصاتِ رشته‌ای
+#: می‌آید — مثلِ `material-icons-extended` که از ۱.۸.۰ از خودِ افزونه
+#: برداشته شده.
+DSL_PROVIDER = {
+    "runtime": ("compose.runtime",),
+    "runtime-saveable": ("compose.runtimeSaveable",),
+    "foundation": ("compose.foundation",),
+    "animation": ("compose.animation",),
+    "material3": ("compose.material3",),
+    "material": ("compose.material",),
+    "ui": ("compose.ui",),
+    "ui-text": ("compose.ui",),
+    "ui-unit": ("compose.ui",),
+    "ui-graphics": ("compose.ui",),
+    "ui-geometry": ("compose.ui",),
+    "material-icons-extended": (),
+}
+
 IMPORT = re.compile(r"^import\s+(androidx\.compose\.[A-Za-z0-9_.]+)")
 
 for path, need in ((CORE_SRC, "پوشهٔ :core"), (BUILD, "فایلِ ساختِ :core")):
@@ -57,6 +83,10 @@ build_lines = [
 ]
 DECLARE = re.compile(r"\b(implementation|api|compileOnly|runtimeOnly)\s*\(\s*\"([^\"]+)\"")
 declared = {m.group(2) for ln in build_lines for m in DECLARE.finditer(ln)}
+
+DECLARE_DSL = re.compile(
+    r"\b(implementation|api|compileOnly|runtimeOnly)\s*\(\s*(compose\.[A-Za-z0-9_]+)\s*\)")
+declared_dsl = {m.group(2) for ln in build_lines for m in DECLARE_DSL.finditer(ln)}
 
 
 def artifact_of(pkg: str):
@@ -80,16 +110,22 @@ for p in files:
             continue
         art = artifact_of(m.group(1))
         if art is None:
-            unknown.append((m.group(1), p.relative_to(CORE_SRC), i))
+            unknown.append((m.group(1), _src.rel_to_core(p), i))
         else:
-            used.setdefault(art, (p.relative_to(CORE_SRC), i))
+            used.setdefault(art, (_src.rel_to_core(p), i))
 
-missing = []
-for art, (f, i) in sorted(used.items()):
-    # آرتیفکت‌ها با پسوندِ `-desktop` نوشته می‌شوند؛ نامِ خودِ بسته باید
-    # در یکی از مختصاتِ اعلام‌شده بیاید.
-    if not any(f":{art}-desktop:" in d or d.endswith(f":{art}-desktop") for d in declared):
-        missing.append((art, f, i))
+def is_declared(art: str) -> bool:
+    # شکلِ رشته‌ای — با یا بی پسوندِ `-desktop`.
+    for d in declared:
+        if f":{art}:" in d or d.endswith(f":{art}"):
+            return True
+        if f":{art}-desktop:" in d or d.endswith(f":{art}-desktop"):
+            return True
+    # شکلِ DSLِ افزونهٔ Compose.
+    return any(tok in declared_dsl for tok in DSL_PROVIDER.get(art, ()))
+
+
+missing = [(art, f, i) for art, (f, i) in sorted(used.items()) if not is_declared(art)]
 
 if unknown:
     print(f"✗ {len(unknown)} بستهٔ Compose که این جدول نمی‌شناسدش")

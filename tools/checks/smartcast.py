@@ -23,7 +23,7 @@ import sys
 
 import _src
 
-CORE = _src.ROOTS[0]
+CORE = _src.CORE
 
 #: نامِ ویژگی → (کلاس، فایل) برای هر ویژگیِ nullableِ اعلام‌شده در :core
 NULLABLE = {}
@@ -44,7 +44,9 @@ if not core_files:
 GUARD = re.compile(r"(\w+)\.(\w+)\s*(?:!=|==)\s*null")
 
 risky = []
-for root in _src.ROOTS[1:]:            # هر ماژولی جز :core
+for root in _src.ROOTS:
+    if root in _src.CORE_ROOTS:      # هر ماژولی جز :core
+        continue
     for p in sorted(root.rglob("*.kt")):
         lines = p.read_text(encoding="utf-8").splitlines()
         for i, line in enumerate(lines):

@@ -110,7 +110,12 @@ android {
     kotlinOptions {
         jvmTarget = "17"
         freeCompilerArgs += listOf(
-            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api"
+            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
+            // `Uuid` آزمایشی است و کدی که Room تولید می‌کند
+            // (`OrderDao_Impl` و بیستِ دیگر) شناسه را همان نوع
+            // می‌خواند. آن فایل‌ها دستِ ما نیستند، پس اجازه از سطحِ
+            // ماژول می‌آید.
+            "-opt-in=kotlin.uuid.ExperimentalUuidApi"
         )
     }
 

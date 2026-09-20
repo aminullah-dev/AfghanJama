@@ -12,6 +12,7 @@ import com.afghanjama.data.repo.Repo
 import com.afghanjama.prefs.settings
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.util.BackupArchive
+import com.afghanjama.util.BackupArchiveIo
 import com.afghanjama.util.PhotoStore
 import com.afghanjama.ui.format.fa
 import com.afghanjama.util.ShareUtil
@@ -55,7 +56,7 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
             repo.checkpoint() // یکپارچه‌سازی WAL تا فایل اصلی کامل باشد
             val dbFile = context.getDatabasePath(DB_NAME)
             context.contentResolver.openOutputStream(uri)?.use { out ->
-                BackupArchive.write(dbFile, PhotoStore.dir(context), out)
+                BackupArchiveIo.write(dbFile, PhotoStore.dir(context), out)
             } ?: error("openOutputStream returned null")
         }.onSuccess { photos ->
             _ui.update {
@@ -82,7 +83,7 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
                 "${AppInfo.NAME_LATIN}-backup.ajb"
             )
             out.outputStream().use {
-                BackupArchive.write(dbFile, PhotoStore.dir(context), it)
+                BackupArchiveIo.write(dbFile, PhotoStore.dir(context), it)
             }
             out
         }.onSuccess { file ->
@@ -138,7 +139,7 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
             context.contentResolver.openInputStream(uri)?.use { input ->
                 when (format) {
                     BackupArchive.Format.ZIP -> {
-                        val res = BackupArchive.extract(
+                        val res = BackupArchiveIo.extract(
                             input, staged, PhotoStore.dir(context)
                         )
                         if (!res.dbWritten) error("فایلِ پشتیبان دیتابیس ندارد.")
@@ -279,7 +280,7 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
 
                     val saved = DownloadsWriter.write(
                         context, "${AppInfo.NAME_LATIN}-pish-az-reset-$stamp.ajb"
-                    ) { out -> BackupArchive.write(dbFile, PhotoStore.dir(context), out) }
+                    ) { out -> BackupArchiveIo.write(dbFile, PhotoStore.dir(context), out) }
 
                     if (!saved) {
                         error(

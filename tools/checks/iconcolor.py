@@ -62,8 +62,13 @@ brand = {
 check(brand, "هیچ رنگی از Brand.kt خوانده نشد — قالب عوض شده و بررسی پوچ می‌شد")
 
 # مسیر از `_src` می‌آید نه دستی — `purecheck` همین را می‌خواهد.
-# `ROOTS[1]` ریشهٔ کاتلینِ :app است؛ منابع کنارِ آن‌اند.
-RES = _src.ROOTS[1].parent / "res/drawable"
+# منابعِ اندروید کنارِ ریشهٔ کاتلینِ :app نشسته‌اند.
+#
+# تا دیروز اینجا `ROOTS[1]` نوشته بود و درست کار می‌کرد. بعد `:core`
+# چندسکویی شد، دو ریشهٔ تازه به ابتدای فهرست آمد، و `ROOTS[1]` شد
+# `core/src/jvmAndroidMain` — یعنی این بررسی دنبالِ آیکن در پوشهٔ کاتلینِ
+# :core می‌گشت. همان چیزی که توضیحِ `_src.py` هشدارش را داده بود.
+RES = _src.APP.parent / "res/drawable"
 BG = (RES / "ic_launcher_background.xml").resolve()
 FG = (RES / "ic_launcher_foreground.xml").resolve()
 for f in (BG, FG):

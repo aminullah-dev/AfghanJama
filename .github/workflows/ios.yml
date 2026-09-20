@@ -1,0 +1,222 @@
+name: نسخهٔ آیفون
+
+# جدا از `checks.yml`، و این عمدی است:
+#
+# ساختِ iOS مکِ واقعی می‌خواهد (Kotlin/Native و Xcode). رانرِ
+# `checks.yml` لینوکس است، پس این کار آنجا شدنی نیست. جدا بودنشان یعنی
+# اگر روزی زنجیرهٔ Xcode بشکند، بررسی‌ها و اپِ اندروید همچنان سبز
+# می‌مانند.
+#
+# **چرا اصلاً لازم شد.** تا امروز هیچ کاری نسخهٔ آیفون را نمی‌ساخت.
+# `:core` حالا برای سه سکو کامپایل می‌شود و هر تغییری در `commonMain`
+# می‌تواند فقط سمتِ iOS بشکند — `java.*`ی که اندروید دارد و iOS ندارد،
+# یا `expect`ی که `actual`ش جا مانده. آن شکستن تا روزی که کسی دستی
+# روی مک بسازد دیده نمی‌شد.
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "iosApp/**"
+      - "core/**"
+      - "gradle/**"
+      - "*.gradle.kts"
+      - "gradle.properties"
+      - ".github/workflows/ios.yml"
+      # این کار هم بررسی‌های ساختاری را می‌دوانَد — همان قاعدهٔ
+      # `windows.yml`: ویرایشِ خودِ بررسی‌ها باید روی همین رانر سنجیده
+      # شود.
+      - "tools/checks/**"
+  workflow_dispatch:
+
+jobs:
+  build:
+    # **باید arm64 باشد.** `:core` عمداً هدفِ `iosX64` ندارد، پس ساخت
+    # روی رانرِ اینتل هیچ frameworkی برای پیوند زدن پیدا نمی‌کند.
+    # `macos-latest` از macos-14 به بعد Apple Silicon است.
+    runs-on: macos-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: کشِ Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # این فایل به مسیرِ SDK روی کامپیوترِ شخصی اشاره می‌کند و روی
+      # ماشینِ CI وجود ندارد.
+      - name: برداشتنِ local.properties
+        run: rm -f local.properties
+
+      # چند ثانیه می‌گیرند و پیش از ساختِ چنددقیقه‌ای جواب می‌دهند.
+      # شکستشان ساخت را رد نمی‌کند — پلهٔ آخر نتیجه را برمی‌گرداند؛
+      # همان الگوی `windows.yml` و دلیلش همان‌جا نوشته شده.
+      - name: بررسی‌های ساختاری
+        id: checks
+        continue-on-error: true
+        run: python3 tools/checks/run_all.py
+
+      # ═══ نگهبانِ اصلی ═══
+      #
+      # این یک فرمان هر سه چیزی را می‌سنجد که فقط سمتِ iOS می‌شکنند:
+      # کامپایلِ Kotlin/Native روی `commonMain` + `iosMain`، اجرای KSP
+      # برای موتورِ Room، و پیوندِ خودِ framework.
+      #
+      # `linkDebug...` و نه `compile...`: پیوند جایی است که `expect`ِ
+      # بی‌`actual` و نمادِ گمشده خودشان را نشان می‌دهند.
+      - name: ساختِ frameworkِ کاتلین
+        run: ./gradlew --no-daemon :core:linkDebugFrameworkIosSimulatorArm64
+
+      # سبزبودنِ کامپایل کافی نیست: اگر پردازشگرِ Room برای هدفِ iOS
+      # اجرا نشود، کامپایل سبز می‌مانَد و دیتابیس تازه سرِ اجرا روی
+      # آیفون باز نمی‌شود.
+      #
+      # و اجرا نشدنش سناریوی فرضی نیست: `ksp(...)`ِ ساده به هیچ هدفِ
+      # چندسکویی‌ای نمی‌رسد و بی‌صدا هیچ کاری نمی‌کند. پیکربندی‌اش در
+      # `core/build.gradle.kts` نامِ هدف را دارد (`kspIosArm64`) و یک
+      # تایپ در آن نام همین سکوت را برمی‌گردانَد.
+      - name: مطمئن شو Room برای iOS هم کد ساخت
+        run: |
+          python3 - <<'PY'
+          import pathlib, sys
+          root = pathlib.Path('core/build/generated/ksp')
+          if not root.is_dir():
+              sys.exit('پوشهٔ خروجیِ KSP در :core نیست — پردازشگر اجرا نشده.')
+          impl = list(root.rglob('IosDatabase_Impl.*'))
+          daos = list(root.rglob('*Dao_Impl.*'))
+          print(f'{len(impl)} پیاده‌سازیِ دیتابیس، {len(daos)} پیاده‌سازیِ DAO')
+          if not impl:
+              sys.exit('IosDatabase_Impl ساخته نشده.')
+          if len(daos) < 28:
+              sys.exit(f'فقط {len(daos)} DAO ساخته شد، انتظار دستِ‌کم ۲۸.')
+          PY
+
+      # ═══ طرحِ دیتابیسِ iOS واقعاً صادر شد؟ ═══
+      #
+      # همان نگهبانی که `checks.yml` برای اندروید و ویندوز دارد، این بار
+      # برای سکوی سوم. بی این، می‌شد `room.schemaLocation` را اشتباه
+      # نوشت و تا روزِ مهاجرتِ بعدی هیچ‌کس نفهمد که هیچ فایلی ساخته
+      # نشده.
+      - name: مطمئن شو طرحِ دیتابیسِ iOS صادر شد
+        run: |
+          python3 - <<'PY'
+          import pathlib, re, sys, json
+          hits = sorted(pathlib.Path('core/src').rglob('data/DbSchema.kt'))
+          if not hits:
+              sys.exit('✗ DbSchema.kt در core/src پیدا نشد')
+          ver = int(re.search(r'const val DB_VERSION\s*=\s*(\d+)',
+                hits[0].read_text(encoding='utf-8')).group(1))
+          found = list(pathlib.Path('core').glob(f'schemas/**/{ver}.json'))
+          if not found:
+              have = sorted(p.name for p in pathlib.Path('core').glob('schemas/**/*.json'))
+              sys.exit(f'✗ طرحِ نسخهٔ {ver} برای iOS ساخته نشد (موجود: {have or "هیچ"})')
+          d = json.loads(found[0].read_text(encoding='utf-8'))
+          n = len(d.get('database', {}).get('entities', []))
+          print(f'  {found[0]} — {n} جدول')
+          if n < 40:
+              sys.exit(f'فقط {n} جدول در طرح، انتظار دستِ‌کم ۴۰.')
+          print('✓ طرحِ دیتابیسِ iOS صادر شد')
+          PY
+
+      - name: بارگذاریِ طرحِ صادرشده
+        uses: actions/upload-artifact@v4
+        with:
+          name: room-schemas-ios
+          path: core/schemas/
+          if-no-files-found: error
+          retention-days: 30
+
+      # پروژهٔ Xcode در مخزن نیست و از `iosApp/project.yml` ساخته
+      # می‌شود؛ دلیلش در خودِ آن فایل نوشته شده.
+      - name: نصبِ xcodegen
+        run: brew install xcodegen
+
+      - name: ساختِ پروژهٔ Xcode
+        working-directory: iosApp
+        run: xcodegen generate
+
+      # ═══ خودِ برنامه ═══
+      #
+      # پلهٔ بالا فقط کاتلین را می‌سنجد. این یکی پلِ Swift، `Info.plist`
+      # و منابع را هم می‌سنجد — سه چیزی که هیچ‌کدام کاتلین نیستند و هر
+      # سه می‌توانند بشکنند بی آنکه Gradle خبردار شود.
+      #
+      # امضا لازم نیست: بستهٔ شبیه‌ساز امضا نمی‌خواهد.
+      - name: ساختِ برنامه برای شبیه‌ساز
+        run: |
+          xcodebuild \
+            -project iosApp/KhayatYar.xcodeproj \
+            -scheme KhayatYar \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath iosApp/build/dd \
+            build
+
+      # ═══ آنچه ساختِ سبز نمی‌گوید ═══
+      #
+      # هر دو وارسیِ زیر اشکالِ واقعی گرفتند، نه فرضی:
+      #
+      # ۱. **قلم.** سه فایلِ `.ttf` زیرِ کلیدِ `resources` در
+      #    `project.yml` بودند و xcodegen آن کلید را نمی‌شناسد و
+      #    بی‌هشدار دور می‌ریزد. ساخت سبز بود، بسته بی‌فونت، و
+      #    `bundledFont` هم عمداً سرِ نبودنِ فونت نمی‌شکند — پس برنامه
+      #    با قلمِ پیش‌فرضِ آیفون بالا می‌آمد و هیچ‌کس خبردار نمی‌شد.
+      #
+      # ۲. **معماری.** بستهٔ شبیه‌ساز باید فقط arm64 باشد، چون `:core`
+      #    هدفِ `iosX64` ندارد. تا وقتی `EXCLUDED_ARCHS` نبود، ساختِ
+      #    generic با `Undefined symbols for architecture x86_64`
+      #    می‌شکست — خطایی که شبیهِ اشکالِ کد بود، نه پیکربندی.
+      - name: مطمئن شو بسته کامل است
+        run: |
+          app=$(find iosApp/build/dd/Build/Products -maxdepth 2 -name 'KhayatYar.app' | head -1)
+          if [ -z "$app" ]; then
+            echo "هیچ KhayatYar.app ساخته نشد."
+            find iosApp/build/dd/Build/Products -maxdepth 3 -type d || true
+            exit 1
+          fi
+          echo "ساخته شد: $app"
+          du -sh "$app"
+
+          missing=0
+          for f in vazirmatn_regular.ttf vazirmatn_semibold.ttf vazirmatn_bold.ttf; do
+            if [ ! -f "$app/$f" ]; then
+              echo "✗ قلمِ $f در بسته نیست."
+              missing=1
+            fi
+          done
+          if [ "$missing" = "1" ]; then
+            echo "محتوای بسته:"
+            ls -1 "$app"
+            exit 1
+          fi
+          echo "✓ هر سه قلم در بسته هست."
+
+          arch=$(lipo -archs "$app/KhayatYar")
+          echo "معماریِ باینری: $arch"
+          if [ "$arch" != "arm64" ]; then
+            echo "✗ انتظار فقط arm64 بود — :core هدفِ iosX64 ندارد."
+            exit 1
+          fi
+
+      - name: لاگِ ساخت وقتی شکست
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-logs
+          path: |
+            iosApp/build/dd/Logs/
+            core/build/reports/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      # نگهبانِ بررسی‌های ساختاری، در انتها — همان الگوی `windows.yml`.
+      - name: نتیجهٔ بررسی‌های ساختاری
+        if: always() && steps.checks.outcome == 'failure'
+        run: |
+          echo "::error::بررسی‌های ساختاری شکست خورد — متنش بالای همین لاگ، پلهٔ «بررسی‌های ساختاری»."
+          exit 1
