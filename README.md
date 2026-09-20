@@ -52,6 +52,9 @@
 [دانلودِ `KhayatYar-1.8.0.apk`](https://github.com/aminullah-dev/AfghanJama/releases/download/v1.8.0/KhayatYar-1.8.0.apk)
 (۱۶ مگابایت). چون از بازار نمی‌آید، گوشی یک بار اجازه می‌خواهد:
 «نصب از منابع ناشناس» را برای مرورگر یا فایل‌منیجر روشن کنید.
+اگر نسخهٔ قبلی روی گوشی‌تان نصب است،
+[راهنمای رفتن به ۱.۸.۰](docs/MIGRATION-ANDROID-1.8.0.md) را بخوانید —
+باید یک بار پشتیبان بگیرید و از نو نصب کنید.
 
 **ویندوز ۱۰ به بالا (۶۴-بیتی)** —
 [دانلودِ `KhayatYar-1.8.0.msi`](https://github.com/aminullah-dev/AfghanJama/releases/download/v1.8.0/KhayatYar-1.8.0.msi)
