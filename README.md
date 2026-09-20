@@ -49,8 +49,8 @@
 ## نصب
 
 **اندروید ۷ به بالا** (API ۲۴) —
-[دانلودِ `KhayatYar-1.7.0.apk`](https://github.com/aminullah-dev/AfghanJama/releases/download/v1.7.0/KhayatYar-1.7.0.apk)
-(۱۵ مگابایت). چون از بازار نمی‌آید، گوشی یک بار اجازه می‌خواهد:
+[دانلودِ `KhayatYar-1.8.0.apk`](https://github.com/aminullah-dev/AfghanJama/releases/download/v1.8.0/KhayatYar-1.8.0.apk)
+(۱۶ مگابایت). چون از بازار نمی‌آید، گوشی یک بار اجازه می‌خواهد:
 «نصب از منابع ناشناس» را برای مرورگر یا فایل‌منیجر روشن کنید.
 
 **ویندوز ۱۰ به بالا (۶۴-بیتی)** —
@@ -168,14 +168,15 @@ Build with JDK 17: `./gradlew testDebugUnitTest` for the money tests,
 `./gradlew :desktop:packageDmg` on macOS for the disk image.
 
 Downloads —
-[Android APK](https://github.com/aminullah-dev/AfghanJama/releases/download/v1.7.0/KhayatYar-1.7.0.apk)
-(15 MB) ·
+[Android APK](https://github.com/aminullah-dev/AfghanJama/releases/download/v1.8.0/KhayatYar-1.8.0.apk)
+(16 MB) ·
 [Windows MSI](https://github.com/aminullah-dev/AfghanJama/releases/download/v1.8.0/KhayatYar-1.8.0.msi)
-(135 MB) ·
+(136 MB) ·
+[macOS DMG](https://github.com/aminullah-dev/AfghanJama/releases/download/v1.8.0/KhayatYar-1.8.0.dmg)
+(158 MB) ·
 [all releases](https://github.com/aminullah-dev/AfghanJama/releases).
-The macOS DMG is not published yet; CI builds it on every `desktop/`
-change and attaches it to the
-[macOS workflow run](https://github.com/aminullah-dev/AfghanJama/actions/workflows/macos.yml).
-None of the files are code-signed, so every platform warns once on
-first run. Signing for macOS runs on the owner's own Mac — the
-Developer ID certificate never leaves that machine.
+The macOS DMG is signed and notarized by Apple — it opens with no
+warning, even offline. Windows and Android are not signed through an
+official channel yet, so those two show one warning on first run.
+Signing for macOS runs on the owner's own Mac — the Developer ID
+certificate never leaves that machine.
