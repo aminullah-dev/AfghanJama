@@ -68,9 +68,10 @@
 DMG، پس کشیدنِ برنامه روی `/Applications` مهرش را از بین نمی‌برد.
 
 نسخهٔ ویندوز و اندروید هنوز امضای رسمی ندارند، پس آن دو سیستم یک بار
-هشدار می‌دهند. امضای مک روی کمپیوترِ خودِ کارفرما انجام می‌شود و
-کلیدش هیچ‌وقت از آن مک بیرون نمی‌رود:
-[`tools/macos-signing/`](tools/macos-signing/README.md). همهٔ نسخه‌ها در
+هشدار می‌دهند. کلیدهای امضا روی کمپیوترِ خودِ کارفرما می‌مانند و
+هیچ‌وقت بیرون نمی‌روند:
+[`tools/macos-signing/`](tools/macos-signing/README.md) و
+[`tools/android-signing/`](tools/android-signing/README.md). همهٔ نسخه‌ها در
 [صفحهٔ Releases](https://github.com/aminullah-dev/AfghanJama/releases).
 
 راهنمای کارِ روزمره: [`RAHNAMA.md`](RAHNAMA.md)

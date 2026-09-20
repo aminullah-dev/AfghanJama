@@ -201,7 +201,9 @@ Android Studio سی ثانیه کار است:
 **و یک نکتهٔ اندروید که فراموش نشود:** از ۱.۸.۰ به بعد کلیدِ امضا
 عوض شده (رمزِ کلیدِ قبلی گم شد). هر APK باید با **همان کلیدِ تازه**
 امضا شود، وگرنه گوشیِ کارفرما آپدیت را رد می‌کند. اثرانگشتِ کلید در
-Play Console → Android developer verification ثبت شده است.
+Play Console → Android developer verification ثبت شده است. کجا بودنِ
+کلید و روشِ وارسی‌اش در
+[`tools/android-signing/README.md`](tools/android-signing/README.md).
 
 ---
 
