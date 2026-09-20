@@ -5,12 +5,14 @@ package com.afghanjama.ui.screens
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -230,6 +232,20 @@ fun DeliveryQueueScreen(
                             )
                         }
 
+                        /*
+                         * **دو ردیف، نه سه دکمه کنارِ هم.**
+                         *
+                         * با آمدنِ «خبر بده» سه دکمه در یک ردیف نشستند و
+                         * روی گوشیِ واقعی هر کدام حدودِ ۱۰۰dp ماند — یعنی
+                         * آیکن به‌اضافهٔ متن جا نشد و «تحویل» و «تماس»
+                         * **وسطِ کلمه** شکستند. `weight` عرض را تقسیم
+                         * می‌کند، ولی کلمهٔ فارسی تقسیم نمی‌شود.
+                         *
+                         * حالا کارهای فرعی بالا و کارِ اصلی تمام‌عرض
+                         * پایین — که ترتیبِ درست‌تری هم هست: «تحویل»
+                         * کاری است که پول جابه‌جا می‌کند و نباید
+                         * هم‌اندازهٔ «تماس» دیده شود.
+                         */
                         Row(
                             Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -240,11 +256,21 @@ fun DeliveryQueueScreen(
                                         system.dial(o.customerPhone)
                                         vm.markNotified(row, "تماس")
                                     },
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier.weight(1f),
+                                    contentPadding = PaddingValues(horizontal = 8.dp)
                                 ) {
-                                    Icon(Icons.Default.Call, contentDescription = null)
-                                    Spacer(Modifier.width(8.dp))
-                                    Text("تماس")
+                                    Icon(
+                                        Icons.Default.Call,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    // `maxLines = 1` نگهبانِ همان اشکال
+                                    // است: اگر روزی دکمهٔ چهارمی اضافه
+                                    // شود، متن به‌جای شکستن کوتاه می‌شود
+                                    // و ایراد دیده می‌شود، نه اینکه
+                                    // بدشکل شود.
+                                    Text("تماس", maxLines = 1)
                                 }
                             }
                             // «خبر بده» — متنِ آماده به هر اپی که کاربر
@@ -259,23 +285,28 @@ fun DeliveryQueueScreen(
                                     )
                                     vm.markNotified(row, "پیام")
                                 },
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(horizontal = 8.dp)
                             ) {
-                                Icon(Icons.Default.Share, contentDescription = null)
-                                Spacer(Modifier.width(8.dp))
-                                Text("خبر بده")
+                                Icon(
+                                    Icons.Default.Share,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text("خبر بده", maxLines = 1)
                             }
-                            Button(
-                                onClick = {
-                                    vm.lookupPrepay(o.customerName)
-                                    deliverTarget = o.id
-                                },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Icon(Icons.Default.CheckCircle, contentDescription = null)
-                                Spacer(Modifier.width(8.dp))
-                                Text("تحویل")
-                            }
+                        }
+                        Button(
+                            onClick = {
+                                vm.lookupPrepay(o.customerName)
+                                deliverTarget = o.id
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("تحویل", maxLines = 1)
                         }
                     }
                 }
