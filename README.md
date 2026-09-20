@@ -54,13 +54,13 @@
 «نصب از منابع ناشناس» را برای مرورگر یا فایل‌منیجر روشن کنید.
 
 **ویندوز ۱۰ به بالا (۶۴-بیتی)** —
-[دانلودِ `KhayatYar-1.7.0.msi`](https://github.com/aminullah-dev/AfghanJama/releases/download/v1.7.0/KhayatYar-1.7.0.msi)
-(۱۳۵ مگابایت). راهنمای کامل در
+[دانلودِ `KhayatYar-1.8.0.msi`](https://github.com/aminullah-dev/AfghanJama/releases/download/v1.8.0/KhayatYar-1.8.0.msi)
+(۱۳۶ مگابایت). راهنمای کامل در
 [`docs/WINDOWS-NASB.md`](docs/WINDOWS-NASB.md).
 
 **مک (اپل سیلیکون)** —
-[دانلودِ `KhayatYar-1.7.0.dmg`](https://github.com/aminullah-dev/AfghanJama/releases/download/v1.7.0/KhayatYar-1.7.0.dmg)
-(۱۵۰ مگابایت). **امضاشده و مهرخوردهٔ اپل** — باز می‌شود بی هیچ هشداری،
+[دانلودِ `KhayatYar-1.8.0.dmg`](https://github.com/aminullah-dev/AfghanJama/releases/download/v1.8.0/KhayatYar-1.8.0.dmg)
+(۱۵۸ مگابایت). **امضاشده و مهرخوردهٔ اپل** — باز می‌شود بی هیچ هشداری،
 حتی روی کمپیوترِ بی‌اینترنت. مهر هم روی خودِ برنامه نشسته و هم روی
 DMG، پس کشیدنِ برنامه روی `/Applications` مهرش را از بین نمی‌برد.
 
@@ -170,7 +170,7 @@ Build with JDK 17: `./gradlew testDebugUnitTest` for the money tests,
 Downloads —
 [Android APK](https://github.com/aminullah-dev/AfghanJama/releases/download/v1.7.0/KhayatYar-1.7.0.apk)
 (15 MB) ·
-[Windows MSI](https://github.com/aminullah-dev/AfghanJama/releases/download/v1.7.0/KhayatYar-1.7.0.msi)
+[Windows MSI](https://github.com/aminullah-dev/AfghanJama/releases/download/v1.8.0/KhayatYar-1.8.0.msi)
 (135 MB) ·
 [all releases](https://github.com/aminullah-dev/AfghanJama/releases).
 The macOS DMG is not published yet; CI builds it on every `desktop/`
