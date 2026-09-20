@@ -1379,6 +1379,59 @@ class Repo(private val db: Db) {
      * شکلِ رویدادها غلط باشد، پیش از آنکه چیزی به آن تکیه کند معلوم
      * می‌شود.
      */
+    /**
+     * نوعِ رویدادِ «به مشتری خبر دادیم که کارش آماده است».
+     *
+     * ستونِ تازه‌ای در `orders` لازم نبود و این عمدی است: هر ستونِ
+     * تازه یک مهاجرت و سه طرحِ دیتابیسِ تازه می‌خواهد، در حالی که
+     * `domain_events` دقیقاً برای همین ساخته شده و ایندکسِ
+     * `(aggregate, aggregateId)` هم دارد. ضمناً این‌طور **تاریخچه**
+     * می‌مانَد، نه فقط آخرین بار — اگر دو بار خبر داده شده، هر دو ثبت
+     * است.
+     */
+    /**
+     * نوعِ رویدادِ «به مشتری خبر دادیم که کارش آماده است».
+     *
+     * فارسی و نه `CUSTOMER_NOTIFIED`، چون بقیهٔ رویدادهای این فایل
+     * فارسی‌اند و همین رشته در تاریخچهٔ سفارش به کاربر نشان داده
+     * می‌شود.
+     */
+    private val eventCustomerNotified = "خبر به مشتری"
+
+    /**
+     * شناسهٔ سفارش ← آخرین باری که به مشتری خبر داده شد.
+     *
+     * **ستونِ تازه‌ای در `orders` لازم نبود و این عمدی است.** هر ستونِ
+     * تازه یک مهاجرت و سه طرحِ دیتابیسِ تازه می‌خواهد، در حالی که
+     * `domain_events` دقیقاً برای همین ساخته شده و ایندکسِ
+     * `(aggregate, aggregateId)` هم دارد. ضمناً این‌طور **تاریخچه**
+     * می‌مانَد نه فقط آخرین بار: اگر دو بار خبر داده شده، هر دو ثبت
+     * است و صفحهٔ جزئیاتِ سفارش می‌تواند نشانشان دهد.
+     */
+    fun observeCustomerNotified(): Flow<Map<String, Long>> =
+        db.domainEventDao()
+            .observeLatestAt(eventCustomerNotified, "order")
+            .map { rows -> rows.associate { it.id to it.at } }
+
+    /**
+     * ثبتِ اینکه به مشتریِ این سفارش خبر داده شد.
+     *
+     * شناسه‌اش `id` است نه `orderCode` — کد قابلِ تغییر است و اگر روزی
+     * عوض شود، تاریخچه از سفارش جدا می‌افتد. کد در `payload` می‌نشیند
+     * که برای خواندنِ آدمی است.
+     *
+     * داخلِ تراکنش است چون قاعدهٔ `eventtx` همین را می‌خواهد و دلیلش
+     * در `DomainEvent` نوشته شده.
+     */
+    suspend fun markCustomerNotified(order: Order, via: String) = db.atomic {
+        emit(
+            type = eventCustomerNotified,
+            aggregate = "order",
+            aggregateId = order.id.toString(),
+            payload = "سفارش=${order.orderCode}؛مشتری=${order.customerName}؛راه=$via"
+        )
+    }
+
     private suspend fun emit(
         type: String,
         aggregate: String,
