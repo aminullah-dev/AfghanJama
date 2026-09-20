@@ -7,7 +7,7 @@
 یک کارگاهِ خیاطی چند دفتر دارد که هیچ‌کدام با هم نمی‌خوانند: دفترِ
 سفارش، دفترِ پارچه، دفترِ خیاط‌ها، و دفترِ پول. خیاط‌یار هر چهار را یکی
 می‌کند، به فارسی/دری و راست‌به‌چپ، روی گوشیِ اندروید و کامپیوترِ ویندوز
-— با **یک** دیتابیس که بینشان جابه‌جا می‌شود.
+و مک — با **یک** دیتابیس که بینشان جابه‌جا می‌شود.
 
 بی‌اینترنت کار می‌کند. همهٔ داده روی خودِ دستگاه می‌مانَد.
 
@@ -36,9 +36,9 @@
 اقساط پرچمِ «پرداخت‌شده» ندارد و تسویه‌اش از خودِ دریافتی‌ها مشتق
 می‌شود. جایی که دو محاسبه ممکن بود از هم بیفتند، یکی شده است.
 
-**یک تعریف، دو سکو.** اندروید و ویندوز یک ماژولِ مشترک دارند
-(`:core`) و یک نسخهٔ دیتابیس. مهاجرتِ طرح یک بار در `SchemaMigrations`
-نوشته می‌شود و به هر دو می‌رسد.
+**یک تعریف، هر سکو.** اندروید، ویندوز، مک و آیفون یک ماژولِ مشترک
+دارند (`:core`) و یک نسخهٔ دیتابیس. مهاجرتِ طرح یک بار در
+`SchemaMigrations` نوشته می‌شود و به همه‌شان می‌رسد.
 
 </div>
 
@@ -98,13 +98,13 @@ gradlew.bat :desktop:packageMsi
 # آزمون‌های ریاضیِ پول
 ./gradlew testDebugUnitTest
 
-# ۵۳ بررسیِ ساختاری — چند ثانیه، بی‌نیاز به Gradle
+# ۵۴ بررسیِ ساختاری — چند ثانیه، بی‌نیاز به Gradle
 python3 tools/checks/run_all.py
 ```
 
 مراحلِ کاملِ انتشار: [`DELIVERY.md`](DELIVERY.md)
 
-**پیش از ادغامِ هر شاخه‌ای، [`docs/BRANCHES.md`](docs/BRANCHES.md) را بخوانید.** یک شاخهٔ کهنه در مخزن هست که ادغامش ۳۷ هزار خط را پاک می‌کند.
+**پیش از ادغامِ هر شاخه‌ای، [`docs/BRANCHES.md`](docs/BRANCHES.md) را بخوانید.** سه شاخهٔ کهنه در مخزن هست که ادغامِ بدترینشان ۵۶ هزار خط را پاک می‌کند.
 
 </div>
 
@@ -116,18 +116,19 @@ python3 tools/checks/run_all.py
 
 ```
 app/       نسخهٔ اندروید — Activity، ناوبری، مهاجرت‌های تاریخی
-core/      مشترکِ هر دو سکو — صفحه‌ها، ViewModelها، Room، منطقِ پول
+core/      مشترکِ هر سه سکو — صفحه‌ها، ViewModelها، Room، منطقِ پول
 desktop/   نسخهٔ ویندوز و مک — پنجره، فهرستِ کنار، MSI و DMG
-tools/     ۵۳ بررسیِ ساختاری، ناشرِ وردپرس، اسکریپت‌های امضای ویندوز و مک
+iosApp/    پوستهٔ SwiftUI که همان :core را سوار می‌کند
+tools/     ۵۴ بررسیِ ساختاری، ناشرِ وردپرس، اسکریپت‌های امضای ویندوز و مک
 docs/      معماری، راهنمای ویندوز، مسئله‌های شناخته‌شده
 ```
 
-**Kotlin + Jetpack Compose + Room.** ۳۱۳ فایلِ کاتلین، ۳۹ صفحه،
-۴۲ جدول، نسخهٔ دیتابیسِ ۶۴.
+**Kotlin + Jetpack Compose + Room.** ۴۷۶ فایلِ کاتلین، ۴۶ صفحه،
+۴۳ جدول، نسخهٔ دیتابیسِ ۶۵.
 
 ### بررسی‌های ساختاری
 
-`tools/checks/` پنجاه‌ودو بررسیِ پایتونی دارد که در چند ثانیه می‌دوند و
+`tools/checks/` پنجاه‌وچهار بررسیِ پایتونی دارد که در چند ثانیه می‌دوند و
 چیزهایی را می‌گیرند که کامپایلر نمی‌گیرد: ایمپورتِ جاافتاده، مهاجرتِ
 گم‌شده، عملیاتِ غیراتمیک، صفحهٔ بی‌مسیر، فاصله‌های خارج از شبکهٔ ۴dp،
 و منطقِ پول که با شبیه‌سازیِ مستقل سنجیده می‌شود.
@@ -147,19 +148,20 @@ orders, production stages, fabric inventory, tailor wages, payroll,
 purchasing, and a full double-entry money ledger. Persian/Dari, RTL,
 offline-first. All data stays on the device.
 
-Runs on **Android 7+** (API 24) and **Windows 10+** from one shared Kotlin
-codebase (`:core`) with a single database version, so the same file
-moves between phone and PC.
+Runs on **Android 7+** (API 24), **Windows 10+**, and **macOS** (Apple
+silicon) from one shared Kotlin codebase (`:core`) with a single
+database version, so the same file moves between phone and PC. An iOS
+shell builds from the same `:core` and is not published yet.
 
-Built with Kotlin, Jetpack Compose, and Room. 313 Kotlin files,
-39 screens, 42 tables.
+Built with Kotlin, Jetpack Compose, and Room. 476 Kotlin files,
+46 screens, 43 tables.
 
 Two ideas shape the design. *One number, one place*: every money figure
 comes from a single formula, so the quote calculator and the ledger can
-never disagree. *One definition, two platforms*: a schema migration is
-written once and reaches both Android and Windows.
+never disagree. *One definition, every platform*: a schema migration is
+written once and reaches Android, Windows, macOS and iOS alike.
 
-Alongside the code, `tools/checks/` holds 53 Python checks that run in
+Alongside the code, `tools/checks/` holds 54 Python checks that run in
 seconds and catch what the compiler cannot — missing imports, absent
 migrations, non-atomic operations, unreachable screens, and money logic
 verified against an independent simulation. Every check must be proven
