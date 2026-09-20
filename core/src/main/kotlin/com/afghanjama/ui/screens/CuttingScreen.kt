@@ -22,7 +22,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.QrCodeScanner
-import androidx.compose.material3.AlertDialog
+import com.afghanjama.ui.platform.AppAlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -38,7 +38,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.runtime.Composable
 import com.afghanjama.ui.components.WorkStage
 import com.afghanjama.ui.components.StageTabs
@@ -48,16 +47,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import android.Manifest
-import android.content.pm.PackageManager
-import androidx.core.content.ContextCompat
 import com.afghanjama.ui.components.OrderCodeLine
 import com.afghanjama.data.entities.Order
+import com.afghanjama.platform.LocalCodeScanner
 import com.afghanjama.ui.components.MeasurementsBlock
 import com.afghanjama.ui.components.OrderPhotoStrip
 import com.afghanjama.ui.format.STAGE_WARN_DAYS
@@ -65,8 +61,6 @@ import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.format.stageDays
 import com.afghanjama.ui.vm.CuttingViewModel
-import com.journeyapps.barcodescanner.ScanContract
-import com.journeyapps.barcodescanner.ScanOptions
 
 @Composable
 fun CuttingScreen(
@@ -103,60 +97,28 @@ fun CuttingScreen(
         }
     }
 
-    // اسکنِ QR سفارش با دوربین
-    val context = LocalContext.current
-
-    val scanOptions = {
-        ScanOptions().apply {
-            setPrompt("QR سفارش را اسکن کنید")
-            setBeepEnabled(true)
-            setOrientationLocked(true)
-            setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-        }
-    }
-
-    val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
-        // نتیجهٔ خالی یعنی کاربر لغو کرده یا دوربین بالا نیامده — قبلاً
-        // بی‌صدا نادیده گرفته می‌شد و اسکنر «کار نمی‌کرد» بدون هیچ پیغامی.
-        val code = result.contents
-        if (code.isNullOrBlank()) {
-            val camOk = ContextCompat.checkSelfPermission(
-                context, Manifest.permission.CAMERA
-            ) == PackageManager.PERMISSION_GRANTED
-            scanMsg = if (!camOk)
-                "اجازهٔ دوربین داده نشده است. از تنظیماتِ گوشی اجازهٔ دوربین را بدهید، یا کد را دستی وارد کنید."
-            else
-                "اسکن انجام نشد. می‌توانید کد را دستی وارد کنید."
-        } else {
-            handleCode(code)
-        }
-    }
-
-    /**
-     * اجازهٔ دوربین عمداً از اینجا درخواست نمی‌شود.
+    /*
+     * اسکنِ QR — از سکو می‌آید، نه از اینجا.
      *
-     * MainActivity یک FragmentActivity است و نسخهٔ fragment ای که
-     * androidx.biometric می‌آورد، requestCodeهای بزرگ‌تر از ۱۶ بیت را رد
-     * می‌کند — در حالی که ActivityResultRegistry عمداً کدِ بزرگ می‌سازد.
-     * پس هر launch(RequestPermission()) از این اکتیویتی با
-     * «Can only use lower 16 bits for requestCode» می‌ترکد.
-     *
-     * خودِ CaptureActivity کتابخانهٔ اسکنر (که FragmentActivity نیست)
-     * اجازهٔ دوربین را با کدِ کوچکِ خودش می‌گیرد، پس فقط اسکنر را باز
-     * می‌کنیم و نتیجه را — چه موفق چه ناموفق — به کاربر می‌گوییم.
+     * تا دیروز کلِ این صفحه به‌خاطرِ همین چند خط در `:app` مانده بود و
+     * ویندوز اصلاً برش نداشت. حالا `null` بودنِ اسکنر یعنی «این سکو
+     * دوربین ندارد» و صفحه فقط دکمه‌اش را نشان نمی‌دهد؛ ورودِ دستیِ
+     * کد که از قبل بود، آنجا تنها راه است.
      */
-    fun startScan() {
-        runCatching { scanLauncher.launch(scanOptions()) }
-            .onFailure {
-                scanMsg = "اسکنر باز نشد؛ کد را دستی وارد کنید."
-                manualCodeOpen = true
-            }
-    }
+    val scanner = LocalCodeScanner.current
+    val startScan = scanner?.rememberStart(
+        onCode = { handleCode(it) },
+        onFailed = { msg ->
+            scanMsg = msg
+            // پیشنهادِ راهِ دوم، نه فقط خبرِ بد.
+            manualCodeOpen = true
+        },
+    )
 
     // ---------- ورود دستی کد (وقتی دوربین/اسکنر در دسترس نیست) ----------
     if (manualCodeOpen) {
         var typed by remember { mutableStateOf("") }
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { manualCodeOpen = false },
             title = { Text("کد سفارش") },
             text = {
@@ -184,7 +146,7 @@ fun CuttingScreen(
         var pieces by remember(o.id) { mutableStateOf(o.qty.toString()) }
         var waste by remember(o.id) { mutableStateOf("") }
         var note by remember(o.id) { mutableStateOf("") }
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { cutTarget = null },
             title = { Text("ثبت برش — ${o.designTitle.ifBlank { o.orderCode }}") },
             text = {
@@ -299,12 +261,16 @@ fun CuttingScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             StageTabs(WorkStage.CUT, onGoStage)
-            androidx.compose.material3.Button(
-                onClick = { startScan() },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Default.QrCodeScanner, contentDescription = null)
-                Text("  اسکن QR سفارش")
+            // دکمهٔ اسکن فقط جایی که دوربینی هست. روی ویندوز نبودنش
+            // صادق‌تر از دکمه‌ای است که می‌گوید «اسکنر باز نشد».
+            if (startScan != null) {
+                androidx.compose.material3.Button(
+                    onClick = { startScan() },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.QrCodeScanner, contentDescription = null)
+                    Text("  اسکن QR سفارش")
+                }
             }
             androidx.compose.material3.TextButton(
                 onClick = { manualCodeOpen = true },

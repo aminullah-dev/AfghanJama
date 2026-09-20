@@ -1,0 +1,39 @@
+package com.afghanjama.platform
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
+
+/**
+ * خواندنِ QRِ سفارش با دوربین.
+ *
+ * **چرا واسط شد.** صفحهٔ برش به‌خاطرِ همین یک تکه در `:app` مانده بود
+ * و کمپیوترِ کارگاه — که دفترِ اصلی است — نمی‌توانست برش ثبت کند. در
+ * حالی که برش همان‌جایی است که مواد از انبار کم می‌شود.
+ *
+ * **و چرا `null` یک جوابِ درست است.** پی‌سی دوربین ندارد؛ ساختنِ
+ * پیاده‌سازیِ ساختگی که هیچ نکند یعنی دکمه‌ای که کاربر می‌زند و هیچ
+ * اتفاقی نمی‌افتد. همان قاعده‌ای که [SystemActions] نوشته: «واسطی که
+ * همه‌چیز را بپوشاند، روی سکویی که نصفش را ندارد به دروغ تبدیل
+ * می‌شود.» پس [LocalCodeScanner] روی ویندوز `null` است و صفحه اصلاً
+ * دکمهٔ اسکن را نشان نمی‌دهد — ورودِ دستیِ کد که از قبل بود، آنجا تنها
+ * راه است.
+ */
+interface CodeScanner {
+    /**
+     * اسکنر را آماده می‌کند و تابعی برمی‌گرداند که بازش می‌کند.
+     *
+     * `@Composable` است چون روی اندروید به `ActivityResultLauncher`
+     * نیاز دارد و آن فقط داخلِ ترکیب ساخته می‌شود — همان الگوی
+     * [com.afghanjama.ui.platform.Widgets].
+     *
+     * [onCode] با کدِ خوانده‌شده صدا زده می‌شود، [onFailed] با پیامی
+     * که باید به کاربر نشان داده شود. لغو کردنِ کاربر هم [onFailed]
+     * است، نه سکوت: اسکنری که بی هیچ پیامی بسته شود، «خراب» به نظر
+     * می‌رسد.
+     */
+    @Composable
+    fun rememberStart(onCode: (String) -> Unit, onFailed: (String) -> Unit): () -> Unit
+}
+
+/** `null` یعنی این سکو دوربین ندارد. */
+val LocalCodeScanner = staticCompositionLocalOf<CodeScanner?> { null }

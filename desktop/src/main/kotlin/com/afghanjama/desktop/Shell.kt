@@ -31,10 +31,13 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.desktop.data.DesktopLanHost
+import com.afghanjama.ui.components.WorkStage
+import com.afghanjama.ui.screens.AttendanceScreen
 import com.afghanjama.ui.screens.AuditScreen
 import com.afghanjama.ui.screens.BoardScreen
 import com.afghanjama.ui.screens.CustomerDetailScreen
 import com.afghanjama.ui.screens.CustomersScreen
+import com.afghanjama.ui.screens.CuttingScreen
 import com.afghanjama.ui.screens.DeliveryQueueScreen
 import com.afghanjama.ui.screens.FinanceHubScreen
 import com.afghanjama.ui.screens.FinishedWarehouseScreen
@@ -64,6 +67,9 @@ import com.afghanjama.ui.screens.ActionCenterScreen
 import com.afghanjama.ui.screens.DailyTradeScreen
 import com.afghanjama.ui.vm.ActionCenterViewModel
 import com.afghanjama.ui.screens.DocumentsScreen
+import com.afghanjama.ui.vm.AttendanceViewModel
+import com.afghanjama.ui.vm.BreakTimeViewModel
+import com.afghanjama.ui.vm.CuttingViewModel
 import com.afghanjama.ui.vm.DocumentsViewModel
 import com.afghanjama.ui.screens.OrderDetailScreen
 import com.afghanjama.ui.vm.OrderDetailViewModel
@@ -153,6 +159,8 @@ internal enum class Section(val title: String) {
     Reports("گزارش‌ها"),
     Journal("دفتر روزنامه"),
     Audit("رسیدگی"),
+    Cutting("برش"),
+    Attendance("حضور و غیاب"),
     MasterData("اطلاعات پایه"),
     ShopProfile("پروفایل کارگاه"),
     SelfTest("خودآزمایی و سلامتِ داده"),
@@ -282,6 +290,8 @@ internal fun sectionForRoute(route: String): Section? = when (route) {
     Routes.SEWING -> Section.Sewing
     Routes.REVIEW -> Section.Review
     Routes.MY_WORK -> Section.MyWork
+    Routes.CUTTING -> Section.Cutting
+    Routes.ATTENDANCE -> Section.Attendance
     Routes.ACTION_CENTER -> Section.ActionCenter
     // روی ویندوز نیستند — حضور و غیاب هنوز در `:app` است، و
     // «تنظیمات»ِ اندروید اینجا به دو بخشِ جدا شکسته شده.
@@ -364,7 +374,7 @@ internal fun SectionContent(
                 // این دو صفحهٔ مشترک ندارند: «تنظیمات» و «برش» هنوز در
                 // `:app`اند. بی‌اثر می‌مانند تا جای اشتباه نبرند.
                 onGoSettings = {},
-                onGoCutting = {},
+                onGoCutting = { go(Section.Cutting) },
                 onOpenDetail = { onOpenOrder(it.id.toString()) },
                 onBack = back
             )
@@ -503,6 +513,30 @@ internal fun SectionContent(
         Section.Audit -> {
             val vm: AuditViewModel = viewModel { AuditViewModel(repo) }
             AuditScreen(vm, onBack = back)
+        }
+
+        Section.Cutting -> {
+            val vm: CuttingViewModel = viewModel { CuttingViewModel(repo) }
+            CuttingScreen(
+                vm,
+                onBack = back,
+                onGoSewing = { go(Section.Sewing) },
+                onGoStage = { stage ->
+                    go(
+                        when (stage) {
+                            WorkStage.CUT -> Section.Cutting
+                            WorkStage.SEW -> Section.Sewing
+                            WorkStage.CHECK -> Section.Review
+                        }
+                    )
+                },
+            )
+        }
+
+        Section.Attendance -> {
+            val vm: AttendanceViewModel = viewModel { AttendanceViewModel(repo) }
+            val breaks: BreakTimeViewModel = viewModel { BreakTimeViewModel(repo) }
+            AttendanceScreen(vm, breaks, onBack = back)
         }
 
         Section.MasterData -> {
