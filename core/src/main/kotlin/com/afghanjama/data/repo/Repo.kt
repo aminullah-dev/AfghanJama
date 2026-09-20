@@ -35,6 +35,7 @@ import com.afghanjama.data.entities.OrderWorkItem
 import com.afghanjama.data.entities.PurchaseInvoice
 import com.afghanjama.data.entities.PurchaseItem
 import com.afghanjama.data.entities.QcRecord
+import com.afghanjama.data.entities.RecurringExpense
 import com.afghanjama.data.entities.SewingAssignment
 import com.afghanjama.data.entities.SizeItem
 import com.afghanjama.data.entities.StockMovement
@@ -1031,6 +1032,54 @@ class Repo(private val db: Db) {
         recordExpenseTx(source, category, amount, note)
     }
 
+    // ───────── هزینه‌های ثابتِ ماهانه ─────────
+
+    fun observeRecurringExpenses(): Flow<List<RecurringExpense>> =
+        db.recurringExpenseDao().observeAll()
+
+    suspend fun upsertRecurringExpense(row: RecurringExpense) =
+        db.recurringExpenseDao().upsert(row)
+
+    suspend fun deleteRecurringExpense(row: RecurringExpense) =
+        db.recurringExpenseDao().delete(row)
+
+    /** هزینه‌های ثابتی که ماهِ [ym] هنوز ثبت نشده‌اند. */
+    suspend fun recurringDue(ym: Int): List<RecurringExpense> =
+        db.recurringExpenseDao().dueFor(ym)
+
+    /**
+     * ثبتِ هزینه‌های ثابتِ ماهِ [ym].
+     *
+     * **از همان مسیرِ همیشگیِ هزینه می‌رود** (`recordExpenseTx`): صندوق،
+     * دفتر کل، ژورنال و حسابرسی، همه همان‌طور که یک هزینهٔ دستی ثبت
+     * می‌شود. اگر مسیرِ دوم می‌ساختیم، روزی یکی‌شان عوض می‌شد و آن یکی
+     * نه — و آن‌وقت دو جور هزینه در دفتر می‌داشتیم که با هم نمی‌خواندند.
+     *
+     * **همه در یک تراکنش.** اگر وسطِ کار چیزی بیفتد، نه نیمی ثبت
+     * می‌شود و نه نیمی از هزینه‌ها «ثبت‌شده» علامت می‌خورَد.
+     *
+     * **صندوقِ کم‌پول متوقفش نمی‌کند.** هر قلم جدا سنجیده می‌شود و آنچه
+     * جا نشد، همچنان ثبت‌نشده می‌مانَد تا دفعهٔ بعد — چون کارفرما شاید
+     * برق را از صندوق بدهد و کرایه را از بانک، و نبودنِ پولِ یکی نباید
+     * آن یکی را عقب بیندازد.
+     *
+     * @return چند قلم ثبت شد.
+     */
+    suspend fun postRecurringExpenses(ym: Int): Int = db.atomic {
+        var done = 0
+        for (row in db.recurringExpenseDao().dueFor(ym)) {
+            val note = "${row.title} — ${ymLabel(ym)}"
+            if (recordExpenseTx(row.source, row.category.ifBlank { row.title }, row.amount, note)) {
+                db.recurringExpenseDao().markPosted(row.id, ym)
+                done++
+            }
+        }
+        done
+    }
+
+    /** `۱۴۰۵۰۶` → `۱۴۰۵/۶` — فقط برای متنِ سند. */
+    private fun ymLabel(ym: Int) = "${ym / 100}/${ym % 100}"
+
     private suspend fun recordExpenseTx(
         source: String,
         category: String,
@@ -1176,6 +1225,12 @@ class Repo(private val db: Db) {
      */
     suspend fun resetOperationalData(): Int {
         val cleared = db.clearTables(ResetPlan.CLEAR)
+        // هزینه‌های ثابت می‌مانند (تعریف‌اند، نه سند) ولی مهرِ «این ماه
+        // ثبت شد» باید برود — وگرنه دفترِ تازه خیال می‌کند کرایهٔ این
+        // ماه پرداخت شده و هرگز یادآوری نمی‌کند.
+        for (row in db.recurringExpenseDao().observeAll().first()) {
+            if (row.lastPostedYm != 0) db.recurringExpenseDao().markPosted(row.id, 0)
+        }
         audit("ریست داده", "${cleared} جدول خالی شد؛ اطلاعات پایه و مشتریان ماندند")
         return cleared
     }

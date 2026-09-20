@@ -67,6 +67,7 @@ import com.afghanjama.ui.screens.LedgerScreen
 import com.afghanjama.ui.screens.LoginScreen
 import com.afghanjama.ui.screens.MasterDataScreen
 import com.afghanjama.ui.screens.JournalScreen
+import com.afghanjama.ui.screens.RecurringExpenseScreen
 import com.afghanjama.ui.screens.SampleWorkshopScreen
 import com.afghanjama.ui.screens.MaterialWarehouseScreen
 import com.afghanjama.ui.screens.MoneyMoveScreen
@@ -120,6 +121,7 @@ import com.afghanjama.ui.vm.ProcurementViewModel
 import com.afghanjama.ui.vm.ProductionViewModel
 import com.afghanjama.ui.vm.PurchasePlanViewModel
 import com.afghanjama.ui.vm.PurchaseReturnViewModel
+import com.afghanjama.ui.vm.RecurringExpenseViewModel
 import com.afghanjama.ui.vm.ReportsViewModel
 import com.afghanjama.ui.vm.ReviewViewModel
 import com.afghanjama.ui.vm.SelfTestViewModel
@@ -408,6 +410,7 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                     onGoSettings = { navController.navigate(Routes.SETTINGS) },
                     onGoQuoteCalc = { navController.navigate(Routes.QUOTE_CALC) },
                     onGoWorkshopLoad = { navController.navigate(Routes.WORKSHOP_LOAD) },
+                    onGoRecurring = { navController.navigate(Routes.RECURRING) },
                     onGoGuide = { navController.navigate(Routes.GUIDE) },
                     onGoWorkshopLink = { navController.navigate(Routes.WORKSHOP_LINK) },
                     onGoBoard = { navController.navigate(Routes.BOARD) }
@@ -501,6 +504,11 @@ fun AppNav(factory: ViewModelProvider.Factory) {
             composable(Routes.WORKSHOP_LOAD) {
                 val loadVm = viewModel<WorkshopLoadViewModel>(vmOwner, factory = factory)
                 WorkshopLoadScreen(vm = loadVm, onBack = { navController.popBackStack() })
+            }
+
+            composable(Routes.RECURRING) {
+                val recurringVm = viewModel<RecurringExpenseViewModel>(vmOwner, factory = factory)
+                RecurringExpenseScreen(vm = recurringVm, onBack = { navController.popBackStack() })
             }
 
             composable(Routes.QUOTE_CALC) {

@@ -1,5 +1,6 @@
 package com.afghanjama.ui.vm
 
+import androidx.compose.material.icons.filled.EventRepeat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.compose.material.icons.Icons
@@ -494,16 +495,51 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
         }
     }
 
+    /**
+     * هزینه‌های ثابتی که این ماه ثبت نشده‌اند.
+     *
+     * **چرا هشدار لازم است و خودِ صفحه کافی نیست.** کسی که فراموش کرده
+     * کرایه را ثبت کند، به صفحهٔ «هزینه‌های ثابت» هم سر نمی‌زند — همان
+     * فراموشی هر دو را می‌گیرد. تنها جایی که هر روز دیده می‌شود مرکزِ
+     * اقدام است.
+     *
+     * و چرا `WARN` نه `INFO`: تا وقتی ثبت نشود، **سودِ این ماه بیشتر
+     * از واقعیت نشان داده می‌شود**. این عددِ غلط در دفتر است، نه یک
+     * یادآوریِ ساده.
+     */
+    private val recurringAlerts: Flow<List<Alert>> =
+        repo.observeRecurringExpenses().map { rows ->
+            val ym = currentYm()
+            val due = rows.filter { it.enabled && it.lastPostedYm < ym }
+            buildList {
+                if (due.isNotEmpty()) {
+                    add(
+                        Alert(
+                            id = "recurring_due",
+                            severity = AlertSeverity.WARN,
+                            icon = Icons.Default.EventRepeat,
+                            title = "${due.size.fa()} هزینهٔ ثابتِ این ماه ثبت نشده",
+                            detail = "جمعاً ${due.sumOf { it.amount }.afn()} — " +
+                                "تا ثبت نشود سودِ این ماه بیشتر از واقعیت است",
+                            route = Routes.RECURRING
+                        )
+                    )
+                }
+            }
+        }
+
     val ui: StateFlow<ActionCenterUi> =
         combine(
             coreAlerts,
             payrollAlerts,
             stockAlerts,
             backupAlerts,
-            // `combine` بیش از پنج جریانِ نوع‌دار نمی‌پذیرد، پس این دو
-            // پیش از رسیدن به آنجا یکی می‌شوند.
-            combine(staleAlerts, installmentAlerts, deliveryAlerts) { stale, inst, deliv ->
-                stale + inst + deliv
+            // `combine` بیش از پنج جریانِ نوع‌دار نمی‌پذیرد، پس این
+            // چهار پیش از رسیدن به آنجا یکی می‌شوند.
+            combine(
+                staleAlerts, installmentAlerts, deliveryAlerts, recurringAlerts
+            ) { stale, inst, deliv, rec ->
+                stale + inst + deliv + rec
             }
         ) { core, payroll, stock, backup, rest ->
             ActionCenterUi(

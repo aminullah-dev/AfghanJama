@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.AssignmentInd
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.material.icons.filled.EventRepeat
 import androidx.compose.material.icons.filled.FactCheck
 import androidx.compose.material.icons.filled.Checkroom
 import androidx.compose.material.icons.filled.ContentCut
@@ -127,6 +128,7 @@ fun HomeDashboardScreen(
     onGoSettings: () -> Unit,
     onGoQuoteCalc: () -> Unit,
     onGoWorkshopLoad: () -> Unit,
+    onGoRecurring: () -> Unit,
     onGoGuide: () -> Unit,
     onGoWorkshopLink: () -> Unit,
     onGoBoard: () -> Unit
@@ -179,6 +181,9 @@ fun HomeDashboardScreen(
         if (isManager) add(HomeAction("کارنامهٔ کارکنان", Icons.Default.WorkspacePremium, onGoPerformance))
         if (isManager) add(HomeAction("مالی", Icons.Default.Payments, onGoFinance))
         if (isManager) add(HomeAction("دفتر کل", Icons.Default.AccountBalance, onGoLedger))
+        // کنارِ دفتر کل، چون هر دو دربارهٔ پولی‌اند که خودبه‌خود
+        // حرکت می‌کند، نه پولی که سرِ یک معامله جابه‌جا می‌شود.
+        if (isManager) add(HomeAction("هزینه‌های ثابت", Icons.Default.EventRepeat, onGoRecurring))
         if (isManager) add(HomeAction("اسناد", Icons.Default.Description, onGoDocuments))
         if (isManager) add(HomeAction("گزارش‌ها", Icons.Default.Assessment, onGoReports))
         if (isManager) add(HomeAction("رویدادها", Icons.Default.FactCheck, onGoAudit))
