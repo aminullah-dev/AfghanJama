@@ -62,6 +62,7 @@ import com.afghanjama.ui.screens.SelfTestScreen
 import com.afghanjama.ui.nav.Routes
 import com.afghanjama.ui.screens.ActionCenterScreen
 import com.afghanjama.ui.screens.DailyTradeScreen
+import com.afghanjama.ui.screens.WorkshopLoadScreen
 import com.afghanjama.ui.vm.ActionCenterViewModel
 import com.afghanjama.ui.screens.DocumentsScreen
 import com.afghanjama.ui.vm.DocumentsViewModel
@@ -102,6 +103,8 @@ import com.afghanjama.ui.vm.JournalViewModel
 import com.afghanjama.ui.vm.SampleWorkshopViewModel
 import com.afghanjama.ui.vm.WarehouseViewModel
 import com.afghanjama.ui.vm.WorkshopLinkViewModel
+import com.afghanjama.ui.vm.WorkshopLoadViewModel
+import com.afghanjama.work.WorkshopLoad
 
 /**
  * بخش‌های نوارِ کناری.
@@ -153,6 +156,7 @@ internal enum class Section(val title: String) {
     Reports("گزارش‌ها"),
     Journal("دفتر روزنامه"),
     Audit("رسیدگی"),
+    WorkshopLoad("بارِ کارگاه"),
     MasterData("اطلاعات پایه"),
     ShopProfile("پروفایل کارگاه"),
     SelfTest("خودآزمایی و سلامتِ داده"),
@@ -282,6 +286,7 @@ internal fun sectionForRoute(route: String): Section? = when (route) {
     Routes.SEWING -> Section.Sewing
     Routes.REVIEW -> Section.Review
     Routes.MY_WORK -> Section.MyWork
+    Routes.WORKSHOP_LOAD -> Section.WorkshopLoad
     Routes.ACTION_CENTER -> Section.ActionCenter
     // روی ویندوز نیستند — حضور و غیاب هنوز در `:app` است، و
     // «تنظیمات»ِ اندروید اینجا به دو بخشِ جدا شکسته شده.
@@ -503,6 +508,11 @@ internal fun SectionContent(
         Section.Audit -> {
             val vm: AuditViewModel = viewModel { AuditViewModel(repo) }
             AuditScreen(vm, onBack = back)
+        }
+
+        Section.WorkshopLoad -> {
+            val vm: WorkshopLoadViewModel = viewModel { WorkshopLoadViewModel(repo) }
+            WorkshopLoadScreen(vm, onBack = back)
         }
 
         Section.MasterData -> {

@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Warehouse
@@ -125,6 +126,7 @@ fun HomeDashboardScreen(
     onGoSearch: () -> Unit,
     onGoSettings: () -> Unit,
     onGoQuoteCalc: () -> Unit,
+    onGoWorkshopLoad: () -> Unit,
     onGoGuide: () -> Unit,
     onGoWorkshopLink: () -> Unit,
     onGoBoard: () -> Unit
@@ -183,6 +185,9 @@ fun HomeDashboardScreen(
         add(HomeAction("جستجو", Icons.Default.Search, onGoSearch))
         add(HomeAction("تنظیمات", Icons.Default.Settings, onGoSettings))
         add(HomeAction("قیمت‌دهی", Icons.Default.Calculate, onGoQuoteCalc))
+        // کنارِ قیمت‌دهی و نه جای دیگر: هر دو سرِ گرفتنِ سفارش لازم
+        // می‌شوند — یکی «چند می‌گیرم» و دیگری «تا کِی می‌رسانم».
+        if (isManager) add(HomeAction("بارِ کارگاه", Icons.Default.Speed, onGoWorkshopLoad))
         add(HomeAction("راهنما", Icons.AutoMirrored.Filled.HelpOutline, onGoGuide))
         add(HomeAction("اشتراک کارگاه", Icons.Default.Wifi, onGoWorkshopLink))
     }
