@@ -16,15 +16,19 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.TextButton
+import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.platform.AppAlertDialog
 import com.afghanjama.ui.platform.AppDropdownMenu
 import com.afghanjama.ui.platform.AppDropdownMenuItem
@@ -74,6 +78,7 @@ fun ProductionOrderScreen(
     onGoProcurement: (() -> Unit)? = null
 ) {
     val ui by vm.ui.collectAsState()
+    var showAddWorkCost by remember { mutableStateOf(false) }
     val materials by vm.materials.collectAsState()
     val designs by vm.designs.collectAsState()
     val sizes by vm.sizes.collectAsState()
@@ -426,7 +431,12 @@ fun ProductionOrderScreen(
             // ---------- خرج‌کار ----------
             // قیمتِ هر الگو فی‌عدد است، پس جمعِ سفارش در تعداد ضرب می‌شود.
             // اگر تعداد هنوز وارد نشده، ۱ فرض می‌شود تا عدد بی‌معنا نشود.
-            if (workCosts.isNotEmpty()) {
+            // **شرطِ «فهرست خالی نباشد» برداشته شد.** تا دیروز کارگاهی
+            // که هنوز هیچ خرج‌کاری تعریف نکرده بود این کارت را اصلاً
+            // نمی‌دید — یعنی دکمهٔ افزودن هم پنهان می‌مانْد و تنها راه،
+            // ترکِ صفحه بود. حالا کارت همیشه هست و وقتی فهرست خالی است
+            // خودش می‌گوید چه کند.
+            run {
                 item {
                     val qtyForPreview = ui.qty.toIntOrNull()?.coerceAtLeast(1) ?: 1
                     val perPiece = ui.workItems.sumOf { it.price }
@@ -456,6 +466,30 @@ fun ProductionOrderScreen(
                                         label = { Text("${w.title} — ${w.price.afn()}") }
                                     )
                                 }
+                                // افزودن بی ترکِ صفحه. `AssistChip` و نه
+                                // `FilterChip`: این یکی انتخاب نمی‌شود،
+                                // کاری می‌کند — و شکلِ متفاوتش همین را
+                                // می‌گوید.
+                                AssistChip(
+                                    onClick = { showAddWorkCost = true },
+                                    label = { Text("افزودن") },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Default.Add,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                )
+                            }
+                            if (workCosts.isEmpty()) {
+                                Text(
+                                    "هنوز خرج‌کاری تعریف نشده. با «افزودن» " +
+                                        "اولی را بسازید — در «اطلاعات پایه» هم " +
+                                        "می‌مانَد و دفعهٔ بعد آماده است.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                             // قیمتِ هر خرج‌کارِ انتخاب‌شده همین‌جا قابلِ
                             // تغییر است — فقط برای همین سفارش. فهرستِ
@@ -593,4 +627,78 @@ fun ProductionOrderScreen(
             item { Spacer(Modifier.height(60.dp)) }
         }
     }
+
+    /*
+     * افزودنِ خرج‌کار از دلِ همین صفحه.
+     *
+     * عمداً فقط دو کادر دارد — عنوان و قیمت — چون همین دو چیز است که
+     * `WorkCost` می‌خواهد. هر چیزِ بیشتری اینجا یعنی کاربر وسطِ ثبتِ
+     * سفارش باید دربارهٔ چیزِ دیگری فکر کند.
+     *
+     * دکمهٔ ذخیره تا وقتی هر دو کادر معنا نداشته باشند خاموش است، نه
+     * اینکه بزنی و هیچ نشود.
+     */
+    if (showAddWorkCost) {
+        var newTitle by remember { mutableStateOf("") }
+        var newPrice by remember { mutableStateOf("") }
+        val price = newPrice.toLongOrNull() ?: 0L
+        val duplicate = workCosts.any { it.title.trim().equals(newTitle.trim(), ignoreCase = true) }
+        val valid = newTitle.isNotBlank() && price > 0L
+
+        AppAlertDialog(
+            onDismissRequest = { showAddWorkCost = false },
+            title = { Text("خرج کار تازه") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value = newTitle,
+                        onValueChange = { newTitle = it },
+                        label = { Text("عنوان") },
+                        placeholder = { Text("مثلاً: نوار زیبایی") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = newPrice,
+                        onValueChange = { newPrice = it.digitsOnly() },
+                        label = { Text("قیمت فی‌عدد") },
+                        suffix = { Text("؋") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    // صریح، چون در غیرِ این صورت کاربر فکر می‌کند قیمتی
+                    // که نوشته ثبت شده — و نشده.
+                    if (duplicate) {
+                        Text(
+                            "این نام از قبل هست. همان انتخاب می‌شود و " +
+                                "قیمتِ پایه دست نمی‌خورد؛ اگر برای این " +
+                                "سفارش فرق دارد، پایین عوضش کنید.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        Text(
+                            "در «اطلاعات پایه» هم ذخیره می‌شود تا دفعهٔ بعد آماده باشد.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = valid,
+                    onClick = {
+                        vm.addWorkCost(newTitle, price)
+                        showAddWorkCost = false
+                    }
+                ) { Text("افزودن") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddWorkCost = false }) { Text("لغو") }
+            }
+        )
+    }
+
 }

@@ -26,7 +26,15 @@ data class DeliveryRow(
     /** بیعانهٔ استفاده‌نشدهٔ او. */
     val prepay: Long,
     /** موجودیِ انبار برای طرحِ این سفارش — مشترک بین سفارش‌های هم‌طرح. */
-    val available: Int = 0
+    val available: Int = 0,
+    /**
+     * آخرین باری که به مشتری خبر داده شد — `null` یعنی هرگز.
+     *
+     * بی این، هشدارِ «کارِ آماده را مشتری نبرده» هر روز همان را
+     * می‌گفت، چه کارفرما خبر داده باشد چه نه. یعنی کارفرما باید در
+     * ذهنش دفترچه نگه می‌داشت.
+     */
+    val notifiedAt: Long? = null
 ) {
     val remainingQty: Int get() = (order.qty - order.deliveredQty).coerceAtLeast(0)
     /** انبار برای تحویلِ کاملِ باقی‌مانده کم است. */
@@ -95,7 +103,22 @@ class DeliveryQueueViewModel(private val repo: Repo) : ViewModel() {
                 .sortedByDescending { it.waitingDays }
 
             base.copy(rows = rows)
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DeliveryQueueUi())
+        }
+            /*
+             * **چرا `combine`ِ جدا و نه ششمین جریان بالا.** `combine`ِ
+             * کاتلین تا پنج جریانِ نوع‌دار دارد؛ ششمی یعنی نسخهٔ
+             * `vararg` و از دست دادنِ نوع. این‌طور نوع می‌مانَد و
+             * خواندنش هم ساده‌تر است.
+             */
+            .combine(repo.observeCustomerNotified()) { s, notified ->
+                if (notified.isEmpty()) s
+                else s.copy(
+                    rows = s.rows.map { r ->
+                        r.copy(notifiedAt = notified[r.order.id.toString()])
+                    }
+                )
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DeliveryQueueUi())
 
     /**
      * بیعانهٔ یک مشتری را می‌خواند. عمداً فقط هنگامِ بازکردنِ دیالوگ صدا
@@ -106,6 +129,24 @@ class DeliveryQueueViewModel(private val repo: Repo) : ViewModel() {
         val name = customerName.trim()
         if (name.isBlank()) return@launch
         prepays.update { it + (name to repo.customerPrepayBalance(name)) }
+    }
+
+    /**
+     * ثبتِ اینکه به مشتری خبر دادیم.
+     *
+     * خودِ فرستادنِ پیام کارِ سکو است (`SystemActions`) و اینجا انجام
+     * نمی‌شود؛ این تابع فقط **ثبت** می‌کند. جدا بودنشان عمدی است:
+     * اگر کاربر پنجرهٔ اشتراک را ببندد هم خبر دادن ثبت می‌شود، چون
+     * تشخیصِ «واقعاً فرستاد یا نه» از دستِ اپ خارج است و وانمود کردن
+     * به آن، دروغِ بدتری است از ثبتِ خوش‌بینانه.
+     */
+    fun markNotified(row: DeliveryRow, via: String) = viewModelScope.launch {
+        runCatching { repo.markCustomerNotified(row.order, via) }
+            .onFailure { e ->
+                _ui.update {
+                    it.copy(message = e.message ?: "ثبت نشد", isError = true)
+                }
+            }
     }
 
     fun deliver(

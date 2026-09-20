@@ -1,0 +1,170 @@
+name: بستهٔ مک
+
+# جدا از ویندوز و اندروید، به همان دلیلی که آن دو از هم جدا شدند:
+#
+# DMG را فقط خودِ مک می‌سازد (`jpackage` به `hdiutil` نیاز دارد). پس
+# نه رانرِ لینوکسیِ APK این کار را می‌کند و نه رانرِ ویندوز. و جدا
+# بودنشان یعنی اگر بسته‌بندیِ مک روزی بشکند، ویندوز و اندروید همچنان
+# ساخته و تحویل می‌شوند.
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "desktop/**"
+      - "core/**"
+      - "gradle/**"
+      - "*.gradle.kts"
+      # همان دامی که در `windows.yml` توضیح داده شده: نسخه فقط در این
+      # فایل است و هیچ‌کدام از الگوهای بالا پسوندش را نمی‌گیرند. بی این
+      # خط، انتشارِ یک نسخهٔ تازه هیچ ساختی راه نمی‌انداخت.
+      - "gradle.properties"
+      - ".github/workflows/macos.yml"
+  workflow_dispatch:
+
+jobs:
+  package:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: کشِ Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # به مسیرِ SDK روی کامپیوترِ شخصی اشاره می‌کند و اینجا وجود ندارد.
+      - name: برداشتنِ local.properties
+        shell: bash
+        run: rm -f local.properties
+
+      # بررسی‌های ساختاری اینجا **عمداً نیستند.**
+      #
+      # `windows.yml` هر ۵۲ تا را اجرا می‌کند و هیچ‌کدامشان به
+      # سیستم‌عامل کاری ندارند — فایلِ کاتلین و پایتون را می‌خوانند.
+      # اجرای دوباره‌شان اینجا فقط دو نتیجهٔ یکسان می‌دهد که با هم قرمز
+      # و سبز می‌شوند، و آن‌وقت آدم شروع می‌کند به بی‌اعتنایی به یکی از
+      # دو تا. آنچه این کار باید ثابت کند، چیزی است که فقط روی مک دیده
+      # می‌شود.
+
+      # پوشهٔ `KhayatYar.app` — همیشه ساخته می‌شود و به DMG نیاز ندارد.
+      - name: ساختِ بستهٔ اجرایی
+        shell: bash
+        run: ./gradlew --no-daemon :desktop:createDistributable
+
+      # `jpackage` پیامِ خطایش را در فایل می‌نویسد نه روی صفحه، پس
+      # بدونِ این مرحله فقط «exit code 1» دیده می‌شود.
+      - name: چاپِ خطای jpackage وقتی شکست
+        if: failure()
+        shell: bash
+        run: |
+          for f in $(find desktop/build/compose/logs -name '*.txt' 2>/dev/null); do
+            echo "===== $f ====="
+            cat "$f"
+          done
+
+      # سبزبودنِ مرحلهٔ ساخت کافی نیست: اگر `jpackage` چیزی تولید نکند
+      # هم ممکن است موفق گزارش دهد. اینجا وجودِ خودِ فایلِ اجرایی داخلِ
+      # بسته وارسی می‌شود — نه فقط پوشهٔ `.app`، چون پوشهٔ ناقص هم
+      # پوشه است.
+      - name: مطمئن شو .app واقعاً ساخته شد
+        shell: bash
+        run: |
+          bin=$(find desktop/build/compose/binaries -path '*KhayatYar.app/Contents/MacOS/*' -type f | head -1)
+          if [ -z "$bin" ]; then
+            echo "هیچ KhayatYar.app ساخته نشد."
+            find desktop/build/compose -maxdepth 5 -type d || true
+            exit 1
+          fi
+          echo "ساخته شد: $bin"
+          du -sh "$(dirname "$(dirname "$(dirname "$bin")")")"
+
+      # ---------------------------------------------------------------
+      # **مرحلهٔ «برنامه را اجرا کن» اینجا عمداً نیست، و این یک کمبود
+      # است نه یک تصمیمِ بی‌هزینه.**
+      #
+      # `windows.yml` نسخهٔ ساخته‌شده را واقعاً بالا می‌آورد و خطای
+      # استانداردش را می‌خواند — همان مرحله‌ای که «Failed to launch JVM»
+      # را گرفت. معادلش روی رانرِ مک قابلِ اتکا نیست: نشستِ گرافیکیِ
+      # رانر تضمین‌شده نیست و AWT می‌تواند به دلیلی که هیچ ربطی به این
+      # برنامه ندارد بترکد. یعنی این مرحله هم می‌توانست خرابیِ واقعی را
+      # بگیرد و هم قرمزِ دروغ بدهد، و قرمزِ دروغ بدتر است: چند بار که
+      # تکرار شود، کسی دیگر نگاهش نمی‌کند.
+      #
+      # آنچه جایش را می‌گیرد، پله‌های زیر است: `screenSmoke` هر صفحه را
+      # با `ImageComposeScene` **بی‌پنجره** رسم می‌کند، پس روی رانرِ
+      # بی‌صفحه هم اجرا می‌شود و همان دستهٔ خرابی را می‌گیرد
+      # (`NoClassDefFoundError`، کلاسِ تکراری، استثنای سرِ ترکیب).
+      #
+      # چیزی که هیچ‌کدام نمی‌گیرند، خرابیِ خودِ لانچرِ `.app` است. آن را
+      # باید یک بار روی مکِ واقعی زد.
+      # ---------------------------------------------------------------
+
+      - name: مطمئن شو صفحه‌ها واقعاً ترکیب می‌شوند
+        shell: bash
+        run: ./gradlew --no-daemon :desktop:screenSmoke
+
+      # عکسِ هر صفحه از همان بسته‌ای که به دستِ کاربر می‌رود. روی مک
+      # ارزشِ اضافه‌ای هم دارد: فونت‌های سیستم فرق می‌کنند و متنِ بریده
+      # یا چیدمانِ به‌هم‌ریخته هیچ استثنایی نمی‌دهد.
+      #
+      # `if: always()` عمدی است: وقتی صفحه‌ای شکست، عکسِ بقیه از همیشه
+      # لازم‌تر است.
+      - name: بارگذاریِ عکسِ صفحه‌ها
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screens-macos
+          path: desktop/build/screens/
+          if-no-files-found: warn
+
+      - name: مطمئن شو مهاجرت واقعاً اجرا می‌شود
+        shell: bash
+        run: ./gradlew --no-daemon :desktop:migrationSmoke
+
+      - name: مطمئن شو پشتیبان و بازیابی سالم‌اند
+        shell: bash
+        run: ./gradlew --no-daemon :desktop:backupSmoke
+
+      - name: مطمئن شو ورود و نقش کار می‌کنند
+        shell: bash
+        run: ./gradlew --no-daemon :desktop:authSmoke
+
+      - name: مطمئن شو مرزِ شبکه سالم است
+        shell: bash
+        run: ./gradlew --no-daemon :desktop:lanSmoke
+
+      # کاغذ روی مک همان کاغذِ ویندوز نیست: PDFBox فونت را از منابعِ
+      # بسته برمی‌دارد ولی جهتِ راست‌به‌چپ و نشانهٔ افغانی چیزی است که
+      # باید روی هر سکو جدا سنجیده شود.
+      - name: مطمئن شو کاغذ درست چیده می‌شود
+        shell: bash
+        run: ./gradlew --no-daemon :desktop:pdfSmoke
+
+      # ---------------------------------------------------------------
+      # DMG — **بی امضا، و این تصمیم است نه فراموشی.**
+      #
+      # گواهیِ Developer ID روی کمپیوترِ کارفرما می‌مانَد و به GitHub
+      # نمی‌رود؛ نه در مخزن و نه در Secrets. همان قاعده‌ای که برای کلیدِ
+      # امضای اندروید و `.pfx`ِ ویندوز گذاشته شده و دلیلش در
+      # `.gitignore` نوشته است.
+      #
+      # پس این DMG روی مکِ کاربر با Gatekeeper هشدار می‌گیرد. امضا و
+      # notarize را `tools/macos-signing/sign-and-notarize.sh` روی خودِ
+      # مکِ کارفرما انجام می‌دهد.
+      - name: ساختِ DMG
+        id: dmg
+        shell: bash
+        run: ./gradlew --no-daemon :desktop:packageDmg
+
+      - name: بارگذاری DMG
+        if: steps.dmg.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: khayatyar-dmg-${{ github.sha }}
+          path: desktop/build/compose/binaries/main/dmg/*.dmg
+          if-no-files-found: error
+          retention-days: 30

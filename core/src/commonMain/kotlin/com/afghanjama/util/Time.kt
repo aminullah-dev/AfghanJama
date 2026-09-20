@@ -3,7 +3,9 @@ package com.afghanjama.util
 import com.afghanjama.util.nowMillis
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 
 /*
@@ -29,3 +31,35 @@ fun currentHour(): Int =
     Instant.fromEpochMilliseconds(nowMillis())
         .toLocalDateTime(TimeZone.currentSystemDefault())
         .hour
+
+/**
+ * ساعت و دقیقهٔ یک زمانِ مشخص، در منطقهٔ زمانیِ دستگاه.
+ *
+ * **چرا اینجا و نه در صفحه.** `AttendanceScreen` تا دیروز این‌ها را با
+ * `java.util.Calendar` می‌ساخت و همان یک کلاس صفحه را به `:app` گره
+ * می‌زد. حالا که صفحه مشترک شده، جایگزینش باید مشترک باشد — و یک
+ * تعریف، نه یکی در هر صفحه.
+ */
+fun hourOf(millis: Long): Int =
+    Instant.fromEpochMilliseconds(millis)
+        .toLocalDateTime(TimeZone.currentSystemDefault())
+        .hour
+
+fun minuteOf(millis: Long): Int =
+    Instant.fromEpochMilliseconds(millis)
+        .toLocalDateTime(TimeZone.currentSystemDefault())
+        .minute
+
+/**
+ * همان **روزِ** [base] با ساعتِ [h] و دقیقهٔ [m]؛ ثانیه صفر.
+ *
+ * نگه داشتنِ روز عمدی است: اصلاحِ حضور و غیاب «ساعت را اشتباه زدم»
+ * است، نه «روز را» — و بی این، یک بازه بی‌خبر به روزِ دیگری می‌پرید.
+ */
+fun withTime(base: Long, h: Int, m: Int): Long {
+    val tz = TimeZone.currentSystemDefault()
+    val d = Instant.fromEpochMilliseconds(base).toLocalDateTime(tz).date
+    return LocalDateTime(d.year, d.monthNumber, d.dayOfMonth, h.coerceIn(0, 23), m.coerceIn(0, 59))
+        .toInstant(tz)
+        .toEpochMilliseconds()
+}

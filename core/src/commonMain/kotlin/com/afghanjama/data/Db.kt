@@ -24,6 +24,7 @@ import com.afghanjama.data.dao.OrderStageLogDao
 import com.afghanjama.data.dao.OrderWorkItemDao
 import com.afghanjama.data.dao.ProcurementDao
 import com.afghanjama.data.dao.QcRecordDao
+import com.afghanjama.data.dao.RecurringExpenseDao
 import com.afghanjama.data.dao.SalaryDao
 import com.afghanjama.data.dao.SewingAssignmentDao
 import com.afghanjama.data.dao.StockMovementDao
@@ -57,6 +58,7 @@ interface Db : Tx {
     fun tailorWageDao(): TailorWageDao
     fun customerPaymentDao(): CustomerPaymentDao
     fun customerInstallmentDao(): CustomerInstallmentDao
+    fun recurringExpenseDao(): RecurringExpenseDao
     fun orderStageLogDao(): OrderStageLogDao
     fun orderFabricDao(): OrderFabricDao
     fun sewingAssignmentDao(): SewingAssignmentDao

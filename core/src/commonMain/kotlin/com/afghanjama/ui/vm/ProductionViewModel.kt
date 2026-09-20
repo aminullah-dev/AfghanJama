@@ -217,6 +217,47 @@ class ProductionViewModel(private val repo: Repo) : ViewModel() {
         )
     }
 
+    /**
+     * خرج‌کارِ تازه، از دلِ همین صفحه.
+     *
+     * تا امروز فهرست فقط از «اطلاعات پایه» می‌آمد و اگر وسطِ ثبتِ
+     * سفارش چیزی کم بود — یک نوارِ تازه، یک نوعِ دکمهٔ دیگر — کاربر
+     * باید صفحه را ترک می‌کرد، آن را اضافه می‌کرد، و برمی‌گشت. و
+     * برگشتن یعنی فرمِ نیمه‌پرشده. در عمل نتیجه‌اش این بود که خرج‌کار
+     * اصلاً ثبت نمی‌شد و بهای تمام‌شده کمتر از واقعیت درمی‌آمد.
+     *
+     * **دو کار می‌کند و هر دو لازم است:** در فهرستِ پایه می‌نشیند تا
+     * دفعهٔ بعد آماده باشد، و همین حالا برای این سفارش انتخاب می‌شود.
+     *
+     * **اگر همین نام از قبل باشد، فهرستِ پایه دست نمی‌خورد.** ستونِ
+     * `title` یکتاست و درجِ دوباره با `REPLACE` قیمتِ پایه را عوض
+     * می‌کرد — یعنی کاربری که فقط می‌خواست یک قلم به سفارشِ خودش
+     * اضافه کند، بی‌خبر قیمتِ پیش‌فرضِ همهٔ سفارش‌های بعدی را جابه‌جا
+     * می‌کرد. به‌جایش همان قلمِ موجود انتخاب می‌شود و اگر قیمتش فرق
+     * دارد، کادرِ «قیمتِ این سفارش» همان پایین جواب می‌دهد.
+     */
+    fun addWorkCost(title: String, price: Long) = viewModelScope.launch {
+        val t = title.trim()
+        val p = price.coerceAtLeast(0)
+        if (t.isBlank() || p <= 0L) return@launch
+
+        val existing = workCosts.value.firstOrNull { it.title.equals(t, ignoreCase = true) }
+        if (existing == null) repo.insertWorkCost(WorkCost(id = 0L, title = t, price = p))
+
+        // نامِ ذخیره‌شده ملاک است نه آنچه تایپ شد، وگرنه «زیپ» و «زیپ»
+        // با نیم‌فاصلهٔ متفاوت دو قلمِ جدا می‌شدند.
+        val useTitle = existing?.title ?: t
+        val usePrice = existing?.price ?: p
+        _ui.update { s ->
+            if (s.workItems.any { it.title == useTitle }) s
+            else s.copy(
+                workItems = s.workItems + WorkLine(useTitle, usePrice),
+                message = null,
+                isError = false,
+            )
+        }
+    }
+
     fun removeWorkItem(title: String) = _ui.update {
         it.copy(workItems = it.workItems.filterNot { w -> w.title == title })
     }

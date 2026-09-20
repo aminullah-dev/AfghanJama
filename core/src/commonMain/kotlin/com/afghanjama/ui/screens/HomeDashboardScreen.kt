@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.AssignmentInd
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.material.icons.filled.EventRepeat
 import androidx.compose.material.icons.filled.FactCheck
 import androidx.compose.material.icons.filled.Checkroom
 import androidx.compose.material.icons.filled.ContentCut
@@ -44,6 +45,7 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Warehouse
@@ -127,6 +129,8 @@ fun HomeDashboardScreen(
     onGoSearch: () -> Unit,
     onGoSettings: () -> Unit,
     onGoQuoteCalc: () -> Unit,
+    onGoWorkshopLoad: () -> Unit,
+    onGoRecurring: () -> Unit,
     onGoGuide: () -> Unit,
     onGoWorkshopLink: () -> Unit,
     onGoBoard: () -> Unit
@@ -179,12 +183,18 @@ fun HomeDashboardScreen(
         if (isManager) add(HomeAction("کارنامهٔ کارکنان", Icons.Default.WorkspacePremium, onGoPerformance))
         if (isManager) add(HomeAction("مالی", Icons.Default.Payments, onGoFinance))
         if (isManager) add(HomeAction("دفتر کل", Icons.Default.AccountBalance, onGoLedger))
+        // کنارِ دفتر کل، چون هر دو دربارهٔ پولی‌اند که خودبه‌خود
+        // حرکت می‌کند، نه پولی که سرِ یک معامله جابه‌جا می‌شود.
+        if (isManager) add(HomeAction("هزینه‌های ثابت", Icons.Default.EventRepeat, onGoRecurring))
         if (isManager) add(HomeAction("اسناد", Icons.Default.Description, onGoDocuments))
         if (isManager) add(HomeAction("گزارش‌ها", Icons.Default.Assessment, onGoReports))
         if (isManager) add(HomeAction("رویدادها", Icons.Default.FactCheck, onGoAudit))
         add(HomeAction("جستجو", Icons.Default.Search, onGoSearch))
         add(HomeAction("تنظیمات", Icons.Default.Settings, onGoSettings))
         add(HomeAction("قیمت‌دهی", Icons.Default.Calculate, onGoQuoteCalc))
+        // کنارِ قیمت‌دهی و نه جای دیگر: هر دو سرِ گرفتنِ سفارش لازم
+        // می‌شوند — یکی «چند می‌گیرم» و دیگری «تا کِی می‌رسانم».
+        if (isManager) add(HomeAction("بارِ کارگاه", Icons.Default.Speed, onGoWorkshopLoad))
         add(HomeAction("راهنما", Icons.AutoMirrored.Filled.HelpOutline, onGoGuide))
         add(HomeAction("اشتراک کارگاه", Icons.Default.Wifi, onGoWorkshopLink))
     }

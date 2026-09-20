@@ -5,12 +5,14 @@ package com.afghanjama.ui.screens
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -18,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -36,7 +39,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.afghanjama.data.entities.Order
 import com.afghanjama.platform.LocalSystemActions
+import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.ui.components.OrderCodeLine
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.SalePrefs
@@ -50,6 +55,7 @@ import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.vm.DeliveryQueueViewModel
+import com.afghanjama.ui.vm.DeliveryRow
 import com.afghanjama.util.UUID
 
 /** بیشتر از این چند روز، معطلی در انبار غیرعادی است. */
@@ -69,6 +75,8 @@ fun DeliveryQueueScreen(
     val designCodeByOrder by vm.designCodeByOrder.collectAsState()
     val prepays by vm.prepayOf.collectAsState()
     val system = LocalSystemActions.current
+    // نامِ کارگاه در پیام می‌آید، وگرنه مشتری نمی‌داند از کجاست.
+    val shopName = CompanyPrefs.name(LocalSettings.current)
     val settings = LocalSettings.current
 
     var deliverTarget by remember { mutableStateOf<UUID?>(null) }
@@ -212,6 +220,32 @@ fun DeliveryQueueScreen(
                             else MaterialTheme.colorScheme.primary
                         )
 
+                        // خبرِ قبلی، اگر بوده. صریح نوشته می‌شود چون
+                        // همین یک خط است که کارفرما را از نگه‌داشتنِ
+                        // دفترچهٔ ذهنی خلاص می‌کند.
+                        row.notifiedAt?.let { at ->
+                            Text(
+                                "خبر داده شد — ${PersianDate.short(at)}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+
+                        /*
+                         * **دو ردیف، نه سه دکمه کنارِ هم.**
+                         *
+                         * با آمدنِ «خبر بده» سه دکمه در یک ردیف نشستند و
+                         * روی گوشیِ واقعی هر کدام حدودِ ۱۰۰dp ماند — یعنی
+                         * آیکن به‌اضافهٔ متن جا نشد و «تحویل» و «تماس»
+                         * **وسطِ کلمه** شکستند. `weight` عرض را تقسیم
+                         * می‌کند، ولی کلمهٔ فارسی تقسیم نمی‌شود.
+                         *
+                         * حالا کارهای فرعی بالا و کارِ اصلی تمام‌عرض
+                         * پایین — که ترتیبِ درست‌تری هم هست: «تحویل»
+                         * کاری است که پول جابه‌جا می‌کند و نباید
+                         * هم‌اندازهٔ «تماس» دیده شود.
+                         */
                         Row(
                             Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -220,25 +254,59 @@ fun DeliveryQueueScreen(
                                 OutlinedButton(
                                     onClick = {
                                         system.dial(o.customerPhone)
+                                        vm.markNotified(row, "تماس")
                                     },
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier.weight(1f),
+                                    contentPadding = PaddingValues(horizontal = 8.dp)
                                 ) {
-                                    Icon(Icons.Default.Call, contentDescription = null)
-                                    Spacer(Modifier.width(8.dp))
-                                    Text("تماس")
+                                    Icon(
+                                        Icons.Default.Call,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    // `maxLines = 1` نگهبانِ همان اشکال
+                                    // است: اگر روزی دکمهٔ چهارمی اضافه
+                                    // شود، متن به‌جای شکستن کوتاه می‌شود
+                                    // و ایراد دیده می‌شود، نه اینکه
+                                    // بدشکل شود.
+                                    Text("تماس", maxLines = 1)
                                 }
                             }
-                            Button(
+                            // «خبر بده» — متنِ آماده به هر اپی که کاربر
+                            // دارد (واتس‌اپ، پیامک، …). شمارهٔ مشتری لازم
+                            // نیست: شاید کارفرما بخواهد در گروهِ خانوادگی
+                            // یا هر جای دیگری بفرستد.
+                            OutlinedButton(
                                 onClick = {
-                                    vm.lookupPrepay(o.customerName)
-                                    deliverTarget = o.id
+                                    system.shareText(
+                                        "خبر به ${o.customerName}",
+                                        readyMessage(o, row, shopName)
+                                    )
+                                    vm.markNotified(row, "پیام")
                                 },
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(horizontal = 8.dp)
                             ) {
-                                Icon(Icons.Default.CheckCircle, contentDescription = null)
-                                Spacer(Modifier.width(8.dp))
-                                Text("تحویل")
+                                Icon(
+                                    Icons.Default.Share,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text("خبر بده", maxLines = 1)
                             }
+                        }
+                        Button(
+                            onClick = {
+                                vm.lookupPrepay(o.customerName)
+                                deliverTarget = o.id
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("تحویل", maxLines = 1)
                         }
                     }
                 }
@@ -247,4 +315,24 @@ fun DeliveryQueueScreen(
             item { Spacer(Modifier.height(40.dp)) }
         }
     }
+}
+
+/**
+ * متنِ «کارتان آماده است».
+ *
+ * **چرا اینجا و نه در ViewModel.** این یک رشتهٔ نمایشی است، نه قاعدهٔ
+ * دامنه — و همان‌جایی می‌نشیند که خوانده می‌شود.
+ *
+ * مبلغِ باقی فقط وقتی می‌آید که واقعاً باقی‌ای باشد. نوشتنِ «باقی: ۰»
+ * برای مشتری‌ای که تسویه کرده، پیامِ بی‌ربطی است که حسِ مطالبه می‌دهد.
+ */
+private fun readyMessage(order: Order, row: DeliveryRow, shopName: String): String = buildString {
+    append("سلام ${order.customerName} جان،\n")
+    append("سفارشِ شما آماده است:\n")
+    append("${order.designTitle} — ${order.qty.fa()} عدد، سایز ${order.size}\n")
+    append("شمارهٔ سفارش: ${order.orderCode}\n")
+    if (row.customerBalance > 0) {
+        append("باقیِ حساب: ${row.customerBalance.afn()}\n")
+    }
+    if (shopName.isNotBlank()) append("\n$shopName")
 }

@@ -34,7 +34,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.foundation.clickable
 import androidx.compose.runtime.Composable
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
+import com.afghanjama.ui.platform.AppAlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.TextButton
@@ -48,11 +48,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.fragment.app.FragmentActivity
-import com.afghanjama.util.ShareUtil
 import com.afghanjama.data.entities.AttendanceRecord
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.CompanyPrefs
@@ -63,10 +60,15 @@ import com.afghanjama.ui.format.toPersianDigits
 import com.afghanjama.ui.vm.AttendanceViewModel
 import com.afghanjama.ui.vm.BreakTimeViewModel
 import com.afghanjama.ui.format.elapsedHm
-import com.afghanjama.util.BiometricAuth
-import com.afghanjama.work.ShiftReminderWorker
+import com.afghanjama.data.ShiftPolicy
+import com.afghanjama.platform.LocalReminders
+import com.afghanjama.platform.LocalSystemActions
+import com.afghanjama.util.hourOf
+import com.afghanjama.util.minuteOf
+import com.afghanjama.util.nowMillis
+import com.afghanjama.util.withTime
 import kotlinx.coroutines.delay
-import java.util.Calendar
+import com.afghanjama.platform.LocalBiometricGate
 
 private fun clock(millis: Long): String = PersianDate.shortWithTime(millis)
 
@@ -90,9 +92,17 @@ fun AttendanceScreen(
     val monthlyWork by vm.monthlyWork.collectAsState()
     val breakTimes by breakVm.times.collectAsState()
     val insideNow by breakVm.inside.collectAsState()
-    val context = LocalContext.current
     val settings = LocalSettings.current
-    val activity = context as? FragmentActivity
+
+    /*
+     * آنچه از سکو می‌آید، یک‌جا و بالای صفحه.
+     *
+     * هر سه می‌توانند `null` باشند و هر سه جای خودشان جواب دارند:
+     * پی‌سی حسگرِ اثرِ انگشت ندارد و یادآورِ زمان‌بندی‌شده هم.
+     */
+    val biometric = LocalBiometricGate.current
+    val reminders = LocalReminders.current
+    val system = LocalSystemActions.current
 
     // شناسهٔ وقتی که در حالِ ویرایش است؛ NEW_BREAK یعنی «تازه»
     var breakEditing by remember { mutableStateOf<Long?>(null) }
@@ -108,7 +118,7 @@ fun AttendanceScreen(
         val m = minuteText.toIntOrNull()
         val valid = h != null && h in 0..23 && m != null && m in 0..59
 
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { breakEditing = null },
             title = { Text(if (existing == null) "وقت تازه" else "ویرایش وقت") },
             text = {
@@ -151,7 +161,7 @@ fun AttendanceScreen(
                 TextButton(
                     enabled = valid,
                     onClick = {
-                        breakVm.save(context, existing, title, h!!, m!!)
+                        breakVm.save(reminders, existing, title, h!!, m!!)
                         breakEditing = null
                     }
                 ) { Text("ذخیره") }
@@ -162,7 +172,7 @@ fun AttendanceScreen(
 
     // نتیجهٔ اصلاح — بازهٔ وارونه ساکت رد نمی‌شود.
     editMessage?.let { msg ->
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { vm.clearEditMessage() },
             text = { Text(msg) },
             confirmButton = {
@@ -177,19 +187,6 @@ fun AttendanceScreen(
     // دیر زدم» است، نه «روز را اشتباه زدم». نگه داشتنِ روز جلوی
     // جابه‌جاییِ ناخواستهٔ یک بازه به روزِ دیگر را می‌گیرد.
     editing?.let { rec ->
-        fun hourOf(ms: Long) = Calendar.getInstance().apply { timeInMillis = ms }
-            .get(Calendar.HOUR_OF_DAY)
-        fun minuteOf(ms: Long) = Calendar.getInstance().apply { timeInMillis = ms }
-            .get(Calendar.MINUTE)
-        fun withTime(base: Long, h: Int, m: Int): Long =
-            Calendar.getInstance().apply {
-                timeInMillis = base
-                set(Calendar.HOUR_OF_DAY, h)
-                set(Calendar.MINUTE, m)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-            }.timeInMillis
-
         var inH by remember(rec.id) { mutableStateOf(hourOf(rec.checkIn).toString()) }
         var inM by remember(rec.id) { mutableStateOf(minuteOf(rec.checkIn).toString()) }
         val out = rec.checkOut
@@ -202,7 +199,7 @@ fun AttendanceScreen(
         val inOk = ih != null && ih in 0..23 && im != null && im in 0..59
         val outOk = stillInside || (oh != null && oh in 0..23 && om != null && om in 0..59)
 
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { editing = null },
             title = { Text("اصلاح ساعتِ ${rec.employee}") },
             text = {
@@ -287,18 +284,26 @@ fun AttendanceScreen(
     }
 
     // ساعتِ زنده: مدتِ حضورِ هر کارمند هر ۳۰ ثانیه به‌روز می‌شود
-    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var now by remember { mutableLongStateOf(nowMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
             delay(30_000)
-            now = System.currentTimeMillis()
+            now = nowMillis()
         }
     }
 
+    /*
+     * سنجشِ هویت از سکو می‌آید، نه از اینجا.
+     *
+     * `null` یعنی این دستگاه حسگر ندارد — پی‌سیِ کارگاه. آن‌وقت کار
+     * انجام می‌شود بی سنجش، دقیقاً همان رفتاری که نسخهٔ اندرویدی هم
+     * روی گوشیِ بی‌حسگر داشت. بستنِ کار روی دستگاهی که نمی‌تواند
+     * بسنجد یعنی کارگاه اصلاً نتواند حضور ثبت کند.
+     */
+
     fun gate(title: String, action: () -> Unit) {
-        if (activity != null) {
-            BiometricAuth.confirm(
-                activity = activity,
+        if (biometric != null) {
+            biometric.confirm(
                 title = title,
                 subtitle = "برای ثبت، اثر انگشت را تأیید کنید",
                 onSuccess = action
@@ -363,7 +368,7 @@ fun AttendanceScreen(
                                 // smart-cast نمی‌کند.
                                 val since = e.since
                                 val nearShiftEnd = e.isIn && since != null &&
-                                    (now - since) >= ShiftReminderWorker.WARN_AFTER_MS
+                                    (now - since) >= ShiftPolicy.WARN_AFTER_MS
                                 Text(
                                     if (e.isIn && since != null)
                                         "داخل — از ${clock(since)} • ${elapsedHm(since, now)} ساعت"
@@ -389,7 +394,7 @@ fun AttendanceScreen(
                                     onClick = {
                                         gate("ثبت خروج ${e.name}") {
                                             vm.checkOut(e.name)
-                                            ShiftReminderWorker.cancel(context, e.name)
+                                            reminders?.cancelShift(e.name)
                                         }
                                     },
                                     colors = ButtonDefaults.buttonColors(
@@ -405,7 +410,7 @@ fun AttendanceScreen(
                                 Button(onClick = {
                                     gate("ثبت ورود ${e.name}") {
                                         vm.checkIn(e.name)
-                                        ShiftReminderWorker.schedule(context, e.name)
+                                        reminders?.scheduleShift(e.name)
                                     }
                                 }) {
                                     Icon(Icons.Default.Fingerprint, contentDescription = null)
@@ -431,13 +436,13 @@ fun AttendanceScreen(
                         IconButton(onClick = {
                             val report = buildString {
                                 appendLine("📋 گزارش کارکرد ۳۰ روز اخیر — ${CompanyPrefs.shopName(settings)}")
-                                appendLine("تاریخ: ${PersianDate.short(System.currentTimeMillis())}")
+                                appendLine("تاریخ: ${PersianDate.short(nowMillis())}")
                                 appendLine("──────────────")
                                 monthlyWork.forEach { w ->
                                     appendLine("• ${w.name}: ${(w.totalMinutes / 60).fa()}:${(w.totalMinutes % 60).toString().padStart(2, '0').toPersianDigits()} ساعت در ${w.daysWorked.fa()} روز")
                                 }
                             }
-                            ShareUtil.shareText(context, report, "اشتراک گزارش کارکرد")
+                            system.shareText("اشتراک گزارش کارکرد", report)
                         }) {
                             Icon(Icons.Default.Share, contentDescription = "اشتراک گزارش")
                         }
@@ -516,7 +521,7 @@ fun AttendanceScreen(
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSecondaryContainer
                             )
-                            TextButton(onClick = { breakVm.addDefaults(context) }) {
+                            TextButton(onClick = { breakVm.addDefaults(reminders) }) {
                                 Text("افزودن وقت‌های معمول (چای صبح، نان چاشت، چای عصر)")
                             }
                         }
@@ -552,9 +557,9 @@ fun AttendanceScreen(
                         }
                         Switch(
                             checked = b.enabled,
-                            onCheckedChange = { breakVm.setEnabled(context, b, it) }
+                            onCheckedChange = { breakVm.setEnabled(reminders, b, it) }
                         )
-                        IconButton(onClick = { breakVm.delete(context, b) }) {
+                        IconButton(onClick = { breakVm.delete(reminders, b) }) {
                             Icon(
                                 Icons.Default.Delete,
                                 contentDescription = "حذف",

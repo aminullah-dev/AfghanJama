@@ -36,10 +36,12 @@ import com.afghanjama.ui.components.WorkStage
 import com.afghanjama.ui.nav.Routes
 import com.afghanjama.ui.nav.bottomItemsFor
 import com.afghanjama.ui.screens.ActionCenterScreen
+import com.afghanjama.ui.screens.AttendanceScreen
 import com.afghanjama.ui.screens.AuditScreen
 import com.afghanjama.ui.screens.BoardScreen
 import com.afghanjama.ui.screens.CustomerDetailScreen
 import com.afghanjama.ui.screens.CustomersScreen
+import com.afghanjama.ui.screens.CuttingScreen
 import com.afghanjama.ui.screens.DailyTradeScreen
 import com.afghanjama.ui.screens.DeliveryQueueScreen
 import com.afghanjama.ui.screens.DocumentsScreen
@@ -65,6 +67,7 @@ import com.afghanjama.ui.screens.ProductionOrderScreen
 import com.afghanjama.ui.screens.PurchasePlanScreen
 import com.afghanjama.ui.screens.PurchaseReturnScreen
 import com.afghanjama.ui.screens.QuoteCalculatorScreen
+import com.afghanjama.ui.screens.RecurringExpenseScreen
 import com.afghanjama.ui.screens.ReportsScreen
 import com.afghanjama.ui.screens.ReviewScreen
 import com.afghanjama.ui.screens.SampleWorkshopScreen
@@ -72,12 +75,16 @@ import com.afghanjama.ui.screens.SelfTestScreen
 import com.afghanjama.ui.screens.SewingScreen
 import com.afghanjama.ui.screens.ShopProfileScreen
 import com.afghanjama.ui.screens.StockLedgerScreen
+import com.afghanjama.ui.screens.WorkshopLoadScreen
 import com.afghanjama.ui.vm.ActionCenterViewModel
+import com.afghanjama.ui.vm.AttendanceViewModel
 import com.afghanjama.ui.vm.AuditViewModel
 import com.afghanjama.ui.vm.AuthViewModel
 import com.afghanjama.ui.vm.BoardViewModel
+import com.afghanjama.ui.vm.BreakTimeViewModel
 import com.afghanjama.ui.vm.CustomerDetailViewModel
 import com.afghanjama.ui.vm.CustomersViewModel
+import com.afghanjama.ui.vm.CuttingViewModel
 import com.afghanjama.ui.vm.DashboardViewModel
 import com.afghanjama.ui.vm.DeliveryQueueViewModel
 import com.afghanjama.ui.vm.DocumentsViewModel
@@ -100,6 +107,7 @@ import com.afghanjama.ui.vm.ProcurementViewModel
 import com.afghanjama.ui.vm.ProductionViewModel
 import com.afghanjama.ui.vm.PurchasePlanViewModel
 import com.afghanjama.ui.vm.PurchaseReturnViewModel
+import com.afghanjama.ui.vm.RecurringExpenseViewModel
 import com.afghanjama.ui.vm.ReportsViewModel
 import com.afghanjama.ui.vm.ReviewViewModel
 import com.afghanjama.ui.vm.SampleWorkshopViewModel
@@ -107,6 +115,7 @@ import com.afghanjama.ui.vm.SelfTestViewModel
 import com.afghanjama.ui.vm.SewingViewModel
 import com.afghanjama.ui.vm.UserRole
 import com.afghanjama.ui.vm.WarehouseViewModel
+import com.afghanjama.ui.vm.WorkshopLoadViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -242,6 +251,11 @@ private class Vms(repo: Repo) {
     val selfTest by lazy { SelfTestViewModel(repo) }
     val sewing by lazy { SewingViewModel(repo) }
     val warehouse by lazy { WarehouseViewModel(repo) }
+    val workshopLoad by lazy { WorkshopLoadViewModel(repo) }
+    val recurring by lazy { RecurringExpenseViewModel(repo) }
+    val cutting by lazy { CuttingViewModel(repo) }
+    val attendance by lazy { AttendanceViewModel(repo) }
+    val breakTime by lazy { BreakTimeViewModel(repo) }
 }
 
 @Composable
@@ -329,6 +343,8 @@ private fun LoggedIn(repo: Repo, role: UserRole, auth: AuthViewModel) {
                     onGoSearch = { go(Routes.SEARCH) },
                     onGoSettings = { go(Routes.SETTINGS) },
                     onGoQuoteCalc = { go(Routes.QUOTE_CALC) },
+                    onGoWorkshopLoad = { go(Routes.WORKSHOP_LOAD) },
+                    onGoRecurring = { go(Routes.RECURRING) },
                     onGoGuide = { go(Routes.GUIDE) },
                     onGoWorkshopLink = { go(Routes.WORKSHOP_LINK) },
                     onGoBoard = { go(Routes.BOARD) },
@@ -400,10 +416,20 @@ private fun LoggedIn(repo: Repo, role: UserRole, auth: AuthViewModel) {
                     onGoStage = goStage,
                 )
 
-                Routes.CUTTING -> Message(
-                    "صفحهٔ برش هنوز به نسخهٔ آیفون نیامده — روی ویندوز هم " +
-                        "نیست.\nفعلاً از گوشیِ اندرویدی استفاده کنید.\n\n" +
-                        "دوخت و نظارت هر دو در دسترس‌اند."
+                /*
+                 * برش حالا در `commonMain` است (از همان کاری که آن را به
+                 * ویندوز رساند)، پس روی آیفون هم باز می‌شود.
+                 *
+                 * **اسکنرِ QR اینجا نیست و این حفره نیست:** آیفون
+                 * `CodeScanner` ندارد، پس دکمهٔ اسکن نشان داده نمی‌شود و
+                 * ورودِ دستیِ کد — که از قبل بود — تنها راه است. همان
+                 * رفتاری که ویندوز دارد.
+                 */
+                Routes.CUTTING -> CuttingScreen(
+                    vm = vm.cutting,
+                    onBack = back,
+                    onGoSewing = { go(Routes.SEWING) },
+                    onGoStage = goStage,
                 )
 
                 Routes.MY_WORK -> {
@@ -514,6 +540,10 @@ private fun LoggedIn(repo: Repo, role: UserRole, auth: AuthViewModel) {
 
                 Routes.BOARD -> BoardScreen(vm = vm.board, onBack = back)
 
+                Routes.WORKSHOP_LOAD -> WorkshopLoadScreen(vm = vm.workshopLoad, onBack = back)
+
+                Routes.RECURRING -> RecurringExpenseScreen(vm = vm.recurring, onBack = back)
+
                 Routes.QUOTE_CALC -> QuoteCalculatorScreen(onBack = back)
 
                 Routes.GUIDE -> GuideScreen(onBack = back)
@@ -538,9 +568,16 @@ private fun LoggedIn(repo: Repo, role: UserRole, auth: AuthViewModel) {
                  * ViewModelش در `:core` هست، پس آوردنش کارِ کوچکی است،
                  * ولی کارِ این کامیت نیست.
                  */
-                Routes.ATTENDANCE -> Message(
-                    "صفحهٔ حضور و غیاب هنوز به نسخهٔ آیفون نیامده.\n" +
-                        "فعلاً از گوشیِ اندرویدی استفاده کنید."
+                /*
+                 * حضور و غیاب هم مشترک شد. `BiometricGate` و `Reminders`
+                 * روی آیفون `null`اند، پس ثبت بی سنجشِ اثرِ انگشت انجام
+                 * می‌شود و یادآورِ زمان‌بندی‌شده نمی‌آید — همان رفتارِ
+                 * ویندوز، و صفحه خودش می‌گوید.
+                 */
+                Routes.ATTENDANCE -> AttendanceScreen(
+                    vm = vm.attendance,
+                    breakVm = vm.breakTime,
+                    onBack = back,
                 )
 
                 /*

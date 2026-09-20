@@ -35,6 +35,7 @@ import com.afghanjama.data.dao.OrderStageLogDao
 import com.afghanjama.data.dao.OrderWorkItemDao
 import com.afghanjama.data.dao.ProcurementDao
 import com.afghanjama.data.dao.QcRecordDao
+import com.afghanjama.data.dao.RecurringExpenseDao
 import com.afghanjama.data.dao.SalaryDao
 import com.afghanjama.data.dao.SewingAssignmentDao
 import com.afghanjama.data.dao.StockMovementDao
@@ -72,6 +73,7 @@ import com.afghanjama.data.entities.Party
 import com.afghanjama.data.entities.PurchaseInvoice
 import com.afghanjama.data.entities.PurchaseItem
 import com.afghanjama.data.entities.QcRecord
+import com.afghanjama.data.entities.RecurringExpense
 import com.afghanjama.data.entities.SalaryPayment
 import com.afghanjama.data.entities.SewingAssignment
 import com.afghanjama.data.entities.SizeItem
@@ -138,6 +140,7 @@ expect object IosDatabaseConstructor : RoomDatabaseConstructor<IosDatabase> {
         WorkCost::class,
         GarmentDesign::class,
         CustomerInstallment::class,
+        RecurringExpense::class,
         CustomerPayment::class,
         TailorWage::class,
         OrderStageLog::class,
@@ -216,6 +219,7 @@ abstract class IosDatabase : RoomDatabase(), Db {
     abstract override fun catalogDao(): CatalogDao
     abstract override fun tailorWageDao(): TailorWageDao
     abstract override fun customerInstallmentDao(): CustomerInstallmentDao
+    abstract override fun recurringExpenseDao(): RecurringExpenseDao
     abstract override fun customerPaymentDao(): CustomerPaymentDao
     abstract override fun orderStageLogDao(): OrderStageLogDao
     abstract override fun orderFabricDao(): OrderFabricDao

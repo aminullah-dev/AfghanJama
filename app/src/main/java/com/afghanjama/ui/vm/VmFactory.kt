@@ -65,6 +65,8 @@ class VmFactory(
             ActionCenterViewModel::class.java -> ActionCenterViewModel(repo)
             PayrollViewModel::class.java -> PayrollViewModel(repo)
             PerformanceViewModel::class.java -> PerformanceViewModel(repo)
+            WorkshopLoadViewModel::class.java -> WorkshopLoadViewModel(repo)
+            RecurringExpenseViewModel::class.java -> RecurringExpenseViewModel(repo)
             DeliveryQueueViewModel::class.java -> DeliveryQueueViewModel(repo)
             NewSaleViewModel::class.java -> NewSaleViewModel(repo)
             BreakTimeViewModel::class.java -> BreakTimeViewModel(repo)

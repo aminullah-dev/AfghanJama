@@ -1,5 +1,6 @@
 package com.afghanjama.ui.vm
 
+import androidx.compose.material.icons.filled.EventRepeat
 import com.afghanjama.util.nowMillis
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -220,28 +221,7 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
                 )
             }
 
-            // ۶) کارِ تمام‌شده‌ای که مشتری هنوز نبرده
-            //
-            // این حالت پول و جا هر دو را قفل می‌کند: لباس دوخته شده،
-            // باقی‌ماندهٔ پولش وصول نشده و انبار هم اشغال است.
-            val waiting = orders.filter {
-                it.status == OrderStatus.STORED.name && it.customerName.isNotBlank() &&
-                    stageDays(it.stageChangedAt, it.createdAt) >= DELIVERY_WAIT_DAYS
-            }
-            if (waiting.isNotEmpty()) {
-                val worst = waiting.maxByOrNull { stageDays(it.stageChangedAt, it.createdAt) }!!
-                add(
-                    Alert(
-                        id = "awaiting_delivery",
-                        severity = AlertSeverity.WARN,
-                        icon = Icons.Default.LocalShipping,
-                        title = "${waiting.size.fa()} کارِ آماده را مشتری نبرده",
-                        detail = "قدیمی‌ترین: ${worst.customerName} — " +
-                            "${stageDays(worst.stageChangedAt, worst.createdAt).fa()} روز در انبار",
-                        route = Routes.DELIVERY_QUEUE
-                    )
-                )
-            }
+            // ۶) کارِ آماده‌ای که مشتری نبرده → `deliveryAlerts`
 
             // ۶) طلب از مشتریان (ماندهٔ مثبت = آن‌ها بدهکارند)
             val receivables = balances.filter { it.type == "CUSTOMER" && it.net > 0 }
@@ -460,15 +440,108 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
         }
     }
 
+    /**
+     * کارِ آماده‌ای که مشتری نبرده — **دو هشدار، نه یکی.**
+     *
+     * تا دیروز یک هشدار بود و هر روز همان را می‌گفت، چه کارفرما به
+     * مشتری خبر داده باشد چه نه. یعنی تنها جایی که «خبر دادم یا نه»
+     * نوشته می‌شد، حافظهٔ کارفرما بود.
+     *
+     * حالا جدا شده‌اند و ترتیبِ شدتشان هم عمدی است: **خبر نداده‌ایم**
+     * کاری است که هنوز نکرده‌ایم، پس `WARN`. **خبر داده‌ایم و نیامده**
+     * کاری است که کرده‌ایم و جواب نداده، پس `INFO` — یادآوری، نه
+     * سرزنش.
+     *
+     * جدا از [coreAlerts] است چون `combine` بیش از پنج جریانِ نوع‌دار
+     * نمی‌پذیرد و آن یکی پنج‌تا دارد.
+     */
+    private val deliveryAlerts: Flow<List<Alert>> = combine(
+        repo.observeAllOrders(),
+        repo.observeCustomerNotified()
+    ) { orders, notified ->
+        val waiting = orders.filter {
+            it.status == OrderStatus.STORED.name && it.customerName.isNotBlank() &&
+                stageDays(it.stageChangedAt, it.createdAt) >= DELIVERY_WAIT_DAYS
+        }
+        val (told, untold) = waiting.partition { notified.containsKey(it.id.toString()) }
+        buildList {
+            if (untold.isNotEmpty()) {
+                val worst = untold.maxByOrNull { stageDays(it.stageChangedAt, it.createdAt) }!!
+                add(
+                    Alert(
+                        id = "awaiting_delivery",
+                        severity = AlertSeverity.WARN,
+                        icon = Icons.Default.LocalShipping,
+                        title = "${untold.size.fa()} کارِ آماده و مشتری خبر ندارد",
+                        detail = "قدیمی‌ترین: ${worst.customerName} — " +
+                            "${stageDays(worst.stageChangedAt, worst.createdAt).fa()} روز در انبار",
+                        route = Routes.DELIVERY_QUEUE
+                    )
+                )
+            }
+            if (told.isNotEmpty()) {
+                val worst = told.maxByOrNull { stageDays(it.stageChangedAt, it.createdAt) }!!
+                add(
+                    Alert(
+                        id = "awaiting_pickup",
+                        severity = AlertSeverity.INFO,
+                        icon = Icons.Default.LocalShipping,
+                        title = "${told.size.fa()} مشتری خبر دارد ولی نیامده",
+                        detail = "قدیمی‌ترین: ${worst.customerName} — " +
+                            "${stageDays(worst.stageChangedAt, worst.createdAt).fa()} روز در انبار",
+                        route = Routes.DELIVERY_QUEUE
+                    )
+                )
+            }
+        }
+    }
+
+    /**
+     * هزینه‌های ثابتی که این ماه ثبت نشده‌اند.
+     *
+     * **چرا هشدار لازم است و خودِ صفحه کافی نیست.** کسی که فراموش کرده
+     * کرایه را ثبت کند، به صفحهٔ «هزینه‌های ثابت» هم سر نمی‌زند — همان
+     * فراموشی هر دو را می‌گیرد. تنها جایی که هر روز دیده می‌شود مرکزِ
+     * اقدام است.
+     *
+     * و چرا `WARN` نه `INFO`: تا وقتی ثبت نشود، **سودِ این ماه بیشتر
+     * از واقعیت نشان داده می‌شود**. این عددِ غلط در دفتر است، نه یک
+     * یادآوریِ ساده.
+     */
+    private val recurringAlerts: Flow<List<Alert>> =
+        repo.observeRecurringExpenses().map { rows ->
+            val ym = currentYm()
+            val due = rows.filter { it.enabled && it.lastPostedYm < ym }
+            buildList {
+                if (due.isNotEmpty()) {
+                    add(
+                        Alert(
+                            id = "recurring_due",
+                            severity = AlertSeverity.WARN,
+                            icon = Icons.Default.EventRepeat,
+                            title = "${due.size.fa()} هزینهٔ ثابتِ این ماه ثبت نشده",
+                            detail = "جمعاً ${due.sumOf { it.amount }.afn()} — " +
+                                "تا ثبت نشود سودِ این ماه بیشتر از واقعیت است",
+                            route = Routes.RECURRING
+                        )
+                    )
+                }
+            }
+        }
+
     val ui: StateFlow<ActionCenterUi> =
         combine(
             coreAlerts,
             payrollAlerts,
             stockAlerts,
             backupAlerts,
-            // `combine` بیش از پنج جریانِ نوع‌دار نمی‌پذیرد، پس این دو
-            // پیش از رسیدن به آنجا یکی می‌شوند.
-            combine(staleAlerts, installmentAlerts) { stale, inst -> stale + inst }
+            // `combine` بیش از پنج جریانِ نوع‌دار نمی‌پذیرد، پس این
+            // چهار پیش از رسیدن به آنجا یکی می‌شوند.
+            combine(
+                staleAlerts, installmentAlerts, deliveryAlerts, recurringAlerts
+            ) { stale, inst, deliv, rec ->
+                stale + inst + deliv + rec
+            }
         ) { core, payroll, stock, backup, rest ->
             ActionCenterUi(
                 (core + payroll + stock + backup + rest).sortedBy { it.severity.ordinal }

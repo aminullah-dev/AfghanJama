@@ -31,6 +31,13 @@ object ResetPlan {
         "WorkCost",
         "staff",
         "break_times",
+        // تعریف است نه سند — مثلِ `break_times`. کارفرمایی که کارها را
+        // پاک می‌کند، کرایهٔ دوکانش عوض نشده.
+        //
+        // **ولی سطر کامل نمی‌مانَد:** `Repo.resetOperationalData` مهرِ
+        // «این ماه ثبت شد» را صفر می‌کند. بی آن، دفترِ تازه خیال
+        // می‌کرد هزینه‌های این ماه ثبت شده‌اند و هرگز یادآوری نمی‌کرد.
+        "recurring_expenses",
         "customers",
         "customer_measurements"
     )
