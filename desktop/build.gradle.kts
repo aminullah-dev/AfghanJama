@@ -7,7 +7,7 @@ import java.io.File as JFile
 import java.util.zip.ZipFile
 
 /*
- * :desktop — نسخهٔ ویندوزِ خیاط‌یار.
+ * :desktop — نسخهٔ رومیزیِ خیاط‌یار: ویندوز و مک از همین یک ماژول.
  *
  * فازِ ۳: هدف **اثباتِ زنجیرهٔ ساخت** است، نه برنامهٔ کامل. یک پنجرهٔ
  * واقعی باز می‌شود، فارسیِ راست‌به‌چپ را با فونتِ خودِ اپ می‌نویسد، و
@@ -149,19 +149,29 @@ kotlin {
     }
 }
 
+/*
+ * **و همین را برای Java هم باید گفت، وگرنه ساخت روی JDK 21 نمی‌گیرد.**
+ *
+ * بالا فقط هدفِ Kotlin عوض شد؛ `compileJava` همچنان هر JDKی که Gradle
+ * روی آن است را هدف می‌گرفت. روی CI (که JDK 17 می‌گذارد) هر دو ۱۷
+ * می‌شدند و چیزی معلوم نبود، ولی روی مکی که JDK 21 دارد — یعنی هر
+ * کمپیوتری با Android Studioی امروزی — ساخت همان اول می‌ترکید:
+ *
+ *     Inconsistent JVM-target compatibility detected for tasks
+ *     'compileJava' (21) and 'kspKotlin' (17)
+ *
+ * `:core` این بند را از قبل داشت و به همین دلیل سالم می‌ساخت؛ `:desktop`
+ * جا افتاده بود.
+ */
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
 compose.desktop {
     application {
         mainClass = "com.afghanjama.desktop.MainKt"
         nativeDistributions {
-            /*
-             * سه فرمت، ولی هر کدام فقط روی سکوی خودش ساخته می‌شود.
-             *
-             * `jpackage` نمی‌تواند بستهٔ سکوی دیگر بدهد: DMG فقط از
-             * مک درمی‌آید، MSI فقط از ویندوز. نوشتنِ هر سه در این
-             * فهرست چیزی را نمی‌شکند — Gradle روی هر ماشین همان را
-             * می‌سازد که شدنی است — ولی یعنی روی مک دیگر لازم نیست
-             * کسی این فایل را دست بزند.
-             */
             targetFormats(TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Dmg)
             packageName = "KhayatYar"
             /*
@@ -218,35 +228,36 @@ compose.desktop {
             includeAllModules = true
 
             /*
-             * مک — و `bundleID` مهم‌ترین خطِ این بخش است.
+             * مک — و چرا تقریباً هیچ کارِ تازه‌ای نخواست.
              *
-             * شناسهٔ یکتای برنامه در کلِ سیستمِ مک است: امضا، مجوزها،
-             * و «این همان برنامهٔ قبلی است یا تازه؟» همه به آن گره
-             * می‌خورند. اگر بعداً عوض شود، مکِ کاربر نسخهٔ تازه را
-             * برنامه‌ای دیگر می‌شمارد — همان دامی که `upgradeUuid`
-             * برای ویندوز می‌بندد.
+             * `:desktop` همان ماژولِ JVM است که ویندوز را می‌سازد و
+             * `:core` هیچ وابستگیِ اندرویدی ندارد، پس DMG فقط باید
+             * **خواسته** می‌شد. `jpackage` روی مک بستهٔ `.app` را
+             * می‌سازد و در یک DMG می‌گذارد.
              *
-             * همان `applicationId`ِ اندروید است تا یک محصول یک شناسه
-             * داشته باشد.
+             * `bundleID` شناسهٔ برنامه نزدِ خودِ سیستم‌عامل است: مک با
+             * همین تنظیمات، مجوزها و امضا را به برنامه گره می‌زند. اگر
+             * روزی عوض شود، سیستم آن را برنامه‌ای **دیگر** می‌بیند —
+             * همان نقشی که `upgradeUuid` روی ویندوز دارد. پس ثابت
+             * می‌مانَد.
+             *
+             * لاتین و نقطه‌دار، عمداً: اپل قالبِ dns معکوس می‌خواهد و
+             * نویسهٔ غیرِ ASCII را نمی‌پذیرد.
+             *
+             * **امضا اینجا نیست، و این عمدی است.** گواهیِ Developer ID
+             * روی کمپیوترِ کارفرما می‌مانَد؛ نه در مخزن، نه در Secrets —
+             * همان قاعده‌ای که برای کلیدِ اندروید و `.pfx`ِ ویندوز
+             * گذاشته شده. امضا و notarize با
+             * `tools/macos-signing/sign-and-notarize.sh` روی همان
+             * کمپیوتر انجام می‌شود.
              */
             macOS {
-                bundleID = "com.afghanjama"
+                bundleID = "com.afghanjama.khayatyar"
+                // نامی که در Finder و Launchpad دیده می‌شود. لاتین است
+                // چون در نامِ فایلِ DMG هم می‌نشیند؛ نامِ فارسیِ داخلِ
+                // برنامه از `AppInfo.NAME` می‌آید.
                 packageName = "KhayatYar"
-                /*
-                 * **امضا اینجا خاموش است و این عمدی است.**
-                 *
-                 * گواهیِ Developer ID روی مکِ کارفرماست و باید همان‌جا
-                 * بماند — همان قاعده‌ای که برای کلیدِ امضای اندروید و
-                 * ویندوز گذاشتیم: کلید هرگز به گیت‌هاب نمی‌رود، نه در
-                 * مخزن نه در Secrets.
-                 *
-                 * پس CI بستهٔ **بی‌امضا** می‌سازد و امضا و notarize
-                 * روی خودِ مک انجام می‌شود، با اسکریپتِ
-                 * `tools/macos-signing/`.
-                 */
-                signing {
-                    sign.set(false)
-                }
+                dockName = "KhayatYar"
             }
 
             windows {
@@ -298,18 +309,60 @@ compose.desktop {
  * `META-INF` کنار گذاشته می‌شود: `module-info.class`ِ چندنسخه‌ای
  * (`META-INF/versions/9/…`) در ده‌ها jar هست و بی‌خطر است.
  */
+/*
+ * `packagedJarDir` — پوشهٔ jarهای بستهٔ ساخته‌شده، هر سیستم‌عاملی که باشد.
+ *
+ * همهٔ دودآزمایی‌های زیر روی **بسته** اجرا می‌شوند نه روی classpathِ
+ * Gradle، و دلیلش در توضیحِ `screenSmoke` آمده. ولی مسیرِ آن بسته را
+ * `jpackage` تعیین می‌کند و هر سکو جورِ دیگری می‌چیندش:
+ *
+ *     ویندوز/لینوکس   …/main/app/KhayatYar/app
+ *     مک              …/main/app/KhayatYar.app/Contents/app
+ *
+ * مسیرِ ثابتِ ویندوزی که پیش‌تر در هشت جا کپی شده بود یعنی روی مک هر
+ * هشت بررسی با «پوشهٔ بسته خالی است» قرمز می‌شوند — و آن قرمزی خرابیِ
+ * برنامه نیست، خرابیِ خودِ بررسی است. بدترین شکلش هم این بود که پیامش
+ * دقیقاً شبیهِ یک خرابیِ واقعیِ بسته‌بندی است.
+ *
+ * پس به‌جای مسیر، **دنبالِ پوشه‌ای می‌گردد که jar دارد**. یک تعریف در
+ * یک جا، و سکوی بعدی هم چیزی برای عوض کردن ندارد.
+ */
+/*
+ * **و چرا `val` با یک لامبدا، نه `fun`.**
+ *
+ * در اسکریپتِ Kotlin DSL، تابعِ سطحِ بالا به کلاسِ جدایی کامپایل
+ * می‌شود و به گیرندهٔ ضمنیِ اسکریپت — یعنی خودِ `Project` — دسترسی
+ * ندارد. آن‌جا `layout` اصلاً حل نمی‌شود.
+ *
+ * ولی **اعلانِ ویژگیِ** سطحِ بالا در بدنهٔ اسکریپت ارزیابی می‌شود و
+ * گیرنده را دارد. مدرکش چند خط پایین‌تر است: `val duplicateClasses by
+ * tasks.registering` هم دقیقاً از همین راه به `tasks` می‌رسد.
+ *
+ * پس لامبدا `layout` را از دامنهٔ اسکریپت می‌گیرد، و چون تا لحظهٔ
+ * صدا زدن اجرا نمی‌شود، مسیر همچنان در زمانِ **اجرا** خوانده می‌شود
+ * نه پیکربندی — همان چیزی که لازم است، چون پوشه پیش از
+ * `createDistributable` وجود ندارد.
+ */
+val packagedJarDir: () -> JFile = {
+    val root = layout.buildDirectory.dir("compose/binaries/main/app").get().asFile
+    val hit = root.walkTopDown().maxDepth(4).firstOrNull { d ->
+        d.isDirectory && d.name == "app" &&
+            (d.listFiles { f: JFile -> f.name.endsWith(".jar") } ?: emptyArray()).isNotEmpty()
+    }
+    hit ?: throw GradleException(
+        "پوشهٔ بستهٔ حاویِ jar زیرِ $root پیدا نشد — بررسی پوچ می‌شد. " +
+            "یعنی `createDistributable` چیزی نساخته است."
+    )
+}
+
 val duplicateClasses by tasks.registering {
     group = "verification"
     description = "هیچ کلاسی نباید از دو jar بیاید"
     dependsOn("createDistributable")
     doLast {
-        val appDir = layout.buildDirectory
-            .dir("compose/binaries/main/app/KhayatYar/app").get().asFile
+        val appDir = packagedJarDir()
         val jars = appDir.listFiles { f: JFile -> f.name.endsWith(".jar") }
             ?: emptyArray()
-        if (jars.isEmpty()) {
-            throw GradleException("پوشهٔ بسته خالی است: $appDir — بررسی پوچ می‌شد")
-        }
 
         val owners = HashMap<String, MutableSet<String>>()
         for (j in jars) {
@@ -369,12 +422,8 @@ val migrationSmoke by tasks.registering(JavaExec::class) {
     mainClass.set("com.afghanjama.desktop.data.MigrationSmokeKt")
     jvmArgs("-Dfile.encoding=UTF-8", "-Dstdout.encoding=UTF-8")
     doFirst {
-        val appDir = layout.buildDirectory
-            .dir("compose/binaries/main/app/KhayatYar/app").get().asFile
+        val appDir = packagedJarDir()
         val jars = appDir.listFiles { f: JFile -> f.name.endsWith(".jar") } ?: emptyArray()
-        if (jars.isEmpty()) {
-            throw GradleException("پوشهٔ بسته خالی است: $appDir — بررسی پوچ می‌شد")
-        }
         classpath = files(appDir) + files(*jars)
     }
 }
@@ -397,12 +446,8 @@ val txSmoke by tasks.registering(JavaExec::class) {
     mainClass.set("com.afghanjama.desktop.data.TxSmokeKt")
     jvmArgs("-Dfile.encoding=UTF-8", "-Dstdout.encoding=UTF-8")
     doFirst {
-        val appDir = layout.buildDirectory
-            .dir("compose/binaries/main/app/KhayatYar/app").get().asFile
+        val appDir = packagedJarDir()
         val jars = appDir.listFiles { f: JFile -> f.name.endsWith(".jar") } ?: emptyArray()
-        if (jars.isEmpty()) {
-            throw GradleException("پوشهٔ بسته خالی است: $appDir — بررسی پوچ می‌شد")
-        }
         classpath = files(appDir) + files(*jars)
     }
 }
@@ -424,12 +469,8 @@ val selfTestRun by tasks.registering(JavaExec::class) {
     mainClass.set("com.afghanjama.desktop.SelfTestRunKt")
     jvmArgs("-Dfile.encoding=UTF-8", "-Dstdout.encoding=UTF-8")
     doFirst {
-        val appDir = layout.buildDirectory
-            .dir("compose/binaries/main/app/KhayatYar/app").get().asFile
+        val appDir = packagedJarDir()
         val jars = appDir.listFiles { f: JFile -> f.name.endsWith(".jar") } ?: emptyArray()
-        if (jars.isEmpty()) {
-            throw GradleException("پوشهٔ بسته خالی است: $appDir — بررسی پوچ می‌شد")
-        }
         classpath = files(appDir) + files(*jars)
     }
 }
@@ -458,10 +499,8 @@ val pdfSmoke by tasks.registering(JavaExec::class) {
     mainClass.set("com.afghanjama.desktop.pdf.PdfSmokeKt")
     jvmArgs("-Dfile.encoding=UTF-8", "-Dstdout.encoding=UTF-8")
     doFirst {
-        val appDir = layout.buildDirectory
-            .dir("compose/binaries/main/app/KhayatYar/app").get().asFile
+        val appDir = packagedJarDir()
         val jars = appDir.listFiles { f: JFile -> f.name.endsWith(".jar") } ?: emptyArray()
-        if (jars.isEmpty()) throw GradleException("empty package dir: $appDir")
         classpath = files(appDir) + files(*jars)
     }
 }
@@ -473,10 +512,8 @@ val lanSmoke by tasks.registering(JavaExec::class) {
     mainClass.set("com.afghanjama.desktop.data.LanSmokeKt")
     jvmArgs("-Dfile.encoding=UTF-8", "-Dstdout.encoding=UTF-8")
     doFirst {
-        val appDir = layout.buildDirectory
-            .dir("compose/binaries/main/app/KhayatYar/app").get().asFile
+        val appDir = packagedJarDir()
         val jars = appDir.listFiles { f: JFile -> f.name.endsWith(".jar") } ?: emptyArray()
-        if (jars.isEmpty()) throw GradleException("empty package dir: $appDir")
         classpath = files(appDir) + files(*jars)
     }
 }
@@ -488,12 +525,8 @@ val authSmoke by tasks.registering(JavaExec::class) {
     mainClass.set("com.afghanjama.desktop.data.AuthSmokeKt")
     jvmArgs("-Dfile.encoding=UTF-8", "-Dstdout.encoding=UTF-8")
     doFirst {
-        val appDir = layout.buildDirectory
-            .dir("compose/binaries/main/app/KhayatYar/app").get().asFile
+        val appDir = packagedJarDir()
         val jars = appDir.listFiles { f: JFile -> f.name.endsWith(".jar") } ?: emptyArray()
-        if (jars.isEmpty()) {
-            throw GradleException("پوشه خالی است: $appDir")
-        }
         classpath = files(appDir) + files(*jars)
     }
 }
@@ -505,12 +538,8 @@ val backupSmoke by tasks.registering(JavaExec::class) {
     mainClass.set("com.afghanjama.desktop.data.BackupSmokeKt")
     jvmArgs("-Dfile.encoding=UTF-8", "-Dstdout.encoding=UTF-8")
     doFirst {
-        val appDir = layout.buildDirectory
-            .dir("compose/binaries/main/app/KhayatYar/app").get().asFile
+        val appDir = packagedJarDir()
         val jars = appDir.listFiles { f: JFile -> f.name.endsWith(".jar") } ?: emptyArray()
-        if (jars.isEmpty()) {
-            throw GradleException("پوشهٔ بسته خالی است: $appDir — بررسی پوچ می‌شد")
-        }
         classpath = files(appDir) + files(*jars)
     }
 }
@@ -531,13 +560,9 @@ val screenSmoke by tasks.registering(JavaExec::class) {
     // بی این، خروجیِ فارسی روی رانرِ ویندوز `?` می‌شود و گزارشِ خطا
     // ناخواناست — همان چیزی که باید خوانده شود وقتی قرمز شد.
     doFirst {
-        val appDir = layout.buildDirectory
-            .dir("compose/binaries/main/app/KhayatYar/app").get().asFile
+        val appDir = packagedJarDir()
         val jars = appDir.listFiles { f: JFile -> f.name.endsWith(".jar") }
             ?: emptyArray()
-        if (jars.isEmpty()) {
-            throw GradleException("پوشهٔ بسته خالی است: $appDir — بررسی پوچ می‌شد")
-        }
         classpath = files(appDir) + files(*jars)
     }
 }

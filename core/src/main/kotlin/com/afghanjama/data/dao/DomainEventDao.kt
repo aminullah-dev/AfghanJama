@@ -12,6 +12,9 @@ import kotlinx.coroutines.flow.Flow
  * نوشتن **داخلِ همان تراکنشی** انجام می‌شود که دادهٔ اصلی نوشته
  * می‌شود؛ خواندن و مهر زدن بیرون از آن.
  */
+/** خروجیِ [DomainEventDao.observeLatestAt] — شناسه و آخرین زمان. */
+data class EventStamp(val id: String, val at: Long)
+
 @Dao
 interface DomainEventDao {
 
@@ -40,6 +43,26 @@ interface DomainEventDao {
             "AND aggregateId = :id ORDER BY id ASC"
     )
     fun observeFor(aggregate: String, id: String): Flow<List<DomainEvent>>
+
+    /**
+     * آخرین باری که هر موجودیت، رویدادی از نوعِ [type] گرفته.
+     *
+     * **چرا جمعی و نه یکی‌یکی.** صفِ تحویل ده‌ها ردیف دارد و پرسیدنِ
+     * «این یکی خبر داده شده؟» برای هر ردیف یعنی ده‌ها پرس‌وجو. اینجا
+     * یک پرس‌وجو نقشهٔ کاملِ «شناسه ← آخرین زمان» را می‌دهد و صفحه از
+     * روی همان می‌خواند.
+     *
+     * ایندکسِ `(aggregate, aggregateId)` همین را پوشش می‌دهد.
+     */
+    @Query(
+        """
+        SELECT aggregateId AS id, MAX(at) AS at
+        FROM domain_events
+        WHERE type = :type AND aggregate = :aggregate
+        GROUP BY aggregateId
+        """
+    )
+    fun observeLatestAt(type: String, aggregate: String): Flow<List<EventStamp>>
 
     @Query("SELECT COUNT(*) FROM domain_events WHERE processedAt IS NULL")
     suspend fun pendingCount(): Int

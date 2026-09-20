@@ -186,6 +186,39 @@ val SCHEMA_STEPS: List<SchemaStep> = listOf(
             "CREATE INDEX IF NOT EXISTS index_customer_installments_dueDate " +
                 "ON customer_installments (dueDate)"
         )
+    ),
+
+    /**
+     * ۶۴ → ۶۵ — هزینه‌های ثابتِ ماهانه.
+     *
+     * فقط یک جدولِ تازه. هیچ جدولِ موجودی خوانده یا نوشته نمی‌شود، پس
+     * روی دفترِ کارگاه جز اضافه شدنِ یک جدولِ خالی کاری نمی‌کند.
+     *
+     * `category`، `enabled` و `lastPostedYm` مقدارِ پیش‌فرض دارند چون
+     * موجودیت `@ColumnInfo(defaultValue = …)` دارد؛ Room سرِ وارسی هر
+     * دو را با هم می‌سنجد و نبودنِ پیش‌فرض اینجا یعنی
+     * `IllegalStateException` سرِ باز کردنِ دیتابیس.
+     *
+     * ایندکسی ندارد و این عمدی است: فهرستِ هزینه‌های ثابتِ یک کارگاه
+     * چند سطر است، نه چند هزار. ایندکس روی چنین جدولی فقط جا می‌گیرد.
+     */
+    SchemaStep(
+        64, 65,
+        listOf(
+            """
+            CREATE TABLE IF NOT EXISTS recurring_expenses (
+                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                title TEXT NOT NULL,
+                amount INTEGER NOT NULL,
+                dayOfMonth INTEGER NOT NULL,
+                source TEXT NOT NULL,
+                category TEXT NOT NULL DEFAULT '',
+                enabled INTEGER NOT NULL DEFAULT 1,
+                lastPostedYm INTEGER NOT NULL DEFAULT 0,
+                createdAt INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
     )
 )
 
