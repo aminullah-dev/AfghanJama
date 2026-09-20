@@ -17,6 +17,12 @@ import androidx.compose.runtime.setValue
 import com.afghanjama.data.buildAppDatabase
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.lan.AndroidLanHost
+import com.afghanjama.platform.AndroidBiometricGate
+import com.afghanjama.platform.AndroidCodeScanner
+import com.afghanjama.platform.AndroidReminders
+import com.afghanjama.platform.LocalBiometricGate
+import com.afghanjama.platform.LocalCodeScanner
+import com.afghanjama.platform.LocalReminders
 import com.afghanjama.prefs.AndroidSettings
 import com.afghanjama.platform.AndroidDocs
 import com.afghanjama.platform.AndroidFileExport
@@ -86,7 +92,12 @@ class MainActivity : FragmentActivity() {
             LocalPhotos provides photos,
             // بی این خط، هر صفحه‌ای که پنجرهٔ تأیید یا منوی بازشو
             // دارد سرِ باز شدن می‌شکند.
-            LocalWidgets provides AndroidWidgets
+            LocalWidgets provides AndroidWidgets,
+            // سه مرزِ تازه. با آمدنشان، صفحهٔ برش و صفحهٔ حضور و غیاب
+            // از `:app` به `:core` رفتند و ویندوز هم صاحبشان شد.
+            LocalCodeScanner provides AndroidCodeScanner,
+            LocalReminders provides AndroidReminders(applicationContext),
+            LocalBiometricGate provides AndroidBiometricGate(this)
           ) {
             KhayatYarTheme {
                 /*
