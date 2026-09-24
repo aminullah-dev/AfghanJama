@@ -4,6 +4,7 @@ import com.afghanjama.util.nowMillis
 import com.afghanjama.data.Db
 import com.afghanjama.data.CashPolicy
 import com.afghanjama.data.CardScan
+import com.afghanjama.data.CustomerCredit
 import com.afghanjama.data.EmployeeCard
 import com.afghanjama.data.PartialFlow
 import com.afghanjama.data.entities.AttendanceRecord
@@ -941,6 +942,9 @@ class Repo(private val db: Db) {
         note: String
     ) {
         if (name.isBlank() || amount <= 0) return
+        // پیش از هر ثبتی در دفترِ مشتری — بعدش همین دریافت مانده را کم کرده
+        // و پرداختِ کامل «بدهکار نیست» دیده می‌شد.
+        val split = CustomerCredit.credit(customerRecognizedNet(name), amount)
         val n = note.ifBlank { "دریافتی از $name" }
         income("WALLET", amount, n)
         audit("دریافت از مشتری", "$name — $amount ؋")
@@ -957,9 +961,10 @@ class Repo(private val db: Db) {
             n, "CUSTOMER_RECEIPT", "",
             listOf(
                 jl(Accounts.CASH, debit = amount),
-                // اگر طلبی از او داریم این دریافت آن را می‌بندد؛ وگرنه
-                // پیش‌دریافت است و بدهیِ ما می‌شود.
-                jl(customerCreditAccount(name, amount), credit = amount)
+                // اول طلبی که از او داریم بسته می‌شود؛ فقط مازاد پیش‌دریافت
+                // است و بدهیِ ما می‌شود.
+                jl(Accounts.RECEIVABLE, credit = split.receivable),
+                jl(Accounts.CUSTOMER_PREPAY, credit = split.prepay)
             )
         )
     }
@@ -1013,15 +1018,20 @@ class Repo(private val db: Db) {
     }
 
     /**
-     * دریافت از مشتری کدام حساب را می‌بندد؟ اگر در دفتر کل به ما بدهکار
-     * است، این دریافت طلب را کم می‌کند؛ وگرنه پولِ پیش از تحویل است و
-     * بدهیِ ما می‌شود. بدونِ این تفکیک، دریافت‌ها یکی از دو حساب را به
-     * سمتِ اشتباه می‌بردند.
+     * ماندهٔ مشتری آن‌طور که ژورنال می‌شناسد — قاعده‌اش در [CustomerCredit].
+     *
+     * **باید پیش از ثبتِ حرکتِ تازه در دفترِ مشتری صدا زده شود.** نسخهٔ
+     * قبلی (`customerCreditAccount`) همین را بعد از ثبت می‌پرسید، پس
+     * دریافتِ کامل همیشه «پیش‌دریافت» ثبت می‌شد و طلب و بدهی هر دو
+     * ساختگی بزرگ می‌شدند.
      */
-    private suspend fun customerCreditAccount(name: String, amount: Long): String {
-        val rows = db.ledgerDao().observeEntriesForParty("CUSTOMER", name.trim()).first()
-        val owes = rows.sumOf { it.debit } - rows.sumOf { it.credit }
-        return if (owes >= amount) Accounts.RECEIVABLE else Accounts.CUSTOMER_PREPAY
+    private suspend fun customerRecognizedNet(name: String): Long {
+        val n = name.trim()
+        if (n.isEmpty()) return 0L
+        val rows = db.ledgerDao().observeEntriesForParty("CUSTOMER", n).first()
+            .map { CustomerCredit.Row(it.refType, it.refId, it.debit, it.credit) }
+        val openOrders = db.orderDao().observeAll().first().map { it.orderCode }.toSet()
+        return CustomerCredit.recognizedNet(rows, openOrders)
     }
 
     /**
@@ -1707,45 +1717,61 @@ class Repo(private val db: Db) {
                     return true
                 }
             }
+            // پیش از ثبت در دفترِ مشتری؛ دلیلش در [customerRecognizedNet].
+            val customerSplit =
+                if (type == "CUSTOMER") CustomerCredit.debit(customerRecognizedNet(name), amount) else null
             spend(paySource, amount, note.ifBlank { "پرداخت به $name" }, category = "پرداخت دستی")
             postLedger(type, name, amount, 0, "MANUAL", note = note)
             createDocument("PAYMENT", name, amount, note = note.ifBlank { "پرداخت نقدی" })
-            postJournal(
-                "پرداخت به $name", "MANUAL", "",
-                listOf(
-                    jl(
-                        when (type) {
-                            "TAILOR" -> Accounts.WAGES_PAYABLE
-                            "CUSTOMER" -> Accounts.CUSTOMER_PREPAY
-                            // پیش‌پرداخت به کارمند هنوز هزینه نشده؛ طلبِ ماست
-                            // تا با حقوقش تهاتر شود. اگر اینجا هزینه ثبت
-                            // می‌شد، پرداختِ حقوق آن را دوباره می‌شمرد.
-                            "EMPLOYEE", "INSPECTOR" -> Accounts.STAFF_ADVANCE
-                            else -> Accounts.EXPENSES
-                        },
-                        debit = amount
-                    ),
-                    jl(Accounts.box(paySource), credit = amount)
+            val debitLines = if (customerSplit != null) listOf(
+                // اول پولی که از او پیشِ ما بود پس داده می‌شود؛ مازادش طلبِ
+                // ماست. تا امروز همه‌اش از پیش‌دریافت کم می‌شد، حتی وقتی
+                // چیزی از او پیشِ ما نبود — و آن حساب منفی می‌شد.
+                jl(Accounts.CUSTOMER_PREPAY, debit = customerSplit.prepay),
+                jl(Accounts.RECEIVABLE, debit = customerSplit.receivable)
+            ) else listOf(
+                jl(
+                    when (type) {
+                        "TAILOR" -> Accounts.WAGES_PAYABLE
+                        // پیش‌پرداخت به کارمند هنوز هزینه نشده؛ طلبِ ماست
+                        // تا با حقوقش تهاتر شود. اگر اینجا هزینه ثبت
+                        // می‌شد، پرداختِ حقوق آن را دوباره می‌شمرد.
+                        "EMPLOYEE", "INSPECTOR" -> Accounts.STAFF_ADVANCE
+                        else -> Accounts.EXPENSES
+                    },
+                    debit = amount
                 )
             )
+            postJournal(
+                "پرداخت به $name", "MANUAL", "",
+                debitLines + jl(Accounts.box(paySource), credit = amount)
+            )
         } else {
+            // پیش از ثبت در دفترِ مشتری؛ دلیلش در [customerRecognizedNet].
+            val customerSplit =
+                if (type == "CUSTOMER") CustomerCredit.credit(customerRecognizedNet(name), amount) else null
             income(paySource, amount, note.ifBlank { "دریافت از $name" })
             postLedger(type, name, 0, amount, "MANUAL", note = note)
             createDocument("RECEIPT", name, amount, note = note.ifBlank { "دریافت نقدی" })
+            val creditLines = if (customerSplit != null) listOf(
+                // اول طلبی که از او داریم بسته می‌شود؛ فقط مازاد پیش‌دریافت
+                // است. تا امروز همه‌اش پیش‌دریافت ثبت می‌شد و فروشِ نسیه‌ای
+                // که کامل پرداخت شده بود، هم طلب می‌ماند هم بدهی.
+                jl(Accounts.RECEIVABLE, credit = customerSplit.receivable),
+                jl(Accounts.CUSTOMER_PREPAY, credit = customerSplit.prepay)
+            ) else listOf(
+                jl(
+                    when (type) {
+                        // کارمند پیش‌پرداختش را پس می‌دهد
+                        "EMPLOYEE", "INSPECTOR" -> Accounts.STAFF_ADVANCE
+                        else -> Accounts.OTHER_INCOME
+                    },
+                    credit = amount
+                )
+            )
             postJournal(
                 "دریافت از $name", "MANUAL", "",
-                listOf(
-                    jl(Accounts.box(paySource), debit = amount),
-                    jl(
-                        when (type) {
-                            "CUSTOMER" -> Accounts.CUSTOMER_PREPAY
-                            // کارمند پیش‌پرداختش را پس می‌دهد
-                            "EMPLOYEE", "INSPECTOR" -> Accounts.STAFF_ADVANCE
-                            else -> Accounts.OTHER_INCOME
-                        },
-                        credit = amount
-                    )
-                )
+                listOf(jl(Accounts.box(paySource), debit = amount)) + creditLines
             )
         }
         return true
@@ -3223,6 +3249,14 @@ class Repo(private val db: Db) {
 
         if (refundCash) spend(cashBox, refund, memo, category = "برگشتی فروش")
 
+        // برگشتِ بی‌نقد همان دریافت است، فقط به‌جای پول کالا برگشته: اول
+        // طلبی که از او داریم کم می‌شود، مازادش پیش‌دریافت. پیش از ثبت در
+        // دفترِ مشتری خوانده می‌شود — دلیلش در [customerRecognizedNet].
+        val returnSplit =
+            if (refundCash) null
+            else if (customer.isNotBlank()) CustomerCredit.credit(customerRecognizedNet(customer), refund)
+            else CustomerCredit.Split(receivable = 0, prepay = refund)
+
         if (customer.isNotBlank()) {
             // فروش خنثی می‌شود: مبلغ بستانکارِ مشتری می‌شود (طلبِ او از ما)
             postLedger("CUSTOMER", customer, 0, refund, "SALE_RETURN", code, memo)
@@ -3239,10 +3273,9 @@ class Repo(private val db: Db) {
             memo, "SALE_RETURN", code,
             listOf(
                 jl(Accounts.SALES, debit = refund),
-                jl(
-                    if (refundCash) Accounts.box(cashBox) else Accounts.CUSTOMER_PREPAY,
-                    credit = refund
-                ),
+                if (returnSplit == null) jl(Accounts.box(cashBox), credit = refund)
+                else jl(Accounts.RECEIVABLE, credit = returnSplit.receivable),
+                jl(Accounts.CUSTOMER_PREPAY, credit = returnSplit?.prepay ?: 0L),
                 jl(Accounts.FINISHED, debit = costBack),
                 jl(Accounts.COGS, credit = costBack)
             )
