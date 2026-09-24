@@ -120,84 +120,88 @@ fun AttendanceScanStation(
         }
     }
 
-    AppCard {
-        Row(
-            Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(
-                    "اسکنِ کارتِ کارمند",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    if (scanner != null) "کارت را با دوربین بخوانید؛ ورود یا خروج خودش تشخیص داده می‌شود."
-                    else "اسکنرِ USB را وصل کنید و کارت را بخوانید — کد اینجا نوشته و ثبت می‌شود.",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            TextButton(onClick = onOpenCards) {
-                Icon(Icons.Default.Badge, contentDescription = null)
-                Text("  کارت‌ها")
-            }
-        }
-
-        if (startCamera != null) {
-            Button(
-                onClick = { startCamera() },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Icon(Icons.Default.QrCodeScanner, contentDescription = null)
-                Text("  اسکن با دوربین")
-            }
+    // یک ستون، نه دو فرزندِ جدا: `LazyColumn` فرزندانِ یک ردیف را بی فاصله
+    // روی هم می‌چیند و بنرِ نتیجه به کارت می‌چسبید.
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        AppCard {
             Row(
                 Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("اسکنِ پیاپی", style = MaterialTheme.typography.bodyMedium)
                     Text(
-                        "سرِ صبح: بعد از هر ثبت، دوربین برای نفرِ بعدی باز می‌شود.",
+                        "اسکنِ کارتِ کارمند",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        if (scanner != null) "کارت را با دوربین بخوانید؛ ورود یا خروج خودش تشخیص داده می‌شود."
+                        else "اسکنرِ USB را وصل کنید و کارت را بخوانید — کد اینجا نوشته و ثبت می‌شود.",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Switch(checked = continuous, onCheckedChange = { continuous = it })
+                TextButton(onClick = onOpenCards) {
+                    Icon(Icons.Default.Badge, contentDescription = null)
+                    Text("  کارت‌ها")
+                }
+            }
+
+            if (startCamera != null) {
+                Button(
+                    onClick = { startCamera() },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(Icons.Default.QrCodeScanner, contentDescription = null)
+                    Text("  اسکن با دوربین")
+                }
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("اسکنِ پیاپی", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            "سرِ صبح: بعد از هر ثبت، دوربین برای نفرِ بعدی باز می‌شود.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(checked = continuous, onCheckedChange = { continuous = it })
+                }
+            }
+
+            OutlinedTextField(
+                value = typed,
+                onValueChange = { typed = it },
+                label = { Text(if (scanner == null) "کدِ کارت (اسکنر یا تایپ)" else "یا کدِ زیرِ QR را بنویسید") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = {
+                    submit(typed, camera = false)
+                    typed = ""
+                }),
+                trailingIcon = {
+                    IconButton(
+                        onClick = {
+                            submit(typed, camera = false)
+                            typed = ""
+                        },
+                        enabled = typed.isNotBlank(),
+                    ) { Icon(Icons.Default.Check, contentDescription = "ثبت") }
+                },
+                modifier = Modifier.fillMaxWidth().focusRequester(focus),
+            )
+
+            cameraMsg?.let {
+                Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
             }
         }
 
-        OutlinedTextField(
-            value = typed,
-            onValueChange = { typed = it },
-            label = { Text(if (scanner == null) "کدِ کارت (اسکنر یا تایپ)" else "یا کدِ زیرِ QR را بنویسید") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = {
-                submit(typed, camera = false)
-                typed = ""
-            }),
-            trailingIcon = {
-                IconButton(
-                    onClick = {
-                        submit(typed, camera = false)
-                        typed = ""
-                    },
-                    enabled = typed.isNotBlank(),
-                ) { Icon(Icons.Default.Check, contentDescription = "ثبت") }
-            },
-            modifier = Modifier.fillMaxWidth().focusRequester(focus),
-        )
-
-        cameraMsg?.let {
-            Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
-        }
+        feedback?.let { f -> ScanResultBanner(f.result, onDismiss = vm::clearScan) }
     }
-
-    feedback?.let { f -> ScanResultBanner(f.result, onDismiss = vm::clearScan) }
 }
 
 @Composable
