@@ -4,10 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.afghanjama.data.entities.FinishedSale
 import com.afghanjama.data.entities.FinishedStock
+import com.afghanjama.data.ProductInsights
 import com.afghanjama.data.StockFolders
 import com.afghanjama.data.SalePolicy
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.ui.format.fa
+import com.afghanjama.util.nowMillis
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
@@ -60,6 +62,23 @@ class FinishedSaleViewModel(private val repo: Repo) : ViewModel() {
             .filter { StockFolders.folderOf(it.name, cat) == folder }
             .sortedWith(compareBy({ it.name.trim() }, { it.size.trim() }))
     }
+
+    /**
+     * «چه بدوزیم، پول کجا خوابیده» — از همین موجودی و دفترِ فروش.
+     * قاعده‌اش در [ProductInsights] است و آزمون دارد.
+     */
+    val insights: StateFlow<ProductInsights.Summary> =
+        combine(items, recentSales) { stock, sales ->
+            ProductInsights.analyze(
+                stock.map { ProductInsights.Stock(it.name, it.size, it.qty, it.totalValue, it.updatedAt) },
+                sales.map { ProductInsights.Sale(it.productName, it.size, it.qty - it.returnedQty, it.createdAt) },
+                nowMillis(),
+            )
+        }.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            ProductInsights.Summary(emptyList(), emptyList()),
+        )
 
     private fun FinishedStock.toFolderRow() =
         StockFolders.StockRow(name = name, size = size, qty = qty)

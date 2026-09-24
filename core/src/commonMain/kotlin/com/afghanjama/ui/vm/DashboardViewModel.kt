@@ -4,11 +4,13 @@ import com.afghanjama.util.nowMillis
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.afghanjama.data.FinancialHealth
+import com.afghanjama.data.dao.AccountBalance
 import com.afghanjama.data.entities.Accounts
 import com.afghanjama.data.entities.OrderStatus
 import com.afghanjama.data.repo.Repo
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
@@ -28,8 +30,6 @@ data class DashboardStats(
     val salesCount: Int = 0,
     val sales7: Long = 0,        // فروش ۷ روز اخیر
     val sales30: Long = 0,       // فروش ۳۰ روز اخیر
-    /** فروشِ ۳۰ روزِ پیش از آن — برای روند، نه برای نمایشِ مستقیم. */
-    val salesPrev30: Long = 0,
     val profitNet7: Long = 0,    // تغییر خالص فایده ۷ روز اخیر
     val profitNet30: Long = 0,
     val openWagesTotal: Long = 0,
@@ -87,16 +87,11 @@ class DashboardViewModel(repo: Repo) : ViewModel() {
             val now = nowMillis()
             val d7 = now - 7L * DAY_MS
             val d30 = now - 30L * DAY_MS
-            val d60 = now - 60L * DAY_MS
 
             // فروش از دفترِ خودِ فروش‌ها خوانده می‌شود (منبعِ واحد) و
             // مرجوعی‌ها از آن کم می‌شوند تا رقم، فروشِ واقعی باشد.
             fun salesSince(t: Long) = sales
                 .filter { it.createdAt >= t }
-                .sumOf { it.netTotal }
-
-            val salesPrev30 = sales
-                .filter { it.createdAt in d60 until d30 }
                 .sumOf { it.netTotal }
 
             fun profitNetSince(t: Long) = tx
@@ -148,7 +143,6 @@ class DashboardViewModel(repo: Repo) : ViewModel() {
                 salesCount = sales.count(),
                 sales7 = salesSince(d7),
                 sales30 = salesSince(d30),
-                salesPrev30 = salesPrev30,
                 profitNet7 = profitNetSince(d7),
                 profitNet30 = profitNetSince(d30),
                 openWagesTotal = wages.sumOf { it.amount },
@@ -159,24 +153,7 @@ class DashboardViewModel(repo: Repo) : ViewModel() {
             )
         }
 
-    /**
-     * صورتِ سود و زیانِ ۳۰ روزِ اخیر — همان سازنده‌ای که «گزارش‌ها» دارد.
-     *
-     * سرِ بازه `Long.MAX_VALUE` است نه «الان»: این جریان تا وقتی صفحه باز
-     * است زنده می‌ماند، و «الانِ» لحظهٔ ساخت، هزینه‌ای را که یک ساعت بعد
-     * ثبت می‌شود بیرون می‌گذاشت. تهِ بازه هم ساعتی یک بار جلو می‌رود؛
-     * کمپیوترِ دفتر روزها باز می‌ماند و پنجرهٔ «۳۰ روز» نباید کش بیاید.
-     */
-    @OptIn(ExperimentalCoroutinesApi::class)
-    private val income30 =
-        flow {
-            while (true) {
-                emit(nowMillis())
-                delay(60L * 60 * 1000)
-            }
-        }.flatMapLatest { now ->
-            repo.observeAccountBalancesBetween(now - 30L * DAY_MS, Long.MAX_VALUE)
-        }
+    private val income30 = journalLast30(repo)
 
     val stats: StateFlow<DashboardStats> =
         combine(base, repo.observeFinishedStock(), income30) { s, finished, journal ->
@@ -195,13 +172,62 @@ class DashboardViewModel(repo: Repo) : ViewModel() {
      * یک لحظه «همه‌چیز صفر است» نشان دهد.
      */
     val health: StateFlow<FinancialHealth.Snapshot?> =
-        combine(stats, repo.observeAccountBalances()) { s, all ->
-            FinancialHealth.assess(healthFigures(balanceSheetOf(all), s))
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+        healthFlow(repo).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 }
 
+/**
+ * صورتِ سود و زیانِ ۳۰ روزِ اخیر، به‌صورتِ ماندهٔ حساب‌ها — همان چیزی که
+ * «گزارش‌ها» با بازهٔ ۳۰ روز می‌سازد.
+ *
+ * سرِ بازه `Long.MAX_VALUE` است نه «الان»: این جریان تا وقتی صفحه باز
+ * است زنده می‌ماند، و «الانِ» لحظهٔ ساخت، هزینه‌ای را که یک ساعت بعد
+ * ثبت می‌شود بیرون می‌گذاشت. تهِ بازه هم ساعتی یک بار جلو می‌رود؛
+ * کمپیوترِ دفتر روزها باز می‌ماند و پنجرهٔ «۳۰ روز» نباید کش بیاید.
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
+fun journalLast30(repo: Repo): Flow<List<AccountBalance>> =
+    flow {
+        while (true) {
+            emit(nowMillis())
+            delay(60L * 60 * 1000)
+        }
+    }.flatMapLatest { now ->
+        repo.observeAccountBalancesBetween(now - 30L * DAY_MS, Long.MAX_VALUE)
+    }
+
+/**
+ * «وضعِ مالی» به‌صورتِ جریان — داشبوردِ مالی و مرکزِ هشدار هر دو از همین
+ * می‌خوانند، تا کارت و هشدار هرگز دو حرف نزنند.
+ *
+ * فروش از دفترِ فروشِ انبارِ محصول (همان منبعِ کارتِ «فروش»)، بقیه از
+ * ژورنال.
+ */
+fun healthFlow(repo: Repo): Flow<FinancialHealth.Snapshot> =
+    combine(
+        repo.observeFinishedSales(),
+        journalLast30(repo),
+        repo.observeAccountBalances(),
+    ) { sales, last30, all ->
+        val now = nowMillis()
+        val d30 = now - 30L * DAY_MS
+        val d60 = now - 60L * DAY_MS
+        FinancialHealth.assess(
+            healthFigures(
+                balanceSheetOf(all),
+                expense30 = incomeStatementOf(last30).totalExpense,
+                sales30 = sales.filter { it.createdAt >= d30 }.sumOf { it.netTotal },
+                salesPrev30 = sales.filter { it.createdAt in d60 until d30 }.sumOf { it.netTotal },
+            )
+        )
+    }
+
 /** ترازنامه → عددهای وضعِ مالی. جدا، تا آزمون بدون ViewModel بسنجدش. */
-fun healthFigures(bs: BalanceSheet, s: DashboardStats): FinancialHealth.Figures {
+fun healthFigures(
+    bs: BalanceSheet,
+    expense30: Long,
+    sales30: Long,
+    salesPrev30: Long,
+): FinancialHealth.Figures {
     fun sum(vararg codes: String) = bs.assets.filter { it.code in codes }.sumOf { it.amount }
     val cash = sum(Accounts.CASH, Accounts.BANK, Accounts.PROFIT_BOX)
     val receivable = sum(Accounts.RECEIVABLE, Accounts.STAFF_ADVANCE)
@@ -212,8 +238,8 @@ fun healthFigures(bs: BalanceSheet, s: DashboardStats): FinancialHealth.Figures 
         stock = stock,
         otherAssets = bs.totalAssets - cash - receivable - stock,
         debts = bs.totalLiabilities,
-        expense30 = s.expenses30,
-        sales30 = s.sales30,
-        salesPrev30 = s.salesPrev30,
+        expense30 = expense30,
+        sales30 = sales30,
+        salesPrev30 = salesPrev30,
     )
 }

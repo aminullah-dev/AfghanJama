@@ -2,6 +2,11 @@
 
 package com.afghanjama.ui.screens
 
+import com.afghanjama.prefs.LocalSettings
+import com.afghanjama.prefs.CompanyPrefs
+import com.afghanjama.platform.LocalSystemActions
+import com.afghanjama.ui.components.restockShareText
+import com.afghanjama.ui.components.ProductInsightsCard
 import com.afghanjama.ui.components.AddFab
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -79,6 +84,9 @@ fun FinishedWarehouseScreen(
     val photos = LocalPhotos.current
     val items by vm.items.collectAsState()
     val folders by vm.folders.collectAsState()
+    val insights by vm.insights.collectAsState()
+    val system = LocalSystemActions.current
+    val shopSettings = LocalSettings.current
     val sales by vm.recentSales.collectAsState()
     val ui by vm.ui.collectAsState()
     val wallet by vm.wallet.collectAsState()
@@ -483,6 +491,21 @@ fun FinishedWarehouseScreen(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+
+                // ---------- پیشنهادِ هوشمند ----------
+                if (openFolder == null && !insights.isEmpty) {
+                    item(key = "insights") {
+                        ProductInsightsCard(
+                            insights,
+                            onShareRestock = {
+                                system.shareText(
+                                    "پیشنهادِ دوخت",
+                                    restockShareText(insights, CompanyPrefs.shopName(shopSettings))
+                                )
+                            }
+                        )
+                    }
                 }
 
                 // ---------- مسیرِ پوشه ----------
