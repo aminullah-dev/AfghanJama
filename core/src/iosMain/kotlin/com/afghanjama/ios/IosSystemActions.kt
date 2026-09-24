@@ -5,6 +5,9 @@ import platform.Foundation.NSURL
 import platform.UIKit.UIActivityViewController
 import platform.UIKit.UIApplication
 import platform.UIKit.UIViewController
+// ویژگیِ category در UIKit است، نه عضوِ خودِ UIViewController؛ Kotlin/Native
+// آن را تابعِ الحاقی می‌سازد و بی این ایمپورت پیدایش نمی‌کند.
+import platform.UIKit.popoverPresentationController
 
 /**
  * [SystemActions] روی آیفون — اشتراکِ متن و تماس.
