@@ -15,6 +15,9 @@ class AndroidLanHost(private val ctx: Context) : LanHost {
 
     override fun localIp(): String? = androidLocalIp(ctx)
 
+    override fun localIps(): List<String> =
+        (listOfNotNull(androidLocalIp(ctx)) + Lan.localIps()).distinct()
+
     /**
      * دیتابیس یک بار ساخته می‌شود و می‌ماند. اگر هر بار تازه ساخته
      * می‌شد، روشن و خاموش کردنِ اشتراک چند اتصالِ باز به یک فایل

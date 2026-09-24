@@ -25,6 +25,8 @@ data class WorkshopLinkUi(
     val mode: DeviceMode = DeviceMode.STANDALONE,
     val serving: Boolean = false,
     val ip: String? = null,
+    /** نشانی‌های دیگرِ همین دستگاه — اگر حدسِ [ip] غلط بود. */
+    val alternatives: List<String> = emptyList(),
     val code: String = "",
     val host: String = "",
     val deviceName: String = "",
@@ -80,6 +82,7 @@ class WorkshopLinkViewModel(
                 host = LanPrefs.host(settings),
                 deviceName = LanPrefs.deviceName(settings).ifBlank { lan.deviceName },
                 ip = lan.localIp(),
+                alternatives = otherAddresses(),
                 serving = server?.running == true
             )
         }
@@ -117,11 +120,17 @@ class WorkshopLinkViewModel(
                 mode = DeviceMode.MAIN,
                 code = code,
                 ip = lan.localIp(),
+                alternatives = otherAddresses(),
                 message = if (ok) "اشتراکِ کارگاه روشن شد."
                 else "پورت باز نشد؛ شاید اپِ دیگری آن را گرفته باشد.",
                 isError = !ok
             )
         }
+    }
+
+    private fun otherAddresses(): List<String> {
+        val best = lan.localIp()
+        return lan.localIps().filter { it != best }
     }
 
     fun stopServing() {

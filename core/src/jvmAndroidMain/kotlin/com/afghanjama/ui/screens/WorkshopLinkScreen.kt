@@ -2,6 +2,13 @@
 
 package com.afghanjama.ui.screens
 
+import com.afghanjama.ui.components.QrImage
+import com.afghanjama.platform.LocalCodeScanner
+import com.afghanjama.lan.Pairing
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Button
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.Icons
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -147,7 +154,7 @@ fun WorkshopLinkScreen(
                 }
 
                 DeviceMode.MAIN -> {
-                    item { MainCard(vm, ui.serving, ui.ip, ui.code) }
+                    item { MainCard(vm, ui.serving, ui.ip, ui.code, ui.alternatives) }
                     item { SectionTitleRow("درخواست‌های منتظر (${pending.size.fa()})") }
                     if (pending.isEmpty()) {
                         item {
@@ -355,7 +362,13 @@ private fun SectionTitleRow(text: String) {
 }
 
 @Composable
-private fun MainCard(vm: WorkshopLinkViewModel, serving: Boolean, ip: String?, code: String) {
+private fun MainCard(
+    vm: WorkshopLinkViewModel,
+    serving: Boolean,
+    ip: String?,
+    code: String,
+    alternatives: List<String>,
+) {
     val settings = LocalSettings.current
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -370,12 +383,35 @@ private fun MainCard(vm: WorkshopLinkViewModel, serving: Boolean, ip: String?, c
                 if (serving) "اشتراک روشن است" else "اشتراک خاموش است",
                 fontWeight = FontWeight.Bold
             )
+            // QR فقط وقتی اشتراک روشن است: QRی که به سرورِ خاموش اشاره کند،
+            // کارگر را به همان پیامِ گمراه‌کنندهٔ «وای‌فای را ببینید» می‌رساند.
+            if (serving && ip != null && code.isNotBlank()) {
+                Column(
+                    Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    QrImage(Pairing.encode(ip, code), size = 200.dp)
+                    Text(
+                        "روی گوشیِ کارگر «اسکنِ QRِ گوشیِ اصلی» را بزنید.",
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+            }
             Text(
-                "روی گوشیِ کارگر این دو را وارد کنید:",
+                "یا روی گوشیِ کارگر این دو را دستی وارد کنید:",
                 style = MaterialTheme.typography.labelSmall
             )
             Text("نشانی: ${(ip ?: "—").toPersianDigits()}", fontWeight = FontWeight.SemiBold)
             Text("رمز: ${code.toPersianDigits()}", fontWeight = FontWeight.SemiBold)
+            if (alternatives.isNotEmpty()) {
+                Text(
+                    "اگر وصل نشد، این نشانی‌های همین دستگاه را امتحان کنید: " +
+                        alternatives.joinToString("، ") { it.toPersianDigits() },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             if (ip == null) {
                 Text(
                     "نشانی پیدا نشد — وای‌فای یا هات‌اسپاتِ کارگاه را روشن کنید.",
@@ -408,6 +444,27 @@ private fun WorkerConnectCard(vm: WorkshopLinkViewModel, busy: Boolean) {
         if (host.isBlank()) null else HostAddress.check(host)
     }
     val hostBad = (hostCheck as? HostAddress.Result.Bad)?.reason
+
+    // اسکنِ QRِ گوشیِ اصلی — بی تایپِ نشانی، پس بی آن نقطهٔ جاافتاده.
+    var scanMsg by remember { mutableStateOf<String?>(null) }
+
+    fun onScanned(raw: String) {
+        val link = Pairing.parse(raw)
+        if (link == null) {
+            scanMsg = "این QRِ اشتراکِ کارگاه نیست. روی گوشیِ اصلی صفحهٔ «اشتراک کارگاه» را باز کنید."
+            return
+        }
+        scanMsg = null
+        host = link.host
+        code = link.code
+        vm.becomeWorker(settings, link.host, link.code)
+    }
+
+    val startScan = LocalCodeScanner.current?.rememberStart(
+        prompt = "QRِ صفحهٔ «اشتراک کارگاه» روی گوشیِ اصلی را اسکن کنید",
+        onCode = { onScanned(it) },
+        onFailed = { msg -> scanMsg = msg },
+    )
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -416,6 +473,24 @@ private fun WorkerConnectCard(vm: WorkshopLinkViewModel, busy: Boolean) {
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("این گوشیِ یک کارگر است", fontWeight = FontWeight.SemiBold)
+            if (startScan != null) {
+                Button(
+                    onClick = { startScan() },
+                    enabled = !busy,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.QrCodeScanner, contentDescription = null)
+                    Text("  اسکنِ QRِ گوشیِ اصلی")
+                }
+                scanMsg?.let {
+                    Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                }
+                Text(
+                    "یا دستی وارد کنید:",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             // **چپ‌به‌راست، حتی وسطِ صفحهٔ راست‌به‌چپ.** نشانیِ عددی در
             // کادرِ راست‌به‌چپ جای مکان‌نما و ترتیبِ نقطه‌ها را گیج
             // می‌کند و همان‌جاست که یک نقطه جا می‌افتد.
