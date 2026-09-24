@@ -3,6 +3,8 @@ package com.afghanjama.ui.vm
 import com.afghanjama.util.nowMillis
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.afghanjama.data.CardScan
+import com.afghanjama.data.EmployeeCard
 import com.afghanjama.data.entities.AttendanceRecord
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.ui.format.PersianDate
@@ -28,7 +30,29 @@ data class WorkSummary(
     val daysWorked: Int       // تعداد روزهای دارای حضور
 )
 
-/** حضور و غیاب کارمند با تأیید اثر انگشت. */
+/**
+ * صاحبِ یک کارتِ کارمند.
+ *
+ * [detail] سمت (کارکنان) یا کدِ کاتالوگ (خیاط و ناظر) است؛ روی کارت زیرِ
+ * نام می‌آید تا دو «احمد» از هم جدا شوند.
+ */
+data class CardHolder(
+    val name: String,
+    val kind: EmployeeCard.Kind,
+    val detail: String,
+    val code: String,
+)
+
+/**
+ * پاسخِ آخرین اسکن.
+ *
+ * [seq] فقط برای این است که دو اسکنِ پشتِ‌سرِ‌همِ یک نتیجه (مثلاً دو
+ * بار «کارت نیست») دو رویداد باشند نه یکی — `StateFlow` مقدارِ برابر را
+ * دوباره نمی‌فرستد و بنرِ نتیجه دومی را نشان نمی‌داد.
+ */
+data class ScanFeedback(val result: CardScan, val seq: Long)
+
+/** حضور و غیاب کارمند با تأیید اثر انگشت یا اسکنِ کارت. */
 class AttendanceViewModel(private val repo: Repo) : ViewModel() {
 
     val records: StateFlow<List<AttendanceRecord>> =
@@ -101,4 +125,47 @@ class AttendanceViewModel(private val repo: Repo) : ViewModel() {
 
     fun checkIn(name: String) = viewModelScope.launch { repo.checkIn(name) }
     fun checkOut(name: String) = viewModelScope.launch { repo.checkOut(name) }
+
+    /** هر کسی که می‌تواند کارت بگیرد — به ترتیبِ نام. */
+    val cardHolders: StateFlow<List<CardHolder>> =
+        combine(
+            repo.observeTailors(),
+            repo.observeInspectors(),
+            repo.observeStaff(),
+        ) { tailors, inspectors, staff ->
+            val t = tailors.filter { it.id > 0 }.map {
+                CardHolder(it.name.trim(), EmployeeCard.Kind.TAILOR, "کد ${it.code}",
+                    EmployeeCard.encode(EmployeeCard.Kind.TAILOR, it.id))
+            }
+            val i = inspectors.filter { it.id > 0 }.map {
+                CardHolder(it.name.trim(), EmployeeCard.Kind.INSPECTOR, "کد ${it.code}",
+                    EmployeeCard.encode(EmployeeCard.Kind.INSPECTOR, it.id))
+            }
+            val st = staff.filter { it.id > 0 }.map {
+                CardHolder(it.name.trim(), EmployeeCard.Kind.STAFF, it.role.trim(),
+                    EmployeeCard.encode(EmployeeCard.Kind.STAFF, it.id))
+            }
+            (t + i + st).filter { it.name.isNotEmpty() }.sortedBy { it.name }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private val _scan = MutableStateFlow<ScanFeedback?>(null)
+    val scan: StateFlow<ScanFeedback?> = _scan
+    private var scanSeq = 0L
+
+    /**
+     * کدِ خوانده‌شده از دوربین، اسکنرِ USB یا تایپِ دستی.
+     *
+     * [onRecorded] بعد از ثبتِ واقعی صدا زده می‌شود — صفحه با آن یادآورِ
+     * پایانِ شیفت را می‌گذارد یا برمی‌دارد، همان کاری که دکمه‌های ورود و
+     * خروج می‌کنند.
+     */
+    fun scanCard(raw: String, onRecorded: (CardScan.Recorded) -> Unit = {}) =
+        viewModelScope.launch {
+            if (raw.isBlank()) return@launch
+            val r = repo.scanCard(raw)
+            _scan.value = ScanFeedback(r, ++scanSeq)
+            if (r is CardScan.Recorded) onRecorded(r)
+        }
+
+    fun clearScan() { _scan.value = null }
 }

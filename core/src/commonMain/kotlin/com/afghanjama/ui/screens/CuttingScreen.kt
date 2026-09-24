@@ -107,6 +107,7 @@ fun CuttingScreen(
      */
     val scanner = LocalCodeScanner.current
     val startScan = scanner?.rememberStart(
+        prompt = "QR سفارش را اسکن کنید",
         onCode = { handleCode(it) },
         onFailed = { msg ->
             scanMsg = msg

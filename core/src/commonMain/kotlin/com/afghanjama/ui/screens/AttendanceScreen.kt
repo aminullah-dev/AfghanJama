@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
@@ -57,6 +58,8 @@ import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.format.toPersianDigits
+import com.afghanjama.ui.components.AttendanceScanStation
+import com.afghanjama.ui.components.EmployeeCardsDialog
 import com.afghanjama.ui.vm.AttendanceViewModel
 import com.afghanjama.ui.vm.BreakTimeViewModel
 import com.afghanjama.ui.format.elapsedHm
@@ -106,6 +109,9 @@ fun AttendanceScreen(
 
     // شناسهٔ وقتی که در حالِ ویرایش است؛ NEW_BREAK یعنی «تازه»
     var breakEditing by remember { mutableStateOf<Long?>(null) }
+    var showCards by remember { mutableStateOf(false) }
+
+    if (showCards) EmployeeCardsDialog(vm = vm, onDismiss = { showCards = false })
 
     LaunchedEffect(records) { breakVm.refreshInside() }
 
@@ -320,6 +326,11 @@ fun AttendanceScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "برگشت")
                     }
                 },
+                actions = {
+                    IconButton(onClick = { showCards = true }) {
+                        Icon(Icons.Default.Badge, contentDescription = "کارت‌های کارمندان")
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         }
@@ -328,9 +339,18 @@ fun AttendanceScreen(
             modifier = Modifier.padding(pad).fillMaxSize().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // اسکنِ کارت اول می‌آید: سرِ صبح پانزده نفر پشتِ در ایستاده‌اند و
+            // پیدا کردنِ نامِ هر کدام در فهرست کندترین راه است.
+            if (employees.isNotEmpty()) {
+                item(key = "scan-station") {
+                    AttendanceScanStation(vm = vm, onOpenCards = { showCards = true })
+                }
+            }
+
             item {
                 Text(
-                    "کارمند را انتخاب کنید؛ ورود/خروج با تأیید اثر انگشت ثبت می‌شود.",
+                    if (biometric != null) "یا کارمند را از فهرست انتخاب کنید؛ ورود/خروج با تأیید اثر انگشت ثبت می‌شود."
+                    else "یا کارمند را از فهرست انتخاب کنید و ورود/خروج را بزنید.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

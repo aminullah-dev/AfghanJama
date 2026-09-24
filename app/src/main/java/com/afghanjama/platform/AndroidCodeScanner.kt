@@ -30,6 +30,7 @@ object AndroidCodeScanner : CodeScanner {
 
     @Composable
     override fun rememberStart(
+        prompt: String,
         onCode: (String) -> Unit,
         onFailed: (String) -> Unit,
     ): () -> Unit {
@@ -41,17 +42,17 @@ object AndroidCodeScanner : CodeScanner {
             val code = result.contents
             if (code.isNullOrBlank()) onFailed(cameraMessage(context)) else onCode(code)
         }
-        return remember(launcher) {
+        return remember(launcher, prompt) {
             {
-                runCatching { launcher.launch(options()) }
+                runCatching { launcher.launch(options(prompt)) }
                     .onFailure { onFailed("اسکنر باز نشد؛ کد را دستی وارد کنید.") }
                 Unit
             }
         }
     }
 
-    private fun options() = ScanOptions().apply {
-        setPrompt("QR سفارش را اسکن کنید")
+    private fun options(prompt: String) = ScanOptions().apply {
+        setPrompt(prompt)
         setBeepEnabled(true)
         setOrientationLocked(true)
         setDesiredBarcodeFormats(ScanOptions.QR_CODE)
