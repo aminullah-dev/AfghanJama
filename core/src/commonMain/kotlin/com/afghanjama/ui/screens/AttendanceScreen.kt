@@ -2,6 +2,7 @@
 
 package com.afghanjama.ui.screens
 
+import com.afghanjama.ui.components.AddTextButton
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -513,7 +514,7 @@ fun AttendanceScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    TextButton(onClick = { breakEditing = NEW_BREAK }) { Text("+ وقت تازه") }
+                    AddTextButton("وقت تازه", onClick = { breakEditing = NEW_BREAK })
                 }
             }
 

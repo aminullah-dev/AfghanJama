@@ -5,6 +5,7 @@
 
 package com.afghanjama.ui.screens
 
+import com.afghanjama.ui.components.AddButton
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.filled.AccountBalanceWallet
@@ -290,7 +291,8 @@ private fun WorkCostEditor(
 
         Spacer(Modifier.height(12.dp))
 
-        Button(
+        AddButton(
+            text = "افزودن خرج کار",
             onClick = {
                 val t = title.trim()
                 val p = priceText.toLongOrNull() ?: 0L
@@ -302,7 +304,7 @@ private fun WorkCostEditor(
             },
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.medium
-        ) { Text("افزودن خرج کار") }
+        )
 
         Spacer(Modifier.height(16.dp))
 
@@ -512,7 +514,8 @@ private fun SimpleListEditor(
                 singleLine = true,
                 shape = MaterialTheme.shapes.medium
             )
-            Button(
+            AddButton(
+                text = "افزودن",
                 onClick = {
                     val v = text.trim()
                     if (v.isNotEmpty()) {
@@ -522,7 +525,7 @@ private fun SimpleListEditor(
                 },
                 modifier = Modifier.height(56.dp),
                 shape = MaterialTheme.shapes.medium
-            ) { Text("افزودن") }
+            )
         }
 
         Spacer(Modifier.height(16.dp))
@@ -642,7 +645,8 @@ private fun TwoFieldListEditor(
 
         Spacer(Modifier.height(12.dp))
 
-        Button(
+        AddButton(
+            text = "افزودن",
             onClick = {
                 val a = t1.trim()
                 val b = t2.trim()
@@ -654,7 +658,7 @@ private fun TwoFieldListEditor(
             },
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.medium
-        ) { Text("افزودن") }
+        )
 
         Spacer(Modifier.height(16.dp))
 
@@ -787,7 +791,8 @@ private fun DesignEditor(
             shape = MaterialTheme.shapes.medium
         )
         Spacer(Modifier.height(12.dp))
-        Button(
+        AddButton(
+            text = "افزودن / اصلاحِ طرح",
             onClick = {
                 val t = title.trim()
                 if (t.isNotBlank()) {
@@ -799,7 +804,7 @@ private fun DesignEditor(
             },
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.medium
-        ) { Text("افزودن / اصلاحِ طرح") }
+        )
 
         Spacer(Modifier.height(12.dp))
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -375,18 +375,25 @@ fun AppTopBar(
     )
 }
 
-/** اسکلتِ استانداردِ یک صفحهٔ داخلی: نوارِ بالا + محتوا. */
+/**
+ * اسکلتِ استانداردِ یک صفحهٔ داخلی: نوارِ بالا + محتوا.
+ *
+ * [floatingActionButton] برای صفحه‌ای که فهرستِ بلند دارد و چیزِ تازه
+ * در آن ساخته می‌شود — معمولاً [AddFab].
+ */
 @Composable
 fun AppScreen(
     title: String,
     onBack: (() -> Unit)? = null,
     actions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
     snackbarHost: @Composable () -> Unit = {},
+    floatingActionButton: @Composable () -> Unit = {},
     content: @Composable (androidx.compose.foundation.layout.PaddingValues) -> Unit
 ) {
     Scaffold(
         topBar = { AppTopBar(title = title, onBack = onBack, actions = actions) },
         snackbarHost = snackbarHost,
+        floatingActionButton = floatingActionButton,
         content = content
     )
 }

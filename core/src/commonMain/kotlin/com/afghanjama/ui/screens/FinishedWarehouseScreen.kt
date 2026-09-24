@@ -2,6 +2,7 @@
 
 package com.afghanjama.ui.screens
 
+import com.afghanjama.ui.components.AddFab
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -27,7 +28,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -429,9 +429,7 @@ fun FinishedWarehouseScreen(
             // تنها راهِ واردکردنِ کالای آماده‌ای که از قبل هست. شمارش
             // این کار را نمی‌کند چون ردیفِ تازه نمی‌سازد، و بدونِ این
             // دکمه تنها راه جعلِ یک سفارشِ تولید بود.
-            FloatingActionButton(onClick = { addingOpening = true }) {
-                Icon(Icons.Default.Add, contentDescription = "افزودن کالای موجود به انبار")
-            }
+            AddFab("کالای موجود", onClick = { addingOpening = true })
         }
     ) { pad ->
         LazyColumn(
