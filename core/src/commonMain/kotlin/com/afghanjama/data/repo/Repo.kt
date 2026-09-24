@@ -3,6 +3,8 @@ package com.afghanjama.data.repo
 import com.afghanjama.util.nowMillis
 import com.afghanjama.data.Db
 import com.afghanjama.data.CashPolicy
+import com.afghanjama.data.CardScan
+import com.afghanjama.data.EmployeeCard
 import com.afghanjama.data.PartialFlow
 import com.afghanjama.data.entities.AttendanceRecord
 import com.afghanjama.data.entities.Customer
@@ -3549,6 +3551,51 @@ class Repo(private val db: Db) {
     suspend fun checkOut(employee: String) {
         val open = db.attendanceDao().findOpen(employee.trim()) ?: return
         db.attendanceDao().update(open.copy(checkOut = nowMillis()))
+    }
+
+    /**
+     * نامِ امروزِ صاحبِ کارت؛ `null` اگر آن ردیف دیگر نیست.
+     *
+     * از همان فهرست‌هایی خوانده می‌شود که صفحهٔ حضور نشان می‌دهد — چند ده
+     * ردیف، پس کوئریِ جدا لازم نیست.
+     */
+    suspend fun employeeNameFor(ref: EmployeeCard.Ref): String? {
+        val name = when (ref.kind) {
+            EmployeeCard.Kind.TAILOR ->
+                db.masterDataDao().observeTailors().first().firstOrNull { it.id == ref.id }?.name
+            EmployeeCard.Kind.INSPECTOR ->
+                db.masterDataDao().observeInspectors().first().firstOrNull { it.id == ref.id }?.name
+            EmployeeCard.Kind.STAFF ->
+                db.masterDataDao().observeStaff().first().firstOrNull { it.id == ref.id }?.name
+        }
+        return name?.trim()?.takeIf { it.isNotEmpty() }
+    }
+
+    /**
+     * ورود یا خروج با اسکنِ کارتِ کارمند.
+     *
+     * کارت فقط می‌گوید «چه کسی»؛ ورود یا خروج بودنش از وضعیتِ همین حالای
+     * او می‌آید — همان کاری که مدیر با دو دکمه می‌کرد، بی انتخابِ نام از
+     * فهرست. اسکنِ دوباره در کمتر از یک دقیقه ثبت نمی‌شود؛ دلیلش در
+     * [EmployeeCard.MIN_GAP_MS] است.
+     */
+    suspend fun scanCard(raw: String, now: Long = nowMillis()): CardScan {
+        val ref = EmployeeCard.parse(raw) ?: return CardScan.NotACard
+        val name = employeeNameFor(ref) ?: return CardScan.Unknown
+        val last = db.attendanceDao().findLast(name)
+        val isIn = last != null && last.checkOut == null
+        val lastEventAt = last?.let { it.checkOut ?: it.checkIn }
+        return when (EmployeeCard.decide(isIn, lastEventAt, now)) {
+            EmployeeCard.Action.TOO_SOON -> CardScan.TooSoon(name, isIn)
+            EmployeeCard.Action.CHECK_OUT -> {
+                checkOut(name)
+                CardScan.Recorded(name, checkedIn = false, at = now)
+            }
+            EmployeeCard.Action.CHECK_IN -> {
+                checkIn(name)
+                CardScan.Recorded(name, checkedIn = true, at = now)
+            }
+        }
     }
 
     // =========================

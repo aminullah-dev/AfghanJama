@@ -1,5 +1,11 @@
 package com.afghanjama.ui.vm
 
+import com.afghanjama.ui.components.signalText
+import com.afghanjama.ui.components.restockLine
+import com.afghanjama.data.ProductInsights
+import com.afghanjama.data.FinancialHealth
+import androidx.compose.material.icons.automirrored.filled.TrendingDown
+import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.EventRepeat
 import com.afghanjama.util.nowMillis
 import androidx.lifecycle.ViewModel
@@ -529,6 +535,89 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
             }
         }
 
+    /**
+     * وضعِ مالی — همان جریانی که کارتِ «وضعیت مالی» از آن می‌خوانَد.
+     *
+     * **فقط آنچه کاری می‌خواهد هشدار می‌شود.** نقدی که از بدهی کمتر است
+     * ولی طلب‌ها پوششش می‌دهند در بیشترِ کارگاه‌ها حالتِ عادیِ هر ماه
+     * است؛ اگر هر روز «هشدار» می‌داد، کارفرما یاد می‌گرفت مرکزِ هشدار را
+     * نخواند. پس آن و «کمتر از یک ماه پوشش» فقط `INFO`اند؛ `URGENT`
+     * مالِ جایی است که واقعاً پول نمی‌رسد.
+     */
+    private val financeAlerts: Flow<List<Alert>> =
+        healthFlow(repo).map { h ->
+            h.signals.mapNotNull { sig ->
+                val (severity, title) = when (sig.kind) {
+                    FinancialHealth.Kind.NET_NEGATIVE ->
+                        AlertSeverity.URGENT to "بدهی از کلِ دارایی بیشتر است"
+                    FinancialHealth.Kind.DEBT_OVER_CASH_AND_RECEIVABLE ->
+                        AlertSeverity.URGENT to "بدهی از نقد و طلب بیشتر است"
+                    FinancialHealth.Kind.COVER_SHORT ->
+                        AlertSeverity.URGENT to "نقد فقط ${sig.value.fa()} روز هزینه را می‌دهد"
+                    FinancialHealth.Kind.SALES_DROP ->
+                        AlertSeverity.WARN to "فروش ${sig.value.fa()}٪ افت کرده"
+                    FinancialHealth.Kind.DEBT_OVER_CASH ->
+                        AlertSeverity.INFO to "نقد از بدهی‌ها کمتر است"
+                    FinancialHealth.Kind.COVER_LOW ->
+                        AlertSeverity.INFO to "نقد کمتر از یک ماه هزینه را می‌دهد"
+                    FinancialHealth.Kind.SALES_RISE -> return@mapNotNull null
+                }
+                Alert(
+                    id = "finance_" + sig.kind.name.lowercase(),
+                    severity = severity,
+                    icon = if (sig.kind == FinancialHealth.Kind.SALES_DROP) Icons.AutoMirrored.Filled.TrendingDown
+                    else Icons.Default.AccountBalance,
+                    title = title,
+                    detail = signalText(sig),
+                    route = Routes.FINANCE
+                )
+            }
+        }
+
+    /**
+     * انبارِ محصول — پرفروشِ رو به اتمام و کالای راکد.
+     *
+     * پرفروشِ رو به اتمام `WARN` است چون کاری است که باید امروز شروع شود:
+     * دوخت چند روز طول می‌کشد و تا آن موقع قفسه خالی است. راکد `INFO`
+     * است؛ پولِ خوابیده ضرر است ولی فوری نیست.
+     */
+    private val productAlerts: Flow<List<Alert>> =
+        combine(repo.observeFinishedStock(), repo.observeFinishedSales()) { stock, sales ->
+            val s = ProductInsights.analyze(
+                stock.map { ProductInsights.Stock(it.name, it.size, it.qty, it.totalValue, it.updatedAt) },
+                sales.map { ProductInsights.Sale(it.productName, it.size, it.qty - it.returnedQty, it.createdAt) },
+                nowMillis(),
+            )
+            buildList {
+                s.restock.firstOrNull()?.let { worst ->
+                    add(
+                        Alert(
+                            id = "restock_bestsellers",
+                            severity = AlertSeverity.WARN,
+                            icon = Icons.Default.ContentCut,
+                            title = "${s.restock.size.fa()} طرحِ پرفروش رو به اتمام است",
+                            detail = restockLine(worst),
+                            route = Routes.FINISHED_SALES
+                        )
+                    )
+                }
+                if (s.dead.isNotEmpty()) {
+                    add(
+                        Alert(
+                            id = "dead_stock",
+                            severity = AlertSeverity.INFO,
+                            icon = Icons.Default.Inventory2,
+                            title = "${s.deadValue.afn()} در کالای راکد خوابیده",
+                            detail = "${s.dead.size.fa()} کالا بیش از " +
+                                "${ProductInsights.DEAD_DAYS.fa()} روز فروش نرفته — " +
+                                "پرارزش‌ترین: ${s.dead.first().name}",
+                            route = Routes.FINISHED_SALES
+                        )
+                    )
+                }
+            }
+        }
+
     val ui: StateFlow<ActionCenterUi> =
         combine(
             coreAlerts,
@@ -536,11 +625,12 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
             stockAlerts,
             backupAlerts,
             // `combine` بیش از پنج جریانِ نوع‌دار نمی‌پذیرد، پس این
-            // چهار پیش از رسیدن به آنجا یکی می‌شوند.
+            // شش‌تا پیش از رسیدن به آنجا یکی می‌شوند.
             combine(
-                staleAlerts, installmentAlerts, deliveryAlerts, recurringAlerts
-            ) { stale, inst, deliv, rec ->
-                stale + inst + deliv + rec
+                staleAlerts, installmentAlerts, deliveryAlerts, recurringAlerts,
+                combine(financeAlerts, productAlerts) { f, p -> f + p }
+            ) { stale, inst, deliv, rec, smart ->
+                stale + inst + deliv + rec + smart
             }
         ) { core, payroll, stock, backup, rest ->
             ActionCenterUi(

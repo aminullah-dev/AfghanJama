@@ -3,13 +3,14 @@ package com.afghanjama.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
@@ -17,7 +18,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -36,6 +36,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.afghanjama.data.entities.PaymentSource
 import com.afghanjama.data.entities.RecurringExpense
+import com.afghanjama.ui.components.AddFab
 import com.afghanjama.ui.components.AppCard
 import com.afghanjama.ui.components.AppScreen
 import com.afghanjama.ui.format.afn
@@ -66,7 +67,12 @@ fun RecurringExpenseScreen(
     // شود — وگرنه عددِ بالای صفحه با فهرستِ زیرش نمی‌خوانَد.
     LaunchedEffect(rows) { vm.refreshDue() }
 
-    AppScreen(title = "هزینه‌های ثابت", onBack = onBack) { pad ->
+    AppScreen(
+        title = "هزینه‌های ثابت",
+        onBack = onBack,
+        // شناور، نه تهِ فهرست: با ده قلم، دکمهٔ پایینی زیرِ صفحه گم می‌شد.
+        floatingActionButton = { AddFab("هزینهٔ ثابت", onClick = { adding = true }) },
+    ) { pad ->
         Column(
             Modifier
                 .padding(pad)
@@ -157,13 +163,8 @@ fun RecurringExpenseScreen(
                 }
             }
 
-            OutlinedButton(
-                onClick = { adding = true },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Icon(Icons.Default.Add, contentDescription = null)
-                Text("  افزودنِ هزینهٔ ثابت")
-            }
+            // جای دکمهٔ شناور، تا آخرین قلم زیرش نماند.
+            Spacer(Modifier.height(72.dp))
         }
     }
 

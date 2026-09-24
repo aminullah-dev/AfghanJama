@@ -2,6 +2,7 @@
 
 package com.afghanjama.ui.screens
 
+import com.afghanjama.ui.components.AddFab
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -16,13 +17,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Call
-import androidx.compose.material.icons.filled.PersonAdd
 import com.afghanjama.platform.LocalSystemActions
 import com.afghanjama.ui.platform.AppAlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -100,9 +99,7 @@ fun CustomersScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAdd = true }) {
-                Icon(Icons.Default.PersonAdd, contentDescription = "مشتری جدید")
-            }
+            AddFab("مشتری جدید", onClick = { showAdd = true })
         }
     ) { pad ->
         val filtered = rows.filter { query.isBlank() || it.customer.name.contains(query.trim(), true) }

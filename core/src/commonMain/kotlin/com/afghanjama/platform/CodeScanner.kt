@@ -4,7 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 
 /**
- * خواندنِ QRِ سفارش با دوربین.
+ * خواندنِ QR با دوربین — QRِ سفارش در برش، کارتِ کارمند در حضور و غیاب.
  *
  * **چرا واسط شد.** صفحهٔ برش به‌خاطرِ همین یک تکه در `:app` مانده بود
  * و کمپیوترِ کارگاه — که دفترِ اصلی است — نمی‌توانست برش ثبت کند. در
@@ -26,13 +26,21 @@ interface CodeScanner {
      * نیاز دارد و آن فقط داخلِ ترکیب ساخته می‌شود — همان الگوی
      * [com.afghanjama.ui.platform.Widgets].
      *
+     * [prompt] زیرِ کادرِ دوربین نوشته می‌شود — «QR سفارش» یا «کارتِ
+     * کارمند». یک متنِ ثابت برای هر دو، کارمندی را که کارتش را جلوی
+     * دوربین گرفته گیج می‌کرد.
+     *
      * [onCode] با کدِ خوانده‌شده صدا زده می‌شود، [onFailed] با پیامی
      * که باید به کاربر نشان داده شود. لغو کردنِ کاربر هم [onFailed]
      * است، نه سکوت: اسکنری که بی هیچ پیامی بسته شود، «خراب» به نظر
      * می‌رسد.
      */
     @Composable
-    fun rememberStart(onCode: (String) -> Unit, onFailed: (String) -> Unit): () -> Unit
+    fun rememberStart(
+        prompt: String,
+        onCode: (String) -> Unit,
+        onFailed: (String) -> Unit,
+    ): () -> Unit
 }
 
 /** `null` یعنی این سکو دوربین ندارد. */

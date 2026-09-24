@@ -3,9 +3,17 @@ package com.afghanjama.ui.vm
 import com.afghanjama.util.nowMillis
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.afghanjama.data.FinancialHealth
+import com.afghanjama.data.dao.AccountBalance
+import com.afghanjama.data.entities.Accounts
 import com.afghanjama.data.entities.OrderStatus
 import com.afghanjama.data.repo.Repo
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
@@ -26,7 +34,16 @@ data class DashboardStats(
     val profitNet30: Long = 0,
     val openWagesTotal: Long = 0,
     val openWagesCount: Int = 0,
-    val expenses30: Long = 0,    // هزینه‌های عمومی ۳۰ روز اخیر
+    /**
+     * هزینه‌های عمومیِ ۳۰ روزِ اخیر — **از ژورنال**، همان عددِ صورتِ سود
+     * و زیان.
+     *
+     * تا امروز جمعِ هر خروجیِ نقدی بود که دسته داشت، و این یعنی خریدِ
+     * مواد، تسویهٔ قرضِ تأمین‌کننده، برگشتیِ فروش و حتی انتقال از صندوق
+     * به بانک هم «هزینهٔ کارگاه» شمرده می‌شد. کارگاهی که یک بار پارچهٔ
+     * ماهش را می‌خرید، هزینه‌اش چند برابرِ واقعی دیده می‌شد.
+     */
+    val expenses30: Long = 0,
     val recentSales: List<RecentSale> = emptyList(),
     val tailorStats: List<TailorStat> = emptyList(),
     /** قدیمی‌ترین کارمزد باز چند روز است؟ (برای یادآوری تسویه هفتگی) */
@@ -81,10 +98,6 @@ class DashboardViewModel(repo: Repo) : ViewModel() {
                 .filter { it.source == "PROFIT" && it.createdAt >= t }
                 .sumOf { if (it.type == "IN") it.amount else -it.amount }
 
-            val expenses30 = tx
-                .filter { it.type == "OUT" && it.category.isNotBlank() && it.createdAt >= d30 }
-                .sumOf { it.amount }
-
             // بهره‌وری خیاط‌ها در ۳۰ روز اخیر (بر اساس دوخت‌های تمام‌شده)
             val qtyByOrder = orders.associate { it.id.toString() to it.qty }
             val tailorStats = allWages
@@ -134,17 +147,99 @@ class DashboardViewModel(repo: Repo) : ViewModel() {
                 profitNet30 = profitNetSince(d30),
                 openWagesTotal = wages.sumOf { it.amount },
                 openWagesCount = wages.size,
-                expenses30 = expenses30,
                 recentSales = recentSales,
                 tailorStats = tailorStats,
                 oldestPendingWageDays = oldestPendingDays
             )
         }
 
+    private val income30 = journalLast30(repo)
+
     val stats: StateFlow<DashboardStats> =
-        combine(base, repo.observeFinishedStock()) { s, finished ->
+        combine(base, repo.observeFinishedStock(), income30) { s, finished, journal ->
             // «آماده» یعنی چیزی که واقعاً در انبار هست؛ ردیفِ کسری از آن
             // کم نمی‌شود، وگرنه یک کسری، موجودیِ طرحِ دیگری را پنهان می‌کند.
-            s.copy(readyPieces = finished.sumOf { it.qty.coerceAtLeast(0) })
+            s.copy(
+                readyPieces = finished.sumOf { it.qty.coerceAtLeast(0) },
+                expenses30 = incomeStatementOf(journal).totalExpense,
+            )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DashboardStats())
+
+    /**
+     * «وضعِ مالی» — ترازنامهٔ همین لحظه + هزینه و فروشِ ۳۰ روزه.
+     *
+     * `null` تا وقتی اولین عددها برسند؛ کارتِ خالی بهتر از کارتی است که
+     * یک لحظه «همه‌چیز صفر است» نشان دهد.
+     */
+    val health: StateFlow<FinancialHealth.Snapshot?> =
+        healthFlow(repo).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+}
+
+/**
+ * صورتِ سود و زیانِ ۳۰ روزِ اخیر، به‌صورتِ ماندهٔ حساب‌ها — همان چیزی که
+ * «گزارش‌ها» با بازهٔ ۳۰ روز می‌سازد.
+ *
+ * سرِ بازه `Long.MAX_VALUE` است نه «الان»: این جریان تا وقتی صفحه باز
+ * است زنده می‌ماند، و «الانِ» لحظهٔ ساخت، هزینه‌ای را که یک ساعت بعد
+ * ثبت می‌شود بیرون می‌گذاشت. تهِ بازه هم ساعتی یک بار جلو می‌رود؛
+ * کمپیوترِ دفتر روزها باز می‌ماند و پنجرهٔ «۳۰ روز» نباید کش بیاید.
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
+fun journalLast30(repo: Repo): Flow<List<AccountBalance>> =
+    flow {
+        while (true) {
+            emit(nowMillis())
+            delay(60L * 60 * 1000)
+        }
+    }.flatMapLatest { now ->
+        repo.observeAccountBalancesBetween(now - 30L * DAY_MS, Long.MAX_VALUE)
+    }
+
+/**
+ * «وضعِ مالی» به‌صورتِ جریان — داشبوردِ مالی و مرکزِ هشدار هر دو از همین
+ * می‌خوانند، تا کارت و هشدار هرگز دو حرف نزنند.
+ *
+ * فروش از دفترِ فروشِ انبارِ محصول (همان منبعِ کارتِ «فروش»)، بقیه از
+ * ژورنال.
+ */
+fun healthFlow(repo: Repo): Flow<FinancialHealth.Snapshot> =
+    combine(
+        repo.observeFinishedSales(),
+        journalLast30(repo),
+        repo.observeAccountBalances(),
+    ) { sales, last30, all ->
+        val now = nowMillis()
+        val d30 = now - 30L * DAY_MS
+        val d60 = now - 60L * DAY_MS
+        FinancialHealth.assess(
+            healthFigures(
+                balanceSheetOf(all),
+                expense30 = incomeStatementOf(last30).totalExpense,
+                sales30 = sales.filter { it.createdAt >= d30 }.sumOf { it.netTotal },
+                salesPrev30 = sales.filter { it.createdAt in d60 until d30 }.sumOf { it.netTotal },
+            )
+        )
+    }
+
+/** ترازنامه → عددهای وضعِ مالی. جدا، تا آزمون بدون ViewModel بسنجدش. */
+fun healthFigures(
+    bs: BalanceSheet,
+    expense30: Long,
+    sales30: Long,
+    salesPrev30: Long,
+): FinancialHealth.Figures {
+    fun sum(vararg codes: String) = bs.assets.filter { it.code in codes }.sumOf { it.amount }
+    val cash = sum(Accounts.CASH, Accounts.BANK, Accounts.PROFIT_BOX)
+    val receivable = sum(Accounts.RECEIVABLE, Accounts.STAFF_ADVANCE)
+    val stock = sum(Accounts.MATERIALS, Accounts.WIP, Accounts.FINISHED)
+    return FinancialHealth.Figures(
+        cash = cash,
+        receivable = receivable,
+        stock = stock,
+        otherAssets = bs.totalAssets - cash - receivable - stock,
+        debts = bs.totalLiabilities,
+        expense30 = expense30,
+        sales30 = sales30,
+        salesPrev30 = salesPrev30,
+    )
 }

@@ -9,6 +9,8 @@ import androidx.compose.ui.text.platform.Font
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.window.ComposeUIViewController
+import com.afghanjama.platform.LocalDocs
+import com.afghanjama.platform.LocalSystemActions
 import com.afghanjama.prefs.IosSettings
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.ui.platform.LocalWidgets
@@ -98,6 +100,12 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
             LocalLayoutDirection provides LayoutDirection.Rtl,
             LocalSettings provides settings,
             LocalWidgets provides IosWidgets,
+            // بی این، هر صفحه‌ای که `LocalSystemActions` می‌خوانَد سرِ باز
+            // شدن می‌ترکید — دلیلش در خودِ `IosSystemActions` نوشته شده.
+            LocalSystemActions provides IosSystemActions,
+            // صفحه‌های اسناد و گزارش باز می‌شوند؛ خودِ چاپ صریح می‌گوید
+            // «هنوز نیست» — `IosDocs`.
+            LocalDocs provides IosDocs,
         ) {
             val auth = remember { AuthViewModel(settings) }
             IosShell(auth)

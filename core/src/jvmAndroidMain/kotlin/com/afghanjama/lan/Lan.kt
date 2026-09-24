@@ -33,16 +33,76 @@ object Lan {
     /**
      * نشانیِ این ماشین در شبکهٔ محلی، از روی کارت‌های شبکه.
      *
-     * روی ویندوز و لینوکس همین کافی است. اندروید یک راهِ دقیق‌ترِ خودش
-     * دارد (`WifiManager`) که در `:app` روی همین سوار شده — چون آنجا
-     * ممکن است چند کارتِ مجازی هم بالا باشد و انتخابِ اولی درست نباشد.
+     * **دیگر «اولین نشانی» نیست، بهترین نشانی است.** تا امروز اولین
+     * نشانیِ غیرِ loopback برمی‌گشت و ترتیبِ کارت‌ها دستِ سیستم است:
+     * روی ویندوزی که WSL، VirtualBox یا VPN دارد اولی اغلب کارتِ مجازی
+     * بود، و روی گوشی‌ای که هات‌اسپات است کارتِ اینترنتِ سیم‌کارت. در هر
+     * دو حالت صفحه نشانی‌ای نشان می‌داد که گوشیِ خیاط هرگز به آن نمی‌رسید.
+     * حالا همهٔ نشانی‌ها با [score] مرتب می‌شوند.
      */
-    fun localIp(): String? = runCatching {
+    fun localIp(): String? = localIps().firstOrNull()
+
+    /** همهٔ نشانی‌های قابلِ اتصال، بهترین اول — برای نشان دادنِ جایگزین. */
+    fun localIps(): List<String> = runCatching {
         NetworkInterface.getNetworkInterfaces().toList()
             .filter { it.isUp && !it.isLoopback }
-            .flatMap { it.inetAddresses.toList() }
-            .filterIsInstance<Inet4Address>()
-            .firstOrNull { !it.isLoopbackAddress }
-            ?.hostAddress
-    }.getOrNull()
+            .flatMap { nic ->
+                nic.inetAddresses.toList()
+                    .filterIsInstance<Inet4Address>()
+                    .mapNotNull { a ->
+                        a.hostAddress?.let { Candidate(nic.name.orEmpty(), nic.displayName.orEmpty(), it) }
+                    }
+            }
+            .let { rank(it) }
+    }.getOrDefault(emptyList())
+
+    /** یک نشانی روی یک کارتِ شبکه. */
+    data class Candidate(val iface: String, val display: String, val address: String)
+
+    /** مرتب‌سازیِ نشانی‌ها؛ آنهایی که هرگز قابلِ اتصال نیستند حذف می‌شوند. */
+    fun rank(all: List<Candidate>): List<String> =
+        all.mapNotNull { c -> score(c)?.let { it to c.address } }
+            .sortedBy { it.first }
+            .map { it.second }
+            .distinct()
+
+    /**
+     * امتیازِ یک نشانی — کمتر یعنی بهتر؛ `null` یعنی «اصلاً نه».
+     *
+     * سه چیز سنجیده می‌شود: بازهٔ نشانی (شبکهٔ خانگی/کارگاهی بهترین است،
+     * ۱۰۰.۶۴/۱۰ مالِ اپراتورِ موبایل است)، نامِ کارت (وای‌فای و سیم بهتر،
+     * مجازی و تونل بدتر)، و آنچه هرگز کار نمی‌کند (loopback و ۱۶۹.۲۵۴ که
+     * یعنی کارت اصلاً نشانی نگرفته).
+     */
+    fun score(c: Candidate): Int? {
+        val o = c.address.split('.').mapNotNull { it.toIntOrNull() }
+        if (o.size != 4 || o.any { it !in 0..255 }) return null
+        if (o[0] == 127 || o[0] == 0) return null
+        if (o[0] == 169 && o[1] == 254) return null
+
+        var s = when {
+            o[0] == 192 && o[1] == 168 -> 0
+            o[0] == 10 -> 1
+            o[0] == 172 && o[1] in 16..31 -> 2
+            o[0] == 100 && o[1] in 64..127 -> 50 // CGNAT: اینترنتِ سیم‌کارت
+            else -> 20
+        }
+
+        val name = c.iface.lowercase()
+        val display = c.display.lowercase()
+        val virtualHints = listOf(
+            "vethernet", "virtual", "vbox", "vmware", "vmnet", "hyper-v", "wsl",
+            "docker", "veth", "tun", "tap", "utun", "ppp", "wg", "zerotier",
+            "tailscale", "hamachi", "vpn", "rmnet", "ccmni", "pdp", "bridge",
+        )
+        if (virtualHints.any { name.startsWith(it) || display.contains(it) } || name.startsWith("br-")) {
+            s += 100
+        }
+        val lanPrefixes = listOf("wlan", "swlan", "ap", "softap", "eth", "en", "wl")
+        val lanWords = listOf("wi-fi", "wifi", "wireless", "ethernet")
+        if (s < 100 && (lanPrefixes.any { name.startsWith(it) } || lanWords.any { display.contains(it) })) {
+            s -= 10
+        }
+        return s
+    }
 }

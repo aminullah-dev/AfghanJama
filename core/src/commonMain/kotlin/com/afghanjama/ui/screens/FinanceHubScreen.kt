@@ -20,6 +20,12 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Payments
 import com.afghanjama.ui.components.BrandCard
+import com.afghanjama.ui.components.FinancialStatusCard
+import com.afghanjama.ui.components.financialStatusText
+import com.afghanjama.platform.LocalSystemActions
+import com.afghanjama.prefs.CompanyPrefs
+import com.afghanjama.prefs.LocalSettings
+import com.afghanjama.util.nowMillis
 import com.afghanjama.ui.theme.Brand
 import com.afghanjama.ui.platform.AppAlertDialog
 import androidx.compose.material3.Button
@@ -131,6 +137,9 @@ fun FinanceHubScreen(
 @Composable
 private fun DashboardTab(vm: DashboardViewModel) {
     val s by vm.stats.collectAsState()
+    val health by vm.health.collectAsState()
+    val system = LocalSystemActions.current
+    val settings = LocalSettings.current
 
     LazyColumn(
         modifier = Modifier
@@ -138,6 +147,21 @@ private fun DashboardTab(vm: DashboardViewModel) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        // وضعیتِ مالی اول: «پول دارم؟ بدهی چقدر است؟» پیش از هر آماری.
+        health?.takeIf { it.hasData }?.let { h ->
+            item(key = "financial-status") {
+                FinancialStatusCard(
+                    h,
+                    onShare = {
+                        system.shareText(
+                            "وضعیت مالی",
+                            financialStatusText(h, CompanyPrefs.shopName(settings), PersianDate.short(nowMillis()))
+                        )
+                    }
+                )
+            }
+        }
+
         // ⏰ یادآوری تسویه هفتگی کارمزد
         if (s.wageReminderDue) {
             item {

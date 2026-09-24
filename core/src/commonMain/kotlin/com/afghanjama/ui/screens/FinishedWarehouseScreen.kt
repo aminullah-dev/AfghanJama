@@ -2,6 +2,12 @@
 
 package com.afghanjama.ui.screens
 
+import com.afghanjama.prefs.LocalSettings
+import com.afghanjama.prefs.CompanyPrefs
+import com.afghanjama.platform.LocalSystemActions
+import com.afghanjama.ui.components.restockShareText
+import com.afghanjama.ui.components.ProductInsightsCard
+import com.afghanjama.ui.components.AddFab
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -27,7 +33,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -79,6 +84,9 @@ fun FinishedWarehouseScreen(
     val photos = LocalPhotos.current
     val items by vm.items.collectAsState()
     val folders by vm.folders.collectAsState()
+    val insights by vm.insights.collectAsState()
+    val system = LocalSystemActions.current
+    val shopSettings = LocalSettings.current
     val sales by vm.recentSales.collectAsState()
     val ui by vm.ui.collectAsState()
     val wallet by vm.wallet.collectAsState()
@@ -429,9 +437,7 @@ fun FinishedWarehouseScreen(
             // تنها راهِ واردکردنِ کالای آماده‌ای که از قبل هست. شمارش
             // این کار را نمی‌کند چون ردیفِ تازه نمی‌سازد، و بدونِ این
             // دکمه تنها راه جعلِ یک سفارشِ تولید بود.
-            FloatingActionButton(onClick = { addingOpening = true }) {
-                Icon(Icons.Default.Add, contentDescription = "افزودن کالای موجود به انبار")
-            }
+            AddFab("کالای موجود", onClick = { addingOpening = true })
         }
     ) { pad ->
         LazyColumn(
@@ -485,6 +491,21 @@ fun FinishedWarehouseScreen(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+
+                // ---------- پیشنهادِ هوشمند ----------
+                if (openFolder == null && !insights.isEmpty) {
+                    item(key = "insights") {
+                        ProductInsightsCard(
+                            insights,
+                            onShareRestock = {
+                                system.shareText(
+                                    "پیشنهادِ دوخت",
+                                    restockShareText(insights, CompanyPrefs.shopName(shopSettings))
+                                )
+                            }
+                        )
+                    }
                 }
 
                 // ---------- مسیرِ پوشه ----------

@@ -1,5 +1,8 @@
 package com.afghanjama.ui.vm
 
+import com.afghanjama.data.dao.AccountBalance
+import com.afghanjama.data.entities.Accounts
+
 /** یک سطرِ صورتِ مالی: حساب و مبلغِ طبیعی‌اش (همیشه مثبت‌خوان). */
 data class StatementLine(
     val code: String,
@@ -45,4 +48,64 @@ data class BalanceSheet(
 
     /** معادلهٔ حسابداری برقرار است؟ (اگر ژورنال تراز باشد همیشه بله) */
     val balanced: Boolean get() = totalAssets == totalLiabilities + totalEquity
+}
+
+/*
+ * سازندهٔ صورت‌ها — **یک جا**، تا «گزارش‌ها» و داشبوردِ «مالی» از یک
+ * فرمول بخوانند. تا امروز این دو تابع خصوصیِ `ReportsViewModel` بودند و
+ * داشبورد هزینه را از راهِ دیگری (جمعِ خروجی‌های دسته‌دار) حساب می‌کرد
+ * که خریدِ مواد و انتقالِ بینِ صندوق‌ها را هم «هزینه» می‌شمرد.
+ */
+
+/** درآمد (۴xxx) بستانکارِ طبیعی است؛ هزینه (۵xxx) بدهکارِ طبیعی. */
+fun incomeStatementOf(list: List<AccountBalance>): IncomeStatement {
+    val revenues = list
+        .filter { it.account.startsWith("4") }
+        .map { StatementLine(it.account, Accounts.label(it.account), -it.net) }
+        .filter { it.amount != 0L }
+    val totalRevenue = revenues.sumOf { it.amount }
+
+    val cogs = list.filter { it.account == Accounts.COGS }.sumOf { it.net }
+
+    val expenses = list
+        .filter { it.account.startsWith("5") && it.account != Accounts.COGS }
+        .map { StatementLine(it.account, Accounts.label(it.account), it.net) }
+        .filter { it.amount != 0L }
+    val totalExpense = expenses.sumOf { it.amount }
+
+    val gross = totalRevenue - cogs
+    return IncomeStatement(
+        revenues = revenues,
+        totalRevenue = totalRevenue,
+        cogs = cogs,
+        grossProfit = gross,
+        expenses = expenses,
+        totalExpense = totalExpense,
+        netProfit = gross - totalExpense
+    )
+}
+
+/** دارایی (۱xxx) بدهکارِ طبیعی؛ بدهی (۲xxx) و سرمایه (۳xxx) بستانکارِ طبیعی. */
+fun balanceSheetOf(list: List<AccountBalance>): BalanceSheet {
+    val assets = list
+        .filter { it.account.startsWith("1") }
+        .map { StatementLine(it.account, Accounts.label(it.account), it.net) }
+        .filter { it.amount != 0L }
+    val liabilities = list
+        .filter { it.account.startsWith("2") }
+        .map { StatementLine(it.account, Accounts.label(it.account), -it.net) }
+        .filter { it.amount != 0L }
+    val capital = list.filter { it.account.startsWith("3") }.sumOf { -it.net }
+    // سودِ انباشته از ابتدای کار = کلِ درآمد − کلِ هزینه (شاملِ بهای تمام‌شده)
+    val retained = list.filter { it.account.startsWith("4") }.sumOf { -it.net } -
+        list.filter { it.account.startsWith("5") }.sumOf { it.net }
+
+    return BalanceSheet(
+        assets = assets,
+        totalAssets = assets.sumOf { it.amount },
+        liabilities = liabilities,
+        totalLiabilities = liabilities.sumOf { it.amount },
+        capital = capital,
+        retained = retained
+    )
 }

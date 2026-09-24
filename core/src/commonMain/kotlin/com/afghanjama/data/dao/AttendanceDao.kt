@@ -25,4 +25,8 @@ interface AttendanceDao {
 
     @Query("SELECT * FROM attendance WHERE employee = :employee AND checkOut IS NULL ORDER BY checkIn DESC LIMIT 1")
     suspend fun findOpen(employee: String): AttendanceRecord?
+
+    /** آخرین بازهٔ یک نفر، باز یا بسته — برای نگرفتنِ اسکنِ دوباره. */
+    @Query("SELECT * FROM attendance WHERE employee = :employee ORDER BY checkIn DESC LIMIT 1")
+    suspend fun findLast(employee: String): AttendanceRecord?
 }
