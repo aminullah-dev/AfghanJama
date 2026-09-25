@@ -143,6 +143,8 @@ object RouteAccess {
         Routes.NEW_SALE to Feature.SALES,
         Routes.CUSTOMERS to Feature.CUSTOMERS,
         Routes.CUSTOMER_DETAIL to Feature.CUSTOMERS,
+        // همان کسی که مانده‌ها را در پروندهٔ مشتری می‌بیند.
+        Routes.DEBT_FOLLOW_UP to Feature.CUSTOMERS,
         Routes.WAREHOUSE to Feature.WAREHOUSE,
         Routes.STOCK_LEDGER to Feature.WAREHOUSE,
         Routes.PROCUREMENT to Feature.PROCUREMENT,

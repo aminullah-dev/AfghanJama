@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PhoneInTalk
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.RocketLaunch
 import androidx.compose.material.icons.filled.ContentCut
@@ -132,6 +133,19 @@ fun GuideScreen(onBack: () -> Unit) {
                         "بیعانه‌ای که پیش از تحویل می‌گیرید بدهیِ شماست، نه درآمد.",
                         "موقعِ تحویل خودش پیشنهاد می‌شود که روی همان فروش اعمال شود — دو بار حساب نمی‌شود.",
                         "اگر کارمندی زودتر از موعد پول خواست، از «پرداخت» ثبتش کنید؛ طلبِ شما از او می‌ماند و از حقوقش کم می‌شود."
+                    )
+                )
+            }
+
+            item {
+                GuideCard(
+                    icon = Icons.Default.PhoneInTalk,
+                    title = "پیگیریِ طلب",
+                    lines = listOf(
+                        "خانه ← «پیگیری طلب»: امروز به کی زنگ بزنید، به ترتیبِ اهمیت.",
+                        "اول قولِ شکسته، بعد قولِ امروز، بعد قسطِ گذشته، بعد بدهیِ دوهفته‌ای.",
+                        "«تماس» شماره را می‌گیرد، «پیام» متنِ آماده می‌فرستد، «نتیجه» قول را با روزش ثبت می‌کند.",
+                        "کسی که قول داده تا آن روز زنگ نمی‌خورد؛ اگر نداد، خودش بالای فهرست برمی‌گردد."
                     )
                 )
             }

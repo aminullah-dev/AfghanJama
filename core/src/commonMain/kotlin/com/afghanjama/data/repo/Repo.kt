@@ -5,6 +5,7 @@ import com.afghanjama.data.Db
 import com.afghanjama.data.CashPolicy
 import com.afghanjama.data.CardScan
 import com.afghanjama.data.CustomerCredit
+import com.afghanjama.data.DebtFollowUp
 import com.afghanjama.data.PersonEdit
 import com.afghanjama.data.EmployeeCard
 import com.afghanjama.data.PartialFlow
@@ -95,6 +96,9 @@ class Repo(private val db: Db) {
          * است و کسی بیرون نباید رویش حساب کند.
          */
         internal const val RETENTION_MONTHS = 24
+
+        /** رویدادهای پیگیریِ طلب روی «مشتری» می‌نشینند، با نامش. */
+        private const val FOLLOW_UP_AGGREGATE = "customer"
     }
 
     // =========================
@@ -1502,6 +1506,73 @@ class Repo(private val db: Db) {
             payload = "سفارش=${order.orderCode}؛مشتری=${order.customerName}؛راه=$via"
         )
     }
+
+    /**
+     * حسابِ هر مشتری آن‌طور که ژورنال طلب می‌داند، با سنِ قدیمی‌ترین
+     * بدهیِ باز.
+     *
+     * **ماندهٔ خامِ دفتر نیست.** ثبتِ سفارش همان لحظه قیمتِ توافقی را
+     * بدهکارِ مشتری می‌کند؛ اگر پیگیری از ماندهٔ خام می‌خواند، به کسی
+     * زنگ زده می‌شد که لباسش هنوز زیرِ قیچی است. قاعدهٔ جدا کردن همان
+     * [CustomerCredit] است که دریافت‌ها را هم با آن ثبت می‌کنیم — یک
+     * قاعده برای یک پول.
+     */
+    fun observeCustomerAccounts(): Flow<Map<String, DebtFollowUp.Account>> =
+        combine(db.ledgerDao().observeAllEntries(), observeAllOrders()) { entries, orders ->
+            val open = orders.map { it.orderCode }.toSet()
+            entries
+                .filter { it.partyType == "CUSTOMER" && it.partyName.isNotBlank() }
+                .groupBy { it.partyName.trim() }
+                .mapValues { (_, rows) ->
+                    val kept = CustomerCredit.recognized(
+                        rows.map { CustomerCredit.Row(it.refType, it.refId, it.debit, it.credit, it.at) },
+                        open
+                    )
+                    DebtFollowUp.Account(
+                        owed = kept.sumOf { it.debit - it.credit },
+                        oldestUnpaidAt = DebtFollowUp.oldestUnpaidAt(
+                            kept.map { DebtFollowUp.Move(it.at, it.debit, it.credit) }
+                        )
+                    )
+                }
+        }
+
+    /** نامِ مشتری ← آخرین پیگیریِ ثبت‌شده. */
+    fun observeDebtFollowUps(): Flow<Map<String, DebtFollowUp.Contact>> =
+        db.domainEventDao()
+            .observeLatestOf(eventDebtFollowUp, FOLLOW_UP_AGGREGATE)
+            .map { rows ->
+                rows.mapNotNull { e ->
+                    DebtFollowUp.decode(e.payload, e.at)?.let { e.aggregateId to it }
+                }.toMap()
+            }
+
+    /**
+     * ثبتِ نتیجهٔ یک تماس یا پیام. [owedThen] بدهی در همین لحظه است تا
+     * بعداً معلوم شود قول سرِ جایش ماند یا نه.
+     *
+     * جدولِ تازه نمی‌خواهد: `domain_events` برای همین ساخته شده و
+     * تاریخچه هم می‌مانَد — هر تماس یک سطر.
+     */
+    suspend fun recordDebtFollowUp(
+        name: String,
+        outcome: DebtFollowUp.Outcome,
+        until: Long,
+        owedThen: Long
+    ) = db.atomic {
+        val n = name.trim()
+        if (n.isNotEmpty()) {
+            emit(
+                type = eventDebtFollowUp,
+                aggregate = FOLLOW_UP_AGGREGATE,
+                aggregateId = n,
+                payload = DebtFollowUp.encode(DebtFollowUp.Contact(0L, outcome, until, owedThen))
+            )
+        }
+    }
+
+    /** نوعِ رویدادِ «پیگیری طلب» — فارسی، مثلِ بقیهٔ رویدادها. */
+    private val eventDebtFollowUp = "پیگیری طلب"
 
     private suspend fun emit(
         type: String,
@@ -3632,6 +3703,8 @@ class Repo(private val db: Db) {
             moved += dao.moveCustomerPayments(from, nm)
             moved += dao.moveCustomerInstallments(from, nm)
             moved += dao.moveCustomerFinishedSales(from, nm)
+            // قول‌ها و تماس‌های پیگیریِ طلب با نام کلید خورده‌اند.
+            moved += db.domainEventDao().moveAggregate(FOLLOW_UP_AGGREGATE, from, nm)
         }
         val ph = phone.trim().ifEmpty { null }
         dao.updateCustomer(id, nm, ph, address?.trim() ?: cur.address)

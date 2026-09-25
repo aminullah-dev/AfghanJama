@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.CallMade
 import androidx.compose.material.icons.automirrored.filled.CallReceived
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.PhoneInTalk
 import androidx.compose.material.icons.filled.AddShoppingCart
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.AssignmentInd
@@ -119,6 +120,7 @@ fun HomeDashboardScreen(
     onGoPay: () -> Unit,
     onGoReceive: () -> Unit,
     onGoDailyTrade: () -> Unit,
+    onGoDebtFollowUp: () -> Unit,
     canSeeCustomers: Boolean,
     canBuyMaterial: Boolean,
     onGoCustomers: () -> Unit,
@@ -180,6 +182,9 @@ fun HomeDashboardScreen(
     val customerFlow = buildList {
         if (canSeeCustomers) add(HomeAction("مشتریان", Icons.Default.Group, onGoCustomers))
         if (can(Feature.DELIVERY)) add(HomeAction("آمادهٔ تحویل", Icons.Default.LocalShipping, onGoDeliveryQueue))
+        // کنارِ مشتریان، چون همان مانده‌ها را می‌بیند — ولی به شکلِ «امروز
+        // به کی زنگ بزنم»، نه جدول.
+        if (can(Feature.CUSTOMERS)) add(HomeAction("پیگیری طلب", Icons.Default.PhoneInTalk, onGoDebtFollowUp))
     }
 
     // عمومی

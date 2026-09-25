@@ -38,6 +38,7 @@ import com.afghanjama.ui.screens.BoardScreen
 import com.afghanjama.ui.screens.CustomerDetailScreen
 import com.afghanjama.ui.screens.CustomersScreen
 import com.afghanjama.ui.screens.CuttingScreen
+import com.afghanjama.ui.screens.DebtFollowUpScreen
 import com.afghanjama.ui.screens.DeliveryQueueScreen
 import com.afghanjama.ui.screens.FinanceHubScreen
 import com.afghanjama.ui.screens.FinishedWarehouseScreen
@@ -84,6 +85,7 @@ import com.afghanjama.ui.vm.BoardViewModel
 import com.afghanjama.ui.vm.CustomerDetailViewModel
 import com.afghanjama.ui.vm.CustomersViewModel
 import com.afghanjama.ui.vm.DashboardViewModel
+import com.afghanjama.ui.vm.DebtFollowUpViewModel
 import com.afghanjama.ui.vm.DeliveryQueueViewModel
 import com.afghanjama.ui.vm.FinanceViewModel
 import com.afghanjama.ui.vm.FinishedSaleViewModel
@@ -157,6 +159,7 @@ internal enum class Section(val title: String) {
     DailyTrade("معاملاتِ روزمره"),
     NewSale("فروشِ نو"),
     Customers("خریداران"),
+    FollowUp("پیگیریِ طلب"),
     Ledger("دفترِ حساب"),
     Finance("مالی"),
     MoneyMove("جابه‌جاییِ پول"),
@@ -243,7 +246,9 @@ fun Shell(
                     onBack = { openOrder = null }
                 )
             } else
-            if (section == Section.Customers && customerId != null) {
+            // پیگیریِ طلب هم پروندهٔ مشتری را باز می‌کند؛ «برگشت» به همان
+            // فهرستِ پیگیری برمی‌گردد، نه به «خریداران».
+            if ((section == Section.Customers || section == Section.FollowUp) && customerId != null) {
                 val vm: CustomerDetailViewModel = viewModel { CustomerDetailViewModel(repo) }
                 CustomerDetailScreen(
                     vm,
@@ -301,7 +306,7 @@ internal fun Section.allowedFor(access: Access): Boolean {
         Section.Procurement, Section.PurchasePlan, Section.PurchaseReturn -> Feature.PROCUREMENT
         Section.DailyTrade, Section.Finance, Section.MoneyMove, Section.Documents,
         Section.Reports, Section.Journal, Section.Recurring -> Feature.FINANCE
-        Section.Customers -> Feature.CUSTOMERS
+        Section.Customers, Section.FollowUp -> Feature.CUSTOMERS
         Section.Ledger -> Feature.LEDGER
         Section.Payroll, Section.Performance -> Feature.PAYROLL
         Section.Attendance -> Feature.ATTENDANCE
@@ -338,6 +343,7 @@ internal fun sectionForRoute(route: String): Section? = when (route) {
     Routes.STOCK_LEDGER -> Section.StockLedger
     Routes.FINISHED_SALES -> Section.FinishedWarehouse
     Routes.CUSTOMERS -> Section.Customers
+    Routes.DEBT_FOLLOW_UP -> Section.FollowUp
     Routes.PERFORMANCE -> Section.Performance
     Routes.NEW_SALE -> Section.NewSale
     Routes.PURCHASE_RETURN -> Section.PurchaseReturn
@@ -469,6 +475,11 @@ internal fun SectionContent(
         Section.DeliveryQueue -> {
             val vm: DeliveryQueueViewModel = viewModel { DeliveryQueueViewModel(repo) }
             DeliveryQueueScreen(vm, onBack = back)
+        }
+
+        Section.FollowUp -> {
+            val vm: DebtFollowUpViewModel = viewModel { DebtFollowUpViewModel(repo) }
+            DebtFollowUpScreen(vm, onBack = back, onOpenCustomer = onOpenCustomer)
         }
 
         Section.MyWork -> {

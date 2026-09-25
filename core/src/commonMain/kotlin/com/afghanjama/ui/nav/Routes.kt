@@ -26,6 +26,8 @@ object Routes {
     const val PURCHASE_RETURN = "purchase_return"
     const val NEW_SALE = "new_sale"
     const val DELIVERY_QUEUE = "delivery_queue"
+    /** پیگیریِ طلب — امروز به چه کسی زنگ بزنیم. */
+    const val DEBT_FOLLOW_UP = "debt_follow_up"
 
     const val CUTTING = "cutting"
     const val SEWING = "sewing"

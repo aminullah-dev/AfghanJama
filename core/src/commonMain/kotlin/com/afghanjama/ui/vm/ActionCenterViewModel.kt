@@ -24,7 +24,7 @@ import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.WatchLater
 import androidx.compose.ui.graphics.vector.ImageVector
-import com.afghanjama.data.Installments
+import com.afghanjama.data.DebtFollowUp
 import com.afghanjama.data.entities.OrderStatus
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.ui.format.PersianDate
@@ -229,60 +229,50 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
 
             // ۶) کارِ آماده‌ای که مشتری نبرده → `deliveryAlerts`
 
-            // ۶) طلب از مشتریان (ماندهٔ مثبت = آن‌ها بدهکارند)
-            val receivables = balances.filter { it.type == "CUSTOMER" && it.net > 0 }
-            if (receivables.isNotEmpty()) {
-                val total = receivables.sumOf { it.net }
-                add(
-                    Alert(
-                        id = "receivable",
-                        severity = AlertSeverity.INFO,
-                        icon = Icons.Default.AccountBalanceWallet,
-                        title = "طلب از ${receivables.size.fa()} مشتری",
-                        detail = "جمعاً ${total.afn()}",
-                        route = Routes.LEDGER
-                    )
-                )
-            }
+            // ۷) طلب از مشتریان → `followUpAlerts`. «طلب از N مشتری»ِ
+            // همیشه‌روشن اینجا بود و برداشته شد: مبلغ را می‌گفت ولی نه
+            // اینکه امروز سراغِ کی برو، و ماندهٔ خامِ دفتر را می‌خواند که
+            // سفارشِ هنوز‌دوخته‌نشده را هم «طلب» می‌دانست.
         }
         list
     }
 
     /**
-     * قسط‌هایی که روزشان گذشته و هنوز پولشان نرسیده.
+     * پیگیریِ طلبِ امروز — قسطِ گذشته، قولِ شکسته و بدهیِ مانده، یک هشدار.
      *
-     * سهمِ هر قسط از `observePaidByCustomer` می‌آید — همان عددی که
-     * پروندهٔ مشتری نشان می‌دهد. اگر اینجا حسابِ جداگانه‌ای می‌داشت،
-     * یک صفحه می‌گفت «تسویه شد» و این یکی می‌گفت «سررسید گذشته».
+     * تا دیروز سه هشدار بود: «طلب از N مشتری»، «N قسط گذشته» و «طلبِ N
+     * نفر کهنه». هر سه دربارهٔ یک کار بودند — زنگ زدن — و هیچ‌کدام
+     * نمی‌گفت به کی. حالا یکی است و به همان فهرستی می‌رود که شماره و
+     * دکمهٔ «قول داد» دارد. حساب از `debtPlanFlow` می‌آید، همانی که صفحه
+     * می‌خوانَد، تا هشدار «۵ نفر» نگوید و صفحه چهار نفر نشان دهد.
+     *
+     * وقتی امروز به همه سر زده شد، هشدار خاموش می‌شود: کارِ امروز تمام
+     * است، حتی اگر پول هنوز نرسیده.
      */
-    private val installmentAlerts: Flow<List<Alert>> = combine(
-        repo.observeInstallments(),
-        repo.observePaidByCustomer()
-    ) { all, paidBy ->
-        val now = nowMillis()
-        val late = all
-            .groupBy { it.customerName.trim() }
-            .flatMap { (name, rows) ->
-                Installments.allocate(rows, paidBy[name] ?: 0L).filter { it.overdue(now) }
-            }
-        buildList {
-            if (late.isNotEmpty()) {
-                val worst = late.maxByOrNull { dueDaysLate(it.plan.dueDate, now) }!!
-                add(
-                    Alert(
-                        id = "installment_overdue",
-                        severity = AlertSeverity.URGENT,
-                        icon = Icons.Default.EventBusy,
-                        title = "${late.size.fa()} قسط از سررسید گذشته",
-                        detail = "جمعاً ${late.sumOf { it.remaining }.afn()} — بدترین: " +
-                            "${worst.plan.customerName} با " +
-                            "${dueDaysLate(worst.plan.dueDate, now).fa()} روز تأخیر",
-                        route = Routes.CUSTOMERS
+    private val followUpAlerts: Flow<List<Alert>> =
+        debtPlanFlow(repo).map { plan ->
+            val pending = plan.today.filterNot { it.contactedToday }
+            buildList {
+                if (pending.isNotEmpty()) {
+                    val first = pending.first()
+                    val hot = pending.any {
+                        it.reason == DebtFollowUp.Reason.BROKEN_PROMISE ||
+                            it.reason == DebtFollowUp.Reason.LATE_INSTALLMENT
+                    }
+                    add(
+                        Alert(
+                            id = "debt_follow_up",
+                            severity = if (hot) AlertSeverity.URGENT else AlertSeverity.WARN,
+                            icon = Icons.Default.AccountBalanceWallet,
+                            title = "امروز ${pending.size.fa()} نفر را برای طلب پیگیری کنید",
+                            detail = "جمعاً ${pending.sumOf { it.debtor.amount }.afn()} — اول: " +
+                                "${first.debtor.name} (${first.reason.label})",
+                            route = Routes.DEBT_FOLLOW_UP
+                        )
                     )
-                )
+                }
             }
         }
-    }
 
     /**
      * هشدارِ حقوقِ پرداخت‌نشدهٔ ماهِ جاری. جدا از [coreAlerts] است چون
@@ -376,8 +366,10 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
         val lastAt = entries.groupBy { it.partyType + "|" + it.partyName }
             .mapValues { (_, rows) -> rows.maxOf { it.at } }
 
+        // مشتری‌ها در `followUpAlerts`اند، با سنِ درستِ بدهی؛ اینجا فقط
+        // بقیه — کارمند یا تأمین‌کننده‌ای که به ما بدهکار مانده.
         val stale = balances
-            .filter { it.net > 0 }
+            .filter { it.net > 0 && it.type != "CUSTOMER" }
             .mapNotNull { p ->
                 val at = lastAt[p.type + "|" + p.name] ?: return@mapNotNull null
                 val days = ((now - at) / 86_400_000L).toInt()
@@ -627,7 +619,7 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
             // `combine` بیش از پنج جریانِ نوع‌دار نمی‌پذیرد، پس این
             // شش‌تا پیش از رسیدن به آنجا یکی می‌شوند.
             combine(
-                staleAlerts, installmentAlerts, deliveryAlerts, recurringAlerts,
+                staleAlerts, followUpAlerts, deliveryAlerts, recurringAlerts,
                 combine(financeAlerts, productAlerts) { f, p -> f + p }
             ) { stale, inst, deliv, rec, smart ->
                 stale + inst + deliv + rec + smart

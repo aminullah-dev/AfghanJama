@@ -43,6 +43,7 @@ import com.afghanjama.ui.screens.CustomerDetailScreen
 import com.afghanjama.ui.screens.CustomersScreen
 import com.afghanjama.ui.screens.CuttingScreen
 import com.afghanjama.ui.screens.DailyTradeScreen
+import com.afghanjama.ui.screens.DebtFollowUpScreen
 import com.afghanjama.ui.screens.DeliveryQueueScreen
 import com.afghanjama.ui.screens.DocumentsScreen
 import com.afghanjama.ui.screens.FinanceHubScreen
@@ -86,6 +87,7 @@ import com.afghanjama.ui.vm.CustomerDetailViewModel
 import com.afghanjama.ui.vm.CustomersViewModel
 import com.afghanjama.ui.vm.CuttingViewModel
 import com.afghanjama.ui.vm.DashboardViewModel
+import com.afghanjama.ui.vm.DebtFollowUpViewModel
 import com.afghanjama.ui.vm.DeliveryQueueViewModel
 import com.afghanjama.ui.vm.DocumentsViewModel
 import com.afghanjama.ui.vm.FinanceViewModel
@@ -233,6 +235,7 @@ private class Vms(repo: Repo, settings: Settings) {
     val customers by lazy { CustomersViewModel(repo) }
     val dashboard by lazy { DashboardViewModel(repo) }
     val deliveryQueue by lazy { DeliveryQueueViewModel(repo) }
+    val debtFollowUp by lazy { DebtFollowUpViewModel(repo) }
     val documents by lazy { DocumentsViewModel(repo) }
     val finance by lazy { FinanceViewModel(repo) }
     val finishedSale by lazy { FinishedSaleViewModel(repo) }
@@ -338,6 +341,7 @@ private fun LoggedIn(repo: Repo, role: UserRole, auth: AuthViewModel, access: Ac
                     onGoProduction = { go(Routes.PRODUCTION_ORDER) },
                     onGoFinishedSales = { go(Routes.FINISHED_SALES) },
                     onGoDeliveryQueue = { go(Routes.DELIVERY_QUEUE) },
+                    onGoDebtFollowUp = { go(Routes.DEBT_FOLLOW_UP) },
                     onGoAttendance = { go(Routes.ATTENDANCE) },
                     onGoPayroll = { go(Routes.PAYROLL) },
                     onGoPerformance = { go(Routes.PERFORMANCE) },
@@ -406,6 +410,11 @@ private fun LoggedIn(repo: Repo, role: UserRole, auth: AuthViewModel, access: Ac
                 )
 
                 Routes.DELIVERY_QUEUE -> DeliveryQueueScreen(vm = vm.deliveryQueue, onBack = back)
+                Routes.DEBT_FOLLOW_UP -> DebtFollowUpScreen(
+                    vm = vm.debtFollowUp,
+                    onBack = back,
+                    onOpenCustomer = { id -> go("${Routes.CUSTOMER_DETAIL}/$id") }
+                )
 
                 /*
                  * «کارگاه» — سه مرحلهٔ برش و دوخت و نظارت.

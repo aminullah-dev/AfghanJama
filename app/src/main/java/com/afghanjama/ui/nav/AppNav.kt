@@ -62,6 +62,7 @@ import com.afghanjama.ui.screens.CustomersScreen
 import com.afghanjama.ui.components.WorkStage
 import com.afghanjama.ui.screens.CuttingScreen
 import com.afghanjama.ui.screens.DailyTradeScreen
+import com.afghanjama.ui.screens.DebtFollowUpScreen
 import com.afghanjama.ui.screens.DeliveryQueueScreen
 import com.afghanjama.ui.components.QrBadge
 import com.afghanjama.ui.screens.DocumentsScreen
@@ -109,6 +110,7 @@ import com.afghanjama.ui.vm.CustomerDetailViewModel
 import com.afghanjama.ui.vm.CustomersViewModel
 import com.afghanjama.ui.vm.CuttingViewModel
 import com.afghanjama.ui.vm.DashboardViewModel
+import com.afghanjama.ui.vm.DebtFollowUpViewModel
 import com.afghanjama.ui.vm.DeliveryQueueViewModel
 import com.afghanjama.ui.vm.DocumentsViewModel
 import com.afghanjama.ui.vm.FinanceViewModel
@@ -385,6 +387,7 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                     onGoProduction = { navController.navigate(Routes.INVENTORY) },
                     onGoFinishedSales = { navController.navigate(Routes.FINISHED_SALES) },
                     onGoDeliveryQueue = { navController.navigate(Routes.DELIVERY_QUEUE) },
+                    onGoDebtFollowUp = { navController.navigate(Routes.DEBT_FOLLOW_UP) },
                     onGoAttendance = { navController.navigate(Routes.ATTENDANCE) },
                     onGoPayroll = { navController.navigate(Routes.PAYROLL) },
                     onGoPerformance = { navController.navigate(Routes.PERFORMANCE) },
@@ -521,6 +524,15 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                 DeliveryQueueScreen(
                     vm = deliveryQueueVm,
                     onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Routes.DEBT_FOLLOW_UP) {
+                val debtVm = viewModel<DebtFollowUpViewModel>(vmOwner, factory = factory)
+                DebtFollowUpScreen(
+                    vm = debtVm,
+                    onBack = { navController.popBackStack() },
+                    onOpenCustomer = { id -> navController.navigate("${Routes.CUSTOMER_DETAIL}/$id") }
                 )
             }
 
