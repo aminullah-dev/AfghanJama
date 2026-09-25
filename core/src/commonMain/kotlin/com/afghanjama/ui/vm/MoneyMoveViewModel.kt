@@ -2,8 +2,13 @@ package com.afghanjama.ui.vm
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.afghanjama.data.EntryGuard
 import com.afghanjama.data.dao.PartyBalance
+import com.afghanjama.data.entities.LedgerEntry
 import com.afghanjama.data.repo.Repo
+import com.afghanjama.ui.format.afn
+import com.afghanjama.ui.format.fa
+import com.afghanjama.util.nowMillis
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -95,6 +100,20 @@ class MoneyMoveViewModel(private val repo: Repo) : ViewModel() {
     ) { payees, wallet, bank, s ->
         s.copy(payees = payees, wallet = wallet, bank = bank)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MoneyMoveUi())
+
+    /** سطرهای دفتر برای نگهبانِ خطا. */
+    private val ledger: StateFlow<List<LedgerEntry>> =
+        repo.observeAllLedgerEntries()
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /**
+     * پیش از ثبت: تکرار؟ صفرِ اضافه؟ مبلغِ غیرعادی؟ — با پرداخت‌ها (یا
+     * دریافت‌های) گذشتهٔ همین نوعِ طرف. خالی یعنی بی‌درنگ ثبت شود.
+     */
+    fun guard(type: String, name: String, amount: Long, isPayment: Boolean): List<EntryGuard.Warning> {
+        val past = EntryGuard.pastMoves(ledger.value, type, isPayment)
+        return EntryGuard.check(name, amount, past, nowMillis(), money = { it.afn() }, digits = { it.fa() })
+    }
 
     fun clearMessage() = _state.update { it.copy(message = null, isError = false, done = false) }
 

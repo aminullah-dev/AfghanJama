@@ -2,11 +2,15 @@ package com.afghanjama.ui.vm
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.afghanjama.data.EntryGuard
 import com.afghanjama.data.PersonEdit
 import com.afghanjama.data.dao.PartyBalance
 import com.afghanjama.data.entities.Customer
 import com.afghanjama.data.entities.LedgerEntry
 import com.afghanjama.data.repo.Repo
+import com.afghanjama.ui.format.afn
+import com.afghanjama.ui.format.fa
+import com.afghanjama.util.nowMillis
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -126,6 +130,18 @@ class LedgerViewModel(private val repo: Repo) : ViewModel() {
         val r = repo.renameSupplier(from, to)
         _message.value = if (r == PersonEdit.DONE) null else r.message("فروشنده")
     }
+
+    /** سطرهای دفتر برای نگهبانِ خطا — همان که «پرداخت/دریافت» می‌خوانَد. */
+    private val guardRows: StateFlow<List<LedgerEntry>> =
+        repo.observeAllLedgerEntries()
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** پیش از ثبتِ سندِ دستی: تکرار، صفرِ اضافه یا کم، مبلغِ غیرعادی. */
+    fun guard(type: String, name: String, amount: Long, isPayment: Boolean): List<EntryGuard.Warning> =
+        EntryGuard.check(
+            name, amount, EntryGuard.pastMoves(guardRows.value, type, isPayment), nowMillis(),
+            money = { it.afn() }, digits = { it.fa() }
+        )
 
     fun recordManual(type: String, name: String, amount: Long, isPayment: Boolean, note: String) =
         viewModelScope.launch {

@@ -4,6 +4,8 @@ import com.afghanjama.util.NameMatch
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.afghanjama.data.CodeGen
+import com.afghanjama.data.EntryGuard
+import com.afghanjama.data.dao.PurchasePrice
 import com.afghanjama.data.entities.PaymentSource
 import com.afghanjama.data.entities.PurchaseInvoice
 import com.afghanjama.data.entities.PurchaseItem
@@ -12,6 +14,9 @@ import com.afghanjama.data.entities.FabricType
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.ui.format.decimalOnly
 import com.afghanjama.ui.format.digitsOnly
+import com.afghanjama.ui.format.afn
+import com.afghanjama.ui.format.fa
+import com.afghanjama.util.nowMillis
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -186,6 +191,63 @@ class ProcurementViewModel(private val repo: Repo) : ViewModel() {
     fun removeLine(index: Int) = _ui.update {
         if (index in it.items.indices) it.copy(items = it.items.toMutableList().apply { removeAt(index) })
         else it
+    }
+
+    /** قیمتِ خریدهای گذشته و فاکتورهای خرید — برای نگهبانِ خطا. */
+    private val priceHistory: StateFlow<List<PurchasePrice>> =
+        repo.observePurchasePrices()
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    private val invoiceHistory: StateFlow<List<EntryGuard.Past>> =
+        repo.observePurchaseInvoices()
+            .map { rows -> rows.map { EntryGuard.Past(it.supplier, it.total, it.createdAt) } }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** قیمتِ پیشنهادیِ نگهبان ← شمارهٔ قلم (۱− یعنی ویرایشگرِ فعلی). */
+    private var suggestionLine: Map<Long, Int> = emptyMap()
+
+    /**
+     * پیش از اتمامِ خرید: قیمتِ واحدی که یک صفر اضافه یا کم دارد (نسبت به
+     * خریدهای گذشتهٔ همان قلم)، و خریدی که با همان جمع از همان فروشنده
+     * امروز ثبت شده. خالی یعنی بی‌درنگ ثبت شود.
+     */
+    fun guard(): List<EntryGuard.Warning> {
+        val s = _ui.value
+        val now = nowMillis()
+        val lines = s.items.withIndex().map { it.index to it.value }
+            .ifEmpty { buildLine(s)?.let { listOf(-1 to it) } ?: emptyList() }
+        val lineOf = HashMap<Long, Int>()
+        val priceWarnings = lines.flatMap { (idx, l) ->
+            if (l.unitPrice <= 0L) return@flatMap emptyList<EntryGuard.Warning>()
+            val past = priceHistory.value
+                .filter { NameMatch.same(it.name, l.name) && NameMatch.same(it.unit, l.unit) }
+                .map { EntryGuard.Past(l.name, it.unitPrice, it.at) }
+            EntryGuard.check(
+                l.name, l.unitPrice, past, now,
+                money = { it.afn() }, digits = { it.fa() },
+                ownLabel = "قیمتِ خریدِ معمولِ «${l.name}» (هر ${l.unit})"
+            )
+                .filter { it.kind != EntryGuard.Kind.DUPLICATE }
+                .onEach { w -> w.suggested?.let { lineOf.putIfAbsent(it, idx) } }
+        }
+        suggestionLine = lineOf
+        val total = lines.sumOf { it.second.total }
+        val dup = if (s.supplier.isBlank()) emptyList()
+        else EntryGuard.check(
+            s.supplier.trim(), total, invoiceHistory.value, now,
+            money = { it.afn() }, digits = { it.fa() }, what = "خریدی با همین جمع"
+        ).filter { it.kind == EntryGuard.Kind.DUPLICATE }
+        return dup + priceWarnings
+    }
+
+    /** «همین را بگذار» — قیمتِ واحد در همان قلمی که هشدار داشت. */
+    fun useSuggestion(price: Long) {
+        val idx = suggestionLine[price] ?: return
+        if (idx < 0) setUnitPrice(price.toString())
+        else _ui.update { u ->
+            if (idx !in u.items.indices) u
+            else u.copy(items = u.items.toMutableList().also { it[idx] = it[idx].copy(unitPrice = price) })
+        }
     }
 
     /** اتمام خرید و ارسال به انبار. */

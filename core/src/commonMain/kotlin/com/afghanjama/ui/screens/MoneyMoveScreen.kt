@@ -2,6 +2,8 @@
 
 package com.afghanjama.ui.screens
 
+import com.afghanjama.data.EntryGuard
+import com.afghanjama.ui.components.GuardDialog
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -73,6 +75,24 @@ fun MoneyMoveScreen(
     var source by remember { mutableStateOf("WALLET") }
     var note by remember { mutableStateOf("") }
     var pickerOpen by remember { mutableStateOf(false) }
+    // هشدارهای نگهبان — تا کاربر «درست است» یا «برگرد» بزند.
+    var warnings by remember { mutableStateOf<List<EntryGuard.Warning>>(emptyList()) }
+    val doSubmit: () -> Unit = {
+        vm.submit(
+            type = type, name = name.trim(),
+            amount = amount.toLongOrNull() ?: 0L,
+            isPayment = isPayment, source = source, note = note
+        )
+    }
+
+    if (warnings.isNotEmpty()) {
+        GuardDialog(
+            warnings = warnings,
+            onConfirm = { warnings = emptyList(); doSubmit() },
+            onUse = { amount = it.toString(); warnings = emptyList() },
+            onDismiss = { warnings = emptyList() }
+        )
+    }
 
     LaunchedEffect(ui.message) {
         ui.message?.let {
@@ -266,11 +286,8 @@ fun MoneyMoveScreen(
                 BusyButton(
                     text = if (isPayment) "ثبت پرداخت" else "ثبت دریافت",
                     onClick = {
-                        vm.submit(
-                            type = type, name = name.trim(),
-                            amount = amount.toLongOrNull() ?: 0L,
-                            isPayment = isPayment, source = source, note = note
-                        )
+                        val w = vm.guard(type, name.trim(), amount.toLongOrNull() ?: 0L, isPayment)
+                        if (w.isEmpty()) doSubmit() else warnings = w
                     },
                     enabled = name.isNotBlank() && (amount.toLongOrNull() ?: 0L) > 0,
                     busy = busy,

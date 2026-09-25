@@ -5,6 +5,8 @@
 
 package com.afghanjama.ui.screens
 
+import com.afghanjama.data.EntryGuard
+import com.afghanjama.ui.components.GuardDialog
 import com.afghanjama.ui.components.NameSuggestions
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -87,6 +89,20 @@ fun ProcurementScreen(
     val supplierIsNew by vm.supplierIsNew.collectAsState()
     var showSupplierPicker by remember { mutableStateOf(false) }
     var askPermanent by remember { mutableStateOf(false) }
+    // نگهبانِ خطا: قیمتِ واحد با صفرِ اضافه، یا خریدِ تکراری از همان فروشنده.
+    var warnings by remember { mutableStateOf<List<EntryGuard.Warning>>(emptyList()) }
+    val finish: () -> Unit = {
+        val w = vm.guard()
+        if (w.isEmpty()) vm.completePurchase() else warnings = w
+    }
+    if (warnings.isNotEmpty()) {
+        GuardDialog(
+            warnings = warnings,
+            onConfirm = { warnings = emptyList(); vm.completePurchase() },
+            onUse = { vm.useSuggestion(it); warnings = emptyList() },
+            onDismiss = { warnings = emptyList() }
+        )
+    }
 
     // ---------- انتخابِ تأمین‌کننده از ثبت‌شده‌ها ----------
     if (showSupplierPicker) {
@@ -151,14 +167,14 @@ fun ProcurementScreen(
             confirmButton = {
                 TextButton(onClick = {
                     vm.rememberSupplier()
-                    vm.completePurchase()
                     askPermanent = false
+                    finish()
                 }) { Text("بله، دایمی است") }
             },
             dismissButton = {
                 TextButton(onClick = {
-                    vm.completePurchase()
                     askPermanent = false
+                    finish()
                 }) { Text("خیر، یک‌باره") }
             }
         )
@@ -505,7 +521,7 @@ fun ProcurementScreen(
                     onClick = {
                         // تأمین‌کنندهٔ تازه: اول پرسیده می‌شود دایمی است یا
                         // نه. خریدِ یک‌بارهٔ سرِ کوچه نباید فهرست را شلوغ کند.
-                        if (supplierIsNew) askPermanent = true else vm.completePurchase()
+                        if (supplierIsNew) askPermanent = true else finish()
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {

@@ -2374,6 +2374,9 @@ class Repo(private val db: Db) {
     fun observePurchaseItems(invoiceId: String): Flow<List<PurchaseItem>> =
         db.procurementDao().observeItems(invoiceId)
 
+    fun observePurchasePrices(): Flow<List<com.afghanjama.data.dao.PurchasePrice>> =
+        db.procurementDao().observePriceHistory()
+
     /**
      * ثبت یک فاکتور خرید: فاکتور و اقلامش ذخیره، هر قلم وارد انبار و
      * مبلغ کل از منبع انتخابی پرداخت می‌شود.

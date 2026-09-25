@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.PhoneInTalk
@@ -174,6 +175,19 @@ fun GuideScreen(onBack: () -> Unit) {
                         "«سودِ معمول» از فروش‌های ۶ ماهِ اخیرِ خودتان است و روی بهای امروز حساب می‌شود.",
                         "اگر بها بالا رفته و قیمتِ همیشگی دیگر سود ندارد، قرمز می‌گوید.",
                         "سفارشِ تازه: بهای برآوردی کنارِ قیمتِ توافقی است؛ قیمتِ زیرِ بها همان‌جا قرمز می‌شود."
+                    )
+                )
+            }
+
+            item {
+                GuideCard(
+                    icon = Icons.Default.VerifiedUser,
+                    title = "نگهبانِ خطا",
+                    lines = listOf(
+                        "پیش از ثبتِ پول، اگر همین مبلغ برای همین نفر امروز هم ثبت شده، می‌پرسد.",
+                        "۱۵٬۰۰۰ به‌جای ۱٬۵۰۰؟ می‌گوید «شاید یک صفر اضافه است» و دکمهٔ درستش را می‌دهد.",
+                        "مبلغی که چند برابرِ معمول است هم پرسیده می‌شود — ولی ثبت همیشه ممکن است.",
+                        "در پرداخت/دریافت، سندِ دستی، فاکتورِ فروش و خریدِ مواد."
                     )
                 )
             }

@@ -5,6 +5,8 @@
 
 package com.afghanjama.ui.screens
 
+import com.afghanjama.data.EntryGuard
+import com.afghanjama.ui.components.GuardDialog
 import com.afghanjama.util.nowMillis
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -178,6 +180,9 @@ fun LedgerScreen(
     var pickOpen by remember { mutableStateOf(false) }
     val partyNames by vm.partyNames.collectAsState()
     var mAmount by remember { mutableStateOf("") }
+    // هشدارهای نگهبان؛ تا هستند، پنجرهٔ سند کنار می‌رود و با «برگرد»
+    // با همان مقدارها برمی‌گردد.
+    var manualWarnings by remember { mutableStateOf<List<EntryGuard.Warning>>(emptyList()) }
     var mIsPayment by remember { mutableStateOf(true) }
     var mNote by remember { mutableStateOf("") }
 
@@ -374,17 +379,38 @@ fun LedgerScreen(
         )
     }
 
+    // ---------- نگهبانِ خطا برای سندِ دستی ----------
+    if (manualWarnings.isNotEmpty()) {
+        GuardDialog(
+            warnings = manualWarnings,
+            onConfirm = {
+                manualWarnings = emptyList()
+                vm.recordManual(mType, mName.trim(), mAmount.toLongOrNull() ?: 0L, mIsPayment, mNote.trim())
+                manualOpen = false
+                mName = ""; mAmount = ""; mNote = ""
+            },
+            onUse = { mAmount = it.toString(); manualWarnings = emptyList() },
+            onDismiss = { manualWarnings = emptyList() }
+        )
+    }
+
     // ---------- دیالوگ سند دستی ----------
-    if (manualOpen) {
+    if (manualOpen && manualWarnings.isEmpty()) {
         AppAlertDialog(
             onDismissRequest = { manualOpen = false },
             confirmButton = {
                 Button(
                     enabled = mName.isNotBlank() && (mAmount.toLongOrNull() ?: 0L) > 0L,
                     onClick = {
-                        vm.recordManual(mType, mName.trim(), mAmount.toLongOrNull() ?: 0L, mIsPayment, mNote.trim())
-                        manualOpen = false
-                        mName = ""; mAmount = ""; mNote = ""
+                        val amt = mAmount.toLongOrNull() ?: 0L
+                        val w = vm.guard(mType, mName.trim(), amt, mIsPayment)
+                        if (w.isNotEmpty()) {
+                            manualWarnings = w
+                        } else {
+                            vm.recordManual(mType, mName.trim(), amt, mIsPayment, mNote.trim())
+                            manualOpen = false
+                            mName = ""; mAmount = ""; mNote = ""
+                        }
                     }
                 ) { Text("ثبت") }
             },

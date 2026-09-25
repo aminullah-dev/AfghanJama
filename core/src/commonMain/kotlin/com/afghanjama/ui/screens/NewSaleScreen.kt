@@ -65,7 +65,9 @@ import com.afghanjama.ui.components.AppScreen
 import com.afghanjama.ui.components.BusyButton
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.data.Margin
+import com.afghanjama.data.EntryGuard
 import com.afghanjama.data.PriceAdvisor
+import com.afghanjama.ui.components.GuardDialog
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.format.fa
@@ -87,6 +89,16 @@ fun NewSaleScreen(
     val ui by vm.ui.collectAsState()
     val stock by vm.stock.collectAsState()
     val pricing by vm.pricing.collectAsState()
+    // نگهبانِ خطا — قیمتِ با صفرِ اضافه، یا فاکتورِ تکراری.
+    var warnings by remember { mutableStateOf<List<EntryGuard.Warning>>(emptyList()) }
+    if (warnings.isNotEmpty()) {
+        GuardDialog(
+            warnings = warnings,
+            onConfirm = { warnings = emptyList(); vm.save() },
+            onUse = { vm.useSuggestion(it); warnings = emptyList() },
+            onDismiss = { warnings = emptyList() }
+        )
+    }
     val busy by vm.busy.state.collectAsState()
 
     // کدام ردیف منتظرِ انتخابِ کالاست
@@ -362,7 +374,10 @@ fun NewSaleScreen(
                     text = if (ui.canSave)
                         "ثبت فاکتور (${ui.readyLines.fa()} ردیف • ${ui.subtotal.afn()})"
                     else "دستِ‌کم یک ردیفِ کامل لازم است",
-                    onClick = vm::save,
+                    onClick = {
+                        val w = vm.guard()
+                        if (w.isEmpty()) vm.save() else warnings = w
+                    },
                     enabled = ui.canSave,
                     busy = busy,
                     modifier = Modifier.fillMaxWidth()
