@@ -2,6 +2,7 @@
 
 package com.afghanjama.ui.screens
 
+import com.afghanjama.ui.vm.Feature
 import com.afghanjama.util.currentHour
 import com.afghanjama.util.nowMillis
 import androidx.compose.foundation.BorderStroke
@@ -133,7 +134,14 @@ fun HomeDashboardScreen(
     onGoRecurring: () -> Unit,
     onGoGuide: () -> Unit,
     onGoWorkshopLink: () -> Unit,
-    onGoBoard: () -> Unit
+    onGoBoard: () -> Unit,
+    /**
+     * آیا این نفر به این بخش راه دارد؟ — از تیک‌های مدیر.
+     *
+     * پیش‌فرض همان رفتارِ قبلی است (مدیر همه، بقیه هیچ) تا صداکننده‌ای
+     * که هنوز این را نمی‌دهد چیزی را بی‌اجازه نشان ندهد.
+     */
+    can: (Feature) -> Boolean = { isManager }
 ) {
     val s by vm.summary.collectAsState()
     val runningOut by vm.runningOut.collectAsState()
@@ -155,46 +163,46 @@ fun HomeDashboardScreen(
 
     // انبار: موجودی، گردش و پیشنهادِ خرید — همه‌چیزِ «چه داریم»
     val warehouse = buildList {
-        add(HomeAction("انبار مواد", Icons.Default.Warehouse, onGoWarehouse))
-        if (isManager) add(HomeAction("انبار محصول", Icons.Default.Sell, onGoFinishedSales))
-        if (isManager) add(HomeAction("گردش انبار", Icons.Default.History, onGoStockLedger))
-        if (isManager) add(HomeAction("پیشنهاد خرید", Icons.Default.AddShoppingCart, onGoPurchasePlan))
+        if (can(Feature.WAREHOUSE)) add(HomeAction("انبار مواد", Icons.Default.Warehouse, onGoWarehouse))
+        if (can(Feature.SALES)) add(HomeAction("انبار محصول", Icons.Default.Sell, onGoFinishedSales))
+        if (can(Feature.WAREHOUSE)) add(HomeAction("گردش انبار", Icons.Default.History, onGoStockLedger))
+        if (can(Feature.PROCUREMENT)) add(HomeAction("پیشنهاد خرید", Icons.Default.AddShoppingCart, onGoPurchasePlan))
     }
 
     // تولید: از سفارش تا تحویل
     val production = buildList {
-        if (isManager) add(HomeAction("خط تولید", Icons.Default.Checkroom, onGoProduction))
-        add(HomeAction("تابلوی دوخت", Icons.Default.Monitor, onGoBoard))
+        if (can(Feature.ORDERS)) add(HomeAction("خط تولید", Icons.Default.Checkroom, onGoProduction))
+        if (can(Feature.BOARD)) add(HomeAction("تابلوی دوخت", Icons.Default.Monitor, onGoBoard))
         if (canBuyMaterial) add(HomeAction("خرید مواد", Icons.Default.ShoppingCart, onGoProcurement))
     }
 
     // مشتریان و سفارش
     val customerFlow = buildList {
         if (canSeeCustomers) add(HomeAction("مشتریان", Icons.Default.Group, onGoCustomers))
-        if (isManager) add(HomeAction("آمادهٔ تحویل", Icons.Default.LocalShipping, onGoDeliveryQueue))
+        if (can(Feature.DELIVERY)) add(HomeAction("آمادهٔ تحویل", Icons.Default.LocalShipping, onGoDeliveryQueue))
     }
 
     // عمومی
     val general = buildList {
         if (!isManager) add(HomeAction("کارِ من", Icons.Default.AssignmentInd, onGoMyWork))
-        if (isManager) add(HomeAction("مرکز هشدار", Icons.Default.NotificationsActive, onGoActionCenter))
-        if (isManager) add(HomeAction("حضور و غیاب", Icons.Default.Fingerprint, onGoAttendance))
-        if (isManager) add(HomeAction("حقوق کارکنان", Icons.Default.Badge, onGoPayroll))
-        if (isManager) add(HomeAction("کارنامهٔ کارکنان", Icons.Default.WorkspacePremium, onGoPerformance))
-        if (isManager) add(HomeAction("مالی", Icons.Default.Payments, onGoFinance))
-        if (isManager) add(HomeAction("دفتر کل", Icons.Default.AccountBalance, onGoLedger))
+        if (can(Feature.AUDIT)) add(HomeAction("مرکز هشدار", Icons.Default.NotificationsActive, onGoActionCenter))
+        if (can(Feature.ATTENDANCE)) add(HomeAction("حضور و غیاب", Icons.Default.Fingerprint, onGoAttendance))
+        if (can(Feature.PAYROLL)) add(HomeAction("حقوق کارکنان", Icons.Default.Badge, onGoPayroll))
+        if (can(Feature.PAYROLL)) add(HomeAction("کارنامهٔ کارکنان", Icons.Default.WorkspacePremium, onGoPerformance))
+        if (can(Feature.FINANCE)) add(HomeAction("مالی", Icons.Default.Payments, onGoFinance))
+        if (can(Feature.LEDGER)) add(HomeAction("دفتر کل", Icons.Default.AccountBalance, onGoLedger))
         // کنارِ دفتر کل، چون هر دو دربارهٔ پولی‌اند که خودبه‌خود
         // حرکت می‌کند، نه پولی که سرِ یک معامله جابه‌جا می‌شود.
-        if (isManager) add(HomeAction("هزینه‌های ثابت", Icons.Default.EventRepeat, onGoRecurring))
-        if (isManager) add(HomeAction("اسناد", Icons.Default.Description, onGoDocuments))
-        if (isManager) add(HomeAction("گزارش‌ها", Icons.Default.Assessment, onGoReports))
-        if (isManager) add(HomeAction("رویدادها", Icons.Default.FactCheck, onGoAudit))
+        if (can(Feature.FINANCE)) add(HomeAction("هزینه‌های ثابت", Icons.Default.EventRepeat, onGoRecurring))
+        if (can(Feature.FINANCE)) add(HomeAction("اسناد", Icons.Default.Description, onGoDocuments))
+        if (can(Feature.FINANCE)) add(HomeAction("گزارش‌ها", Icons.Default.Assessment, onGoReports))
+        if (can(Feature.AUDIT)) add(HomeAction("رویدادها", Icons.Default.FactCheck, onGoAudit))
         add(HomeAction("جستجو", Icons.Default.Search, onGoSearch))
         add(HomeAction("تنظیمات", Icons.Default.Settings, onGoSettings))
         add(HomeAction("قیمت‌دهی", Icons.Default.Calculate, onGoQuoteCalc))
         // کنارِ قیمت‌دهی و نه جای دیگر: هر دو سرِ گرفتنِ سفارش لازم
         // می‌شوند — یکی «چند می‌گیرم» و دیگری «تا کِی می‌رسانم».
-        if (isManager) add(HomeAction("بارِ کارگاه", Icons.Default.Speed, onGoWorkshopLoad))
+        if (can(Feature.BOARD)) add(HomeAction("بارِ کارگاه", Icons.Default.Speed, onGoWorkshopLoad))
         add(HomeAction("راهنما", Icons.AutoMirrored.Filled.HelpOutline, onGoGuide))
         add(HomeAction("اشتراک کارگاه", Icons.Default.Wifi, onGoWorkshopLink))
     }
@@ -251,7 +259,7 @@ fun HomeDashboardScreen(
         }
 
         // ---------- پرداخت و دریافتِ سریع ----------
-        if (isManager) {
+        if (can(Feature.FINANCE)) {
             item(span = { fullSpan() }) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     MoneyButton(
@@ -287,7 +295,7 @@ fun HomeDashboardScreen(
         }
 
         // ---------- بنر مرکز هشدار (وقتی موردی نیاز به رسیدگی دارد) ----------
-        if (isManager && !action.allClear) {
+        if (can(Feature.AUDIT) && !action.allClear) {
             item(span = { fullSpan() }) {
                 val urgent = action.urgent > 0
                 Card(
@@ -473,11 +481,15 @@ fun HomeDashboardScreen(
 
         item { StatCard("در تولید", s.inProduction.fa(), "سفارش در جریان") }
         item { StatCard("انبار محصول", s.finishedPieces.fa(), "عدد آماده فروش") }
-        item { StatCard("کیف پول", s.wallet.afn(), "موجودی نقد", money = true, amount = s.wallet) }
-        item { StatCard("بانک", s.bank.afn(), "موجودی بانک", money = true, amount = s.bank) }
+        // موجودیِ صندوق و بانک فقط برای کسی که تیکِ مالی دارد. تا امروز هر
+        // نقشی — خیاط و فروشنده هم — صندوقِ کارگاه را روی خانه می‌دید.
+        if (can(Feature.FINANCE)) {
+            item { StatCard("کیف پول", s.wallet.afn(), "موجودی نقد", money = true, amount = s.wallet) }
+            item { StatCard("بانک", s.bank.afn(), "موجودی بانک", money = true, amount = s.bank) }
+        }
 
         // ---------- ضربان خط تولید ----------
-        if (isManager && s.inProduction > 0) {
+        if (can(Feature.ORDERS) && s.inProduction > 0) {
             item(span = { fullSpan() }) {
                 Card(
                     onClick = onGoProduction,

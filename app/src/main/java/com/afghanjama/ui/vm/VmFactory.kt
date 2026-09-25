@@ -57,6 +57,7 @@ class VmFactory(
             ReportsViewModel::class.java -> ReportsViewModel(repo)
             JournalViewModel::class.java -> JournalViewModel(repo)
             SampleWorkshopViewModel::class.java -> SampleWorkshopViewModel(repo)
+            UsersViewModel::class.java -> UsersViewModel(settings, repo)
             FinishedSaleViewModel::class.java -> FinishedSaleViewModel(repo)
             CustomersViewModel::class.java -> CustomersViewModel(repo)
             CustomerDetailViewModel::class.java -> CustomerDetailViewModel(repo)

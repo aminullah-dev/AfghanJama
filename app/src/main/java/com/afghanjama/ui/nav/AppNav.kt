@@ -50,6 +50,10 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.afghanjama.data.SampleWorkshop
 import com.afghanjama.ui.screens.ActionCenterScreen
+import com.afghanjama.ui.vm.UsersViewModel
+import com.afghanjama.ui.vm.RouteAccess
+import com.afghanjama.ui.screens.UsersScreen
+import com.afghanjama.ui.components.NoAccessNotice
 import com.afghanjama.ui.screens.AttendanceScreen
 import com.afghanjama.ui.screens.AuditScreen
 import com.afghanjama.ui.screens.BoardScreen
@@ -215,6 +219,9 @@ fun AppNav(factory: ViewModelProvider.Factory) {
 
     val start = when {
         !authUi.isLoggedIn -> Routes.LOGIN
+        // کاربرِ شخصی از خانه شروع می‌کند؛ خانه فقط کاشی‌هایی را نشان
+        // می‌دهد که تیک دارد.
+        authUi.userId != null -> Routes.HOME
         else -> when (authUi.role) {
             UserRole.MANAGER -> Routes.POST_LOGIN
             UserRole.PURCHASE -> Routes.HOME
@@ -224,7 +231,7 @@ fun AppNav(factory: ViewModelProvider.Factory) {
         }
     }
 
-    val bottomItems = bottomItemsFor(authUi.role)
+    val bottomItems = bottomItemsFor(authUi.role, authUi.access)
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
 
@@ -338,7 +345,7 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                 LoginScreen(
                     vm = authVm,
                     onLoggedIn = {
-                        val next = when (authVm.ui.value.role) {
+                        val next = if (authVm.ui.value.userId != null) Routes.HOME else when (authVm.ui.value.role) {
                             UserRole.MANAGER -> Routes.POST_LOGIN
                             UserRole.PURCHASE -> Routes.HOME
                             UserRole.SEWING -> Routes.SEWING
@@ -402,7 +409,8 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                     onGoRecurring = { navController.navigate(Routes.RECURRING) },
                     onGoGuide = { navController.navigate(Routes.GUIDE) },
                     onGoWorkshopLink = { navController.navigate(Routes.WORKSHOP_LINK) },
-                    onGoBoard = { navController.navigate(Routes.BOARD) }
+                    onGoBoard = { navController.navigate(Routes.BOARD) },
+                    can = { authUi.access.has(it) }
                 )
             }
 
@@ -669,6 +677,11 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                 )
             }
 
+            composable(Routes.USERS) {
+                val usersVm = viewModel<UsersViewModel>(vmOwner, factory = factory)
+                UsersScreen(vm = usersVm, onBack = { navController.popBackStack() })
+            }
+
             composable(Routes.SAMPLE_WORKSHOP) {
                 val sampleVm = viewModel<SampleWorkshopViewModel>(vmOwner, factory = factory)
                 SampleWorkshopScreen(
@@ -734,6 +747,7 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                     onGoMaster = { navController.navigate(Routes.MASTER) },
                     onGoSelfTest = { navController.navigate(Routes.SELF_TEST) },
                     onGoSampleWorkshop = { navController.navigate(Routes.SAMPLE_WORKSHOP) },
+                    onGoUsers = { navController.navigate(Routes.USERS) },
                     onLoggedOut = {
                         navController.navigate(Routes.LOGIN) {
                             popUpTo(0) { inclusive = true }
@@ -843,6 +857,24 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                 )
             }
 
+        }
+
+        /*
+         * پردهٔ «دسترسی ندارید» — روی هر صفحه‌ای که این نفر تیکش را ندارد.
+         *
+         * به هر صفحه از چند راه می‌شود رسید (نوار، کاشی، هشدار، چیپِ مرحله،
+         * جست‌وجو)؛ پنهان کردنِ دکمه‌ها همه را نمی‌بندد، این پرده می‌بندد.
+         */
+        if (authUi.isLoggedIn && !RouteAccess.canOpen(authUi.access, currentRoute)) {
+            NoAccessNotice(
+                onHome = {
+                    navController.navigate(Routes.HOME) {
+                        popUpTo(navController.graph.findStartDestination().id) { inclusive = false }
+                        launchSingleTop = true
+                    }
+                },
+                modifier = Modifier.padding(pad)
+            )
         }
     }
 }

@@ -59,5 +59,8 @@ object Routes {
     /** کارگاهِ نمونه — ورودی‌اش در تنظیمات است. */
     const val SAMPLE_WORKSHOP = "sample_workshop"
     const val SEARCH = "search"
+
+    /** کاربران و دسترسی‌ها — فقط مدیر. */
+    const val USERS = "users"
     const val ORDER_DETAIL = "order_detail"
 }

@@ -107,6 +107,12 @@ import com.afghanjama.ui.vm.SelfTestViewModel
 import com.afghanjama.ui.vm.SewingViewModel
 import com.afghanjama.ui.vm.Permissions
 import com.afghanjama.ui.vm.UserRole
+import com.afghanjama.prefs.LocalSettings
+import com.afghanjama.ui.components.NoAccessNotice
+import com.afghanjama.ui.screens.UsersScreen
+import com.afghanjama.ui.vm.UsersViewModel
+import com.afghanjama.ui.vm.Feature
+import com.afghanjama.ui.vm.Access
 import com.afghanjama.ui.vm.JournalViewModel
 import com.afghanjama.ui.vm.SampleWorkshopViewModel
 import com.afghanjama.ui.vm.WarehouseViewModel
@@ -172,6 +178,7 @@ internal enum class Section(val title: String) {
     ShopProfile("پروفایل کارگاه"),
     SelfTest("خودآزمایی و سلامتِ داده"),
     SampleShop("کارگاهِ نمونه"),
+    Users("کاربران و دسترسی‌ها"),
     WorkshopLink("اشتراکِ کارگاه"),
     Backup("پشتیبان و بازیابی"),
     QuoteCalc("قیمت‌دهی"),
@@ -191,7 +198,12 @@ internal enum class Section(val title: String) {
  * همان کد**، از `:core`. هیچ نسخهٔ ویندوزیِ جداگانه‌ای از آن‌ها نیست.
  */
 @Composable
-fun Shell(repo: Repo?, role: UserRole = UserRole.MANAGER) {
+fun Shell(
+    repo: Repo?,
+    role: UserRole = UserRole.MANAGER,
+    /** تیک‌های این نفر — نوارِ کناری فقط بخش‌هایی را نشان می‌دهد که دارد. */
+    access: Access = Access.forRole(role)
+) {
     var section by remember { mutableStateOf(Section.Overview) }
     // جزئیاتِ مشتری بخشِ نوار نیست؛ از دلِ «خریداران» باز می‌شود و با
     // «برگشت» بسته. پس یک حالتِ کوچک کنارِ بخشِ جاری کافی است.
@@ -212,7 +224,7 @@ fun Shell(repo: Repo?, role: UserRole = UserRole.MANAGER) {
 
     Row(Modifier.fillMaxSize().background(Bg)) {
         // در چیدمانِ راست‌به‌چپ، اولین عضوِ Row سمتِ راست می‌نشیند.
-        Sidebar(section) {
+        Sidebar(section, access) {
             section = it
             openCustomer = null
             openOrder = null
@@ -239,6 +251,9 @@ fun Shell(repo: Repo?, role: UserRole = UserRole.MANAGER) {
                     onBack = { openCustomer = null },
                     onOpenOrder = { openOrder = it.toString() }
                 )
+            } else if (!section.allowedFor(access)) {
+                // از هشدار یا پیوندی به بخشی رسیده که تیکش را ندارد.
+                NoAccessNotice(onHome = { section = Section.Overview })
             } else {
                 SectionContent(
                     section = section,
@@ -261,6 +276,43 @@ fun Shell(repo: Repo?, role: UserRole = UserRole.MANAGER) {
  * ناچار بود فهرستِ خودش را نگه دارد و آن دو روزی از هم می‌افتادند —
  * یعنی صفحه‌ای اضافه می‌شد و بی‌آزمون به کارگاه می‌رفت.
  */
+/**
+ * این نفر به این بخشِ نوارِ کناری راه دارد؟ — همان تیک‌هایی که گوشی
+ * می‌خوانَد (`RouteAccess`).
+ *
+ * `when` عمداً کامل است و `else` ندارد: بخشِ تازه‌ای که کسی فراموش کند
+ * اینجا تصمیمش را بگیرد، کامپایل نمی‌شود — نه اینکه بی‌صدا به همه نشان
+ * داده شود. تا دیروز نوارِ کناری همهٔ بخش‌ها را به هر نقشی نشان می‌داد.
+ */
+internal fun Section.allowedFor(access: Access): Boolean {
+    if (access.isManager) return true
+    val need: Feature = when (this) {
+        Section.Overview, Section.OrderSearch, Section.MyWork,
+        Section.WorkshopLink, Section.QuoteCalc, Section.Guide -> return true
+        Section.ActionCenter, Section.Audit -> Feature.AUDIT
+        Section.Board, Section.WorkshopLoad -> Feature.BOARD
+        Section.Inventory, Section.ProductionOrder -> Feature.ORDERS
+        Section.Cutting -> Feature.CUTTING
+        Section.Sewing -> Feature.SEWING
+        Section.Review -> Feature.REVIEW
+        Section.DeliveryQueue -> Feature.DELIVERY
+        Section.Warehouse, Section.StockLedger -> Feature.WAREHOUSE
+        Section.FinishedWarehouse, Section.NewSale -> Feature.SALES
+        Section.Procurement, Section.PurchasePlan, Section.PurchaseReturn -> Feature.PROCUREMENT
+        Section.DailyTrade, Section.Finance, Section.MoneyMove, Section.Documents,
+        Section.Reports, Section.Journal, Section.Recurring -> Feature.FINANCE
+        Section.Customers -> Feature.CUSTOMERS
+        Section.Ledger -> Feature.LEDGER
+        Section.Payroll, Section.Performance -> Feature.PAYROLL
+        Section.Attendance -> Feature.ATTENDANCE
+        Section.MasterData -> Feature.MASTER
+        Section.Backup -> Feature.BACKUP
+        // فقط مدیر
+        Section.ShopProfile, Section.SelfTest, Section.SampleShop, Section.Users -> return false
+    }
+    return access.has(need)
+}
+
 /**
  * ترجمهٔ مسیرِ اندرویدی به بخشِ نوارِ کناری.
  *
@@ -294,6 +346,7 @@ internal fun sectionForRoute(route: String): Section? = when (route) {
     Routes.REPORTS -> Section.Reports
     Routes.JOURNAL -> Section.Journal
     Routes.SAMPLE_WORKSHOP -> Section.SampleShop
+    Routes.USERS -> Section.Users
     Routes.SEWING -> Section.Sewing
     Routes.REVIEW -> Section.Review
     Routes.MY_WORK -> Section.MyWork
@@ -509,6 +562,12 @@ internal fun SectionContent(
             SampleWorkshopScreen(vm, onBack = back)
         }
 
+        Section.Users -> {
+            val settings = LocalSettings.current
+            val vm: UsersViewModel = viewModel { UsersViewModel(settings, repo) }
+            UsersScreen(vm, onBack = back)
+        }
+
         Section.Journal -> {
             val vm: JournalViewModel = viewModel { JournalViewModel(repo) }
             JournalScreen(vm, onBack = back)
@@ -608,7 +667,7 @@ internal fun SectionContent(
 }
 
 @Composable
-private fun Sidebar(current: Section, onPick: (Section) -> Unit) {
+private fun Sidebar(current: Section, access: Access, onPick: (Section) -> Unit) {
     Column(
         Modifier
             .width(210.dp)
@@ -632,7 +691,7 @@ private fun Sidebar(current: Section, onPick: (Section) -> Unit) {
             )
         }
 
-        Section.entries.forEach { s ->
+        Section.entries.filter { it.allowedFor(access) }.forEach { s ->
             val selected = s == current
             Box(
                 Modifier

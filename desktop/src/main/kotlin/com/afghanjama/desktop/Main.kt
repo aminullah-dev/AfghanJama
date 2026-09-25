@@ -144,7 +144,7 @@ fun main() = application {
                     // می‌شود و بازترکیب صفحه را رد می‌کند.
                     LoginScreen(authVm, onLoggedIn = {})
                 } else {
-                    Shell(DesktopLedger.repo().getOrNull(), auth.role)
+                    Shell(DesktopLedger.repo().getOrNull(), auth.role, auth.access)
                 }
             }
         }
