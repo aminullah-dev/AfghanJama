@@ -15,6 +15,7 @@ import com.afghanjama.data.entities.WorkCost
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.ui.format.decimalOnly
 import com.afghanjama.ui.format.digitsOnly
+import com.afghanjama.work.DeliveryForecast
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -87,6 +88,18 @@ class ProductionViewModel(private val repo: Repo) : ViewModel() {
         repo.observeCustomers()
             .map { list -> list.map { it.name } }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * پیش‌بینیِ تحویل — کنارِ مهلت می‌گوید این سفارش با کارهای فعلی کِی
+     * واقعاً آماده می‌شود، و آیا سفارشِ دیگری را عقب می‌اندازد. همان
+     * جریانی که صفحهٔ «بارِ کارگاه» می‌خوانَد.
+     */
+    val forecast: StateFlow<DeliveryForecast.Result> =
+        forecastFlow(repo).stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            DeliveryForecast.of(emptyList(), emptyList(), nowMillis())
+        )
 
     /** مواد موجود در انبار برای انتخاب. */
     val materials: StateFlow<List<MaterialStock>> =

@@ -72,6 +72,8 @@ import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.format.fa
+import com.afghanjama.work.DeliveryForecast
+import kotlin.math.ceil
 import com.afghanjama.ui.vm.OrderHandout
 import com.afghanjama.ui.vm.SewingViewModel
 
@@ -98,6 +100,10 @@ fun SewingScreen(
     val tailors by vm.tailors.collectAsState()
     val allAssignments by vm.allAssignments.collectAsState()
     val pendingWages by vm.pendingWages.collectAsState()
+    // کارِ زیرِ دستِ هر خیاط با سرعتِ خودش — همان حسابِ «بارِ کارگاه».
+    val loads = remember(allAssignments) {
+        DeliveryForecast.of(emptyList(), allAssignments, nowMillis()).tailors.associateBy { it.tailor }
+    }
     val goReview by vm.goReview.collectAsState()
 
     // فقط وقتی چیزی واقعاً به نظارت رفت. اگر بی‌قیدوشرط جابه‌جا شویم،
@@ -157,7 +163,10 @@ fun SewingScreen(
                             HandoutCard(
                                 handout = h,
                                 designCode = designCodeByOrder[h.order.orderCode].orEmpty(),
-                                tailorLabels = tailors.map { "[${it.code}] ${it.name}" },
+                                // کم‌کارترین بالا؛ کسی که سرعتش هنوز معلوم نیست ته.
+                                tailorLabels = tailors.map { "[${it.code}] ${it.name}" }
+                                    .sortedBy { loads[it]?.daysOfWork ?: Double.MAX_VALUE },
+                                loads = loads,
                                 measurements = measurementsByOrder[h.order.orderCode].orEmpty(),
                                 onHandout = { label, qty, wage -> vm.handout(h.order.id, label, qty, wage) },
                                 onCancelAssignment = { vm.cancelAssignment(it) },
@@ -350,11 +359,29 @@ private fun EmptyCard(title: String, subtitle: String) {
     }
 }
 
+/**
+ * «این خیاط چقدر کار دارد؟» — کنارِ نامش در فهرستِ تحویل.
+ *
+ * تا دیروز فهرست فقط نام بود و کارِ تازه به کسی می‌رفت که اول به یاد
+ * می‌آمد؛ یکی زیرِ کار می‌ماند و دیگری بیکار.
+ */
+private fun loadLine(l: DeliveryForecast.TailorLoad?): String {
+    if (l == null) return "سرعتش هنوز معلوم نیست"
+    val days = l.daysOfWork
+    return when {
+        days == null && l.inHand > 0 -> "${l.inHand.fa()} دست زیرِ دست — سرعتش هنوز معلوم نیست"
+        days == null -> "سرعتش هنوز معلوم نیست"
+        l.inHand == 0 -> "دستش خالی است"
+        else -> "${l.inHand.fa()} دست زیرِ دست — حدودِ ${ceil(days).toInt().fa()} روز کار"
+    }
+}
+
 @Composable
 private fun HandoutCard(
     handout: OrderHandout,
     designCode: String,
     tailorLabels: List<String>,
+    loads: Map<String, DeliveryForecast.TailorLoad>,
     measurements: List<Pair<String, String>>,
     onHandout: (String, Int, Long) -> Unit,
     onCancelAssignment: (Long) -> Unit,
@@ -451,7 +478,19 @@ private fun HandoutCard(
                         )
                     } else {
                         tailorLabels.forEach { label ->
-                            AppDropdownMenuItem(text = { Text(label) }, onClick = { tailor = label; menuOpen = false })
+                            AppDropdownMenuItem(
+                                text = {
+                                    Column {
+                                        Text(label)
+                                        Text(
+                                            loadLine(loads[label]),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                },
+                                onClick = { tailor = label; menuOpen = false }
+                            )
                         }
                     }
                 }

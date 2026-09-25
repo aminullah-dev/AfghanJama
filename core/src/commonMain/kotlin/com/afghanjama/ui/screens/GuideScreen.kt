@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.PhoneInTalk
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.RocketLaunch
@@ -146,6 +147,19 @@ fun GuideScreen(onBack: () -> Unit) {
                         "اول قولِ شکسته، بعد قولِ امروز، بعد قسطِ گذشته، بعد بدهیِ دوهفته‌ای.",
                         "«تماس» شماره را می‌گیرد، «پیام» متنِ آماده می‌فرستد، «نتیجه» قول را با روزش ثبت می‌کند.",
                         "کسی که قول داده تا آن روز زنگ نمی‌خورد؛ اگر نداد، خودش بالای فهرست برمی‌گردد."
+                    )
+                )
+            }
+
+            item {
+                GuideCard(
+                    icon = Icons.Default.Speed,
+                    title = "پیش‌بینیِ تحویل",
+                    lines = listOf(
+                        "سرعتِ واقعیِ کارگاه از دوخت‌های ۳۰ روزِ گذشته سنجیده می‌شود؛ بی تاریخچه، حدسی زده نمی‌شود.",
+                        "سفارشِ تازه: زیرِ مهلت می‌گوید کِی واقعاً آماده می‌شود و آیا سفارشِ دیگری را دیر می‌کند.",
+                        "«مهلتِ مطمئن» زودترین مهلتی است که هیچ سفارشی دیر نشود.",
+                        "«بارِ کارگاه» سفارش‌هایی را که دیر می‌شوند پیش از گذشتنِ مهلت نشان می‌دهد، و کارِ هر خیاط را."
                     )
                 )
             }

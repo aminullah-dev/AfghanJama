@@ -610,6 +610,36 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
             }
         }
 
+    /**
+     * سفارش‌هایی که هنوز مهلت دارند ولی با سرعتِ فعلی دیر آماده می‌شوند.
+     *
+     * هشدارِ «از مهلت گذشته» وقتی روشن می‌شد که دیگر کاری نمی‌شد کرد.
+     * این یکی چند روز زودتر می‌گوید — وقتی هنوز می‌شود کار را جابه‌جا
+     * کرد، خیاطِ دیگری را آورد، یا به مشتری زودتر خبر داد. `WARN` است نه
+     * `URGENT`: پیش‌بینی است، نه اتفاقِ افتاده.
+     */
+    private val lateForecastAlerts: Flow<List<Alert>> =
+        forecastFlow(repo).map { f ->
+            val risk = f.atRisk
+            buildList {
+                if (risk.isNotEmpty()) {
+                    val worst = risk.first()
+                    add(
+                        Alert(
+                            id = "late_forecast",
+                            severity = AlertSeverity.WARN,
+                            icon = Icons.Default.Schedule,
+                            title = "${risk.size.fa()} سفارش با سرعتِ فعلی دیر آماده می‌شود",
+                            detail = "بدترین: ${worst.order.orderCode}" +
+                                (if (worst.order.customerName.isNotBlank()) " (${worst.order.customerName})" else "") +
+                                " — حدودِ ${worst.lateDays.fa()} روز بعد از مهلت",
+                            route = Routes.WORKSHOP_LOAD
+                        )
+                    )
+                }
+            }
+        }
+
     val ui: StateFlow<ActionCenterUi> =
         combine(
             coreAlerts,
@@ -620,7 +650,7 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
             // شش‌تا پیش از رسیدن به آنجا یکی می‌شوند.
             combine(
                 staleAlerts, followUpAlerts, deliveryAlerts, recurringAlerts,
-                combine(financeAlerts, productAlerts) { f, p -> f + p }
+                combine(financeAlerts, productAlerts, lateForecastAlerts) { f, p, l -> f + p + l }
             ) { stale, inst, deliv, rec, smart ->
                 stale + inst + deliv + rec + smart
             }

@@ -58,6 +58,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import com.afghanjama.ui.format.PersianDate
+import com.afghanjama.work.DeliveryForecast
+import com.afghanjama.work.WorkshopLoad
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.format.toPersianDigits
@@ -86,6 +88,7 @@ fun ProductionOrderScreen(
     val sizes by vm.sizes.collectAsState()
     val designCounts by vm.designCounts.collectAsState()
     val workCosts by vm.workCosts.collectAsState()
+    val forecast by vm.forecast.collectAsState()
 
     var pickerOpen by remember { mutableStateOf(false) }
     var designMenu by remember { mutableStateOf(false) }
@@ -301,6 +304,15 @@ fun ProductionOrderScreen(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        // پیش‌بینیِ واقعی کنارِ قول — پیش از آنکه به مشتری گفته شود.
+                        ui.qty.toIntOrNull()?.takeIf { it > 0 }?.let { q ->
+                            DeliveryHint(
+                                forecast = forecast,
+                                qty = q,
+                                dueDays = ui.dueDays.toLongOrNull()?.takeIf { it > 0 },
+                                onUseDays = { vm.setDueDays(it.toString()) }
                             )
                         }
 
@@ -711,4 +723,64 @@ fun ProductionOrderScreen(
         )
     }
 
+}
+
+/**
+ * «کِی واقعاً آماده می‌شود؟» — زیرِ مهلتِ سفارشِ تازه.
+ *
+ * **چرا اینجا و نه فقط در «بارِ کارگاه».** قول سرِ همین فرم داده
+ * می‌شود؛ صفحه‌ای که باید جداگانه باز شود، سرِ صحبت با مشتری باز
+ * نمی‌شود. تا دیروز مهلت عددی دلخواه بود — «۷ روز» — و هیچ‌چیز
+ * نمی‌گفت کارگاه با کارهای در دستش واقعاً به آن می‌رسد یا نه.
+ *
+ * بی تاریخچهٔ دوخت چیزی نشان نمی‌دهد؛ حدس نمی‌زند.
+ */
+@Composable
+private fun DeliveryHint(
+    forecast: DeliveryForecast.Result,
+    qty: Int,
+    dueDays: Long?,
+    onUseDays: (Int) -> Unit
+) {
+    if (!forecast.hasData) return
+    // مبدأ همان لحظهٔ خودِ پیش‌بینی است، نه ساعتِ هر بار کشیدنِ صفحه —
+    // وگرنه `remember` زیرش با هر ضربهٔ کلید از نو حساب می‌کرد.
+    val due = dueDays?.let { forecast.now + it * 86_400_000L } ?: 0L
+    val hit = remember(forecast, qty, due) { forecast.impactOf(qty, due) } ?: return
+    val safe = remember(forecast, qty) { forecast.earliestSafeDays(qty) }
+    val late = hit.lateDays > 0
+    val pushes = hit.pushedLate
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            if (late) "با کارهای فعلی حدودِ ${PersianDate.short(hit.readyAt)} آماده می‌شود — " +
+                "${hit.lateDays.fa()} روز بعد از این مهلت."
+            else "با کارهای فعلی حدودِ ${PersianDate.short(hit.readyAt)} آماده می‌شود.",
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = if (late) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (late) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+        )
+        if (pushes.isNotEmpty()) {
+            Text(
+                "این مهلت ${pushes.size.fa()} سفارشِ دیگر را دیر می‌کند: " +
+                    pushes.take(3).joinToString("، ") { it.order.orderCode } +
+                    if (pushes.size > 3) "…" else "",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+        if (safe != null && (late || pushes.isNotEmpty() || dueDays == null) && safe.toLong() != dueDays) {
+            AssistChip(
+                onClick = { onUseDays(safe) },
+                label = { Text("مهلتِ مطمئن: ${safe.fa()} روز") }
+            )
+        }
+        Text(
+            "بر پایهٔ سرعتِ واقعیِ کارگاه در ${WorkshopLoad.WINDOW_DAYS.fa()} روزِ گذشته و " +
+                "${forecast.queuePieces.fa()} دستِ در صف.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
 }
