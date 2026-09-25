@@ -42,8 +42,15 @@ class CustomersViewModel(private val repo: Repo) : ViewModel() {
                 .sortedWith(compareByDescending<CustomerRow> { it.balance }.thenBy { it.customer.name })
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    fun addCustomer(name: String, phone: String) = viewModelScope.launch {
+    fun addCustomer(name: String, phone: String, address: String = "") = viewModelScope.launch {
         if (name.isBlank()) return@launch
-        repo.addCustomer(Customer(id = 0L, name = name.trim(), phone = phone.trim().ifBlank { null }))
+        repo.addCustomer(
+            Customer(
+                id = 0L,
+                name = name.trim(),
+                phone = phone.trim().ifBlank { null },
+                address = address.trim()
+            )
+        )
     }
 }

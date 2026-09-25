@@ -201,8 +201,8 @@ interface MasterDataDao {
     @Query("SELECT * FROM customers WHERE id = :id LIMIT 1")
     suspend fun findCustomerById(id: Long): Customer?
 
-    @Query("UPDATE customers SET name = :name, phone = :phone WHERE id = :id")
-    suspend fun updateCustomer(id: Long, name: String, phone: String?)
+    @Query("UPDATE customers SET name = :name, phone = :phone, address = :address WHERE id = :id")
+    suspend fun updateCustomer(id: Long, name: String, phone: String?, address: String)
 
     /**
      * این نام در کار و حساب آمده است؟

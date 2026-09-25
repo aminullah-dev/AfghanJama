@@ -6,6 +6,7 @@
 package com.afghanjama.ui.screens
 
 import com.afghanjama.ui.components.AddButton
+import com.afghanjama.data.entities.Customer
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AssistChip
 import com.afghanjama.util.NameMatch
@@ -231,27 +232,14 @@ fun MasterDataScreen(
                         onRenameCategory = { from, to -> vm.renameDesignCategory(from, to) }
                     )
 
-                    6 -> TwoFieldListEditor(
-                        title = "بانک اطلاعات مشتریان",
-                        hint1 = "نام خریدار / فروشگاه",
-                        hint2 = "شماره تماس (اختیاری)",
-                        rows = customers.map {
-                            MasterRow(
-                                it.id,
-                                it.name + (it.phone?.let { p -> " - $p" } ?: ""),
-                                it.name,
-                                editValue2 = it.phone.orEmpty()
-                            )
-                        },
-                        onAdd = { name, phone -> vm.addCustomer(name, phone.ifBlank { null }) },
+                    6 -> CustomerEditor(
+                        customers = customers,
+                        onAdd = { name, phone, address -> vm.addCustomer(name, phone.ifBlank { null }, address) },
                         // تغییرِ نام سفارش‌ها و حسابِ مشتری را هم می‌برد؛ حذف
                         // فقط بی‌سابقه — ViewModel دلیلش را می‌گوید.
-                        onRename = { id, v ->
-                            vm.editCustomer(id, v, customers.firstOrNull { it.id == id }?.phone.orEmpty())
-                        },
+                        onEdit = { id, name, phone, address -> vm.editCustomer(id, name, phone, address) },
                         onDelete = { id -> vm.deleteCustomer(id) },
-                        onOpening = { name -> opening = "CUSTOMER" to name },
-                        onEdit = { id, name, phone -> vm.editCustomer(id, name, phone) }
+                        onOpening = { name -> opening = "CUSTOMER" to name }
                     )
 
                     // ✅ خرج کار
@@ -811,6 +799,185 @@ private fun TwoFieldListEditor(
                         color = MaterialTheme.colorScheme.outlineVariant
                     )
                 }
+            }
+        }
+    }
+}
+
+/**
+ * بانکِ مشتریان — نام، تلفن و آدرس، با ویرایش، حذف و «حساب قبلی».
+ *
+ * جدا از [TwoFieldListEditor] چون مشتری سه خانه دارد. نام از حرفِ اول
+ * با مشتری‌های موجود سنجیده می‌شود؛ نامِ عیناً تکراری ثبت نمی‌شود، چون
+ * نام کلیدِ حسابِ اوست.
+ */
+@Composable
+private fun CustomerEditor(
+    customers: List<Customer>,
+    onAdd: (String, String, String) -> Unit,
+    onEdit: (Long, String, String, String) -> Unit,
+    onDelete: (Long) -> Unit,
+    onOpening: (String) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
+    var address by remember { mutableStateOf("") }
+    var query by remember { mutableStateOf("") }
+    var editing by remember { mutableStateOf<Customer?>(null) }
+    var deleting by remember { mutableStateOf<Customer?>(null) }
+    val names = customers.map { it.name }
+    val duplicate = NameMatch.exact(name, names) != null
+    val shown = if (query.isBlank()) customers else customers.filter {
+        it.name.contains(query.trim(), ignoreCase = true) ||
+            (it.phone?.contains(query.trim()) == true)
+    }
+
+    editing?.let { c ->
+        var n by remember(c.id) { mutableStateOf(c.name) }
+        var p by remember(c.id) { mutableStateOf(c.phone.orEmpty()) }
+        var a by remember(c.id) { mutableStateOf(c.address) }
+        AppAlertDialog(
+            onDismissRequest = { editing = null },
+            title = { Text("ویرایشِ مشتری") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = n, onValueChange = { n = it },
+                        label = { Text("نام") }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = p, onValueChange = { p = it.digitsOnly() },
+                        label = { Text("شماره تماس") }, singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = a, onValueChange = { a = it },
+                        label = { Text("آدرس") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        "تغییرِ نام، سفارش‌ها و حسابِ این مشتری را هم با خودش می‌برد.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = n.isNotBlank(), onClick = {
+                    onEdit(c.id, n.trim(), p.trim(), a.trim())
+                    editing = null
+                }) { Text("ذخیره") }
+            },
+            dismissButton = { TextButton(onClick = { editing = null }) { Text("لغو") } }
+        )
+    }
+
+    deleting?.let { c ->
+        AppAlertDialog(
+            onDismissRequest = { deleting = null },
+            title = { Text("حذف «${c.name}»؟") },
+            text = {
+                Text(
+                    "مشتری و اندازه‌هایش پاک می‌شوند. مشتری‌ای که سفارش یا حساب دارد " +
+                        "حذف نمی‌شود — نامش را می‌شود عوض کرد."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { onDelete(c.id); deleting = null }) {
+                    Text("حذف", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { deleting = null }) { Text("لغو") } }
+        )
+    }
+
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        Text(
+            "بانک اطلاعات مشتریان",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.secondary
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = name, onValueChange = { name = it },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("نام خریدار / فروشگاه") },
+            singleLine = true,
+            shape = MaterialTheme.shapes.medium
+        )
+        NameSuggestions(
+            query = name,
+            names = names,
+            onPick = { picked -> query = picked; name = "" },
+            modifier = Modifier.padding(top = 4.dp)
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = phone, onValueChange = { phone = it.digitsOnly() },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("شماره تماس (اختیاری)") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+            shape = MaterialTheme.shapes.medium
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = address, onValueChange = { address = it },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("آدرس (اختیاری)") },
+            shape = MaterialTheme.shapes.medium
+        )
+        Spacer(Modifier.height(12.dp))
+        AddButton(
+            text = "افزودن",
+            onClick = {
+                if (name.isNotBlank() && !duplicate) {
+                    onAdd(name.trim(), phone.trim(), address.trim())
+                    name = ""; phone = ""; address = ""
+                }
+            },
+            enabled = name.isNotBlank() && !duplicate,
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.medium
+        )
+        Spacer(Modifier.height(16.dp))
+        ListSearchField(customers.size, query) { query = it }
+        LazyColumn(Modifier.fillMaxSize()) {
+            if (shown.isEmpty()) item { NoMatch(query) }
+            items(shown.reversed(), key = { it.id }) { c ->
+                ListItem(
+                    headlineContent = { Text(c.name) },
+                    supportingContent = {
+                        val line = listOfNotNull(
+                            c.phone?.takeIf { it.isNotBlank() },
+                            c.address.takeIf { it.isNotBlank() }
+                        ).joinToString(" • ")
+                        if (line.isNotEmpty()) {
+                            Text(
+                                line,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    },
+                    trailingContent = {
+                        Row {
+                            IconButton(onClick = { onOpening(c.name) }) {
+                                Icon(Icons.Filled.AccountBalanceWallet, contentDescription = "حساب قبلی")
+                            }
+                            IconButton(onClick = { editing = c }) {
+                                Icon(Icons.Filled.Edit, contentDescription = "ویرایش")
+                            }
+                            IconButton(onClick = { deleting = c }) {
+                                Icon(Icons.Filled.Delete, contentDescription = "حذف")
+                            }
+                        }
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                )
+                HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
             }
         }
     }

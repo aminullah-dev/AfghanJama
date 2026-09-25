@@ -105,6 +105,7 @@ fun CustomerDetailScreen(
     if (showEdit && editing != null) {
         var name by remember(editing.id) { mutableStateOf(editing.name) }
         var phone by remember(editing.id) { mutableStateOf(editing.phone.orEmpty()) }
+        var address by remember(editing.id) { mutableStateOf(editing.address) }
         AppAlertDialog(
             onDismissRequest = { showEdit = false },
             title = { Text("ویرایشِ مشتری") },
@@ -121,6 +122,11 @@ fun CustomerDetailScreen(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                         modifier = Modifier.fillMaxWidth()
                     )
+                    OutlinedTextField(
+                        value = address, onValueChange = { address = it },
+                        label = { Text("آدرس") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                     TextButton(onClick = { showEdit = false; confirmDelete = true }) {
                         Text("حذفِ این مشتری", color = MaterialTheme.colorScheme.error)
                     }
@@ -128,7 +134,7 @@ fun CustomerDetailScreen(
             },
             confirmButton = {
                 TextButton(enabled = name.isNotBlank(), onClick = {
-                    vm.edit(name, phone, onDone = { showEdit = false })
+                    vm.edit(name, phone, address, onDone = { showEdit = false })
                 }) { Text("ذخیره") }
             },
             dismissButton = { TextButton(onClick = { showEdit = false }) { Text("لغو") } }
@@ -325,6 +331,9 @@ fun CustomerDetailScreen(
                                 Icon(Icons.Default.Call, contentDescription = null)
                                 Text("  تماس: $phone", style = MaterialTheme.typography.bodyMedium)
                             }
+                        }
+                        s.customer?.address?.takeIf { it.isNotBlank() }?.let { addr ->
+                            Text("آدرس: $addr", style = MaterialTheme.typography.bodyMedium)
                         }
                         Text(
                             if (s.balance > 0) "بدهی مشتری: ${s.balance.afn()}"

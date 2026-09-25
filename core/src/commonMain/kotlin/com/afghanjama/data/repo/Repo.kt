@@ -3610,10 +3610,11 @@ class Repo(private val db: Db) {
     // صاحب می‌ماند.
     // =========================
 
-    suspend fun editCustomer(id: Long, name: String, phone: String): PersonEdit =
-        db.atomic { editCustomerTx(id, name, phone) }
+    /** [address] `null` یعنی همان نشانیِ قبلی بماند. */
+    suspend fun editCustomer(id: Long, name: String, phone: String, address: String? = null): PersonEdit =
+        db.atomic { editCustomerTx(id, name, phone, address) }
 
-    private suspend fun editCustomerTx(id: Long, name: String, phone: String): PersonEdit {
+    private suspend fun editCustomerTx(id: Long, name: String, phone: String, address: String?): PersonEdit {
         val dao = db.masterDataDao()
         val cur = dao.findCustomerById(id) ?: return PersonEdit.MISSING
         val nm = name.trim()
@@ -3633,7 +3634,7 @@ class Repo(private val db: Db) {
             moved += dao.moveCustomerFinishedSales(from, nm)
         }
         val ph = phone.trim().ifEmpty { null }
-        dao.updateCustomer(id, nm, ph)
+        dao.updateCustomer(id, nm, ph, address?.trim() ?: cur.address)
         audit(
             "ویرایشِ مشتری",
             if (nm == cur.name) "«$nm» — تلفن: ${ph ?: "—"}"

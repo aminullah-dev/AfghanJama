@@ -62,6 +62,7 @@ fun CustomersScreen(
     if (showAdd) {
         var name by remember { mutableStateOf("") }
         var phone by remember { mutableStateOf("") }
+        var address by remember { mutableStateOf("") }
         AppAlertDialog(
             onDismissRequest = { showAdd = false },
             title = { Text("مشتری جدید") },
@@ -101,12 +102,17 @@ fun CustomersScreen(
                             color = MaterialTheme.colorScheme.error
                         )
                     }
+                    OutlinedTextField(
+                        value = address, onValueChange = { address = it },
+                        label = { Text("آدرس (اختیاری)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             },
             confirmButton = {
                 val duplicate = NameMatch.exact(name, rows.map { it.customer.name }) != null
                 TextButton(enabled = name.isNotBlank() && !duplicate, onClick = {
-                    vm.addCustomer(name, phone); showAdd = false
+                    vm.addCustomer(name, phone, address); showAdd = false
                 }) { Text("افزودن") }
             },
             dismissButton = { TextButton(onClick = { showAdd = false }) { Text("لغو") } }

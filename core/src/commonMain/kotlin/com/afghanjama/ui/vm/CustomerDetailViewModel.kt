@@ -171,9 +171,9 @@ class CustomerDetailViewModel(private val repo: Repo) : ViewModel() {
      * نام و تلفن. تغییرِ نام سفارش‌ها و حسابِ مشتری را هم با خودش می‌برد؛
      * فقط به نامی که از قبل هست نمی‌رود — [PersonEdit]. [onDone] فقط وقتی صدا زده می‌شود که ثبت شد.
      */
-    fun edit(name: String, phone: String, onDone: () -> Unit) = viewModelScope.launch {
+    fun edit(name: String, phone: String, address: String, onDone: () -> Unit) = viewModelScope.launch {
         val id = customerId.value ?: return@launch
-        val r = repo.editCustomer(id, name, phone)
+        val r = repo.editCustomer(id, name, phone, address)
         if (r == PersonEdit.DONE) onDone() else _editError.value = r.message("مشتری")
     }
 

@@ -99,8 +99,15 @@ class MasterDataViewModel(private val repo: Repo) : ViewModel() {
         repo.addDesign(DesignItem(id = 0L, title = title.trim(), code = code.trim()))
     }
 
-    fun addCustomer(name: String, phone: String? = null) = viewModelScope.launch {
-        repo.addCustomer(Customer(id = 0L, name = name.trim(), phone = phone?.trim()?.ifBlank { null }))
+    fun addCustomer(name: String, phone: String? = null, address: String = "") = viewModelScope.launch {
+        repo.addCustomer(
+            Customer(
+                id = 0L,
+                name = name.trim(),
+                phone = phone?.trim()?.ifBlank { null },
+                address = address.trim()
+            )
+        )
     }
 
     /** کاری که انجام نشد و دلیلش — مثلاً نامِ مشتری‌ای که سابقه دارد. */
@@ -113,8 +120,8 @@ class MasterDataViewModel(private val repo: Repo) : ViewModel() {
     }
 
     /** نام و تلفنِ مشتری. قاعدهٔ نام و حذف در `Repo.editCustomer`. */
-    fun editCustomer(id: Long, name: String, phone: String) = viewModelScope.launch {
-        report(repo.editCustomer(id, name, phone), "مشتری")
+    fun editCustomer(id: Long, name: String, phone: String, address: String? = null) = viewModelScope.launch {
+        report(repo.editCustomer(id, name, phone, address), "مشتری")
     }
 
     fun deleteCustomer(id: Long) = viewModelScope.launch {
