@@ -107,7 +107,7 @@ class NewSaleViewModel(private val repo: Repo) : ViewModel() {
             )
                 // قیمتِ یکسان برای یک کالا در یک روز عادی است، نه تکرار.
                 .filter { it.kind != EntryGuard.Kind.DUPLICATE }
-                .onEach { w -> w.suggested?.let { lineOf.putIfAbsent(it, line.key) } }
+                .onEach { w -> w.suggested?.let { lineOf.getOrPut(it) { line.key } } }
         }
         suggestionLine = lineOf
         val customer = u.customer.trim()

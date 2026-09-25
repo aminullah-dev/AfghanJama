@@ -228,7 +228,7 @@ class ProcurementViewModel(private val repo: Repo) : ViewModel() {
                 ownLabel = "قیمتِ خریدِ معمولِ «${l.name}» (هر ${l.unit})"
             )
                 .filter { it.kind != EntryGuard.Kind.DUPLICATE }
-                .onEach { w -> w.suggested?.let { lineOf.putIfAbsent(it, idx) } }
+                .onEach { w -> w.suggested?.let { lineOf.getOrPut(it) { idx } } }
         }
         suggestionLine = lineOf
         val total = lines.sumOf { it.second.total }
