@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.PhoneInTalk
 import androidx.compose.material.icons.filled.AccountBalanceWallet
@@ -160,6 +161,19 @@ fun GuideScreen(onBack: () -> Unit) {
                         "سفارشِ تازه: زیرِ مهلت می‌گوید کِی واقعاً آماده می‌شود و آیا سفارشِ دیگری را دیر می‌کند.",
                         "«مهلتِ مطمئن» زودترین مهلتی است که هیچ سفارشی دیر نشود.",
                         "«بارِ کارگاه» سفارش‌هایی را که دیر می‌شوند پیش از گذشتنِ مهلت نشان می‌دهد، و کارِ هر خیاط را."
+                    )
+                )
+            }
+
+            item {
+                GuideCard(
+                    icon = Icons.Default.Sell,
+                    title = "پیشنهادِ قیمت",
+                    lines = listOf(
+                        "زیرِ قیمت چند عددِ زدنی می‌آید: آخرین فروش، معمول، و با سودِ معمولِ شما.",
+                        "«سودِ معمول» از فروش‌های ۶ ماهِ اخیرِ خودتان است و روی بهای امروز حساب می‌شود.",
+                        "اگر بها بالا رفته و قیمتِ همیشگی دیگر سود ندارد، قرمز می‌گوید.",
+                        "سفارشِ تازه: بهای برآوردی کنارِ قیمتِ توافقی است؛ قیمتِ زیرِ بها همان‌جا قرمز می‌شود."
                     )
                 )
             }

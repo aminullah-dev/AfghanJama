@@ -4,6 +4,7 @@ import com.afghanjama.util.nowMillis
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.afghanjama.data.CodeGen
+import com.afghanjama.data.PriceAdvisor
 import com.afghanjama.data.entities.DesignItem
 import com.afghanjama.data.entities.MaterialStock
 import com.afghanjama.data.entities.Order
@@ -19,6 +20,7 @@ import com.afghanjama.work.DeliveryForecast
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -76,6 +78,32 @@ data class ProductionUi(
 )
 
 /**
+ * بهای تمام‌شدهٔ برآوردیِ **هر عدد** از روی همین فرم — مواد و خرج‌کار.
+ *
+ * همان حسابی که ثبت انجام می‌دهد (`perPiece` در تعداد ضرب می‌شود، خرج‌کار
+ * فی‌عدد است)، فقط پیش از ثبت؛ تا قیمتِ توافقی کنارِ بها زده شود نه بعد
+ * از آن. دستمزدِ دوخت اینجا نیست چون موقعِ تحویل به خیاط تعیین می‌شود.
+ */
+fun ProductionUi.estimatedUnitCost(): Long {
+    val q = qty.toIntOrNull()?.takeIf { it > 0 } ?: return 0L
+    val all = lines.ifEmpty {
+        val a = amount.toDoubleOrNull()?.takeIf { it > 0 && pickedName.isNotBlank() }
+        if (a != null) listOf(ConsumeLine(pickedName, pickedUnit, a, amountPerPiece, pickedAvgPrice)) else emptyList()
+    }
+    val materials = all.sumOf { l -> (if (l.perPiece) l.amount * q else l.amount) * l.avgPrice }
+    return (materials / q).toLong() + workItems.filter { it.price > 0 }.sumOf { it.price }
+}
+
+/**
+ * پیشنهادِ قیمتِ سفارش: قیمت‌های توافقیِ گذشتهٔ هر طرح (هر عدد)،
+ * «سودِ معمولِ» کارگاه از فروش‌ها، و دستمزدِ دوختِ معمولِ هر طرح.
+ */
+data class OrderPricing(
+    val book: PriceAdvisor.Book = PriceAdvisor.Book(),
+    val wageByDesign: Map<String, Long> = emptyMap()
+)
+
+/**
  * ثبت سفارش تولید که مواد را از انبار عمومی مصرف می‌کند.
  * چون مواد قبلاً هنگام خرید پرداخت شده‌اند، اینجا پول دوباره کم نمی‌شود؛
  * فقط موجودی انبار کاهش می‌یابد و بهای تمام‌شده در سفارش ثبت می‌گردد.
@@ -100,6 +128,35 @@ class ProductionViewModel(private val repo: Repo) : ViewModel() {
             SharingStarted.WhileSubscribed(5_000),
             DeliveryForecast.of(emptyList(), emptyList(), nowMillis())
         )
+
+    /**
+     * پیشنهادِ قیمتِ توافقی — از سفارش‌های گذشتهٔ همین طرح و سودِ معمولِ
+     * کارگاه. سود از فروش‌ها می‌آید (`saleBookFlow`)، همان درصدی که
+     * فاکتورِ فروش نشان می‌دهد.
+     */
+    val pricing: StateFlow<OrderPricing> =
+        combine(repo.observeAllOrders(), repo.observeAllAssignments(), saleBookFlow(repo)) { orders, sewn, sales ->
+            val sold = orders
+                .filter { it.agreedPrice > 0 && it.qty > 0 && it.designTitle.isNotBlank() }
+                .map {
+                    PriceAdvisor.Sold(
+                        key = PriceAdvisor.key(it.designTitle),
+                        unitPrice = it.agreedPrice / it.qty,
+                        unitCost = (it.fabricPrice + it.workCost + it.sewingCost) / it.qty,
+                        at = it.createdAt
+                    )
+                }
+            val designOf = orders.associate { it.orderCode to PriceAdvisor.key(it.designTitle) }
+            val wages = sewn
+                .filter { it.unitWage > 0 }
+                .groupBy { designOf[it.orderCode] }
+                .mapNotNull { (k, rows) ->
+                    val m = PriceAdvisor.median(rows.map { it.unitWage })
+                    if (k == null || m == null) null else k to m
+                }
+                .toMap()
+            OrderPricing(PriceAdvisor.Book(sold, sales.margin, sales.now), wages)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), OrderPricing())
 
     /** مواد موجود در انبار برای انتخاب. */
     val materials: StateFlow<List<MaterialStock>> =

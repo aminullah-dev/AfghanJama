@@ -58,6 +58,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import com.afghanjama.ui.format.PersianDate
+import com.afghanjama.data.PriceAdvisor
+import com.afghanjama.ui.vm.OrderPricing
+import com.afghanjama.ui.vm.ProductionUi
+import com.afghanjama.ui.vm.estimatedUnitCost
 import com.afghanjama.work.DeliveryForecast
 import com.afghanjama.work.WorkshopLoad
 import com.afghanjama.ui.format.afn
@@ -89,6 +93,7 @@ fun ProductionOrderScreen(
     val designCounts by vm.designCounts.collectAsState()
     val workCosts by vm.workCosts.collectAsState()
     val forecast by vm.forecast.collectAsState()
+    val orderPricing by vm.pricing.collectAsState()
 
     var pickerOpen by remember { mutableStateOf(false) }
     var designMenu by remember { mutableStateOf(false) }
@@ -271,6 +276,11 @@ fun ProductionOrderScreen(
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth()
+                        )
+                        AgreedPriceHint(
+                            ui = ui,
+                            pricing = orderPricing,
+                            onPick = { vm.setAgreedPrice(it.toString()) }
                         )
 
                         // ---------- مهلت تحویل ----------
@@ -782,5 +792,50 @@ private fun DeliveryHint(
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+/**
+ * بهای برآوردی و پیشنهادِ قیمت زیرِ «قیمت توافقی».
+ *
+ * تا دیروز قیمتِ توافقی کاملاً دستی بود و بها بعد از ثبت معلوم می‌شد؛
+ * سفارشِ زیرِ بها وقتی دیده می‌شد که لباس دوخته شده بود. حالا همان
+ * لحظه کنارِ هم‌اند.
+ */
+@Composable
+private fun AgreedPriceHint(ui: ProductionUi, pricing: OrderPricing, onPick: (Long) -> Unit) {
+    val q = ui.qty.toIntOrNull()?.takeIf { it > 0 } ?: return
+    if (ui.designTitle.isBlank()) return
+    val key = PriceAdvisor.key(ui.designTitle)
+    val wage = pricing.wageByDesign[key] ?: 0L
+    val unitCost = ui.estimatedUnitCost() + wage
+    val advice = remember(pricing, key, unitCost) { pricing.book.advise(key, unitCost) }
+    val agreed = ui.agreedPrice.toLongOrNull() ?: 0L
+    val total = unitCost * q
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (unitCost > 0L) {
+            Text(
+                "بهای برآوردی: ${total.afn()} (${unitCost.afn()} هر عدد" +
+                    (if (wage > 0L) "، با دستمزدِ دوختِ معمولِ ${wage.afn()})" else "، بی دستمزدِ دوخت)"),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        PriceSuggestions(
+            advice = advice,
+            typed = agreed,
+            onPick = onPick,
+            perPieceLabel = " برای ${q.fa()} عدد",
+            scale = q
+        )
+        if (total > 0L && agreed in 1 until total) {
+            Text(
+                "این قیمت ${(total - agreed).afn()} زیرِ بهای برآوردی است — زیان.",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
     }
 }

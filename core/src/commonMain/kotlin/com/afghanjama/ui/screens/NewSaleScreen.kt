@@ -1,4 +1,7 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@file:OptIn(
+    androidx.compose.material3.ExperimentalMaterial3Api::class,
+    androidx.compose.foundation.layout.ExperimentalLayoutApi::class
+)
 
 package com.afghanjama.ui.screens
 
@@ -46,6 +49,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.material3.AssistChip
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,6 +65,7 @@ import com.afghanjama.ui.components.AppScreen
 import com.afghanjama.ui.components.BusyButton
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.data.Margin
+import com.afghanjama.data.PriceAdvisor
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.format.fa
@@ -80,6 +86,7 @@ fun NewSaleScreen(
 ) {
     val ui by vm.ui.collectAsState()
     val stock by vm.stock.collectAsState()
+    val pricing by vm.pricing.collectAsState()
     val busy by vm.busy.state.collectAsState()
 
     // کدام ردیف منتظرِ انتخابِ کالاست
@@ -232,6 +239,7 @@ fun NewSaleScreen(
             items(ui.lines, key = { it.key }) { line ->
                 LineCard(
                     line = line,
+                    pricing = pricing,
                     onPick = { pickerFor = line.key },
                     onQty = { vm.setQty(line.key, it) },
                     onPrice = { vm.setPrice(line.key, it) },
@@ -441,6 +449,7 @@ private fun PartyRow(
 @Composable
 private fun LineCard(
     line: DraftLine,
+    pricing: PriceAdvisor.Book,
     onPick: () -> Unit,
     onQty: (String) -> Unit,
     onPrice: (String) -> Unit,
@@ -510,6 +519,14 @@ private fun LineCard(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.weight(1f)
                 )
+            }
+
+            // پیشنهادِ قیمت — زدنی، نه پرشده. هر عدد می‌گوید از کجا آمده.
+            item?.let { it2 ->
+                val advice = remember(pricing, it2.name, it2.size, it2.avgCost) {
+                    pricing.advise(PriceAdvisor.key(it2.name, it2.size), it2.avgCost)
+                }
+                PriceSuggestions(advice = advice, typed = line.unitPrice, onPick = { onPrice(it.toString()) })
             }
 
             if (line.total > 0) {
@@ -636,4 +653,48 @@ private fun ItemPickerDialog(
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("بستن") } }
     )
+}
+
+/**
+ * چند قیمتِ زدنی کنارِ فیلد — آخرین فروش، معمول، و با سودِ معمول.
+ *
+ * فیلد خودش پر نمی‌شود (دلیلش در `NewSaleViewModel.setItem`)؛ فروشنده
+ * می‌بیند و انتخاب می‌کند. عددی که با قیمتِ زده‌شده یکی است دوباره نشان
+ * داده نمی‌شود.
+ */
+@Composable
+internal fun PriceSuggestions(
+    advice: PriceAdvisor.Advice,
+    typed: Long,
+    onPick: (Long) -> Unit,
+    perPieceLabel: String = "",
+    scale: Int = 1,
+) {
+    if (advice.isEmpty) return
+    val chips = buildList {
+        advice.lastPrice?.let { add("آخرین فروش" to it) }
+        advice.usualPrice?.takeIf { advice.samples >= 2 && it != advice.lastPrice }
+            ?.let { add("معمول (${advice.samples.fa()} فروش)" to it) }
+        advice.marginPrice?.let { add("سودِ معمول ${(advice.marginPercent ?: 0).fa()}٪" to it) }
+    }.filter { (_, v) -> v * scale != typed }
+    if (chips.isEmpty() && !advice.usualBelowCost) return
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            chips.forEach { (label, v) ->
+                AssistChip(
+                    onClick = { onPick(v * scale) },
+                    label = { Text("$label: ${(v * scale).afn()}$perPieceLabel", maxLines = 1) }
+                )
+            }
+        }
+        if (advice.usualBelowCost) {
+            Text(
+                "قیمتِ معمولِ این کالا (${advice.usualPrice!!.afn()}) با بهای امروز " +
+                    "(${advice.cost.afn()}) دیگر سود ندارد.",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+    }
 }

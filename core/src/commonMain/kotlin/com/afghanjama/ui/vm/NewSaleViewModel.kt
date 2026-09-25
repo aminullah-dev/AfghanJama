@@ -2,8 +2,11 @@ package com.afghanjama.ui.vm
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.afghanjama.data.PriceAdvisor
 import com.afghanjama.data.entities.FinishedStock
 import com.afghanjama.data.repo.Repo
+import com.afghanjama.util.nowMillis
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -64,6 +67,11 @@ class NewSaleViewModel(private val repo: Repo) : ViewModel() {
     val stock: StateFlow<List<FinishedStock>> =
         repo.observeFinishedStock()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** فروش‌های گذشته — برای پیشنهادِ قیمت کنارِ هر ردیف ([PriceAdvisor]). */
+    val pricing: StateFlow<PriceAdvisor.Book> =
+        saleBookFlow(repo)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PriceAdvisor.Book())
 
     private val _ui = MutableStateFlow(NewSaleUi())
     /**
@@ -212,3 +220,27 @@ class NewSaleViewModel(private val repo: Repo) : ViewModel() {
         }
     }
 }
+
+/**
+ * فروش‌های انبارِ محصول به شکلی که [PriceAdvisor] می‌خوانَد.
+ *
+ * برگشتِ کامل کنار می‌رود — فروشی که پس آمده قیمتِ بازار نیست. قیمتِ
+ * خالص (پس از تخفیف) برای سود، قیمتِ زده‌شده برای پیشنهاد. فرمِ سفارشِ
+ * تازه هم «سودِ معمول» را از همین می‌گیرد، تا دو صفحه دو درصدِ متفاوت
+ * نگویند.
+ */
+fun saleBookFlow(repo: Repo): Flow<PriceAdvisor.Book> =
+    repo.observeFinishedSales().map { sales ->
+        val sold = sales
+            .filter { it.qty > 0 && it.returnedQty < it.qty }
+            .map {
+                PriceAdvisor.Sold(
+                    key = PriceAdvisor.key(it.productName, it.size),
+                    unitPrice = it.unitPrice,
+                    unitCost = it.unitCost,
+                    at = it.createdAt,
+                    netUnitPrice = it.total / it.qty,
+                )
+            }
+        PriceAdvisor.book(sold, nowMillis())
+    }
