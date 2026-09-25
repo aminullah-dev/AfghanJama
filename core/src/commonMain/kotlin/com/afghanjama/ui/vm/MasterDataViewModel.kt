@@ -2,6 +2,7 @@ package com.afghanjama.ui.vm
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.afghanjama.data.PersonEdit
 import com.afghanjama.data.entities.Customer
 import com.afghanjama.data.entities.DesignItem
 import com.afghanjama.data.entities.FabricColor
@@ -11,6 +12,7 @@ import com.afghanjama.data.entities.SizeItem
 import com.afghanjama.data.entities.Tailor
 import com.afghanjama.data.entities.WorkCost
 import com.afghanjama.data.repo.Repo
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -101,17 +103,79 @@ class MasterDataViewModel(private val repo: Repo) : ViewModel() {
         repo.addCustomer(Customer(id = 0L, name = name.trim(), phone = phone?.trim()?.ifBlank { null }))
     }
 
+    /** کاری که انجام نشد و دلیلش — مثلاً نامِ مشتری‌ای که سابقه دارد. */
+    private val _message = MutableStateFlow<String?>(null)
+    val message: StateFlow<String?> = _message
+    fun clearMessage() { _message.value = null }
+
+    private fun report(r: PersonEdit, noun: String) {
+        if (r != PersonEdit.DONE) _message.value = r.message(noun)
+    }
+
+    /** نام و تلفنِ مشتری. قاعدهٔ نام و حذف در `Repo.editCustomer`. */
+    fun editCustomer(id: Long, name: String, phone: String) = viewModelScope.launch {
+        report(repo.editCustomer(id, name, phone), "مشتری")
+    }
+
+    fun deleteCustomer(id: Long) = viewModelScope.launch {
+        report(repo.deleteCustomer(id), "مشتری")
+    }
+
+    /**
+     * نام و سمتِ کارمند. اگر نام عوض نشد، سمت هم ثبت نمی‌شود تا نیمی
+     * از ویرایش بی‌صدا نماند.
+     */
+    fun editStaff(id: Long, oldName: String, name: String, role: String) = viewModelScope.launch {
+        val nm = name.trim()
+        if (nm != oldName) {
+            val r = repo.renameStaff(id, nm)
+            if (r != PersonEdit.DONE) {
+                report(r, "کارمند")
+                return@launch
+            }
+        }
+        repo.addStaff(nm, role)
+    }
+
+    fun deleteStaff(id: Long) = viewModelScope.launch {
+        report(repo.deleteStaff(id), "کارمند")
+    }
+
+    /** نامِ یک دسته را روی همهٔ طرح‌هایش عوض می‌کند — یعنی پوشهٔ انبار هم. */
+    fun renameDesignCategory(from: String, to: String) = viewModelScope.launch {
+        repo.renameDesignCategory(from, to)
+    }
+
+    /** کدِ طرح. نامِ طرح با [renameDesign] عوض می‌شود. */
+    fun setDesignCode(id: Long, code: String) = viewModelScope.launch {
+        repo.setDesignCode(id, code)
+    }
+
     // ✅ CRUD خرج کار
     // ---- ویرایش و حذفِ نام‌ها ----
     //
     // اسنادِ گذشته دست نمی‌خورند — توضیحِ کامل در `Repo`.
 
-    fun renameTailor(id: Long, name: String) = viewModelScope.launch { repo.renameTailor(id, name) }
-    fun renameInspector(id: Long, name: String) = viewModelScope.launch { repo.renameInspector(id, name) }
-    fun renameFabricType(id: Long, title: String) = viewModelScope.launch { repo.renameFabricType(id, title) }
-    fun renameFabricColor(id: Long, title: String) = viewModelScope.launch { repo.renameFabricColor(id, title) }
-    fun renameSize(id: Long, title: String) = viewModelScope.launch { repo.renameSize(id, title) }
-    fun renameDesign(id: Long, title: String) = viewModelScope.launch { repo.renameDesign(id, title) }
+    // خیاط و ناظر حساب دارند؛ تغییرِ نامشان کارمزد و دفتر و حضور را هم می‌برد.
+    fun renameTailor(id: Long, name: String) = safe { report(repo.renameTailorWithHistory(id, name), "خیاط") }
+    fun renameInspector(id: Long, name: String) = safe { report(repo.renameInspectorWithHistory(id, name), "ناظر") }
+    fun renameFabricType(id: Long, title: String) = safe { repo.renameFabricType(id, title) }
+    fun renameFabricColor(id: Long, title: String) = safe { repo.renameFabricColor(id, title) }
+    fun renameSize(id: Long, title: String) = safe { repo.renameSize(id, title) }
+    fun renameDesign(id: Long, title: String) = safe { repo.renameDesign(id, title) }
+
+    /**
+     * ویرایشی که به نامِ تکراری بخورد، اپ را نمی‌ترکاند.
+     *
+     * بیشترِ این فهرست‌ها نامِ یکتا دارند؛ تغییرِ «کتان» به «مخمل»ی که
+     * از قبل هست، در دیتابیس خطا می‌داد و چون کسی نمی‌گرفتش اپ بسته
+     * می‌شد. حالا پیام می‌گیرد.
+     */
+    private fun safe(block: suspend () -> Unit) = viewModelScope.launch {
+        runCatching { block() }.onFailure {
+            _message.value = "ثبت نشد — این نام از قبل در فهرست هست."
+        }
+    }
 
     /**
      * مانده افتتاحیهٔ یک شخص — «حسابِ قبلی» هنگام مهاجرت.
@@ -139,11 +203,12 @@ class MasterDataViewModel(private val repo: Repo) : ViewModel() {
         repo.insertWorkCost(WorkCost(id = 0L, title = t, price = p))
     }
 
-    fun updateWorkCost(id: Long, title: String, price: Long) = viewModelScope.launch {
+    fun updateWorkCost(id: Long, title: String, price: Long) = safe {
         val t = title.trim()
         val p = price.coerceAtLeast(0)
-        if (id <= 0L || t.isBlank() || p <= 0L) return@launch
-        repo.updateWorkCost(WorkCost(id = id, title = t, price = p))
+        if (id > 0L && t.isNotBlank() && p > 0L) {
+            repo.updateWorkCost(WorkCost(id = id, title = t, price = p))
+        }
     }
 
     fun deleteWorkCost(id: Long) = viewModelScope.launch {

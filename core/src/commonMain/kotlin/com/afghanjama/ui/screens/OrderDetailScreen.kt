@@ -2,6 +2,7 @@
 
 package com.afghanjama.ui.screens
 
+import com.afghanjama.ui.components.NameSuggestions
 import com.afghanjama.util.nowMillis
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -101,6 +102,7 @@ fun OrderDetailScreen(
     canEdit: Boolean,
     onBack: () -> Unit
 ) {
+    val customerNames by vm.customerNames.collectAsState()
     LaunchedEffect(orderIdText) {
         orderIdText?.let { runCatching { uuidOf(it) }.getOrNull() }?.let(vm::open)
     }
@@ -199,6 +201,12 @@ fun OrderDetailScreen(
                         label = { Text("نام مشتری") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
+                    )
+                    NameSuggestions(
+                        query = customerName,
+                        names = customerNames,
+                        onPick = { customerName = it },
+                        existsNote = null
                     )
                     OutlinedTextField(
                         value = customerPhone,

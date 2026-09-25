@@ -5,6 +5,7 @@
 
 package com.afghanjama.ui.screens
 
+import com.afghanjama.ui.components.NameSuggestions
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -432,6 +433,14 @@ fun ProcurementScreen(
                                 }
                             },
                             modifier = Modifier.fillMaxWidth()
+                        )
+                        // فروشندهٔ ثبت‌شده از حرفِ اول — «احمدی» و «احمدي» دو
+                        // حسابِ جدا نشوند.
+                        NameSuggestions(
+                            query = ui.supplier,
+                            names = suppliers,
+                            onPick = vm::setSupplier,
+                            existsNote = null
                         )
                         OutlinedButton(
                             onClick = { showSupplierPicker = true },

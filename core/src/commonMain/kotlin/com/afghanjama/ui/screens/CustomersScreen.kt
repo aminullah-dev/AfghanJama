@@ -3,6 +3,8 @@
 package com.afghanjama.ui.screens
 
 import com.afghanjama.ui.components.AddFab
+import com.afghanjama.ui.components.NameSuggestions
+import com.afghanjama.util.NameMatch
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -70,15 +72,40 @@ fun CustomersScreen(
                         label = { Text("نام مشتری") }, singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
+                    // مشتریِ موجود از حرفِ اول؛ لمس، پرونده‌اش را باز می‌کند
+                    // به‌جای ساختنِ نفرِ دوم با همان نام.
+                    NameSuggestions(
+                        query = name,
+                        names = rows.map { it.customer.name },
+                        onPick = { picked ->
+                            rows.firstOrNull { it.customer.name == picked }?.let {
+                                showAdd = false
+                                onOpenCustomer(it.customer.id)
+                            }
+                        },
+                        existsNote = { "«$it» از قبل ثبت است — برای دیدنِ پرونده‌اش لمس کنید." }
+                    )
                     OutlinedTextField(
                         value = phone, onValueChange = { phone = it.digitsOnly() },
                         label = { Text("شماره تماس (اختیاری)") }, singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
+                    // همان شماره زیرِ نامِ دیگری؟ اغلب یعنی همان آدم.
+                    val samePhone = if (phone.length >= 6) {
+                        rows.firstOrNull { it.customer.phone?.digitsOnly() == phone }
+                    } else null
+                    samePhone?.let {
+                        Text(
+                            "این شماره برای «${it.customer.name}» ثبت است.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
                 }
             },
             confirmButton = {
-                TextButton(enabled = name.isNotBlank(), onClick = {
+                val duplicate = NameMatch.exact(name, rows.map { it.customer.name }) != null
+                TextButton(enabled = name.isNotBlank() && !duplicate, onClick = {
                     vm.addCustomer(name, phone); showAdd = false
                 }) { Text("افزودن") }
             },

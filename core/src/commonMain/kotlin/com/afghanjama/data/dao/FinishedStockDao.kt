@@ -27,6 +27,10 @@ interface FinishedStockDao {
     @Query("SELECT * FROM finished_stock WHERE name = :name AND size = :size LIMIT 1")
     suspend fun find(name: String, size: String): FinishedStock?
 
+    /** نام و سایزِ یک ردیف — موجودی و ارزش همان می‌مانند. */
+    @Query("UPDATE finished_stock SET name = :name, size = :size, updatedAt = :at WHERE id = :id")
+    suspend fun rename(id: Long, name: String, size: String, at: Long)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(stock: FinishedStock)
 

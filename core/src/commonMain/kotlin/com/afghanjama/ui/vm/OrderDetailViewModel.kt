@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -28,6 +29,12 @@ data class OrderDetailUi(
 /** جزئیات کامل یک سفارش: مشخصات + تایم‌لاین مراحل + پرداخت‌ها + برگشت فروش. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class OrderDetailViewModel(private val repo: Repo) : ViewModel() {
+
+    /** نامِ مشتریانِ ثبت‌شده — برای پیشنهاد هنگامِ تایپ، تا یک مشتری دو بار ثبت نشود. */
+    val customerNames: StateFlow<List<String>> =
+        repo.observeCustomers()
+            .map { list -> list.map { it.name } }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /**
      * کدِ طرحِ هر سفارش (DIP-12) — کلید: کدِ سفارش.

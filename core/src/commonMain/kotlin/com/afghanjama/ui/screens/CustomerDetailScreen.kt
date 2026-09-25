@@ -100,7 +100,7 @@ fun CustomerDetailScreen(
     }
 
     // نام و تلفن — تا مشتری‌های کارگاهِ نمونه از آنِ خودِ کارگاه شوند.
-    // نامِ مشتری‌ای که سفارش یا حساب دارد عوض نمی‌شود؛ مخزن می‌گوید چرا.
+    // تغییرِ نام سفارش‌ها و حسابِ مشتری را هم می‌برد؛ حذف فقط بی‌سابقه.
     val editing = s.customer
     if (showEdit && editing != null) {
         var name by remember(editing.id) { mutableStateOf(editing.name) }

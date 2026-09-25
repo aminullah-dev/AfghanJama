@@ -62,6 +62,12 @@ import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.vm.LedgerViewModel
+import com.afghanjama.util.NameMatch
+import com.afghanjama.ui.platform.AppDropdownMenuItem
+import com.afghanjama.ui.platform.AppDropdownMenu
+import com.afghanjama.ui.components.NameSuggestions
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.foundation.layout.Box
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -116,6 +122,8 @@ fun LedgerScreen(
 
     var typeFilter by remember { mutableStateOf<String?>(null) }
     var selected by remember { mutableStateOf<PartyBalance?>(null) }
+    // فروشنده فهرستِ جدایی ندارد؛ نامش از همین‌جا عوض می‌شود.
+    var renamingSupplier by remember { mutableStateOf<String?>(null) }
 
     /*
      * جست‌وجوی نام، و «فقط تسویه‌نشده‌ها».
@@ -167,6 +175,8 @@ fun LedgerScreen(
     var manualOpen by remember { mutableStateOf(false) }
     var mType by remember { mutableStateOf("SUPPLIER") }
     var mName by remember { mutableStateOf("") }
+    var pickOpen by remember { mutableStateOf(false) }
+    val partyNames by vm.partyNames.collectAsState()
     var mAmount by remember { mutableStateOf("") }
     var mIsPayment by remember { mutableStateOf(true) }
     var mNote by remember { mutableStateOf("") }
@@ -184,6 +194,35 @@ fun LedgerScreen(
             if (staleFirst) list.sortedByDescending { idleDays(it) ?: -1 }
             else list.sortedByDescending { if (it.net < 0) -it.net else it.net }
         }
+
+    renamingSupplier?.let { from ->
+        var to by remember(from) { mutableStateOf(from) }
+        AppAlertDialog(
+            onDismissRequest = { renamingSupplier = null },
+            title = { Text("تغییرِ نامِ فروشنده") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = to, onValueChange = { to = it },
+                        label = { Text("نامِ تازه") }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        "مانده، فاکتورهای خرید و گردشِ حسابش همه با نامِ تازه می‌روند.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = to.isNotBlank() && to.trim() != from, onClick = {
+                    vm.renameSupplier(from, to)
+                    renamingSupplier = null
+                }) { Text("ذخیره") }
+            },
+            dismissButton = { TextButton(onClick = { renamingSupplier = null }) { Text("لغو") } }
+        )
+    }
 
     // ---------- دیالوگ گردش حساب ----------
     selected?.let { p ->
@@ -230,6 +269,11 @@ fun LedgerScreen(
             title = { Text("${p.name} • ${typeLabel(p.type)}") },
             text = {
                 Column(Modifier.fillMaxWidth()) {
+                    if (p.type == "SUPPLIER") {
+                        TextButton(onClick = { renamingSupplier = p.name; selected = null }) {
+                            Text("تغییرِ نامِ فروشنده")
+                        }
+                    }
                     Text(
                         text = balanceText(p.net),
                         color = balanceColor(p.net),
@@ -358,13 +402,47 @@ fun LedgerScreen(
                             )
                         }
                     }
-                    OutlinedTextField(
-                        value = mName,
-                        onValueChange = { mName = it },
-                        label = { Text("نام طرف") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                    // نام از فهرست — یا تازه. فهرست همان شکلی را می‌دهد که
+                    // دفتر می‌نویسد، تا یک نفر دو طرفِ حساب نشود.
+                    val known = partyNames[mType].orEmpty()
+                    Box {
+                        OutlinedTextField(
+                            value = mName,
+                            onValueChange = { mName = it },
+                            label = { Text("نام طرف") },
+                            singleLine = true,
+                            trailingIcon = if (known.isNotEmpty()) {
+                                {
+                                    IconButton(onClick = { pickOpen = true }) {
+                                        Icon(Icons.Default.ArrowDropDown, contentDescription = "انتخاب از فهرست")
+                                    }
+                                }
+                            } else null,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        AppDropdownMenu(expanded = pickOpen, onDismissRequest = { pickOpen = false }) {
+                            known.forEach { n ->
+                                AppDropdownMenuItem(
+                                    text = { Text(n) },
+                                    onClick = { mName = n; pickOpen = false }
+                                )
+                            }
+                        }
+                    }
+                    NameSuggestions(
+                        query = mName,
+                        names = known,
+                        onPick = { mName = it },
+                        existsNote = null
                     )
+                    if (mName.isNotBlank() && NameMatch.exact(mName, known) == null) {
+                        Text(
+                            "طرفِ تازه — با همین سند ساخته می‌شود" +
+                                if (mType == "CUSTOMER") " و به فهرستِ مشتریان می‌رود." else ".",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     Text("جهت", style = MaterialTheme.typography.labelSmall)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(

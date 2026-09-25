@@ -1,5 +1,6 @@
 package com.afghanjama.ui.vm
 
+import com.afghanjama.util.NameMatch
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.afghanjama.data.CodeGen
@@ -104,7 +105,8 @@ class ProcurementViewModel(private val repo: Repo) : ViewModel() {
     val supplierIsNew: StateFlow<Boolean> =
         combine(_ui, suppliers) { u, list ->
             val typed = u.supplier.trim()
-            typed.isNotBlank() && list.none { it.trim().equals(typed, ignoreCase = true) }
+            // «احمدي» با ی عربی همان «احمدی» است — نه تأمین‌کنندهٔ تازه.
+            typed.isNotBlank() && list.none { NameMatch.same(it, typed) }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     /**

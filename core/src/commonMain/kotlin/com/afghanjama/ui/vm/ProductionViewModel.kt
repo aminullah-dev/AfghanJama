@@ -82,6 +82,12 @@ data class ProductionUi(
  */
 class ProductionViewModel(private val repo: Repo) : ViewModel() {
 
+    /** نامِ مشتریانِ ثبت‌شده — برای پیشنهاد هنگامِ تایپ، تا یک مشتری دو بار ثبت نشود. */
+    val customerNames: StateFlow<List<String>> =
+        repo.observeCustomers()
+            .map { list -> list.map { it.name } }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     /** مواد موجود در انبار برای انتخاب. */
     val materials: StateFlow<List<MaterialStock>> =
         repo.observeMaterialStock()

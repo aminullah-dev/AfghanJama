@@ -2632,6 +2632,36 @@ class Repo(private val db: Db) {
      * @param countedQty تعدادی که واقعاً در انبار شمرده شده
      * @return false اگر ردیف پیدا نشود یا چیزی برای اصلاح نباشد
      */
+    /**
+     * نام یا سایزِ یک کالای آماده — برای اصلاحِ غلطِ تایپی یا بردن به
+     * طرحِ درست. موجودی و ارزش و ژورنال دست نمی‌خورند؛ فروش‌های گذشته
+     * نامِ خودشان را دارند.
+     *
+     * اگر همان نام و سایز ردیفِ دیگری باشد `false`: ادغامِ دو ردیف با دو
+     * بهای تمام‌شدهٔ متفاوت کارِ این تابع نیست.
+     */
+    suspend fun renameFinishedStock(id: Long, name: String, size: String): Boolean = db.atomic {
+        renameFinishedStockTx(id, name, size)
+    }
+
+    private suspend fun renameFinishedStockTx(id: Long, name: String, size: String): Boolean {
+        val nm = name.trim()
+        val sz = size.trim()
+        if (nm.isEmpty()) return false
+        val dao = db.finishedStockDao()
+        val cur = dao.observeAll().first().firstOrNull { it.id == id } ?: return false
+        if (cur.name == nm && cur.size == sz) return true
+        val clash = dao.find(nm, sz)
+        if (clash != null && clash.id != id) return false
+        dao.rename(id, nm, sz, nowMillis())
+        audit(
+            "ویرایشِ کالای آماده",
+            "«${cur.name}${if (cur.size.isNotBlank()) " / ${cur.size}" else ""}» ← " +
+                "«$nm${if (sz.isNotBlank()) " / $sz" else ""}»"
+        )
+        return true
+    }
+
     suspend fun adjustFinishedStock(
         name: String,
         size: String,
@@ -3395,6 +3425,21 @@ class Repo(private val db: Db) {
         audit("دستهٔ طرح", "#$id → ${category.trim().ifBlank { "بی‌دسته" }}")
     }
 
+    /** نامِ یک دسته روی همهٔ طرح‌هایش؛ پوشه‌های انبارِ محصول از همین می‌خوانند. */
+    suspend fun renameDesignCategory(from: String, to: String) {
+        val f = from.trim()
+        val t = to.trim()
+        if (f.isEmpty() || t.isEmpty() || f == t) return
+        val n = db.masterDataDao().renameDesignCategory(f, t)
+        audit("تغییرِ نامِ دسته", "«$f» ← «$t» — $n طرح")
+    }
+
+    /** کدِ طرح (مثلاً DIP-12)؛ خالی کد را پاک نمی‌کند. */
+    suspend fun setDesignCode(id: Long, code: String) {
+        val c = code.trim()
+        if (c.isNotEmpty()) db.masterDataDao().setDesignCode(id, c)
+    }
+
     /** دسته‌های به‌کاررفته، برای پیشنهاد دادن هنگامِ دسته‌بندیِ طرح. */
     fun observeDesignCategories(): Flow<List<String>> =
         db.masterDataDao().observeDesignCategories()
@@ -3549,14 +3594,20 @@ class Repo(private val db: Db) {
         db.masterDataDao().hasAnyWorkshopData()
 
     // =========================
-    // ویرایش و حذفِ مشتری و کارمند
+    // ویرایش و حذفِ آدم‌ها — مشتری، کارمند، خیاط، ناظر، فروشنده
     //
-    // کارگاه با کارگاهِ نمونه شروع می‌کند و آدم‌ها را از آنِ خودش می‌کند.
-    // تلفن و سمت و حقوق همیشه عوض می‌شوند. نام و حذف فقط برای کسی که
-    // هنوز در کار و حساب نیامده — سفارش و دفتر و حضور آدم را با **نام**
-    // می‌شناسند، و تغییرِ نامِ کسی که سابقه دارد مانده‌اش را زیرِ نامی جا
-    // می‌گذارد که دیگر در فهرست نیست. آدم‌های کارگاهِ نمونه بعد از
-    // «پاک‌کردن کارها و حساب‌ها» سابقه‌ای ندارند.
+    // **تغییرِ نام، سابقه را با خودش می‌برد.** سفارش، دفتر، دریافت، قسط،
+    // حضور، حقوق و کارمزد آدم را با **نام** می‌شناسند؛ تغییرِ نام فقط در
+    // فهرست، مانده را زیرِ نامِ قبلی جا می‌گذاشت و حسابِ یک نفر دو تکه
+    // می‌شد. پس هر جدولی که این نام را دارد در همان تراکنش عوض می‌شود.
+    // اسناد (`documents`) عمداً نه — فاکتورِ چاپ‌شده همان است که رفت.
+    //
+    // **ادغام نمی‌کند.** اگر نامِ تازه از قبل جایی هست — شخصِ دیگر، یا
+    // سابقه‌ای زیرِ همان نام — `NAME_TAKEN`: یکی کردنِ دو حساب تصمیمی
+    // است که اپ نباید بی‌صدا بگیرد.
+    //
+    // **حذف فقط بی‌سابقه.** کسی که سابقه دارد حذف نمی‌شود؛ مانده‌اش بی
+    // صاحب می‌ماند.
     // =========================
 
     suspend fun editCustomer(id: Long, name: String, phone: String): PersonEdit =
@@ -3567,15 +3618,26 @@ class Repo(private val db: Db) {
         val cur = dao.findCustomerById(id) ?: return PersonEdit.MISSING
         val nm = name.trim()
         if (nm.isEmpty()) return PersonEdit.BLANK
+        var moved = 0
         if (nm != cur.name) {
-            if (dao.findCustomerByName(nm) != null) return PersonEdit.NAME_TAKEN
-            if (dao.customerHasHistory(cur.name)) return PersonEdit.HAS_HISTORY
+            if (dao.findCustomerByName(nm) != null ||
+                dao.partyNameInUse("CUSTOMER", nm) ||
+                dao.customerNameInOrders(nm)
+            ) return PersonEdit.NAME_TAKEN
+            val from = cur.name
+            moved += dao.moveLedger("CUSTOMER", from, nm)
+            moved += dao.movePartyRow("CUSTOMER", from, nm)
+            moved += dao.moveCustomerOrders(from, nm)
+            moved += dao.moveCustomerPayments(from, nm)
+            moved += dao.moveCustomerInstallments(from, nm)
+            moved += dao.moveCustomerFinishedSales(from, nm)
         }
         val ph = phone.trim().ifEmpty { null }
         dao.updateCustomer(id, nm, ph)
         audit(
             "ویرایشِ مشتری",
-            if (nm == cur.name) "«$nm» — تلفن: ${ph ?: "—"}" else "«${cur.name}» ← «$nm»"
+            if (nm == cur.name) "«$nm» — تلفن: ${ph ?: "—"}"
+            else "«${cur.name}» ← «$nm» — $moved ردیفِ سابقه هم رفت"
         )
         return PersonEdit.DONE
     }
@@ -3600,10 +3662,100 @@ class Repo(private val db: Db) {
         val nm = name.trim()
         if (nm.isEmpty()) return PersonEdit.BLANK
         if (nm == cur.name) return PersonEdit.DONE
-        if (dao.staffNameTaken(nm)) return PersonEdit.NAME_TAKEN
-        if (dao.staffHasHistory(cur.name)) return PersonEdit.HAS_HISTORY
+        // حضور خیاط و ناظر و کارمند را با نامِ خالی می‌شناسد؛ نامی که
+        // آدمِ دیگری دارد، سابقهٔ دو نفر را یکی می‌کرد.
+        if (dao.workerNameTaken(nm) || dao.partyNameInUse("EMPLOYEE", nm) ||
+            dao.nameInAttendance(nm)
+        ) return PersonEdit.NAME_TAKEN
+        val from = cur.name
+        var moved = 0
+        moved += dao.moveLedger("EMPLOYEE", from, nm)
+        moved += dao.movePartyRow("EMPLOYEE", from, nm)
+        moved += dao.moveAttendance(from, nm)
+        moved += dao.moveSalaryPayments(from, nm)
+        moved += dao.moveCuttingRecords(from, nm)
         dao.renameStaff(id, nm)
-        audit("تغییرِ نامِ کارمند", "«${cur.name}» ← «$nm»")
+        audit("تغییرِ نامِ کارمند", "«$from» ← «$nm» — $moved ردیفِ سابقه هم رفت")
+        return PersonEdit.DONE
+    }
+
+    /**
+     * نامِ خیاط. در دفتر و کارمزد و دوخت با «[کد] نام» ثبت است و در حضور
+     * با نامِ خالی — هر دو با هم می‌روند.
+     */
+    suspend fun renameTailorWithHistory(id: Long, name: String): PersonEdit =
+        db.atomic { renameTailorTx(id, name) }
+
+    private suspend fun renameTailorTx(id: Long, name: String): PersonEdit {
+        val dao = db.masterDataDao()
+        val cur = dao.findTailorById(id) ?: return PersonEdit.MISSING
+        val nm = name.trim()
+        if (nm.isEmpty()) return PersonEdit.BLANK
+        if (nm == cur.name) return PersonEdit.DONE
+        val fromLabel = "[${cur.code}] ${cur.name}"
+        val toLabel = "[${cur.code}] $nm"
+        if (dao.workerNameTaken(nm) || dao.nameInAttendance(nm) ||
+            dao.partyNameInUse("TAILOR", toLabel)
+        ) return PersonEdit.NAME_TAKEN
+        var moved = 0
+        moved += dao.moveLedger("TAILOR", fromLabel, toLabel)
+        moved += dao.movePartyRow("TAILOR", fromLabel, toLabel)
+        moved += dao.moveTailorWages(fromLabel, toLabel)
+        moved += dao.moveSewingAssignments(fromLabel, toLabel)
+        moved += dao.moveQcTailor(fromLabel, toLabel)
+        moved += dao.moveOrderTailor(fromLabel, toLabel)
+        moved += dao.moveAttendance(cur.name, nm)
+        dao.renameTailor(id, nm)
+        audit("تغییرِ نامِ خیاط", "«$fromLabel» ← «$toLabel» — $moved ردیفِ سابقه هم رفت")
+        return PersonEdit.DONE
+    }
+
+    /** نامِ ناظر — مثلِ خیاط: «[کد] نام» در نظارت و دفتر، نامِ خالی در حضور. */
+    suspend fun renameInspectorWithHistory(id: Long, name: String): PersonEdit =
+        db.atomic { renameInspectorTx(id, name) }
+
+    private suspend fun renameInspectorTx(id: Long, name: String): PersonEdit {
+        val dao = db.masterDataDao()
+        val cur = dao.findInspectorById(id) ?: return PersonEdit.MISSING
+        val nm = name.trim()
+        if (nm.isEmpty()) return PersonEdit.BLANK
+        if (nm == cur.name) return PersonEdit.DONE
+        val fromLabel = "[${cur.code}] ${cur.name}"
+        val toLabel = "[${cur.code}] $nm"
+        if (dao.workerNameTaken(nm) || dao.nameInAttendance(nm) ||
+            dao.partyNameInUse("INSPECTOR", toLabel)
+        ) return PersonEdit.NAME_TAKEN
+        var moved = 0
+        moved += dao.moveLedger("INSPECTOR", fromLabel, toLabel)
+        moved += dao.movePartyRow("INSPECTOR", fromLabel, toLabel)
+        moved += dao.moveQcInspector(fromLabel, toLabel)
+        moved += dao.moveOrderInspector(fromLabel, toLabel)
+        moved += dao.moveAttendance(cur.name, nm)
+        dao.renameInspector(id, nm)
+        audit("تغییرِ نامِ ناظر", "«$fromLabel» ← «$toLabel» — $moved ردیفِ سابقه هم رفت")
+        return PersonEdit.DONE
+    }
+
+    /**
+     * نامِ فروشنده (تأمین‌کننده). فهرستِ جدا ندارد — در دفتر و فاکتورهای
+     * خرید زندگی می‌کند — پس از دفتر کل عوض می‌شود.
+     */
+    suspend fun renameSupplier(from: String, to: String): PersonEdit = db.atomic { renameSupplierTx(from, to) }
+
+    private suspend fun renameSupplierTx(from: String, to: String): PersonEdit {
+        val dao = db.masterDataDao()
+        val f = from.trim()
+        val nm = to.trim()
+        if (nm.isEmpty()) return PersonEdit.BLANK
+        if (nm == f) return PersonEdit.DONE
+        if (!dao.partyNameInUse("SUPPLIER", f) && !dao.supplierNameInPurchases(f)) return PersonEdit.MISSING
+        if (dao.partyNameInUse("SUPPLIER", nm) || dao.supplierNameInPurchases(nm)) return PersonEdit.NAME_TAKEN
+        var moved = 0
+        moved += dao.moveLedger("SUPPLIER", f, nm)
+        moved += dao.movePartyRow("SUPPLIER", f, nm)
+        moved += dao.movePurchaseInvoices(f, nm)
+        moved += dao.moveSupplierLedger(f, nm)
+        audit("تغییرِ نامِ فروشنده", "«$f» ← «$nm» — $moved ردیفِ سابقه هم رفت")
         return PersonEdit.DONE
     }
 
@@ -3998,19 +4150,13 @@ class Repo(private val db: Db) {
     // - تغییرِ نام روی سفارش‌های قبلی اثر نمی‌گذارد؛ فاکتوری که چاپ شده
     //   و دستِ مشتری است نباید با ویرایشِ یک فهرست عوض شود.
     //
-    // یعنی این دو کار فقط می‌گویند «از این به بعد این نام». برای اصلاحِ
+    // یعنی این کارها فقط می‌گویند «از این به بعد این نام». برای اصلاحِ
     // یک سفارشِ مشخص، جای درستش خودِ آن سفارش است نه اینجا.
+    //
+    // **آدم‌ها استثنا هستند:** خیاط و ناظر و مشتری و کارمند حساب دارند و
+    // حسابشان با نام است؛ تغییرِ نامشان سابقه را هم می‌برد — بالاتر، در
+    // «ویرایش و حذفِ آدم‌ها».
     // =========================
-
-    suspend fun renameTailor(id: Long, name: String) {
-        val v = name.trim()
-        if (v.isNotEmpty()) db.masterDataDao().renameTailor(id, v)
-    }
-
-    suspend fun renameInspector(id: Long, name: String) {
-        val v = name.trim()
-        if (v.isNotEmpty()) db.masterDataDao().renameInspector(id, v)
-    }
 
     suspend fun renameFabricType(id: Long, title: String) {
         val v = title.trim()

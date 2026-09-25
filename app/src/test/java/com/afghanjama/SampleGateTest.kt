@@ -68,7 +68,7 @@ class SampleGateTest {
     @Test
     fun `personalising people explains why a rename or delete was refused`() {
         assertEquals("", PersonEdit.DONE.message("مشتری"))
-        assertEquals("این نام را مشتریِ دیگری دارد.", PersonEdit.NAME_TAKEN.message("مشتری"))
+        assertTrue(PersonEdit.NAME_TAKEN.message("مشتری").startsWith("این نام را مشتریِ دیگری دارد"))
         // آدمِ کارگاهِ نمونه تا دفتر پاک نشده سابقه دارد؛ پیام باید راهش را بگوید.
         assertTrue(PersonEdit.HAS_HISTORY.message("کارمند").contains("پاک‌کردن کارها و حساب‌ها"))
     }

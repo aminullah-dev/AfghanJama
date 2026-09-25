@@ -2,7 +2,9 @@ package com.afghanjama.ui.vm
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.afghanjama.data.PersonEdit
 import com.afghanjama.data.dao.PartyBalance
+import com.afghanjama.data.entities.Customer
 import com.afghanjama.data.entities.LedgerEntry
 import com.afghanjama.data.repo.Repo
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -55,6 +57,33 @@ class LedgerViewModel(private val repo: Repo) : ViewModel() {
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
+    /**
+     * نام‌های شناخته‌شدهٔ هر نوعِ طرف — برای انتخاب در سندِ دستی.
+     *
+     * همان شکلی که دفتر می‌نویسد: خیاط و ناظر «[کد] نام». نامِ دستیِ
+     * کمی متفاوت یک طرفِ حسابِ تازه می‌ساخت و بدهیِ یک نفر دو تکه می‌شد.
+     */
+    val partyNames: StateFlow<Map<String, List<String>>> =
+        combine(
+            repo.observeParties(),
+            repo.observeCustomers(),
+            repo.observeTailors(),
+            repo.observeInspectors(),
+            repo.observeStaff()
+        ) { parties, customers, tailors, inspectors, staff ->
+            val m = mutableMapOf<String, MutableList<String>>()
+            fun add(type: String, name: String) {
+                val n = name.trim()
+                if (n.isNotEmpty()) m.getOrPut(type) { mutableListOf() }.add(n)
+            }
+            customers.forEach { add("CUSTOMER", it.name) }
+            tailors.forEach { add("TAILOR", "[${it.code}] ${it.name}") }
+            inspectors.forEach { add("INSPECTOR", "[${it.code}] ${it.name}") }
+            staff.forEach { add("EMPLOYEE", it.name) }
+            parties.forEach { add(it.type, it.name) }
+            m.mapValues { (_, v) -> v.distinct().sorted() }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message
     fun clearMessage() { _message.value = null }
@@ -92,8 +121,17 @@ class LedgerViewModel(private val repo: Repo) : ViewModel() {
         }
     }
 
+    /** نامِ فروشنده، همراهِ مانده و فاکتورهای خریدش. */
+    fun renameSupplier(from: String, to: String) = viewModelScope.launch {
+        val r = repo.renameSupplier(from, to)
+        _message.value = if (r == PersonEdit.DONE) null else r.message("فروشنده")
+    }
+
     fun recordManual(type: String, name: String, amount: Long, isPayment: Boolean, note: String) =
         viewModelScope.launch {
+            // مشتریِ تازه‌ای که از سندِ دستی می‌آید در فهرستِ مشتریان هم
+            // بنشیند؛ وگرنه مانده‌اش در دفتر بود و خودش در هیچ فهرستی نه.
+            if (type == "CUSTOMER") repo.addCustomer(Customer(name = name.trim()))
             val ok = repo.recordManualLedger(type, name, amount, isPayment, "WALLET", note)
             _message.value =
                 if (ok) null

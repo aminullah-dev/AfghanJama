@@ -6,6 +6,10 @@
 package com.afghanjama.ui.screens
 
 import com.afghanjama.ui.components.AddButton
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.AssistChip
+import com.afghanjama.util.NameMatch
+import com.afghanjama.ui.components.NameSuggestions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.filled.AccountBalanceWallet
@@ -89,6 +93,15 @@ fun MasterDataScreen(
     val staff by vm.staff.collectAsState()
 
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    val message by vm.message.collectAsState()
+    message?.let { msg ->
+        AppAlertDialog(
+            onDismissRequest = vm::clearMessage,
+            title = { Text("انجام نشد") },
+            text = { Text(msg) },
+            confirmButton = { TextButton(onClick = vm::clearMessage) { Text("باشه") } }
+        )
+    }
     opening?.let { (type, name) ->
         OpeningBalanceDialog(
             personName = name,
@@ -179,29 +192,43 @@ fun MasterDataScreen(
                         title = "تعریف خیاط جدید",
                         hint1 = "کد شناسایی (مثلاً T10)",
                         hint2 = "نام و نام خانوادگی",
-                        rows = tailors.map { MasterRow(it.id, "[${it.code}] ${it.name}", it.name) },
+                        rows = tailors.map {
+                            val label = "[${it.code}] ${it.name}"
+                            MasterRow(it.id, label, it.name, accountName = label)
+                        },
                         onAdd = { code, name -> vm.addTailor(code, name, null) },
                         onRename = { id, v -> vm.renameTailor(id, v) },
                         onDelete = { id -> vm.deleteTailor(id) },
-                        onOpening = { name -> opening = "TAILOR" to name }
+                        onOpening = { name -> opening = "TAILOR" to name },
+                        nameField = 2
                     )
 
                     4 -> TwoFieldListEditor(
                         title = "تعریف ناظر کیفی",
                         hint1 = "کد پرسنلی",
                         hint2 = "نام ناظر",
-                        rows = inspectors.map { MasterRow(it.id, "[${it.code}] ${it.name}", it.name) },
+                        rows = inspectors.map {
+                            val label = "[${it.code}] ${it.name}"
+                            MasterRow(it.id, label, it.name, accountName = label)
+                        },
                         onAdd = { code, name -> vm.addInspector(code, name, null) },
                         onRename = { id, v -> vm.renameInspector(id, v) },
                         onDelete = { id -> vm.deleteInspector(id) },
-                        onOpening = { name -> opening = "INSPECTOR" to name }
+                        onOpening = { name -> opening = "INSPECTOR" to name },
+                        nameField = 2
                     )
 
                     5 -> DesignEditor(
                         items = designs,
                         categories = designCategories,
                         onAdd = { title, code -> vm.addDesign(title, code) },
-                        onSetCategory = { id, cat -> vm.setDesignCategory(id, cat) }
+                        onSetCategory = { id, cat -> vm.setDesignCategory(id, cat) },
+                        onEdit = { id, title, code ->
+                            vm.renameDesign(id, title)
+                            vm.setDesignCode(id, code)
+                        },
+                        onDelete = { id -> vm.deleteDesign(id) },
+                        onRenameCategory = { from, to -> vm.renameDesignCategory(from, to) }
                     )
 
                     6 -> TwoFieldListEditor(
@@ -209,9 +236,22 @@ fun MasterDataScreen(
                         hint1 = "نام خریدار / فروشگاه",
                         hint2 = "شماره تماس (اختیاری)",
                         rows = customers.map {
-                            MasterRow(it.id, it.name + (it.phone?.let { p -> " - $p" } ?: ""), it.name)
+                            MasterRow(
+                                it.id,
+                                it.name + (it.phone?.let { p -> " - $p" } ?: ""),
+                                it.name,
+                                editValue2 = it.phone.orEmpty()
+                            )
                         },
-                        onAdd = { name, phone -> vm.addCustomer(name, phone.ifBlank { null }) }
+                        onAdd = { name, phone -> vm.addCustomer(name, phone.ifBlank { null }) },
+                        // تغییرِ نام سفارش‌ها و حسابِ مشتری را هم می‌برد؛ حذف
+                        // فقط بی‌سابقه — ViewModel دلیلش را می‌گوید.
+                        onRename = { id, v ->
+                            vm.editCustomer(id, v, customers.firstOrNull { it.id == id }?.phone.orEmpty())
+                        },
+                        onDelete = { id -> vm.deleteCustomer(id) },
+                        onOpening = { name -> opening = "CUSTOMER" to name },
+                        onEdit = { id, name, phone -> vm.editCustomer(id, name, phone) }
                     )
 
                     // ✅ خرج کار
@@ -230,11 +270,21 @@ fun MasterDataScreen(
                             MasterRow(
                                 s.id,
                                 s.name + (if (s.role.isNotBlank()) " — ${s.role}" else ""),
-                                s.name
+                                s.name,
+                                editValue2 = s.role
                             )
                         },
                         onAdd = { name, role -> vm.addStaff(name, role) },
-                        onOpening = { name -> opening = "EMPLOYEE" to name }
+                        onRename = { id, v ->
+                            val cur = staff.firstOrNull { it.id == id }
+                            if (cur != null) vm.editStaff(id, cur.name, v, cur.role)
+                        },
+                        onDelete = { id -> vm.deleteStaff(id) },
+                        onOpening = { name -> opening = "EMPLOYEE" to name },
+                        onEdit = { id, name, role ->
+                            val cur = staff.firstOrNull { it.id == id }
+                            if (cur != null) vm.editStaff(id, cur.name, name, role)
+                        }
                     )
                 }
             }
@@ -385,7 +435,21 @@ private fun WorkCostEditor(
  * فقط همان نامی است که ویرایش می‌شود. جدا نگه داشتنشان یعنی کاربر
  * هنگامِ اصلاحِ نامِ خیاط با «[T10] » هم دست‌وپنجه نرم نمی‌کند.
  */
-data class MasterRow(val id: Long, val label: String, val editValue: String)
+data class MasterRow(
+    val id: Long,
+    val label: String,
+    val editValue: String,
+    /** خانهٔ دومِ ویرایش (تلفنِ مشتری، سمتِ کارمند)؛ `null` یعنی فقط نام. */
+    val editValue2: String? = null,
+    /**
+     * نامی که حسابِ این شخص زیرِ آن است، اگر با [editValue] فرق کند.
+     *
+     * خیاط و ناظر در دفتر با «[کد] نام» ثبت می‌شوند — کارمزد، دریافت و
+     * پرداخت همه همین را می‌نویسند. «حساب قبلی» تا دیروز نامِ خالی را
+     * می‌فرستاد و مانده روی طرفِ حسابِ دیگری می‌نشست: طلبِ خیاط دو تکه.
+     */
+    val accountName: String? = null
+)
 
 /**
  * یک سطرِ فهرست با دکمهٔ ویرایش و حذف.
@@ -404,28 +468,50 @@ private fun EditableRow(
      * کارکنان). `null` یعنی این فهرست حساب ندارد و دکمه‌اش ساخته
      * نمی‌شود؛ رنگ و سایز مانده افتتاحیه ندارند.
      */
-    onOpening: ((String) -> Unit)? = null
+    onOpening: ((String) -> Unit)? = null,
+    /** برچسبِ خانهٔ دوم، وقتی [MasterRow.editValue2] هست. */
+    secondLabel: String? = null,
+    /** ویرایشِ دوخانه‌ای (نام + تلفن/سمت)؛ اگر هست، به‌جای [onRename]. */
+    onEdit: ((Long, String, String) -> Unit)? = null
 ) {
     var editing by remember(row.id) { mutableStateOf(false) }
     var confirmDelete by remember(row.id) { mutableStateOf(false) }
     var draft by remember(row.id) { mutableStateOf(row.editValue) }
+    var draft2 by remember(row.id) { mutableStateOf(row.editValue2.orEmpty()) }
+    val twoFields = onEdit != null && row.editValue2 != null
 
     if (editing) {
         AppAlertDialog(
             onDismissRequest = { editing = false },
-            title = { Text("ویرایش نام") },
+            title = { Text(if (twoFields) "ویرایش" else "ویرایش نام") },
             text = {
-                OutlinedTextField(
-                    value = draft,
-                    onValueChange = { draft = it },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = draft,
+                        onValueChange = { draft = it },
+                        label = { Text("نام") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (twoFields) {
+                        OutlinedTextField(
+                            value = draft2,
+                            onValueChange = { draft2 = it },
+                            label = { Text(secondLabel.orEmpty()) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
             },
             confirmButton = {
                 TextButton(
                     enabled = draft.isNotBlank(),
-                    onClick = { onRename(row.id, draft.trim()); editing = false }
+                    onClick = {
+                        if (twoFields) onEdit?.invoke(row.id, draft.trim(), draft2.trim())
+                        else onRename(row.id, draft.trim())
+                        editing = false
+                    }
                 ) { Text("ذخیره") }
             },
             dismissButton = { TextButton(onClick = { editing = false }) { Text("لغو") } }
@@ -456,14 +542,18 @@ private fun EditableRow(
         trailingContent = {
             Row {
                 if (onOpening != null) {
-                    IconButton(onClick = { onOpening(row.editValue) }) {
+                    IconButton(onClick = { onOpening(row.accountName ?: row.editValue) }) {
                         Icon(
                             Icons.Filled.AccountBalanceWallet,
                             contentDescription = "حساب قبلی"
                         )
                     }
                 }
-                IconButton(onClick = { draft = row.editValue; editing = true }) {
+                IconButton(onClick = {
+                    draft = row.editValue
+                    draft2 = row.editValue2.orEmpty()
+                    editing = true
+                }) {
                     Icon(Icons.Filled.Edit, contentDescription = "ویرایش")
                 }
                 IconButton(onClick = { confirmDelete = true }) {
@@ -518,7 +608,7 @@ private fun SimpleListEditor(
                 text = "افزودن",
                 onClick = {
                     val v = text.trim()
-                    if (v.isNotEmpty()) {
+                    if (v.isNotEmpty() && NameMatch.exact(v, rows.map { it.editValue }) == null) {
                         onAdd(v)
                         text = ""
                     }
@@ -527,6 +617,14 @@ private fun SimpleListEditor(
                 shape = MaterialTheme.shapes.medium
             )
         }
+
+        // موجودها از حرفِ اول — لمس، همان ردیف را در فهرست پیدا می‌کند.
+        NameSuggestions(
+            query = text,
+            names = rows.map { it.editValue },
+            onPick = { query = it; text = "" },
+            modifier = Modifier.padding(top = 8.dp)
+        )
 
         Spacer(Modifier.height(16.dp))
 
@@ -603,12 +701,22 @@ private fun TwoFieldListEditor(
     onRename: ((Long, String) -> Unit)? = null,
     onDelete: ((Long) -> Unit)? = null,
     /** «حساب قبلی» — فقط فهرست‌های شخص‌محور می‌گیرندش. */
-    onOpening: ((String) -> Unit)? = null
+    onOpening: ((String) -> Unit)? = null,
+    /** ویرایشِ نام + خانهٔ دوم (تلفن، سمت)؛ برچسبش همان [hint2] است. */
+    onEdit: ((Long, String, String) -> Unit)? = null,
+    /** کدام خانه نام است — ۱ یا ۲ (خیاط و ناظر اول کد می‌گیرند). */
+    nameField: Int = 1
 ) {
     var t1 by remember { mutableStateOf("") }
     var t2 by remember { mutableStateOf("") }
     var query by remember { mutableStateOf("") }
     val shown = filterRows(rows, query)
+    val names = rows.map { it.editValue }
+    val nameText = if (nameField == 1) t1 else t2
+    // نامِ تکراری فقط جایی بسته است که نام خودش کلیدِ حساب است (مشتری،
+    // کارمند). خیاط و ناظر با کد جدا می‌شوند؛ دو «احمد» ممکن است — فقط
+    // هشدار می‌گیرد.
+    val duplicate = nameField == 1 && NameMatch.exact(nameText, names) != null
 
     Column(
         Modifier
@@ -623,6 +731,10 @@ private fun TwoFieldListEditor(
 
         Spacer(Modifier.height(8.dp))
 
+        // لمسِ یک نامِ موجود همان ردیف را در فهرست پیدا می‌کند و فرم را
+        // خالی: به‌جای ثبتِ دوباره، همان را ویرایش کنید.
+        val pickExisting: (String) -> Unit = { query = it; t1 = ""; t2 = "" }
+
         OutlinedTextField(
             value = t1,
             onValueChange = { t1 = it },
@@ -631,6 +743,9 @@ private fun TwoFieldListEditor(
             singleLine = true,
             shape = MaterialTheme.shapes.medium
         )
+        if (nameField == 1) {
+            NameSuggestions(t1, names, pickExisting, Modifier.padding(top = 4.dp))
+        }
 
         Spacer(Modifier.height(8.dp))
 
@@ -642,6 +757,9 @@ private fun TwoFieldListEditor(
             singleLine = true,
             shape = MaterialTheme.shapes.medium
         )
+        if (nameField == 2) {
+            NameSuggestions(t2, names, pickExisting, Modifier.padding(top = 4.dp))
+        }
 
         Spacer(Modifier.height(12.dp))
 
@@ -650,12 +768,13 @@ private fun TwoFieldListEditor(
             onClick = {
                 val a = t1.trim()
                 val b = t2.trim()
-                if (a.isNotEmpty()) {
+                if (a.isNotEmpty() && (nameField == 1 || b.isNotEmpty()) && !duplicate) {
                     onAdd(a, b)
                     t1 = ""
                     t2 = ""
                 }
             },
+            enabled = !duplicate,
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.medium
         )
@@ -668,7 +787,7 @@ private fun TwoFieldListEditor(
             if (shown.isEmpty()) item { NoMatch(query) }
             items(shown.reversed(), key = { it.id }) { row ->
                 if (onRename != null && onDelete != null) {
-                    EditableRow(row, onRename, onDelete, onOpening)
+                    EditableRow(row, onRename, onDelete, onOpening, hint2, onEdit)
                 } else {
                     // فهرستی که ویرایش و حذف ندارد (کارکنان) هم ممکن
                     // است حساب داشته باشد؛ بی این شاخه، «حساب قبلی»
@@ -709,11 +828,102 @@ private fun DesignEditor(
     items: List<DesignItem>,
     categories: List<String>,
     onAdd: (String, String) -> Unit,
-    onSetCategory: (Long, String) -> Unit
+    onSetCategory: (Long, String) -> Unit,
+    onEdit: (Long, String, String) -> Unit,
+    onDelete: (Long) -> Unit,
+    onRenameCategory: (String, String) -> Unit
 ) {
     var title by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
     var editing by remember { mutableStateOf<DesignItem?>(null) }
+    var editingDesign by remember { mutableStateOf<DesignItem?>(null) }
+    var deleting by remember { mutableStateOf<DesignItem?>(null) }
+    var renamingCategory by remember { mutableStateOf<String?>(null) }
+
+    // ---------- ویرایشِ نام و کدِ طرح ----------
+    editingDesign?.let { d ->
+        var t by remember(d.id) { mutableStateOf(d.title) }
+        var c by remember(d.id) { mutableStateOf(d.code) }
+        AppAlertDialog(
+            onDismissRequest = { editingDesign = null },
+            title = { Text("ویرایشِ طرح") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = t, onValueChange = { t = it },
+                        label = { Text("نام طرح") }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = c, onValueChange = { c = it },
+                        label = { Text("کد طرح") }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        "سفارش‌های قبلی نامِ طرح را با خودشان دارند و عوض نمی‌شوند.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = t.isNotBlank(), onClick = {
+                    onEdit(d.id, t.trim(), c.trim())
+                    editingDesign = null
+                }) { Text("ذخیره") }
+            },
+            dismissButton = { TextButton(onClick = { editingDesign = null }) { Text("لغو") } }
+        )
+    }
+
+    deleting?.let { d ->
+        AppAlertDialog(
+            onDismissRequest = { deleting = null },
+            title = { Text("حذف «${d.title}»؟") },
+            text = {
+                Text(
+                    "از فهرستِ طرح‌ها برداشته می‌شود. سفارش‌ها و کالاهای قبلی " +
+                        "نامش را با خودشان دارند و دست نمی‌خورند."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { onDelete(d.id); deleting = null }) {
+                    Text("حذف", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { deleting = null }) { Text("لغو") } }
+        )
+    }
+
+    // ---------- تغییرِ نامِ دسته — روی همهٔ طرح‌هایش ----------
+    renamingCategory?.let { from ->
+        var to by remember(from) { mutableStateOf(from) }
+        AppAlertDialog(
+            onDismissRequest = { renamingCategory = null },
+            title = { Text("تغییرِ نامِ دستهٔ «$from»") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = to, onValueChange = { to = it },
+                        label = { Text("نامِ تازه") }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        "همهٔ طرح‌های این دسته، و پوشهٔ آن در انبارِ محصول، به نامِ تازه می‌روند.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = to.isNotBlank(), onClick = {
+                    onRenameCategory(from, to.trim())
+                    renamingCategory = null
+                }) { Text("ذخیره") }
+            },
+            dismissButton = { TextButton(onClick = { renamingCategory = null }) { Text("لغو") } }
+        )
+    }
 
     // ---------- دیالوگِ دسته ----------
     editing?.let { d ->
@@ -781,6 +991,17 @@ private fun DesignEditor(
             singleLine = true,
             shape = MaterialTheme.shapes.medium
         )
+        // طرحِ موجود را پیدا کن تا با نامِ کمی متفاوت دو بار ثبت نشود؛
+        // لمس، ویرایشش را باز می‌کند.
+        NameSuggestions(
+            query = title,
+            names = items.map { it.title },
+            onPick = { picked ->
+                editingDesign = items.firstOrNull { it.title == picked }
+                title = ""
+            },
+            modifier = Modifier.padding(top = 4.dp)
+        )
         Spacer(Modifier.height(8.dp))
         OutlinedTextField(
             value = code,
@@ -805,6 +1026,30 @@ private fun DesignEditor(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.medium
         )
+
+        if (categories.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "دسته‌ها — برای تغییرِ نام لمس کنید",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                categories.forEach { c ->
+                    AssistChip(
+                        onClick = { renamingCategory = c },
+                        label = { Text(c) },
+                        trailingIcon = {
+                            Icon(
+                                Icons.Filled.Edit,
+                                contentDescription = "تغییرِ نامِ دسته",
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    )
+                }
+            }
+        }
 
         Spacer(Modifier.height(12.dp))
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -834,6 +1079,12 @@ private fun DesignEditor(
                             )
                         }
                         TextButton(onClick = { editing = d }) { Text("دسته") }
+                        IconButton(onClick = { editingDesign = d }) {
+                            Icon(Icons.Filled.Edit, contentDescription = "ویرایشِ طرح")
+                        }
+                        IconButton(onClick = { deleting = d }) {
+                            Icon(Icons.Filled.Delete, contentDescription = "حذفِ طرح")
+                        }
                     }
                 }
             }

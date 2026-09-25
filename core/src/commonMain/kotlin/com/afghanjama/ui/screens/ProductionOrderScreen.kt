@@ -5,6 +5,7 @@
 
 package com.afghanjama.ui.screens
 
+import com.afghanjama.ui.components.NameSuggestions
 import com.afghanjama.util.nowMillis
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -78,6 +79,7 @@ fun ProductionOrderScreen(
     onGoProcurement: (() -> Unit)? = null
 ) {
     val ui by vm.ui.collectAsState()
+    val customerNames by vm.customerNames.collectAsState()
     var showAddWorkCost by remember { mutableStateOf(false) }
     val materials by vm.materials.collectAsState()
     val designs by vm.designs.collectAsState()
@@ -250,6 +252,14 @@ fun ProductionOrderScreen(
                             label = { Text("نام مشتری (اختیاری)") },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
+                        )
+                        // مشتریِ ثبت‌شده از حرفِ اول — تا «حاجی نصیر» و «حاجي
+                        // نصير» دو حسابِ جدا نشوند.
+                        NameSuggestions(
+                            query = ui.customerName,
+                            names = customerNames,
+                            onPick = vm::setCustomerName,
+                            existsNote = null
                         )
                         OutlinedTextField(
                             value = ui.agreedPrice,

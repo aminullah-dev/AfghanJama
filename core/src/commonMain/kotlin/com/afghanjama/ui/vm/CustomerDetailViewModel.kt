@@ -168,8 +168,8 @@ class CustomerDetailViewModel(private val repo: Repo) : ViewModel() {
     fun clearEditError() { _editError.value = null }
 
     /**
-     * نام و تلفن. نامِ مشتری‌ای که سفارش یا حساب دارد عوض نمی‌شود — دلیلش
-     * در [PersonEdit] است. [onDone] فقط وقتی صدا زده می‌شود که ثبت شد.
+     * نام و تلفن. تغییرِ نام سفارش‌ها و حسابِ مشتری را هم با خودش می‌برد؛
+     * فقط به نامی که از قبل هست نمی‌رود — [PersonEdit]. [onDone] فقط وقتی صدا زده می‌شود که ثبت شد.
      */
     fun edit(name: String, phone: String, onDone: () -> Unit) = viewModelScope.launch {
         val id = customerId.value ?: return@launch

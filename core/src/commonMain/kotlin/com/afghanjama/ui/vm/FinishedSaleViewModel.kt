@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -27,6 +28,12 @@ data class FinishedSaleUi(
 
 /** فروش جزئی از انبار محصول نهایی. */
 class FinishedSaleViewModel(private val repo: Repo) : ViewModel() {
+
+    /** نامِ مشتریانِ ثبت‌شده — برای پیشنهاد هنگامِ تایپ، تا یک مشتری دو بار ثبت نشود. */
+    val customerNames: StateFlow<List<String>> =
+        repo.observeCustomers()
+            .map { list -> list.map { it.name } }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** جلوی ثبتِ دوباره با دو ضربهٔ سریع را می‌گیرد. */
     val busy = Busy()
@@ -188,6 +195,18 @@ class FinishedSaleViewModel(private val repo: Repo) : ViewModel() {
      * عددهای خیالی که پیش از اصلاحِ جریانِ جزئی وارد انبار می‌شدند.
      * سندِ حسابداری‌اش را خودِ [Repo.adjustFinishedStock] می‌زند.
      */
+    /** نام و سایزِ کالا؛ اگر همان نام و سایز ردیفِ دیگری باشد، می‌گوید. */
+    fun rename(item: FinishedStock, name: String, size: String) = viewModelScope.launch {
+        val ok = repo.renameFinishedStock(item.id, name, size)
+        _ui.update {
+            if (ok) it.copy(message = "«${name.trim()}» ذخیره شد.", isError = false)
+            else it.copy(
+                message = "ثبت نشد — «${name.trim()}» با همین سایز از قبل در انبار هست.",
+                isError = true
+            )
+        }
+    }
+
     fun recount(item: FinishedStock, countedQty: Int, note: String = "") =
         viewModelScope.launch {
             busy.once {
