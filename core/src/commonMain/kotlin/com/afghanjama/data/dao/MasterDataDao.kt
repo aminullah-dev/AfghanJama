@@ -159,11 +159,12 @@ interface MasterDataDao {
     suspend fun staffNameTaken(name: String): Boolean
 
     /**
-     * این کارمند سابقه دارد؟ — حضور، حقوقِ پرداخت‌شده، یا سطرِ دفتر. همه
-     * با نام، پس کارمندِ باسابقه نامش عوض نمی‌شود و حذف نمی‌شود.
+     * این کارمند سابقه دارد؟ — حضور، حقوقِ پرداخت‌شده، برش، یا سطرِ دفتر.
+     * همه با نام، پس کارمندِ باسابقه نامش عوض نمی‌شود و حذف نمی‌شود.
      */
     @Query(
         "SELECT EXISTS(SELECT 1 FROM attendance WHERE employee = :name) " +
+            "OR EXISTS(SELECT 1 FROM cutting_records WHERE cutter = :name) " +
             "OR EXISTS(SELECT 1 FROM salary_payments WHERE employee = :name) " +
             "OR EXISTS(SELECT 1 FROM ledger_entries WHERE partyType = 'EMPLOYEE' AND partyName = :name) " +
             "OR EXISTS(SELECT 1 FROM parties WHERE type = 'EMPLOYEE' AND name = :name)"
@@ -230,7 +231,10 @@ interface MasterDataDao {
             "OR EXISTS(SELECT 1 FROM staff) OR EXISTS(SELECT 1 FROM fabric_types) " +
             "OR EXISTS(SELECT 1 FROM design_items) OR EXISTS(SELECT 1 FROM WorkCost) " +
             "OR EXISTS(SELECT 1 FROM material_stock) OR EXISTS(SELECT 1 FROM journal_entries) " +
-            "OR EXISTS(SELECT 1 FROM finance_transactions)"
+            "OR EXISTS(SELECT 1 FROM finance_transactions) OR EXISTS(SELECT 1 FROM ledger_entries) " +
+            "OR EXISTS(SELECT 1 FROM parties) OR EXISTS(SELECT 1 FROM finished_stock) " +
+            "OR EXISTS(SELECT 1 FROM purchase_invoices) OR EXISTS(SELECT 1 FROM fabric_colors) " +
+            "OR EXISTS(SELECT 1 FROM sizes) OR EXISTS(SELECT 1 FROM recurring_expenses)"
     )
     suspend fun hasAnyWorkshopData(): Boolean
 }

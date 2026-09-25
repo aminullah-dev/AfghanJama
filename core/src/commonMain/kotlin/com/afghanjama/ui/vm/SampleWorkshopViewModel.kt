@@ -76,6 +76,16 @@ class SampleWorkshopViewModel(private val repo: Repo) : ViewModel() {
         }
     }
 
+    /**
+     * رمزی که زده شد فقط برای همین بار است. صفحه وقتی بسته می‌شود این را
+     * صدا می‌زند؛ وگرنه روی اندروید — که این ViewModel تا بسته شدنِ اپ
+     * زنده است — هر کسی بعداً سراغِ همین صفحه می‌آمد، قفل را باز می‌یافت.
+     */
+    fun relock() {
+        unlocked.value = false
+        _ui.value = _ui.value.copy(pinError = null)
+    }
+
     fun create() {
         if (_ui.value.busy) return
         val g = gate.value

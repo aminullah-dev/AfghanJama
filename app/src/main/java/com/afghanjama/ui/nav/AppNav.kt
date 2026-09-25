@@ -4,6 +4,8 @@ package com.afghanjama.ui.nav
 import com.afghanjama.ui.nav.bottomItemsFor
 import android.app.Activity
 import androidx.activity.compose.BackHandler
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -172,7 +174,41 @@ fun AppNav(factory: ViewModelProvider.Factory) {
         val sampleVm = viewModel<SampleWorkshopViewModel>(vmOwner, factory = factory)
         val sampleGate by sampleVm.gate.collectAsState()
         if (sampleGate == SampleWorkshop.Gate.FIRST_RUN) {
-            SampleWorkshopScreen(vm = sampleVm, onBack = {}, firstRun = true)
+            // گوشیِ تازه با پشتیبانِ کارگاه: بازیابی از همین‌جا، چون
+            // تنظیمات پشتِ این صفحه است. همان مسیرِ تنظیمات — همان
+            // ViewModel و همان سنجشِ فایل پیش از جایگزینی.
+            val context = LocalContext.current
+            val backupVm = viewModel<BackupViewModel>(vmOwner, factory = factory)
+            val backupUi by backupVm.ui.collectAsState()
+            val restoreLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.OpenDocument()
+            ) { uri -> uri?.let { backupVm.restoreFrom(context, it) } }
+
+            backupUi.message?.let { msg ->
+                AlertDialog(
+                    // بعد از بازیابی دیتابیس بسته است؛ تنها راهِ درست
+                    // بستنِ اپ است، پس پنجره با لمسِ بیرون بسته نمی‌شود.
+                    onDismissRequest = { if (!backupUi.restartRequired) backupVm.clearMessage() },
+                    title = { Text(if (backupUi.isError) "بازیابی نشد" else "بازیابی انجام شد") },
+                    text = { Text(msg) },
+                    confirmButton = {
+                        if (backupUi.restartRequired) {
+                            TextButton(onClick = { (context as? Activity)?.finishAffinity() }) {
+                                Text("بستنِ اپ")
+                            }
+                        } else {
+                            TextButton(onClick = { backupVm.clearMessage() }) { Text("باشه") }
+                        }
+                    }
+                )
+            }
+
+            SampleWorkshopScreen(
+                vm = sampleVm,
+                onBack = {},
+                firstRun = true,
+                onRestore = { restoreLauncher.launch(arrayOf("*/*")) }
+            )
             return
         }
     }

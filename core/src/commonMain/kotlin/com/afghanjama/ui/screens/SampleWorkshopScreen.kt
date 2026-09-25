@@ -21,6 +21,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -28,6 +29,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -63,13 +65,22 @@ import com.afghanjama.ui.vm.SampleWorkshopViewModel
 fun SampleWorkshopScreen(
     vm: SampleWorkshopViewModel,
     onBack: () -> Unit,
-    firstRun: Boolean = false
+    firstRun: Boolean = false,
+    /**
+     * گوشیِ تازه برای کارگاهی که پشتیبان دارد. بازیابی در تنظیمات است و
+     * شروعِ اجباری راهِ تنظیمات را می‌بندد؛ بی این، کارفرما مجبور می‌شد
+     * اول کارگاهِ ساختگی بسازد تا به دفترِ واقعیِ خودش برسد.
+     */
+    onRestore: (() -> Unit)? = null
 ) {
     val ui by vm.ui.collectAsState()
     val gate by vm.gate.collectAsState()
     val settings = LocalSettings.current
     var confirming by remember { mutableStateOf(false) }
     var pin by remember { mutableStateOf("") }
+
+    // رمز فقط برای همین بار باز می‌کند؛ بیرون رفتن از صفحه قفل را می‌بندد.
+    DisposableEffect(vm) { onDispose { vm.relock() } }
 
     ui.message?.let { msg ->
         AppAlertDialog(
@@ -255,6 +266,19 @@ fun SampleWorkshopScreen(
                     busyText = "در حالِ ساخت…",
                     modifier = Modifier.fillMaxWidth()
                 )
+                if (firstRun && onRestore != null) {
+                    Text(
+                        "گوشیِ تازه برای کارگاهی که پشتیبان دارد؟ نمونه نسازید؛ " +
+                            "پشتیبان را بازیابی کنید.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedButton(
+                        onClick = onRestore,
+                        enabled = !ui.busy,
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("بازیابی از فایل پشتیبان") }
+                }
             }
 
             Text(

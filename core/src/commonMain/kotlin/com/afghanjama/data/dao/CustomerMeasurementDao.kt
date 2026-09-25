@@ -28,12 +28,17 @@ interface CustomerMeasurementDao {
      * اندازه) پس یک‌جا خوانده می‌شود و صفحه‌های برش و دوخت بدونِ
      * کوئریِ جداگانه برای هر سطر از آن می‌خوانند.
      */
+    // `customerId` شناسهٔ جدولِ `customers` است — همان که صفحهٔ مشتری و
+    // کارگاهِ نمونه می‌نویسند. تا دیروز این پیوند به `parties` بود: شناسهٔ
+    // جدولِ دیگری، پس برش یا اندازه نمی‌دید یا اندازهٔ مشتریِ دیگری را زیرِ
+    // این نام می‌دید. و چون «پاک‌کردن کارها و حساب‌ها» `parties` را پاک
+    // می‌کند ولی اندازه‌ها را نگه می‌دارد، بعد از آن همه گم می‌شدند.
     @Query(
-        "SELECT p.name AS customerName, m.label AS label, m.value AS value " +
+        "SELECT c.name AS customerName, m.label AS label, m.value AS value " +
             "FROM customer_measurements m " +
-            "INNER JOIN parties p ON p.id = m.customerId " +
-            "WHERE p.type = 'CUSTOMER' AND TRIM(m.label) <> '' " +
-            "ORDER BY p.name ASC, m.id ASC"
+            "INNER JOIN customers c ON c.id = m.customerId " +
+            "WHERE TRIM(m.label) <> '' " +
+            "ORDER BY c.name ASC, m.id ASC"
     )
     fun observeAllNamed(): Flow<List<NamedMeasurement>>
 
