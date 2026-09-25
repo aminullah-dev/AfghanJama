@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.afghanjama.data.entities.Customer
 import com.afghanjama.data.entities.CustomerMeasurement
 import com.afghanjama.data.Installments
+import com.afghanjama.data.PersonEdit
 import com.afghanjama.data.entities.CustomerInstallment
 import com.afghanjama.data.entities.Order
 import com.afghanjama.pdf.StatementData
@@ -158,5 +159,28 @@ class CustomerDetailViewModel(private val repo: Repo) : ViewModel() {
     fun recordPayment(amount: Long) = viewModelScope.launch {
         val name = summary.value.customer?.name ?: return@launch
         repo.recordCustomerReceipt(name, amount)
+    }
+
+    /** پیامِ ویرایش یا حذفی که انجام نشد — دلیلش را می‌گوید. */
+    private val _editError = MutableStateFlow<String?>(null)
+    val editError: StateFlow<String?> = _editError
+
+    fun clearEditError() { _editError.value = null }
+
+    /**
+     * نام و تلفن. نامِ مشتری‌ای که سفارش یا حساب دارد عوض نمی‌شود — دلیلش
+     * در [PersonEdit] است. [onDone] فقط وقتی صدا زده می‌شود که ثبت شد.
+     */
+    fun edit(name: String, phone: String, onDone: () -> Unit) = viewModelScope.launch {
+        val id = customerId.value ?: return@launch
+        val r = repo.editCustomer(id, name, phone)
+        if (r == PersonEdit.DONE) onDone() else _editError.value = r.message("مشتری")
+    }
+
+    /** فقط مشتری‌ای که هنوز در کار و حساب نیامده. */
+    fun delete(onDeleted: () -> Unit) = viewModelScope.launch {
+        val id = customerId.value ?: return@launch
+        val r = repo.deleteCustomer(id)
+        if (r == PersonEdit.DONE) onDeleted() else _editError.value = r.message("مشتری")
     }
 }

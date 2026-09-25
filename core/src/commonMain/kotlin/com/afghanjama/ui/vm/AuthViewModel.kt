@@ -170,12 +170,24 @@ class AuthViewModel(private val settings: Settings) : ViewModel() {
         _ui.update { it.copy(message = null, isError = false) }
     }
 
-    private companion object {
+    companion object {
         // همان نام‌هایی که `SharedPreferences`ِ اندروید امروز دارد.
-        const val FILE = "auth_prefs"
-        const val KEY_PIN = "pin"
-        const val KEY_LOGGED_IN = "logged_in"
-        const val KEY_ROLE = "role"
-        const val KEY_USER = "user_name"
+        private const val FILE = "auth_prefs"
+        private const val KEY_PIN = "pin"
+        private const val KEY_LOGGED_IN = "logged_in"
+        private const val KEY_ROLE = "role"
+        private const val KEY_USER = "user_name"
+
+        /**
+         * رمزِ ورودِ همین دستگاه درست است؟ — برای کاری که پیش از انجام،
+         * دوباره رمز می‌خواهد (مثلِ ساختنِ دوبارهٔ کارگاهِ نمونه).
+         *
+         * همان وارسیِ [login]، بی ورود و بی ارتقای قالب: اینجا فقط «بله یا
+         * نه» لازم است.
+         */
+        fun verifyPin(settings: Settings, pin: String): Boolean {
+            val saved = settings.getString(FILE, KEY_PIN)
+            return saved.isNotBlank() && PinHash.verify(pin, saved)
+        }
     }
 }

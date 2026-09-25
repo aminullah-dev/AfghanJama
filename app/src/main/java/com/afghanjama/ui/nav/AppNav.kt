@@ -46,6 +46,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.afghanjama.data.SampleWorkshop
 import com.afghanjama.ui.screens.ActionCenterScreen
 import com.afghanjama.ui.screens.AttendanceScreen
 import com.afghanjama.ui.screens.AuditScreen
@@ -153,6 +154,28 @@ fun AppNav(factory: ViewModelProvider.Factory) {
     val authVm = viewModel<AuthViewModel>(vmOwner, factory = factory)
     val navController = rememberNavController()
     val authUi by authVm.ui.collectAsState()
+
+    /*
+     * شروعِ اجباری: کارگاهِ کاملاً خالی، پیش از هر صفحه‌ای، کارگاهِ نمونه
+     * را می‌سازد و بعد آن را از آنِ خودش می‌کند. فقط برای مدیر — نقش‌های
+     * دیگر کارگاه را نمی‌سازند، در آن کار می‌کنند.
+     *
+     * همان ViewModelی است که صفحهٔ کارگاهِ نمونه در تنظیمات می‌گیرد، پس
+     * قفلی که اینجا با ساختن بسته می‌شود، آنجا هم بسته است.
+     *
+     * **فقط اندروید، عمداً.** راهِ بیرون بردنِ سفارش‌ها و پولِ نمونه
+     * «پاک‌کردن کارها و حساب‌ها» است و آن فقط در تنظیماتِ اندروید هست.
+     * ویندوز و آیفون تا آن را نداشته باشند، شروعِ اجباری آنجا پولِ
+     * ساختگی را برای همیشه در دفتر می‌گذاشت.
+     */
+    if (authUi.isLoggedIn && authUi.role == UserRole.MANAGER) {
+        val sampleVm = viewModel<SampleWorkshopViewModel>(vmOwner, factory = factory)
+        val sampleGate by sampleVm.gate.collectAsState()
+        if (sampleGate == SampleWorkshop.Gate.FIRST_RUN) {
+            SampleWorkshopScreen(vm = sampleVm, onBack = {}, firstRun = true)
+            return
+        }
+    }
 
     val start = when {
         !authUi.isLoggedIn -> Routes.LOGIN

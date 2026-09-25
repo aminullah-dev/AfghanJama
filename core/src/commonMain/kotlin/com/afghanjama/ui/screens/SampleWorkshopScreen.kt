@@ -10,15 +10,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -33,20 +36,25 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.afghanjama.data.SampleWorkshop
+import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.ui.components.BusyButton
+import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.platform.AppAlertDialog
 import com.afghanjama.ui.vm.SampleWorkshopViewModel
 
 /**
- * کارگاهِ نمونه — برای دیدن، پیش از خریدن.
+ * کارگاهِ نمونه — شروعِ استانداردِ هر کارگاه، و قفلش.
  *
- * **چرا این صفحه هست.** اپ خالی بالا می‌آید، و برای کسی که دارد
- * تصمیم می‌گیرد بخرد یا نه، خالی یعنی هیچ. هر صفحه‌ای باز می‌کند یک
- * جای خالی است — نه سفارشی، نه خیاطی، نه پارچه‌ای. با یک لمس، یک
- * کارگاهِ کاملِ در حالِ کار ساخته می‌شود و همان لحظه هر صفحه‌ای چیزی
- * برای گفتن دارد.
+ * **دو راه به این صفحه می‌رسد.**
+ *  - [firstRun]: کارگاه کاملاً خالی است و مدیر تازه وارد شده. صفحه جای
+ *    همهٔ اپ را می‌گیرد و راهِ برگشت ندارد؛ هر کارگاه از همین نمونه شروع
+ *    می‌کند و بعد نام‌ها، قیمت‌ها، آدم‌ها و مشتری‌ها را از آنِ خودش
+ *    می‌کند.
+ *  - از تنظیمات: کارگاه چیزی دارد، پس دکمه قفل است و رمزِ ورود می‌خواهد.
  *
  * دادهٔ نمونه از همان مسیرهایی می‌آید که کارِ واقعی می‌آید، پس دفتر و
  * انبار و ژورنالش به‌ناچار با هم می‌خوانند.
@@ -54,11 +62,14 @@ import com.afghanjama.ui.vm.SampleWorkshopViewModel
 @Composable
 fun SampleWorkshopScreen(
     vm: SampleWorkshopViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    firstRun: Boolean = false
 ) {
     val ui by vm.ui.collectAsState()
-    val hasData by vm.hasData.collectAsState()
+    val gate by vm.gate.collectAsState()
+    val settings = LocalSettings.current
     var confirming by remember { mutableStateOf(false) }
+    var pin by remember { mutableStateOf("") }
 
     ui.message?.let { msg ->
         AppAlertDialog(
@@ -75,11 +86,10 @@ fun SampleWorkshopScreen(
             title = { Text("روی دادهٔ فعلی اضافه شود؟") },
             text = {
                 Text(
-                    "این کارگاه از قبل سفارش دارد. کارگاهِ نمونه چیزی را پاک نمی‌کند، " +
-                        "ولی شش سفارشِ ساختگی و چند خیاط و مشتریِ نمونه به دفترِ شما " +
-                        "اضافه می‌شود و بعد باید دستی پاکشان کنید.\n\n" +
-                        "اگر می‌خواهید فقط اپ را ببینید، بهتر است روی یک نصبِ تازه " +
-                        "امتحانش کنید.",
+                    "این کارگاه از قبل داده دارد. ساختنِ دوباره چیزی را پاک نمی‌کند " +
+                        "و کارگاه را به نمونه برنمی‌گرداند: یک نسخهٔ دیگر از شش سفارشِ " +
+                        "ساختگی، خیاط‌ها، مشتری‌ها و پولِ نمونه روی دفترِ شما اضافه " +
+                        "می‌شود و بعد باید دستی پاکشان کنید.",
                     style = MaterialTheme.typography.bodyMedium
                 )
             },
@@ -97,10 +107,14 @@ fun SampleWorkshopScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("کارگاهِ نمونه") },
+                title = { Text(if (firstRun) "شروعِ کارگاه" else "کارگاهِ نمونه") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "برگشت")
+                    // شروعِ اجباری راهِ برگشت ندارد: پشتِ این صفحه یک کارگاهِ
+                    // خالی است، و همین خالی بودن دلیلِ آمدن به اینجاست.
+                    if (!firstRun) {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "برگشت")
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -116,15 +130,25 @@ fun SampleWorkshopScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                "یک کارگاهِ کامل، با یک لمس",
+                if (firstRun) "اول کارگاهِ استاندارد، بعد کارگاهِ خودتان"
+                else "یک کارگاهِ کامل، با یک لمس",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
             Text(
-                "اپ خالی بالا می‌آید، همان‌طور که یک کارگاهِ واقعی از روزِ اول خالی است. " +
-                    "برای دیدنِ اینکه پُر شده چه شکلی است، این دکمه «${SampleWorkshop.NAME}» " +
-                    "را می‌سازد: یک کارگاهِ در حالِ کار با سفارش‌هایی در هر مرحله، " +
-                    "انبارِ پُر، و یک ماه حساب.",
+                if (firstRun) {
+                    "هر کارگاه از «${SampleWorkshop.NAME}» شروع می‌کند: طرح‌ها، پارچه‌ها، " +
+                        "رنگ‌ها، اندازه‌ها، خرجِ کار، خیاط‌ها، مشتری‌ها و یک ماه کار و حساب. " +
+                        "بعد همه را از آنِ خودتان می‌کنید — نام‌ها، قیمت‌ها و آدم‌ها " +
+                        "قابلِ ویرایش‌اند.\n\n" +
+                        "سفارش‌ها، پول و انبارِ نمونه واقعی نیستند. پیش از ثبتِ کارِ واقعی، از " +
+                        "تنظیمات «پاک‌کردن کارها و حساب‌ها» را بزنید: آن‌ها می‌روند و آنچه " +
+                        "شخصی کرده‌اید می‌ماند، و گزارشِ مالی از صفر و درست شروع می‌شود."
+                } else {
+                    "برای دیدنِ اینکه کارگاهِ پُر چه شکلی است، این دکمه «${SampleWorkshop.NAME}» " +
+                        "را می‌سازد: یک کارگاهِ در حالِ کار با سفارش‌هایی در هر مرحله، " +
+                        "انبارِ پُر، و یک ماه حساب."
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -169,18 +193,75 @@ fun SampleWorkshopScreen(
                 }
             }
 
-            BusyButton(
-                text = "ساختنِ کارگاهِ نمونه",
-                onClick = { if (hasData) confirming = true else vm.create() },
-                busy = ui.busy,
-                busyText = "در حالِ ساخت…",
-                modifier = Modifier.fillMaxWidth()
-            )
+            if (gate == SampleWorkshop.Gate.LOCKED) {
+                val pinError = ui.pinError
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Column(
+                        Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Lock, contentDescription = null)
+                            Text("قفل است", fontWeight = FontWeight.SemiBold)
+                        }
+                        Text(
+                            "این کارگاه داده دارد. ساختنِ دوباره کارگاه را به نمونه " +
+                                "برنمی‌گرداند؛ نسخهٔ دیگری از دادهٔ ساختگی را روی کارِ " +
+                                "واقعی اضافه می‌کند. برای ادامه، رمزِ ورودِ مدیر را بزنید.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        OutlinedTextField(
+                            value = pin,
+                            onValueChange = { pin = it.digitsOnly().take(8) },
+                            label = { Text("رمزِ ورود") },
+                            singleLine = true,
+                            isError = pinError != null,
+                            supportingText = if (pinError != null) {
+                                { Text(pinError) }
+                            } else null,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                            visualTransformation = PasswordVisualTransformation(),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        BusyButton(
+                            text = "باز کردنِ قفل",
+                            onClick = {
+                                vm.unlock(settings, pin)
+                                pin = ""
+                            },
+                            enabled = pin.isNotEmpty(),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            } else {
+                BusyButton(
+                    text = if (firstRun) "ساختنِ کارگاهِ نمونه و شروع" else "ساختنِ کارگاهِ نمونه",
+                    onClick = {
+                        if (gate == SampleWorkshop.Gate.OPEN) confirming = true else vm.create()
+                    },
+                    enabled = gate != SampleWorkshop.Gate.CHECKING,
+                    busy = ui.busy,
+                    busyText = "در حالِ ساخت…",
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
 
             Text(
                 "دادهٔ نمونه فقط روی همین دستگاه ساخته می‌شود — هیچ چیز جایی " +
-                    "فرستاده نمی‌شود. برای پاک کردنش، از تنظیمات «بازنشانیِ داده» " +
-                    "را بزنید و کارگاهِ خودتان را از صفر شروع کنید.",
+                    "فرستاده نمی‌شود. «بازنشانیِ داده» در تنظیمات سفارش‌ها و حساب‌ها " +
+                    "را پاک می‌کند، ولی خیاط‌ها، مشتری‌ها، کارکنان و اطلاعاتِ پایه " +
+                    "می‌مانند تا شخصی‌شان کنید.",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

@@ -68,6 +68,7 @@ fun PayrollScreen(
     var editing by remember { mutableStateOf<PayrollRow?>(null) }
     var paying by remember { mutableStateOf<PayrollRow?>(null) }
     var addOpen by remember { mutableStateOf(false) }
+    var deleting by remember { mutableStateOf<PayrollRow?>(null) }
 
     LaunchedEffect(message) {
         message?.let {
@@ -94,7 +95,6 @@ fun PayrollScreen(
                         onValueChange = { name = it },
                         label = { Text("نام کارمند") },
                         singleLine = true,
-                        enabled = row == null,
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
@@ -111,17 +111,37 @@ fun PayrollScreen(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
+                    if (row != null) {
+                        TextButton(onClick = { deleting = row; editing = null }) {
+                            Text("حذفِ این کارمند", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
                 }
             },
             confirmButton = {
                 TextButton(onClick = {
-                    vm.saveStaff(name, role, salary.toLongOrNull() ?: 0L)
+                    val pay = salary.toLongOrNull() ?: 0L
+                    if (row == null) vm.saveStaff(name, role, pay) else vm.updateStaff(row, name, role, pay)
                     addOpen = false; editing = null
                 }) { Text("ذخیره") }
             },
             dismissButton = {
                 TextButton(onClick = { addOpen = false; editing = null }) { Text("انصراف") }
             }
+        )
+    }
+
+    deleting?.let { row ->
+        AppAlertDialog(
+            onDismissRequest = { deleting = null },
+            title = { Text("«${row.name}» حذف شود؟") },
+            text = { Text("فقط کارمندی حذف می‌شود که هنوز حضور، حقوق یا حسابی ندارد.") },
+            confirmButton = {
+                TextButton(onClick = { vm.deleteStaff(row); deleting = null }) {
+                    Text("حذف", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { deleting = null }) { Text("انصراف") } }
         )
     }
 

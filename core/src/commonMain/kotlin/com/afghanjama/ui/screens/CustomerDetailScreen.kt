@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import com.afghanjama.ui.platform.AppAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -85,6 +86,74 @@ fun CustomerDetailScreen(
     var showPay by remember { mutableStateOf(false) }
     var showInstallment by remember { mutableStateOf(false) }
     val installments by vm.installments.collectAsState()
+    var showEdit by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    val editError by vm.editError.collectAsState()
+
+    editError?.let { msg ->
+        AppAlertDialog(
+            onDismissRequest = { vm.clearEditError() },
+            title = { Text("انجام نشد") },
+            text = { Text(msg) },
+            confirmButton = { TextButton(onClick = { vm.clearEditError() }) { Text("باشه") } }
+        )
+    }
+
+    // نام و تلفن — تا مشتری‌های کارگاهِ نمونه از آنِ خودِ کارگاه شوند.
+    // نامِ مشتری‌ای که سفارش یا حساب دارد عوض نمی‌شود؛ مخزن می‌گوید چرا.
+    val editing = s.customer
+    if (showEdit && editing != null) {
+        var name by remember(editing.id) { mutableStateOf(editing.name) }
+        var phone by remember(editing.id) { mutableStateOf(editing.phone.orEmpty()) }
+        AppAlertDialog(
+            onDismissRequest = { showEdit = false },
+            title = { Text("ویرایشِ مشتری") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = name, onValueChange = { name = it },
+                        label = { Text("نام") }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = phone, onValueChange = { phone = it },
+                        label = { Text("شماره تماس") }, singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    TextButton(onClick = { showEdit = false; confirmDelete = true }) {
+                        Text("حذفِ این مشتری", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = name.isNotBlank(), onClick = {
+                    vm.edit(name, phone, onDone = { showEdit = false })
+                }) { Text("ذخیره") }
+            },
+            dismissButton = { TextButton(onClick = { showEdit = false }) { Text("لغو") } }
+        )
+    }
+
+    if (confirmDelete && editing != null) {
+        AppAlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text("«${editing.name}» حذف شود؟") },
+            text = {
+                Text(
+                    "مشتری و اندازه‌هایش پاک می‌شوند. فقط مشتری‌ای حذف می‌شود که " +
+                        "هنوز سفارش یا حسابی ندارد."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDelete = false
+                    vm.delete(onDeleted = onBack)
+                }) { Text("حذف", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("لغو") } }
+        )
+    }
 
     if (showMeasure) {
         var label by remember { mutableStateOf("") }
@@ -198,6 +267,11 @@ fun CustomerDetailScreen(
                     }
                 },
                 actions = {
+                    if (s.customer != null) {
+                        IconButton(onClick = { showEdit = true }) {
+                            Icon(Icons.Default.Edit, contentDescription = "ویرایشِ مشتری")
+                        }
+                    }
                     // کارتِ حساب برای فرستادن — تا پیگیریِ بدهی شفاهی نمانَد.
                     // فقط وقتی معنا دارد که گردشی ثبت شده باشد.
                     val name = s.customer?.name.orEmpty()

@@ -42,4 +42,7 @@ interface CustomerMeasurementDao {
 
     @Query("DELETE FROM customer_measurements WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM customer_measurements WHERE customerId = :customerId")
+    suspend fun deleteForCustomer(customerId: Long)
 }

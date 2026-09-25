@@ -152,6 +152,30 @@ interface MasterDataDao {
     )
     suspend fun updateStaffTerms(name: String, role: String, monthlySalary: Long)
 
+    @Query("SELECT * FROM staff WHERE id = :id LIMIT 1")
+    suspend fun findStaffById(id: Long): com.afghanjama.data.entities.Staff?
+
+    @Query("SELECT EXISTS(SELECT 1 FROM staff WHERE name = :name)")
+    suspend fun staffNameTaken(name: String): Boolean
+
+    /**
+     * این کارمند سابقه دارد؟ — حضور، حقوقِ پرداخت‌شده، یا سطرِ دفتر. همه
+     * با نام، پس کارمندِ باسابقه نامش عوض نمی‌شود و حذف نمی‌شود.
+     */
+    @Query(
+        "SELECT EXISTS(SELECT 1 FROM attendance WHERE employee = :name) " +
+            "OR EXISTS(SELECT 1 FROM salary_payments WHERE employee = :name) " +
+            "OR EXISTS(SELECT 1 FROM ledger_entries WHERE partyType = 'EMPLOYEE' AND partyName = :name) " +
+            "OR EXISTS(SELECT 1 FROM parties WHERE type = 'EMPLOYEE' AND name = :name)"
+    )
+    suspend fun staffHasHistory(name: String): Boolean
+
+    @Query("UPDATE staff SET name = :name WHERE id = :id")
+    suspend fun renameStaff(id: Long, name: String)
+
+    @Query("DELETE FROM staff WHERE id = :id")
+    suspend fun deleteStaff(id: Long)
+
 
     // ----------------------------
     // Customers
@@ -168,4 +192,45 @@ interface MasterDataDao {
 
     @Query("DELETE FROM customers WHERE id = :id")
     suspend fun deleteCustomer(id: Long)
+
+    @Query("SELECT * FROM customers WHERE id = :id LIMIT 1")
+    suspend fun findCustomerById(id: Long): Customer?
+
+    @Query("UPDATE customers SET name = :name, phone = :phone WHERE id = :id")
+    suspend fun updateCustomer(id: Long, name: String, phone: String?)
+
+    /**
+     * این نام در کار و حساب آمده است؟
+     *
+     * سفارش، دفتر، دریافت، قسط و فروش مشتری را با **نام** می‌شناسند نه با
+     * شناسه. مشتریِ باسابقه را نمی‌شود تغییرِ نام داد یا حذف کرد، وگرنه
+     * مانده‌اش زیرِ نامی می‌ماند که دیگر در فهرست نیست.
+     */
+    @Query(
+        "SELECT EXISTS(SELECT 1 FROM orders WHERE customerName = :name) " +
+            "OR EXISTS(SELECT 1 FROM ledger_entries WHERE partyType = 'CUSTOMER' AND partyName = :name) " +
+            "OR EXISTS(SELECT 1 FROM parties WHERE type = 'CUSTOMER' AND name = :name) " +
+            "OR EXISTS(SELECT 1 FROM customer_payments WHERE customerName = :name) " +
+            "OR EXISTS(SELECT 1 FROM customer_installments WHERE customerName = :name) " +
+            "OR EXISTS(SELECT 1 FROM finished_sales WHERE customerName = :name)"
+    )
+    suspend fun customerHasHistory(name: String): Boolean
+
+    /**
+     * این کارگاه چیزی دارد؟ — برای شروعِ اجباری با کارگاهِ نمونه و قفلش.
+     *
+     * هم اطلاعاتِ پایه و آدم‌ها را می‌پرسد، هم کار و پول را. اطلاعاتِ پایه
+     * لازم است چون «بازنشانیِ داده» آن‌ها را نگه می‌دارد: کارگاهی که دفترش
+     * را پاک کرده ولی خیاط‌ها و طرح‌هایش را شخصی کرده، خالی نیست و نباید
+     * دوباره به نمونه برگردد.
+     */
+    @Query(
+        "SELECT EXISTS(SELECT 1 FROM orders) OR EXISTS(SELECT 1 FROM customers) " +
+            "OR EXISTS(SELECT 1 FROM tailors) OR EXISTS(SELECT 1 FROM inspectors) " +
+            "OR EXISTS(SELECT 1 FROM staff) OR EXISTS(SELECT 1 FROM fabric_types) " +
+            "OR EXISTS(SELECT 1 FROM design_items) OR EXISTS(SELECT 1 FROM WorkCost) " +
+            "OR EXISTS(SELECT 1 FROM material_stock) OR EXISTS(SELECT 1 FROM journal_entries) " +
+            "OR EXISTS(SELECT 1 FROM finance_transactions)"
+    )
+    suspend fun hasAnyWorkshopData(): Boolean
 }

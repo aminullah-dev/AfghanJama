@@ -5,6 +5,7 @@ import com.afghanjama.data.Db
 import com.afghanjama.data.CashPolicy
 import com.afghanjama.data.CardScan
 import com.afghanjama.data.CustomerCredit
+import com.afghanjama.data.PersonEdit
 import com.afghanjama.data.EmployeeCard
 import com.afghanjama.data.PartialFlow
 import com.afghanjama.data.entities.AttendanceRecord
@@ -3542,6 +3543,80 @@ class Repo(private val db: Db) {
 
     suspend fun addCustomer(item: Customer) =
         db.masterDataDao().insertCustomer(item)
+
+    /** کارگاه هیچ‌چیز ندارد؟ — شروعِ اجباری با کارگاهِ نمونه به این نگاه می‌کند. */
+    suspend fun hasAnyWorkshopData(): Boolean =
+        db.masterDataDao().hasAnyWorkshopData()
+
+    // =========================
+    // ویرایش و حذفِ مشتری و کارمند
+    //
+    // کارگاه با کارگاهِ نمونه شروع می‌کند و آدم‌ها را از آنِ خودش می‌کند.
+    // تلفن و سمت و حقوق همیشه عوض می‌شوند. نام و حذف فقط برای کسی که
+    // هنوز در کار و حساب نیامده — سفارش و دفتر و حضور آدم را با **نام**
+    // می‌شناسند، و تغییرِ نامِ کسی که سابقه دارد مانده‌اش را زیرِ نامی جا
+    // می‌گذارد که دیگر در فهرست نیست. آدم‌های کارگاهِ نمونه بعد از
+    // «پاک‌کردن کارها و حساب‌ها» سابقه‌ای ندارند.
+    // =========================
+
+    suspend fun editCustomer(id: Long, name: String, phone: String): PersonEdit =
+        db.atomic { editCustomerTx(id, name, phone) }
+
+    private suspend fun editCustomerTx(id: Long, name: String, phone: String): PersonEdit {
+        val dao = db.masterDataDao()
+        val cur = dao.findCustomerById(id) ?: return PersonEdit.MISSING
+        val nm = name.trim()
+        if (nm.isEmpty()) return PersonEdit.BLANK
+        if (nm != cur.name) {
+            if (dao.findCustomerByName(nm) != null) return PersonEdit.NAME_TAKEN
+            if (dao.customerHasHistory(cur.name)) return PersonEdit.HAS_HISTORY
+        }
+        val ph = phone.trim().ifEmpty { null }
+        dao.updateCustomer(id, nm, ph)
+        audit(
+            "ویرایشِ مشتری",
+            if (nm == cur.name) "«$nm» — تلفن: ${ph ?: "—"}" else "«${cur.name}» ← «$nm»"
+        )
+        return PersonEdit.DONE
+    }
+
+    suspend fun deleteCustomer(id: Long): PersonEdit = db.atomic { deleteCustomerTx(id) }
+
+    private suspend fun deleteCustomerTx(id: Long): PersonEdit {
+        val dao = db.masterDataDao()
+        val cur = dao.findCustomerById(id) ?: return PersonEdit.MISSING
+        if (dao.customerHasHistory(cur.name)) return PersonEdit.HAS_HISTORY
+        db.customerMeasurementDao().deleteForCustomer(id)
+        dao.deleteCustomer(id)
+        audit("حذفِ مشتری", "«${cur.name}»")
+        return PersonEdit.DONE
+    }
+
+    suspend fun renameStaff(id: Long, name: String): PersonEdit = db.atomic { renameStaffTx(id, name) }
+
+    private suspend fun renameStaffTx(id: Long, name: String): PersonEdit {
+        val dao = db.masterDataDao()
+        val cur = dao.findStaffById(id) ?: return PersonEdit.MISSING
+        val nm = name.trim()
+        if (nm.isEmpty()) return PersonEdit.BLANK
+        if (nm == cur.name) return PersonEdit.DONE
+        if (dao.staffNameTaken(nm)) return PersonEdit.NAME_TAKEN
+        if (dao.staffHasHistory(cur.name)) return PersonEdit.HAS_HISTORY
+        dao.renameStaff(id, nm)
+        audit("تغییرِ نامِ کارمند", "«${cur.name}» ← «$nm»")
+        return PersonEdit.DONE
+    }
+
+    suspend fun deleteStaff(id: Long): PersonEdit = db.atomic { deleteStaffTx(id) }
+
+    private suspend fun deleteStaffTx(id: Long): PersonEdit {
+        val dao = db.masterDataDao()
+        val cur = dao.findStaffById(id) ?: return PersonEdit.MISSING
+        if (dao.staffHasHistory(cur.name)) return PersonEdit.HAS_HISTORY
+        dao.deleteStaff(id)
+        audit("حذفِ کارمند", "«${cur.name}»")
+        return PersonEdit.DONE
+    }
 
     // =========================
     // Attendance (حضور و غیاب کارمند)
