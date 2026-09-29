@@ -3,6 +3,8 @@ package com.afghanjama.ui.vm
 import com.afghanjama.util.nowMillis
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.afghanjama.data.PayrollSmart
+import com.afghanjama.data.PersonEdit
 import com.afghanjama.data.entities.SalaryPayment
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.ui.format.PersianDate
@@ -10,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -21,7 +24,9 @@ data class PayrollRow(
     val paidThisMonth: Long,
     val lastPaidLabel: String,
     /** پیش‌پرداختِ تسویه‌نشده — پولی که کارمند از قبل گرفته. */
-    val advance: Long = 0
+    val advance: Long = 0,
+    /** شناسهٔ کارمند — برای تغییرِ نام و حذف. */
+    val id: Long = 0
 ) {
     val isPaid: Boolean get() = monthlySalary > 0 && paidThisMonth >= monthlySalary
     val remaining: Long get() = (monthlySalary - paidThisMonth).coerceAtLeast(0)
@@ -81,7 +86,8 @@ class PayrollViewModel(private val repo: Repo) : ViewModel() {
                 monthlySalary = s.monthlySalary,
                 paidThisMonth = mine.filter { it.periodKey == key }.sumOf { it.amount },
                 lastPaidLabel = mine.maxByOrNull { it.at }?.periodLabel.orEmpty(),
-                advance = advances[s.name] ?: 0L
+                advance = advances[s.name] ?: 0L,
+                id = s.id
             )
         }.sortedWith(
             compareByDescending<PayrollRow> { it.monthlySalary > 0 }
@@ -97,6 +103,21 @@ class PayrollViewModel(private val repo: Repo) : ViewModel() {
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PayrollUi())
 
+    /**
+     * حضورِ همین ماهِ هر کارمند، برای پیشنهادِ حقوق — نام (trim‌شده) به
+     * فهرستِ شیفت‌ها. صفحه با این و روزهای کاریِ تنظیمات، پیشنهاد را
+     * می‌سازد ([PayrollSmart])؛ تنظیمات از خودِ صفحه خوانده می‌شود، نه
+     * از ViewModel.
+     */
+    val shiftsThisMonth: StateFlow<Map<String, List<PayrollSmart.Shift>>> =
+        repo.observeAttendance().map { records ->
+            val key = nowKey()
+            records
+                .filter { PersianDate.monthKey(it.checkIn) == key }
+                .groupBy { it.employee.trim() }
+                .mapValues { (_, rs) -> rs.map { PayrollSmart.Shift(it.checkIn, it.checkOut) } }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
     /** ثبت/به‌روزرسانی حقوقِ ماهانهٔ توافقیِ یک کارمند. */
     fun saveStaff(name: String, role: String, monthlySalary: Long) = viewModelScope.launch {
         if (name.isBlank()) {
@@ -105,6 +126,33 @@ class PayrollViewModel(private val repo: Repo) : ViewModel() {
         }
         repo.addStaff(name, role, monthlySalary)
         _message.value = "«${name.trim()}» ذخیره شد."
+    }
+
+    /**
+     * ویرایشِ کارمندِ موجود: نام، سمت و حقوق.
+     *
+     * تغییرِ نام حضور و حقوق و حسابِ کارمند را هم با خودش می‌برد؛ فقط به
+     * نامی که آدمِ دیگری دارد نمی‌رود. اگر نام عوض نشد، سمت و حقوق هم دست
+     * نمی‌خورند تا نیمی از ویرایش بی‌صدا ثبت نشود.
+     */
+    fun updateStaff(row: PayrollRow, name: String, role: String, monthlySalary: Long) =
+        viewModelScope.launch {
+            val nm = name.trim()
+            if (nm != row.name) {
+                val r = repo.renameStaff(row.id, nm)
+                if (r != PersonEdit.DONE) {
+                    _message.value = r.message("کارمند")
+                    return@launch
+                }
+            }
+            repo.addStaff(nm, role, monthlySalary)
+            _message.value = "«$nm» ذخیره شد."
+        }
+
+    /** فقط کارمندی که هنوز حضور، حقوق یا حسابی ندارد. */
+    fun deleteStaff(row: PayrollRow) = viewModelScope.launch {
+        val r = repo.deleteStaff(row.id)
+        _message.value = if (r == PersonEdit.DONE) "«${row.name}» حذف شد." else r.message("کارمند")
     }
 
     /**

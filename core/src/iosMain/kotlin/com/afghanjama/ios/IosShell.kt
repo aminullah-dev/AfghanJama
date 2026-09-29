@@ -43,6 +43,7 @@ import com.afghanjama.ui.screens.CustomerDetailScreen
 import com.afghanjama.ui.screens.CustomersScreen
 import com.afghanjama.ui.screens.CuttingScreen
 import com.afghanjama.ui.screens.DailyTradeScreen
+import com.afghanjama.ui.screens.DebtFollowUpScreen
 import com.afghanjama.ui.screens.DeliveryQueueScreen
 import com.afghanjama.ui.screens.DocumentsScreen
 import com.afghanjama.ui.screens.FinanceHubScreen
@@ -86,6 +87,7 @@ import com.afghanjama.ui.vm.CustomerDetailViewModel
 import com.afghanjama.ui.vm.CustomersViewModel
 import com.afghanjama.ui.vm.CuttingViewModel
 import com.afghanjama.ui.vm.DashboardViewModel
+import com.afghanjama.ui.vm.DebtFollowUpViewModel
 import com.afghanjama.ui.vm.DeliveryQueueViewModel
 import com.afghanjama.ui.vm.DocumentsViewModel
 import com.afghanjama.ui.vm.FinanceViewModel
@@ -114,6 +116,13 @@ import com.afghanjama.ui.vm.SampleWorkshopViewModel
 import com.afghanjama.ui.vm.SelfTestViewModel
 import com.afghanjama.ui.vm.SewingViewModel
 import com.afghanjama.ui.vm.UserRole
+import com.afghanjama.ui.vm.UsersViewModel
+import com.afghanjama.ui.vm.RouteAccess
+import com.afghanjama.ui.vm.Access
+import com.afghanjama.ui.screens.UsersScreen
+import com.afghanjama.ui.components.NoAccessNotice
+import com.afghanjama.prefs.Settings
+import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.ui.vm.WarehouseViewModel
 import com.afghanjama.ui.vm.WorkshopLoadViewModel
 import kotlinx.coroutines.Dispatchers
@@ -188,7 +197,7 @@ internal fun IosShell(auth: AuthViewModel) {
 
         is Ledger.Failed -> Message("دفترِ کارگاه باز نشد:\n${l.message}")
 
-        is Ledger.Ready -> LoggedIn(l.repo, ui.role, auth)
+        is Ledger.Ready -> LoggedIn(l.repo, ui.role, auth, ui.access)
     }
 }
 
@@ -218,7 +227,7 @@ private fun Message(text: String) = Box(Modifier.fillMaxSize(), Alignment.Center
  * چندسکویی‌اش (`lifecycle-viewmodel-compose`) برای iOS منتشر نشده، پس
  * اینجا دست‌ساز است.
  */
-private class Vms(repo: Repo) {
+private class Vms(repo: Repo, settings: Settings) {
     val action by lazy { ActionCenterViewModel(repo) }
     val audit by lazy { AuditViewModel(repo) }
     val board by lazy { BoardViewModel(repo) }
@@ -226,6 +235,7 @@ private class Vms(repo: Repo) {
     val customers by lazy { CustomersViewModel(repo) }
     val dashboard by lazy { DashboardViewModel(repo) }
     val deliveryQueue by lazy { DeliveryQueueViewModel(repo) }
+    val debtFollowUp by lazy { DebtFollowUpViewModel(repo) }
     val documents by lazy { DocumentsViewModel(repo) }
     val finance by lazy { FinanceViewModel(repo) }
     val finishedSale by lazy { FinishedSaleViewModel(repo) }
@@ -247,6 +257,7 @@ private class Vms(repo: Repo) {
     val reports by lazy { ReportsViewModel(repo) }
     val review by lazy { ReviewViewModel(repo) }
     val sampleWorkshop by lazy { SampleWorkshopViewModel(repo) }
+    val users by lazy { UsersViewModel(settings, repo) }
     val search by lazy { OrderSearchViewModel(repo) }
     val selfTest by lazy { SelfTestViewModel(repo) }
     val sewing by lazy { SewingViewModel(repo) }
@@ -259,10 +270,11 @@ private class Vms(repo: Repo) {
 }
 
 @Composable
-private fun LoggedIn(repo: Repo, role: UserRole, auth: AuthViewModel) {
+private fun LoggedIn(repo: Repo, role: UserRole, auth: AuthViewModel, access: Access) {
     val nav = rememberNavStack()
-    val items = remember(role) { bottomItemsFor(role) }
-    val vm = remember(repo) { Vms(repo) }
+    val items = remember(role, access) { bottomItemsFor(role, access) }
+    val settings = LocalSettings.current
+    val vm = remember(repo) { Vms(repo, settings) }
 
     val back = { nav.back() }
     val go = { route: String -> nav.go(route) }
@@ -309,7 +321,10 @@ private fun LoggedIn(repo: Repo, role: UserRole, auth: AuthViewModel) {
         }
     ) { pad ->
         Box(Modifier.padding(pad)) {
-            when (base) {
+            // پردهٔ «دسترسی ندارید» — همان قاعدهٔ اندروید (`RouteAccess`).
+            if (!RouteAccess.canOpen(access, base)) {
+                NoAccessNotice(onHome = { nav.switchTab(Routes.HOME) })
+            } else when (base) {
                 Routes.HOME -> HomeDashboardScreen(
                     vm = vm.home,
                     actionVm = vm.action,
@@ -326,6 +341,7 @@ private fun LoggedIn(repo: Repo, role: UserRole, auth: AuthViewModel) {
                     onGoProduction = { go(Routes.PRODUCTION_ORDER) },
                     onGoFinishedSales = { go(Routes.FINISHED_SALES) },
                     onGoDeliveryQueue = { go(Routes.DELIVERY_QUEUE) },
+                    onGoDebtFollowUp = { go(Routes.DEBT_FOLLOW_UP) },
                     onGoAttendance = { go(Routes.ATTENDANCE) },
                     onGoPayroll = { go(Routes.PAYROLL) },
                     onGoPerformance = { go(Routes.PERFORMANCE) },
@@ -348,6 +364,7 @@ private fun LoggedIn(repo: Repo, role: UserRole, auth: AuthViewModel) {
                     onGoGuide = { go(Routes.GUIDE) },
                     onGoWorkshopLink = { go(Routes.WORKSHOP_LINK) },
                     onGoBoard = { go(Routes.BOARD) },
+                    can = { access.has(it) },
                 )
 
                 Routes.ACTION_CENTER -> ActionCenterScreen(
@@ -393,6 +410,11 @@ private fun LoggedIn(repo: Repo, role: UserRole, auth: AuthViewModel) {
                 )
 
                 Routes.DELIVERY_QUEUE -> DeliveryQueueScreen(vm = vm.deliveryQueue, onBack = back)
+                Routes.DEBT_FOLLOW_UP -> DebtFollowUpScreen(
+                    vm = vm.debtFollowUp,
+                    onBack = back,
+                    onOpenCustomer = { id -> go("${Routes.CUSTOMER_DETAIL}/$id") }
+                )
 
                 /*
                  * «کارگاه» — سه مرحلهٔ برش و دوخت و نظارت.
@@ -554,6 +576,8 @@ private fun LoggedIn(repo: Repo, role: UserRole, auth: AuthViewModel) {
 
                 Routes.SAMPLE_WORKSHOP -> SampleWorkshopScreen(vm = vm.sampleWorkshop, onBack = back)
 
+                Routes.USERS -> UsersScreen(vm = vm.users, onBack = back)
+
                 SHOP_PROFILE -> ShopProfileScreen(financeVm = vm.finance, onBack = back)
 
                 Routes.SETTINGS -> IosSettings(
@@ -630,21 +654,25 @@ private fun IosSettings(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         val canManage = Permissions.canManageMaster(role)
+        // پروفایل، خودآزمایی، کارگاهِ نمونه و کاربران فقط مالِ مدیرند —
+        // کاربرِ شخصی حتی با تیکِ «اطلاعات پایه» راهی به آن‌ها ندارد.
+        val isManager = role == UserRole.MANAGER
 
         if (canManage) {
             SettingsRow("اطلاعات پایه", "خیاط، ناظر، پارچه، رنگ، سایز") {
                 onGo(Routes.MASTER)
             }
+        }
+        if (isManager) {
             SettingsRow("پروفایل کارگاه", "نام و تلفن و آدرس روی رسیدها") {
                 onGo(SHOP_PROFILE)
             }
-        }
-
-        SettingsRow("خودآزمایی و سلامتِ داده", "می‌گوید دفتر سالم است یا نه") {
-            onGo(Routes.SELF_TEST)
-        }
-
-        if (canManage) {
+            SettingsRow("کاربران و دسترسی‌ها", "رمز و تیکِ بخش‌ها برای هر نفر") {
+                onGo(Routes.USERS)
+            }
+            SettingsRow("خودآزمایی و سلامتِ داده", "می‌گوید دفتر سالم است یا نه") {
+                onGo(Routes.SELF_TEST)
+            }
             SettingsRow("کارگاهِ نمونه", "داده‌های آزمایشی برای یاد گرفتنِ اپ") {
                 onGo(Routes.SAMPLE_WORKSHOP)
             }

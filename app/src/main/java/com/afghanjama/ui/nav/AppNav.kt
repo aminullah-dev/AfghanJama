@@ -4,6 +4,8 @@ package com.afghanjama.ui.nav
 import com.afghanjama.ui.nav.bottomItemsFor
 import android.app.Activity
 import androidx.activity.compose.BackHandler
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -46,7 +48,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.afghanjama.data.SampleWorkshop
 import com.afghanjama.ui.screens.ActionCenterScreen
+import com.afghanjama.ui.vm.UsersViewModel
+import com.afghanjama.ui.vm.RouteAccess
+import com.afghanjama.ui.screens.UsersScreen
+import com.afghanjama.ui.components.NoAccessNotice
 import com.afghanjama.ui.screens.AttendanceScreen
 import com.afghanjama.ui.screens.AuditScreen
 import com.afghanjama.ui.screens.BoardScreen
@@ -55,6 +62,7 @@ import com.afghanjama.ui.screens.CustomersScreen
 import com.afghanjama.ui.components.WorkStage
 import com.afghanjama.ui.screens.CuttingScreen
 import com.afghanjama.ui.screens.DailyTradeScreen
+import com.afghanjama.ui.screens.DebtFollowUpScreen
 import com.afghanjama.ui.screens.DeliveryQueueScreen
 import com.afghanjama.ui.components.QrBadge
 import com.afghanjama.ui.screens.DocumentsScreen
@@ -102,6 +110,7 @@ import com.afghanjama.ui.vm.CustomerDetailViewModel
 import com.afghanjama.ui.vm.CustomersViewModel
 import com.afghanjama.ui.vm.CuttingViewModel
 import com.afghanjama.ui.vm.DashboardViewModel
+import com.afghanjama.ui.vm.DebtFollowUpViewModel
 import com.afghanjama.ui.vm.DeliveryQueueViewModel
 import com.afghanjama.ui.vm.DocumentsViewModel
 import com.afghanjama.ui.vm.FinanceViewModel
@@ -154,8 +163,67 @@ fun AppNav(factory: ViewModelProvider.Factory) {
     val navController = rememberNavController()
     val authUi by authVm.ui.collectAsState()
 
+    /*
+     * شروعِ اجباری: کارگاهِ کاملاً خالی، پیش از هر صفحه‌ای، کارگاهِ نمونه
+     * را می‌سازد و بعد آن را از آنِ خودش می‌کند. فقط برای مدیر — نقش‌های
+     * دیگر کارگاه را نمی‌سازند، در آن کار می‌کنند.
+     *
+     * همان ViewModelی است که صفحهٔ کارگاهِ نمونه در تنظیمات می‌گیرد، پس
+     * قفلی که اینجا با ساختن بسته می‌شود، آنجا هم بسته است.
+     *
+     * **فقط اندروید، عمداً.** راهِ بیرون بردنِ سفارش‌ها و پولِ نمونه
+     * «پاک‌کردن کارها و حساب‌ها» است و آن فقط در تنظیماتِ اندروید هست.
+     * ویندوز و آیفون تا آن را نداشته باشند، شروعِ اجباری آنجا پولِ
+     * ساختگی را برای همیشه در دفتر می‌گذاشت.
+     */
+    if (authUi.isLoggedIn && authUi.role == UserRole.MANAGER) {
+        val sampleVm = viewModel<SampleWorkshopViewModel>(vmOwner, factory = factory)
+        val sampleGate by sampleVm.gate.collectAsState()
+        if (sampleGate == SampleWorkshop.Gate.FIRST_RUN) {
+            // گوشیِ تازه با پشتیبانِ کارگاه: بازیابی از همین‌جا، چون
+            // تنظیمات پشتِ این صفحه است. همان مسیرِ تنظیمات — همان
+            // ViewModel و همان سنجشِ فایل پیش از جایگزینی.
+            val context = LocalContext.current
+            val backupVm = viewModel<BackupViewModel>(vmOwner, factory = factory)
+            val backupUi by backupVm.ui.collectAsState()
+            val restoreLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.OpenDocument()
+            ) { uri -> uri?.let { backupVm.restoreFrom(context, it) } }
+
+            backupUi.message?.let { msg ->
+                AlertDialog(
+                    // بعد از بازیابی دیتابیس بسته است؛ تنها راهِ درست
+                    // بستنِ اپ است، پس پنجره با لمسِ بیرون بسته نمی‌شود.
+                    onDismissRequest = { if (!backupUi.restartRequired) backupVm.clearMessage() },
+                    title = { Text(if (backupUi.isError) "بازیابی نشد" else "بازیابی انجام شد") },
+                    text = { Text(msg) },
+                    confirmButton = {
+                        if (backupUi.restartRequired) {
+                            TextButton(onClick = { (context as? Activity)?.finishAffinity() }) {
+                                Text("بستنِ اپ")
+                            }
+                        } else {
+                            TextButton(onClick = { backupVm.clearMessage() }) { Text("باشه") }
+                        }
+                    }
+                )
+            }
+
+            SampleWorkshopScreen(
+                vm = sampleVm,
+                onBack = {},
+                firstRun = true,
+                onRestore = { restoreLauncher.launch(arrayOf("*/*")) }
+            )
+            return
+        }
+    }
+
     val start = when {
         !authUi.isLoggedIn -> Routes.LOGIN
+        // کاربرِ شخصی از خانه شروع می‌کند؛ خانه فقط کاشی‌هایی را نشان
+        // می‌دهد که تیک دارد.
+        authUi.userId != null -> Routes.HOME
         else -> when (authUi.role) {
             UserRole.MANAGER -> Routes.POST_LOGIN
             UserRole.PURCHASE -> Routes.HOME
@@ -165,7 +233,7 @@ fun AppNav(factory: ViewModelProvider.Factory) {
         }
     }
 
-    val bottomItems = bottomItemsFor(authUi.role)
+    val bottomItems = bottomItemsFor(authUi.role, authUi.access)
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
 
@@ -279,7 +347,7 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                 LoginScreen(
                     vm = authVm,
                     onLoggedIn = {
-                        val next = when (authVm.ui.value.role) {
+                        val next = if (authVm.ui.value.userId != null) Routes.HOME else when (authVm.ui.value.role) {
                             UserRole.MANAGER -> Routes.POST_LOGIN
                             UserRole.PURCHASE -> Routes.HOME
                             UserRole.SEWING -> Routes.SEWING
@@ -319,6 +387,7 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                     onGoProduction = { navController.navigate(Routes.INVENTORY) },
                     onGoFinishedSales = { navController.navigate(Routes.FINISHED_SALES) },
                     onGoDeliveryQueue = { navController.navigate(Routes.DELIVERY_QUEUE) },
+                    onGoDebtFollowUp = { navController.navigate(Routes.DEBT_FOLLOW_UP) },
                     onGoAttendance = { navController.navigate(Routes.ATTENDANCE) },
                     onGoPayroll = { navController.navigate(Routes.PAYROLL) },
                     onGoPerformance = { navController.navigate(Routes.PERFORMANCE) },
@@ -343,7 +412,8 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                     onGoRecurring = { navController.navigate(Routes.RECURRING) },
                     onGoGuide = { navController.navigate(Routes.GUIDE) },
                     onGoWorkshopLink = { navController.navigate(Routes.WORKSHOP_LINK) },
-                    onGoBoard = { navController.navigate(Routes.BOARD) }
+                    onGoBoard = { navController.navigate(Routes.BOARD) },
+                    can = { authUi.access.has(it) }
                 )
             }
 
@@ -454,6 +524,15 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                 DeliveryQueueScreen(
                     vm = deliveryQueueVm,
                     onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Routes.DEBT_FOLLOW_UP) {
+                val debtVm = viewModel<DebtFollowUpViewModel>(vmOwner, factory = factory)
+                DebtFollowUpScreen(
+                    vm = debtVm,
+                    onBack = { navController.popBackStack() },
+                    onOpenCustomer = { id -> navController.navigate("${Routes.CUSTOMER_DETAIL}/$id") }
                 )
             }
 
@@ -610,6 +689,11 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                 )
             }
 
+            composable(Routes.USERS) {
+                val usersVm = viewModel<UsersViewModel>(vmOwner, factory = factory)
+                UsersScreen(vm = usersVm, onBack = { navController.popBackStack() })
+            }
+
             composable(Routes.SAMPLE_WORKSHOP) {
                 val sampleVm = viewModel<SampleWorkshopViewModel>(vmOwner, factory = factory)
                 SampleWorkshopScreen(
@@ -675,6 +759,7 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                     onGoMaster = { navController.navigate(Routes.MASTER) },
                     onGoSelfTest = { navController.navigate(Routes.SELF_TEST) },
                     onGoSampleWorkshop = { navController.navigate(Routes.SAMPLE_WORKSHOP) },
+                    onGoUsers = { navController.navigate(Routes.USERS) },
                     onLoggedOut = {
                         navController.navigate(Routes.LOGIN) {
                             popUpTo(0) { inclusive = true }
@@ -784,6 +869,24 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                 )
             }
 
+        }
+
+        /*
+         * پردهٔ «دسترسی ندارید» — روی هر صفحه‌ای که این نفر تیکش را ندارد.
+         *
+         * به هر صفحه از چند راه می‌شود رسید (نوار، کاشی، هشدار، چیپِ مرحله،
+         * جست‌وجو)؛ پنهان کردنِ دکمه‌ها همه را نمی‌بندد، این پرده می‌بندد.
+         */
+        if (authUi.isLoggedIn && !RouteAccess.canOpen(authUi.access, currentRoute)) {
+            NoAccessNotice(
+                onHome = {
+                    navController.navigate(Routes.HOME) {
+                        popUpTo(navController.graph.findStartDestination().id) { inclusive = false }
+                        launchSingleTop = true
+                    }
+                },
+                modifier = Modifier.padding(pad)
+            )
         }
     }
 }

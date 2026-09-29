@@ -5,6 +5,7 @@
 
 package com.afghanjama.ui.screens
 
+import com.afghanjama.ui.components.NameSuggestions
 import com.afghanjama.util.nowMillis
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -57,6 +58,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import com.afghanjama.ui.format.PersianDate
+import com.afghanjama.data.PriceAdvisor
+import com.afghanjama.ui.vm.OrderPricing
+import com.afghanjama.ui.vm.ProductionUi
+import com.afghanjama.ui.vm.estimatedUnitCost
+import com.afghanjama.work.DeliveryForecast
+import com.afghanjama.work.WorkshopLoad
 import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.format.toPersianDigits
@@ -78,12 +85,15 @@ fun ProductionOrderScreen(
     onGoProcurement: (() -> Unit)? = null
 ) {
     val ui by vm.ui.collectAsState()
+    val customerNames by vm.customerNames.collectAsState()
     var showAddWorkCost by remember { mutableStateOf(false) }
     val materials by vm.materials.collectAsState()
     val designs by vm.designs.collectAsState()
     val sizes by vm.sizes.collectAsState()
     val designCounts by vm.designCounts.collectAsState()
     val workCosts by vm.workCosts.collectAsState()
+    val forecast by vm.forecast.collectAsState()
+    val orderPricing by vm.pricing.collectAsState()
 
     var pickerOpen by remember { mutableStateOf(false) }
     var designMenu by remember { mutableStateOf(false) }
@@ -251,6 +261,14 @@ fun ProductionOrderScreen(
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
+                        // مشتریِ ثبت‌شده از حرفِ اول — تا «حاجی نصیر» و «حاجي
+                        // نصير» دو حسابِ جدا نشوند.
+                        NameSuggestions(
+                            query = ui.customerName,
+                            names = customerNames,
+                            onPick = vm::setCustomerName,
+                            existsNote = null
+                        )
                         OutlinedTextField(
                             value = ui.agreedPrice,
                             onValueChange = vm::setAgreedPrice,
@@ -258,6 +276,11 @@ fun ProductionOrderScreen(
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth()
+                        )
+                        AgreedPriceHint(
+                            ui = ui,
+                            pricing = orderPricing,
+                            onPick = { vm.setAgreedPrice(it.toString()) }
                         )
 
                         // ---------- مهلت تحویل ----------
@@ -291,6 +314,15 @@ fun ProductionOrderScreen(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        // پیش‌بینیِ واقعی کنارِ قول — پیش از آنکه به مشتری گفته شود.
+                        ui.qty.toIntOrNull()?.takeIf { it > 0 }?.let { q ->
+                            DeliveryHint(
+                                forecast = forecast,
+                                qty = q,
+                                dueDays = ui.dueDays.toLongOrNull()?.takeIf { it > 0 },
+                                onUseDays = { vm.setDueDays(it.toString()) }
                             )
                         }
 
@@ -701,4 +733,109 @@ fun ProductionOrderScreen(
         )
     }
 
+}
+
+/**
+ * «کِی واقعاً آماده می‌شود؟» — زیرِ مهلتِ سفارشِ تازه.
+ *
+ * **چرا اینجا و نه فقط در «بارِ کارگاه».** قول سرِ همین فرم داده
+ * می‌شود؛ صفحه‌ای که باید جداگانه باز شود، سرِ صحبت با مشتری باز
+ * نمی‌شود. تا دیروز مهلت عددی دلخواه بود — «۷ روز» — و هیچ‌چیز
+ * نمی‌گفت کارگاه با کارهای در دستش واقعاً به آن می‌رسد یا نه.
+ *
+ * بی تاریخچهٔ دوخت چیزی نشان نمی‌دهد؛ حدس نمی‌زند.
+ */
+@Composable
+private fun DeliveryHint(
+    forecast: DeliveryForecast.Result,
+    qty: Int,
+    dueDays: Long?,
+    onUseDays: (Int) -> Unit
+) {
+    if (!forecast.hasData) return
+    // مبدأ همان لحظهٔ خودِ پیش‌بینی است، نه ساعتِ هر بار کشیدنِ صفحه —
+    // وگرنه `remember` زیرش با هر ضربهٔ کلید از نو حساب می‌کرد.
+    val due = dueDays?.let { forecast.now + it * 86_400_000L } ?: 0L
+    val hit = remember(forecast, qty, due) { forecast.impactOf(qty, due) } ?: return
+    val safe = remember(forecast, qty) { forecast.earliestSafeDays(qty) }
+    val late = hit.lateDays > 0
+    val pushes = hit.pushedLate
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            if (late) "با کارهای فعلی حدودِ ${PersianDate.short(hit.readyAt)} آماده می‌شود — " +
+                "${hit.lateDays.fa()} روز بعد از این مهلت."
+            else "با کارهای فعلی حدودِ ${PersianDate.short(hit.readyAt)} آماده می‌شود.",
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = if (late) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (late) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+        )
+        if (pushes.isNotEmpty()) {
+            Text(
+                "این مهلت ${pushes.size.fa()} سفارشِ دیگر را دیر می‌کند: " +
+                    pushes.take(3).joinToString("، ") { it.order.orderCode } +
+                    if (pushes.size > 3) "…" else "",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+        if (safe != null && (late || pushes.isNotEmpty() || dueDays == null) && safe.toLong() != dueDays) {
+            AssistChip(
+                onClick = { onUseDays(safe) },
+                label = { Text("مهلتِ مطمئن: ${safe.fa()} روز") }
+            )
+        }
+        Text(
+            "بر پایهٔ سرعتِ واقعیِ کارگاه در ${WorkshopLoad.WINDOW_DAYS.fa()} روزِ گذشته و " +
+                "${forecast.queuePieces.fa()} دستِ در صف.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+/**
+ * بهای برآوردی و پیشنهادِ قیمت زیرِ «قیمت توافقی».
+ *
+ * تا دیروز قیمتِ توافقی کاملاً دستی بود و بها بعد از ثبت معلوم می‌شد؛
+ * سفارشِ زیرِ بها وقتی دیده می‌شد که لباس دوخته شده بود. حالا همان
+ * لحظه کنارِ هم‌اند.
+ */
+@Composable
+private fun AgreedPriceHint(ui: ProductionUi, pricing: OrderPricing, onPick: (Long) -> Unit) {
+    val q = ui.qty.toIntOrNull()?.takeIf { it > 0 } ?: return
+    if (ui.designTitle.isBlank()) return
+    val key = PriceAdvisor.key(ui.designTitle)
+    val wage = pricing.wageByDesign[key] ?: 0L
+    val unitCost = ui.estimatedUnitCost() + wage
+    val advice = remember(pricing, key, unitCost) { pricing.book.advise(key, unitCost) }
+    val agreed = ui.agreedPrice.toLongOrNull() ?: 0L
+    val total = unitCost * q
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (unitCost > 0L) {
+            Text(
+                "بهای برآوردی: ${total.afn()} (${unitCost.afn()} هر عدد" +
+                    (if (wage > 0L) "، با دستمزدِ دوختِ معمولِ ${wage.afn()})" else "، بی دستمزدِ دوخت)"),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        PriceSuggestions(
+            advice = advice,
+            typed = agreed,
+            onPick = onPick,
+            perPieceLabel = " برای ${q.fa()} عدد",
+            scale = q
+        )
+        if (total > 0L && agreed in 1 until total) {
+            Text(
+                "این قیمت ${(total - agreed).afn()} زیرِ بهای برآوردی است — زیان.",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+    }
 }

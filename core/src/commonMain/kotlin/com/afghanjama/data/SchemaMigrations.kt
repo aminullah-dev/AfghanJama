@@ -219,6 +219,21 @@ val SCHEMA_STEPS: List<SchemaStep> = listOf(
             )
             """.trimIndent()
         )
+    ),
+
+    /**
+     * ۶۵ → ۶۶ — نشانیِ مشتری.
+     *
+     * فقط یک ستونِ تازه با پیش‌فرضِ خالی: مشتری‌های موجود دست نمی‌خورند و
+     * نشانی‌شان خالی می‌ماند تا کسی واردش کند. `DEFAULT ''` لازم است —
+     * ستونِ `NOT NULL` بی پیش‌فرض روی جدولِ پُر اضافه نمی‌شود — و با
+     * `@ColumnInfo(defaultValue = "")`ِ موجودیت می‌خواند.
+     */
+    SchemaStep(
+        65, 66,
+        listOf(
+            "ALTER TABLE `customers` ADD COLUMN `address` TEXT NOT NULL DEFAULT ''"
+        )
     )
 )
 

@@ -3,6 +3,7 @@ package com.afghanjama.ui.nav
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Checkroom
 import androidx.compose.material.icons.filled.ContentCut
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Payments
@@ -12,6 +13,8 @@ import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.Warehouse
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.afghanjama.ui.vm.Access
+import com.afghanjama.ui.vm.Feature
 import com.afghanjama.ui.vm.UserRole
 
 /*
@@ -44,8 +47,38 @@ data class BottomItem(
     fun owns(route: String?): Boolean = route == this.route || route in alsoOwns
 }
 
-/** آیتم‌های نوار پایین بر اساس نقش کاربر. */
-fun bottomItemsFor(role: UserRole): List<BottomItem> = when (role) {
+/**
+ * آیتم‌های نوار پایین. [access] پیش‌فرض همان نقشِ قدیمی است، پس دستگاهی
+ * که کاربرِ شخصی ندارد همان نواری را می‌بیند که داشت.
+ */
+fun bottomItemsFor(role: UserRole, access: Access = Access.forRole(role)): List<BottomItem> =
+    if (access.isManager) managerItems() else personItems(access)
+
+/**
+ * نوارِ هر نفر از تیک‌هایش — نه از نقشِ ثابت.
+ *
+ * خانه اول و تنظیمات آخر، و بینشان تا سه بخشی که این نفر اجازه دارد، به
+ * همین ترتیب: کارِ دستی اول (برش، دوخت، نظارت)، بعد فروش و خرید، بعد
+ * بقیه. پنج خانه، همان سقفی که برای مدیر هم گذاشته شد.
+ */
+private fun personItems(access: Access): List<BottomItem> {
+    val candidates = listOf(
+        Feature.CUTTING to BottomItem(Routes.CUTTING, "برش", Icons.Default.ContentCut),
+        Feature.SEWING to BottomItem(Routes.SEWING, "دوخت", Icons.Default.Checkroom),
+        Feature.REVIEW to BottomItem(Routes.REVIEW, "نظارت", Icons.Default.VerifiedUser),
+        Feature.SALES to BottomItem(Routes.FINISHED_SALES, "فروش", Icons.Default.Storefront),
+        Feature.PROCUREMENT to BottomItem(Routes.PROCUREMENT, "خرید مواد", Icons.Default.ShoppingCart),
+        Feature.ORDERS to BottomItem(Routes.INVENTORY, "سفارش‌ها", Icons.Default.Inventory2),
+        Feature.CUSTOMERS to BottomItem(Routes.CUSTOMERS, "مشتریان", Icons.Default.Group),
+        Feature.WAREHOUSE to BottomItem(Routes.WAREHOUSE, "انبار", Icons.Default.Warehouse),
+        Feature.FINANCE to BottomItem(Routes.FINANCE, "مالی", Icons.Default.Payments)
+    )
+    return listOf(BottomItem(Routes.HOME, "خانه", Icons.Default.Home)) +
+        candidates.filter { access.has(it.first) }.map { it.second }.take(3) +
+        BottomItem(Routes.SETTINGS, "تنظیمات", Icons.Default.Settings)
+}
+
+private fun managerItems(): List<BottomItem> =
     // **پنج خانه، نه هفت.**
     //
     // تا امروز هفت تا بود: خانه، تولید، برش، دوخت، نظارت، فروش، مالی.
@@ -60,7 +93,7 @@ fun bottomItemsFor(role: UserRole): List<BottomItem> = when (role) {
     // برش و دوخت و نظارت یک کارند که پشتِ سرِ هم می‌آیند. حالا زیرِ
     // «کارگاه» جمع شده‌اند و در خودِ آن صفحه‌ها با چیپ از هم جدا
     // می‌شوند. هیچ صفحه‌ای حذف نشد — فقط راهِ رسیدن یکی شد.
-    UserRole.MANAGER -> listOf(
+    listOf(
         BottomItem(Routes.HOME, "خانه", Icons.Default.Home),
         BottomItem(Routes.INVENTORY, "سفارش‌ها", Icons.Default.Inventory2),
         BottomItem(
@@ -70,30 +103,3 @@ fun bottomItemsFor(role: UserRole): List<BottomItem> = when (role) {
         BottomItem(Routes.FINISHED_SALES, "فروش", Icons.Default.Storefront),
         BottomItem(Routes.FINANCE, "مالی", Icons.Default.Payments)
     )
-
-    UserRole.PURCHASE -> listOf(
-        BottomItem(Routes.HOME, "خانه", Icons.Default.Home),
-        BottomItem(Routes.PROCUREMENT, "خرید مواد", Icons.Default.ShoppingCart),
-        BottomItem(Routes.WAREHOUSE, "انبار", Icons.Default.Warehouse),
-        BottomItem(Routes.SETTINGS, "تنظیمات", Icons.Default.Settings)
-    )
-
-    UserRole.SEWING -> listOf(
-        BottomItem(Routes.HOME, "خانه", Icons.Default.Home),
-        BottomItem(Routes.CUTTING, "برش", Icons.Default.ContentCut),
-        BottomItem(Routes.SEWING, "دوخت", Icons.Default.Checkroom),
-        BottomItem(Routes.SETTINGS, "تنظیمات", Icons.Default.Settings)
-    )
-
-    UserRole.REVIEW -> listOf(
-        BottomItem(Routes.HOME, "خانه", Icons.Default.Home),
-        BottomItem(Routes.REVIEW, "نظارت", Icons.Default.VerifiedUser),
-        BottomItem(Routes.SETTINGS, "تنظیمات", Icons.Default.Settings)
-    )
-
-    UserRole.SALES -> listOf(
-        BottomItem(Routes.HOME, "خانه", Icons.Default.Home),
-        BottomItem(Routes.FINISHED_SALES, "فروش", Icons.Default.Storefront),
-        BottomItem(Routes.SETTINGS, "تنظیمات", Icons.Default.Settings)
-    )
-}

@@ -183,64 +183,70 @@ fun LoginScreen(
                     )
                 }
 
-                // انتخابِ نقش — یک کنترل، نه دو
-                Box {
-                    OutlinedTextField(
-                        value = roleLabel(ui.role),
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("شما چه کسی هستید؟") },
-                        singleLine = true,
-                        trailingIcon = {
-                            IconButton(onClick = { roleMenu = true }) {
-                                Icon(Icons.Default.ArrowDropDown, contentDescription = "انتخاب نقش")
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    /*
-                     * از مرزِ سکو، نه `DropdownMenu`ِ مستقیم.
-                     *
-                     * این صفحه از `:app` به `:core` آمد و همان دامی را
-                     * دوباره باز کرد که پیش‌تر گرفته شده بود: تابعِ سطحِ
-                     * فایل در جاوا به کلاسی به نامِ **فایل** تبدیل
-                     * می‌شود، و `DropdownMenu` روی دسکتاپ در
-                     * `SkikoMenu.skiko.kt` است و روی اندروید در
-                     * `AndroidMenu.android.kt`.
-                     *
-                     * چون `:core` علیه jarهای دسکتاپ کامپایل می‌شود،
-                     * بایت‌کد به `SkikoMenu_skikoKt` ارجاع می‌داد — کلاسی
-                     * که روی گوشی وجود ندارد.
-                     *
-                     * **و اینجا از همه‌جا بدتر بود:** صفحهٔ ورود اولین
-                     * چیزی است که کاربر می‌بیند، پس اپ سرِ باز شدن
-                     * می‌مرد، نه در صفحه‌ای دورافتاده.
-                     */
-                    AppDropdownMenu(
-                        expanded = roleMenu,
-                        onDismissRequest = { roleMenu = false }
-                    ) {
-                        UserRole.entries.forEach { r ->
-                            AppDropdownMenuItem(
-                                text = { Text(roleLabel(r)) },
-                                onClick = {
-                                    vm.setRole(r)
-                                    roleMenu = false
+                // نقش و نام فقط سرِ راه‌اندازیِ دستگاه. بعد از آن رمز خودش
+                // می‌گوید کیست: صاحبِ دستگاه، یا یکی از کاربرانی که مدیر با
+                // رمز و تیک‌های خودش ساخته. تا دیروز هر کس در صفحهٔ ورود
+                // «مدیر» را برمی‌داشت و با همان رمز همه‌کاره می‌شد.
+                if (!ui.isSetupDone) {
+                    // انتخابِ نقش — یک کنترل، نه دو
+                    Box {
+                        OutlinedTextField(
+                            value = roleLabel(ui.role),
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("شما چه کسی هستید؟") },
+                            singleLine = true,
+                            trailingIcon = {
+                                IconButton(onClick = { roleMenu = true }) {
+                                    Icon(Icons.Default.ArrowDropDown, contentDescription = "انتخاب نقش")
                                 }
-                            )
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        /*
+                         * از مرزِ سکو، نه `DropdownMenu`ِ مستقیم.
+                         *
+                         * این صفحه از `:app` به `:core` آمد و همان دامی را
+                         * دوباره باز کرد که پیش‌تر گرفته شده بود: تابعِ سطحِ
+                         * فایل در جاوا به کلاسی به نامِ **فایل** تبدیل
+                         * می‌شود، و `DropdownMenu` روی دسکتاپ در
+                         * `SkikoMenu.skiko.kt` است و روی اندروید در
+                         * `AndroidMenu.android.kt`.
+                         *
+                         * چون `:core` علیه jarهای دسکتاپ کامپایل می‌شود،
+                         * بایت‌کد به `SkikoMenu_skikoKt` ارجاع می‌داد — کلاسی
+                         * که روی گوشی وجود ندارد.
+                         *
+                         * **و اینجا از همه‌جا بدتر بود:** صفحهٔ ورود اولین
+                         * چیزی است که کاربر می‌بیند، پس اپ سرِ باز شدن
+                         * می‌مرد، نه در صفحه‌ای دورافتاده.
+                         */
+                        AppDropdownMenu(
+                            expanded = roleMenu,
+                            onDismissRequest = { roleMenu = false }
+                        ) {
+                            UserRole.entries.forEach { r ->
+                                AppDropdownMenuItem(
+                                    text = { Text(roleLabel(r)) },
+                                    onClick = {
+                                        vm.setRole(r)
+                                        roleMenu = false
+                                    }
+                                )
+                            }
                         }
                     }
-                }
 
-                // نامِ کاربر — برای دفترِ رویدادها: چه کسی چه کاری کرد
-                OutlinedTextField(
-                    value = ui.userName,
-                    onValueChange = vm::setUserName,
-                    label = { Text("نام شما") },
-                    supportingText = { Text("روی رویدادهایی که ثبت می‌کنید می‌نشیند") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                    // نامِ کاربر — برای دفترِ رویدادها: چه کسی چه کاری کرد
+                    OutlinedTextField(
+                        value = ui.userName,
+                        onValueChange = vm::setUserName,
+                        label = { Text("نام شما") },
+                        supportingText = { Text("روی رویدادهایی که ثبت می‌کنید می‌نشیند") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
 
                 OutlinedTextField(
                     value = pin,

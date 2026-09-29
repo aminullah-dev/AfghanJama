@@ -65,6 +65,36 @@ interface DomainEventDao {
     )
     fun observeLatestAt(type: String, aggregate: String): Flow<List<EventStamp>>
 
+    /**
+     * آخرین رویدادِ نوعِ [type] برای هر موجودیت — **خودِ سطر**، نه فقط
+     * زمانش.
+     *
+     * [observeLatestAt] برای «خبر داده شد یا نه» کافی بود. پیگیریِ طلب
+     * بیشتر می‌خواهد: قول داد یا جواب نداد، تا کِی، و بدهی در آن لحظه —
+     * که همه در `payload`اند. یک پرس‌وجو برای کلِ فهرست، مثلِ همان.
+     */
+    @Query(
+        """
+        SELECT * FROM domain_events WHERE id IN (
+            SELECT MAX(id) FROM domain_events
+            WHERE type = :type AND aggregate = :aggregate
+            GROUP BY aggregateId
+        )
+        """
+    )
+    fun observeLatestOf(type: String, aggregate: String): Flow<List<DomainEvent>>
+
+    /**
+     * رویدادهای یک موجودیت را به نامِ تازه‌اش می‌برد — وقتی کلیدش نام
+     * است و نام عوض شد. بی این، قولی که مشتری داده با عوض شدنِ املای
+     * نامش گم می‌شد.
+     */
+    @Query(
+        "UPDATE domain_events SET aggregateId = :to " +
+            "WHERE aggregate = :aggregate AND aggregateId = :from"
+    )
+    suspend fun moveAggregate(aggregate: String, from: String, to: String): Int
+
     @Query("SELECT COUNT(*) FROM domain_events WHERE processedAt IS NULL")
     suspend fun pendingCount(): Int
 

@@ -2,6 +2,7 @@
 
 package com.afghanjama.ui.screens
 
+import com.afghanjama.ui.components.NameSuggestions
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.platform.LocalSystemActions
@@ -23,6 +24,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Inventory2
@@ -79,6 +81,7 @@ fun FinishedWarehouseScreen(
     /** چند قلم تا حالا در فاکتورِ در دست هست. */
     invoiceCount: Int = 0
 ) {
+    val customerNames by vm.customerNames.collectAsState()
     // پیش‌تر `LocalContext` بود تا `PhotoStore` را صدا بزند — و همان یک
     // خط این صفحهٔ ۶۳۰ خطی را در `:app` نگه داشته بود.
     val photos = LocalPhotos.current
@@ -96,6 +99,7 @@ fun FinishedWarehouseScreen(
     var sellTarget by remember { mutableStateOf<FinishedStock?>(null) }
     var returnTarget by remember { mutableStateOf<FinishedSale?>(null) }
     var countTarget by remember { mutableStateOf<FinishedStock?>(null) }
+    var editTarget by remember { mutableStateOf<FinishedStock?>(null) }
 
     // کالای آماده‌ای که از قبل در انبار است — مهاجرت از دفترِ قبلی.
     var addingOpening by remember { mutableStateOf(false) }
@@ -193,6 +197,12 @@ fun FinishedWarehouseScreen(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
+                    NameSuggestions(
+                        query = customer,
+                        names = customerNames,
+                        onPick = { customer = it },
+                        existsNote = null
+                    )
                     val q = qtyText.toIntOrNull() ?: 0
                     val p = priceText.toLongOrNull() ?: 0L
                     val gross = q.toLong() * p
@@ -274,6 +284,42 @@ fun FinishedWarehouseScreen(
     //
     // برای عددهایی که در انبار ثبت‌اند ولی در واقعیت نیستند. تا امروز
     // هیچ راهی برای اصلاحشان نبود و برای همیشه در فهرستِ فروش می‌ماندند.
+    // ---------- ویرایشِ نام و سایز ----------
+    editTarget?.let { item ->
+        var name by remember(item.id) { mutableStateOf(item.name) }
+        var size by remember(item.id) { mutableStateOf(item.size) }
+        AppAlertDialog(
+            onDismissRequest = { editTarget = null },
+            title = { Text("ویرایشِ کالا") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = name, onValueChange = { name = it },
+                        label = { Text("نام کالا") }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = size, onValueChange = { size = it },
+                        label = { Text("سایز (اختیاری)") }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        "موجودی و بهای تمام‌شده همان می‌مانند؛ فروش‌های گذشته نامِ خودشان را دارند.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = name.isNotBlank(), onClick = {
+                    vm.rename(item, name, size)
+                    editTarget = null
+                }) { Text("ذخیره") }
+            },
+            dismissButton = { TextButton(onClick = { editTarget = null }) { Text("لغو") } }
+        )
+    }
+
     countTarget?.let { item ->
         var countedText by remember(item.id) { mutableStateOf(item.qty.toString()) }
         var note by remember(item.id) { mutableStateOf("") }
@@ -624,6 +670,11 @@ fun FinishedWarehouseScreen(
                                     Icon(Icons.Default.Inventory2, contentDescription = null)
                                     Spacer(Modifier.width(4.dp))
                                     Text("شمارش")
+                                }
+                                TextButton(onClick = { editTarget = item }) {
+                                    Icon(Icons.Default.Edit, contentDescription = null)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("ویرایش")
                                 }
                             }
                         }

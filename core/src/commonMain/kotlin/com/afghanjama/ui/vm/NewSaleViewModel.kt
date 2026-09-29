@@ -2,8 +2,14 @@ package com.afghanjama.ui.vm
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.afghanjama.data.EntryGuard
+import com.afghanjama.data.PriceAdvisor
 import com.afghanjama.data.entities.FinishedStock
 import com.afghanjama.data.repo.Repo
+import com.afghanjama.ui.format.afn
+import com.afghanjama.ui.format.fa
+import com.afghanjama.util.nowMillis
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -64,6 +70,68 @@ class NewSaleViewModel(private val repo: Repo) : ViewModel() {
     val stock: StateFlow<List<FinishedStock>> =
         repo.observeFinishedStock()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * فاکتورهای گذشته (مشتری، جمع، زمان) — برای نگهبانِ «همین فاکتور یک
+     * بار ثبت شده». `Eagerly` چون [guard] مقدار را همان لحظه می‌خوانَد.
+     */
+    private val invoices: StateFlow<List<EntryGuard.Past>> =
+        repo.observeFinishedSales()
+            .map { rows ->
+                rows.filter { it.customerName.isNotBlank() }
+                    .groupBy { it.code }
+                    .map { (_, lines) ->
+                        EntryGuard.Past(lines.first().customerName, lines.sumOf { it.total }, lines.maxOf { it.createdAt })
+                    }
+            }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /**
+     * پیش از ثبتِ فاکتور: قیمتی که یک صفر اضافه یا کم دارد (نسبت به
+     * فروش‌های گذشتهٔ همان کالا)، و فاکتوری که با همان جمع برای همان
+     * مشتری امروز ثبت شده. خالی یعنی بی‌درنگ ثبت شود.
+     */
+    fun guard(): List<EntryGuard.Warning> {
+        val u = _ui.value
+        val now = nowMillis()
+        val book = pricing.value
+        val lineOf = HashMap<Long, Long>()
+        val priceWarnings = u.lines.filter { it.ready }.flatMap { line ->
+            val item = line.item!!
+            val key = PriceAdvisor.key(item.name, item.size)
+            val past = book.sold.filter { it.key == key }.map { EntryGuard.Past(key, it.unitPrice, it.at) }
+            EntryGuard.check(
+                key, line.unitPrice, past, now,
+                money = { it.afn() }, digits = { it.fa() },
+                ownLabel = "قیمتِ معمولِ «${item.name}»"
+            )
+                // قیمتِ یکسان برای یک کالا در یک روز عادی است، نه تکرار.
+                .filter { it.kind != EntryGuard.Kind.DUPLICATE }
+                .onEach { w -> w.suggested?.let { lineOf.getOrPut(it) { line.key } } }
+        }
+        suggestionLine = lineOf
+        val customer = u.customer.trim()
+        val dup = if (customer.isEmpty()) emptyList()
+        else EntryGuard.check(
+            customer, u.subtotal, invoices.value, now,
+            money = { it.afn() }, digits = { it.fa() }, what = "فاکتوری با همین جمع"
+        ).filter { it.kind == EntryGuard.Kind.DUPLICATE }
+        return dup + priceWarnings
+    }
+
+    /** قیمتِ پیشنهادیِ نگهبان ← ردیفی که از آن آمده. */
+    private var suggestionLine: Map<Long, Long> = emptyMap()
+
+    /** «همین را بگذار» در پنجرهٔ نگهبان — قیمت در همان ردیفی که هشدار داشت. */
+    fun useSuggestion(price: Long) {
+        val key = suggestionLine[price] ?: return
+        setPrice(key, price.toString())
+    }
+
+    /** فروش‌های گذشته — برای پیشنهادِ قیمت کنارِ هر ردیف ([PriceAdvisor]). */
+    val pricing: StateFlow<PriceAdvisor.Book> =
+        saleBookFlow(repo)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PriceAdvisor.Book())
 
     private val _ui = MutableStateFlow(NewSaleUi())
     /**
@@ -212,3 +280,27 @@ class NewSaleViewModel(private val repo: Repo) : ViewModel() {
         }
     }
 }
+
+/**
+ * فروش‌های انبارِ محصول به شکلی که [PriceAdvisor] می‌خوانَد.
+ *
+ * برگشتِ کامل کنار می‌رود — فروشی که پس آمده قیمتِ بازار نیست. قیمتِ
+ * خالص (پس از تخفیف) برای سود، قیمتِ زده‌شده برای پیشنهاد. فرمِ سفارشِ
+ * تازه هم «سودِ معمول» را از همین می‌گیرد، تا دو صفحه دو درصدِ متفاوت
+ * نگویند.
+ */
+fun saleBookFlow(repo: Repo): Flow<PriceAdvisor.Book> =
+    repo.observeFinishedSales().map { sales ->
+        val sold = sales
+            .filter { it.qty > 0 && it.returnedQty < it.qty }
+            .map {
+                PriceAdvisor.Sold(
+                    key = PriceAdvisor.key(it.productName, it.size),
+                    unitPrice = it.unitPrice,
+                    unitCost = it.unitCost,
+                    at = it.createdAt,
+                    netUnitPrice = it.total / it.qty,
+                )
+            }
+        PriceAdvisor.book(sold, nowMillis())
+    }

@@ -25,8 +25,19 @@ package com.afghanjama.data
  */
 object CustomerCredit {
 
-    /** یک سطرِ دفترِ مشتری — فقط آنچه این قاعده لازم دارد. */
-    data class Row(val refType: String, val refId: String, val debit: Long, val credit: Long)
+    /**
+     * یک سطرِ دفترِ مشتری — فقط آنچه این قاعده لازم دارد.
+     *
+     * [at] را خودِ مانده لازم ندارد؛ پیگیریِ طلب با آن سنِ بدهی را می‌سنجد
+     * (`DebtFollowUp`) و باید از **همین** سطرها بسنجد، نه از سطرهای خام.
+     */
+    data class Row(
+        val refType: String,
+        val refId: String,
+        val debit: Long,
+        val credit: Long,
+        val at: Long = 0L,
+    )
 
     /** نوع‌های سطری که به چرخهٔ «سفارش ← انبار» تعلق دارند. */
     private val ORDER_LIFECYCLE = setOf("SALE_BILLING", "SALE_TO_STOCK", "SALE_CANCEL")
@@ -39,15 +50,25 @@ object CustomerCredit {
      * (به انبار رفته یا حذف‌شده) از روی سطرِ خنثی‌کننده‌اش شناخته می‌شود،
      * چون سفارشِ حذف‌شده دیگر در جدول نیست.
      */
-    fun recognizedNet(rows: List<Row>, openOrderCodes: Set<String>): Long {
+    fun recognizedNet(rows: List<Row>, openOrderCodes: Set<String>): Long =
+        recognized(rows, openOrderCodes).sumOf { it.debit - it.credit }
+
+    /**
+     * سطرهایی که ژورنال طلب یا پیش‌دریافت می‌داند — همان‌هایی که
+     * [recognizedNet] جمع می‌زند.
+     *
+     * جدا شد تا پیگیریِ طلب سنِ بدهی را از همین سطرها بسنجد. اگر از
+     * سطرهای خام می‌سنجید، بدهیِ ثبتِ سفارشی که هنوز دوخته نشده «بدهیِ
+     * کهنه» دیده می‌شد و به مشتری‌ای زنگ زده می‌شد که لباسش هنوز آماده
+     * نیست.
+     */
+    fun recognized(rows: List<Row>, openOrderCodes: Set<String>): List<Row> {
         val closed = rows
             .filter { it.refType == "SALE_TO_STOCK" || it.refType == "SALE_CANCEL" }
             .map { it.refId }
             .toSet()
         val orderIds = closed + openOrderCodes
-        return rows
-            .filterNot { it.refType in ORDER_LIFECYCLE && it.refId in orderIds }
-            .sumOf { it.debit - it.credit }
+        return rows.filterNot { it.refType in ORDER_LIFECYCLE && it.refId in orderIds }
     }
 
     /** سهمِ هر حساب از یک مبلغ. جمعشان همیشه خودِ مبلغ است. */

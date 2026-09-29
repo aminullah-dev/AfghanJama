@@ -23,7 +23,9 @@ import com.afghanjama.ui.components.AppScreen
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.vm.WorkshopLoadViewModel
+import com.afghanjama.work.DeliveryForecast
 import com.afghanjama.work.WorkshopLoad
+import kotlin.math.ceil
 
 /**
  * بارِ کارگاه — «تا کِی می‌توانم قبول کنم؟».
@@ -37,6 +39,7 @@ fun WorkshopLoadScreen(
     onBack: () -> Unit,
 ) {
     val s by vm.ui.collectAsState()
+    val f by vm.forecast.collectAsState()
 
     AppScreen(title = "بارِ کارگاه", onBack = onBack) { pad ->
         Column(
@@ -130,6 +133,41 @@ fun WorkshopLoadScreen(
                 }
             }
 
+            if (f.hasData) {
+                HorizontalDivider()
+                Text("سفارش‌هایی که دیر می‌شوند", style = MaterialTheme.typography.titleSmall)
+                if (f.atRisk.isEmpty()) {
+                    AppCard {
+                        Text(
+                            "با سرعتِ فعلی، همهٔ سفارش‌های باز به مهلتشان می‌رسند.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                } else {
+                    f.atRisk.forEach { l -> AtRiskRow(l) }
+                }
+                // حساب قابلِ وارسی بماند: از کجا و به چه ترتیبی.
+                Text(
+                    "کارها به ترتیبِ مهلت چیده شده‌اند و با همان سرعتِ بالا جلو می‌روند. " +
+                        "سفارشی که مهلتش گذشته اینجا نیست؛ هشدارِ خودش را دارد.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            if (f.tailors.isNotEmpty()) {
+                HorizontalDivider()
+                Text("کارِ زیرِ دستِ خیاطان", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "کم‌کارترین بالاست — کارِ تازه را اول به او بدهید. " +
+                        "سرعتِ هر نفر از تحویل‌های ${WorkshopLoad.WINDOW_DAYS.fa()} روزِ خودش است.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                f.tailors.forEach { t -> TailorRow(t) }
+            }
+
             Text(
                 "جمعِ کارِ مانده: ${s.remainingPieces.fa()} دست",
                 style = MaterialTheme.typography.labelLarge,
@@ -167,6 +205,61 @@ private fun WeekRow(b: WorkshopLoad.Bucket, hasCapacity: Boolean) = AppCard {
             else MaterialTheme.colorScheme.primary,
         )
     }
+}
+
+@Composable
+private fun AtRiskRow(l: DeliveryForecast.Line) = AppCard {
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            l.order.orderCode +
+                if (l.order.customerName.isNotBlank()) " — ${l.order.customerName}" else "",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Text(
+            "${l.lateDays.fa()} روز دیر",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
+    Text(
+        "مهلت ${PersianDate.short(l.order.dueDate)} — آماده حدودِ ${PersianDate.short(l.readyAt)} " +
+            "(${l.remaining.fa()} دست مانده)",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+@Composable
+private fun TailorRow(t: DeliveryForecast.TailorLoad) = AppCard {
+    val days = t.daysOfWork
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(t.tailor, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+        Text(
+            "${t.inHand.fa()} دست زیرِ دست",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    Text(
+        when {
+            days == null -> "سرعتش هنوز معلوم نیست — تحویلی در این مدت نداشته"
+            t.inHand == 0 -> "دستش خالی است — کارِ تازه را به او بدهید"
+            else -> "حدودِ ${ceil(days).toInt().fa()} روز کار دارد (روزی ${fmt(t.perDay)} دست)"
+        },
+        style = MaterialTheme.typography.bodySmall,
+        color = if (days != null && t.inHand == 0) MaterialTheme.colorScheme.primary
+        else MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 /** یک رقمِ اعشار، با ارقامِ فارسی. */

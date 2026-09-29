@@ -99,6 +99,7 @@ fun SettingsScreen(
     onGoMaster: () -> Unit,
     onGoSelfTest: () -> Unit,
     onGoSampleWorkshop: () -> Unit,
+    onGoUsers: () -> Unit,
     onLoggedOut: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -725,6 +726,34 @@ fun SettingsScreen(
             // برچسبِ «موقتی» روی خودش. برای اپی که به کارفرما تحویل می‌شود
             // اولین چیزی که صبح می‌بیند نباید داربستِ ساخت باشد. خودِ
             // قابلیت می‌مانَد — ابزارِ تشخیصِ کارآمدی است — ولی جایش
+            // کاربران و دسترسی‌ها — فقط مدیر. هر نفر رمزِ خودش و تیک‌های
+            // خودش را دارد؛ در صفحهٔ ورود رمز می‌گوید کیست.
+            if (canResetData) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                ) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "کاربران و دسترسی‌ها",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            "برای هر نفر رمز بگذارید و تیک بزنید به کدام بخش‌ها راه دارد — " +
+                                "برش، دوخت، نظارت، فروش، انبار، مالی و… .",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        OutlinedButton(onClick = onGoUsers, modifier = Modifier.fillMaxWidth()) {
+                            Text("کاربران و دسترسی‌ها")
+                        }
+                    }
+                }
+            }
+
             // کنارِ پشتیبان و ریست است، نه روی میزِ کار.
             if (canResetData) {
                 Card(

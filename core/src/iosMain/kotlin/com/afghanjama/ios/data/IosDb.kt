@@ -1,6 +1,10 @@
 package com.afghanjama.ios.data
 
 import androidx.room.Room
+import androidx.room.migration.Migration
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.execSQL
+import com.afghanjama.data.SCHEMA_STEPS
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.Dispatchers
@@ -34,10 +38,12 @@ fun databaseFilePath(): String {
 /**
  * دفترِ کارگاه را باز می‌کند.
  *
- * **مهاجرت اینجا نیست و این آگاهانه است.** نسخهٔ آیفون تازه است و
- * دیتابیسش از صفر روی [com.afghanjama.data.DB_VERSION] ساخته می‌شود.
- * اولین باری که اسکیما عوض شود، مثلِ ویندوز اینجا هم باید مهاجرت
- * اضافه شود.
+ * **مهاجرت حالا هست.** تا نسخهٔ ۶۵ لازم نبود — نسخهٔ آیفون از صفر روی
+ * [com.afghanjama.data.DB_VERSION] ساخته می‌شد. ۶۵→۶۶ (نشانیِ مشتری)
+ * اولین تغییرِ اسکیما پس از آمدنِ آیفون است؛ بی مهاجرت، دفترِ آیفونی که
+ * روی ۶۵ ساخته شده بود دیگر باز نمی‌شد. همان گام‌های مشترکِ
+ * `SCHEMA_STEPS` که اندروید و ویندوز اجرا می‌کنند — Room از نسخهٔ فایل
+ * جلو می‌رود و گام‌های پیش از آن را نادیده می‌گیرد.
  *
  * **و `fallbackToDestructiveMigration` عمداً نیست** — همان تصمیمی که
  * `:desktop` گرفت. خاموش پاک کردنِ دفترِ کارگاه بدترین رفتارِ ممکن است؛
@@ -52,4 +58,14 @@ fun openDatabase(path: String = databaseFilePath()): IosDatabase =
         // روی Kotlin/Native `Dispatchers.IO` تا coroutines 1.8 وجود
         // ندارد؛ `Default` همان کارِ استخرِ نخ را می‌کند.
         .setQueryCoroutineContext(Dispatchers.Default)
+        .addMigrations(*iosMigrations())
         .build()
+
+/** گام‌های مشترکِ اسکیما، به شکلی که Roomِ چندسکویی می‌فهمد. */
+private fun iosMigrations(): Array<Migration> = SCHEMA_STEPS.map { step ->
+    object : Migration(step.from, step.to) {
+        override fun migrate(connection: SQLiteConnection) {
+            step.sql.forEach { connection.execSQL(it) }
+        }
+    }
+}.toTypedArray()
