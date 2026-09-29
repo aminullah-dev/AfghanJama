@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material.icons.filled.Speed
@@ -188,6 +189,19 @@ fun GuideScreen(onBack: () -> Unit) {
                         "۱۵٬۰۰۰ به‌جای ۱٬۵۰۰؟ می‌گوید «شاید یک صفر اضافه است» و دکمهٔ درستش را می‌دهد.",
                         "مبلغی که چند برابرِ معمول است هم پرسیده می‌شود — ولی ثبت همیشه ممکن است.",
                         "در پرداخت/دریافت، سندِ دستی، فاکتورِ فروش و خریدِ مواد."
+                    )
+                )
+            }
+
+            item {
+                GuideCard(
+                    icon = Icons.Default.Badge,
+                    title = "حقوقِ هوشمند",
+                    lines = listOf(
+                        "حضورِ ثبت‌شدهٔ هر کارمند کنارِ حقوقش دیده می‌شود: چند روز حاضر، چند ساعت اضافه‌کاری.",
+                        "موقعِ پرداخت، دکمه‌های پیشنهادی می‌آید: حقوقِ روزهای حاضر، + اضافه‌کاری، یا حقوقِ کامل.",
+                        "پیشنهاد است نه کسرِ خودکار؛ مبلغ را خودتان می‌زنید.",
+                        "«روزهای کاریِ ماه» را بالای صفحه بگذارید (جمعه‌ها را کم کنید) تا حقوقِ هر روز درست شود."
                     )
                 )
             }

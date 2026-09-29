@@ -44,6 +44,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.AssistChip
+import com.afghanjama.data.PayrollSmart
+import com.afghanjama.data.ShiftPolicy
+import com.afghanjama.prefs.LocalSettings
+import com.afghanjama.prefs.PayrollPrefs
 import com.afghanjama.ui.components.EmptyState
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.ui.format.afn
@@ -51,6 +59,7 @@ import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.vm.PayrollRow
 import com.afghanjama.ui.vm.PayrollViewModel
+import com.afghanjama.util.withTime
 
 /**
  * حقوقِ ماهانهٔ کارکنان: چه کسی چقدر می‌گیرد، حقوقِ این ماه پرداخت شده
@@ -63,7 +72,24 @@ fun PayrollScreen(
 ) {
     val ui by vm.ui.collectAsState()
     val message by vm.message.collectAsState()
+    val shifts by vm.shiftsThisMonth.collectAsState()
+    val settings = LocalSettings.current
     val snackbar = remember { SnackbarHostState() }
+
+    // روزهای کاریِ ماه — پایهٔ پیشنهادِ حقوق؛ در همین صفحه قابلِ تغییر و
+    // در تنظیماتِ دستگاه ذخیره می‌شود.
+    var workingDays by remember { mutableStateOf(PayrollPrefs.workingDays(settings)) }
+    val shiftHours = (ShiftPolicy.SHIFT_MS / 3_600_000L).toInt()
+
+    // پیشنهادِ حقوقِ هر کارمند از حضورِ همین ماه و روزهای کاری — هر بار
+    // حضور یا تنظیم عوض شود دوباره ساخته می‌شود.
+    val suggestionOf: (PayrollRow) -> PayrollSmart.Suggestion = { row ->
+        PayrollSmart.analyze(
+            shifts[row.name.trim()].orEmpty(),
+            PayrollSmart.Config(row.monthlySalary, workingDays, shiftHours),
+            dayOf = { withTime(it, 0, 0) }
+        )
+    }
 
     var editing by remember { mutableStateOf<PayrollRow?>(null) }
     var paying by remember { mutableStateOf<PayrollRow?>(null) }
@@ -181,6 +207,12 @@ fun PayrollScreen(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
+                    // پیشنهادِ حقوق از حضورِ همین ماه — زدنی، نه خودکار.
+                    SalarySuggestions(
+                        s = suggestionOf(row),
+                        typed = salary,
+                        onPick = { amount = it.toString() }
+                    )
                     // ---------- پیش‌پرداختِ تسویه‌نشده ----------
                     if (row.advance > 0) {
                         FilterChip(
@@ -285,6 +317,41 @@ fun PayrollScreen(
                 }
             }
 
+            // ---------- روزهای کاریِ ماه (پایهٔ پیشنهادِ حقوق) ----------
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("روزهای کاریِ ماه", style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                "پایهٔ «حقوقِ هر روز» و اضافه‌کاری. جمعه‌ها و رخصتی را کم کنید.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        OutlinedTextField(
+                            value = workingDays.toString(),
+                            onValueChange = { v ->
+                                val d = v.digitsOnly().toIntOrNull()?.coerceIn(1, 31) ?: workingDays
+                                workingDays = d
+                                PayrollPrefs.setWorkingDays(settings, d)
+                            },
+                            singleLine = true,
+                            modifier = Modifier.widthIn(max = 96.dp)
+                        )
+                    }
+                }
+            }
+
             if (ui.rows.isEmpty()) {
                 item {
                     EmptyState(
@@ -340,6 +407,19 @@ fun PayrollScreen(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                            // حضورِ همین ماه — از دفترِ حضور، نه حدس.
+                            val sug = suggestionOf(row)
+                            if (sug.hasData) {
+                                Text(
+                                    "این ماه: ${sug.daysPresent.fa()} روز حاضر از ${sug.workingDays.fa()}" +
+                                        (if (sug.overtimeHours > 0) " • ${sug.overtimeHours.fa()} ساعت اضافه‌کاری" else "") +
+                                        (if (sug.hasDeduction) " • حقوقِ روزهای حاضر: ${sug.proratedSalary.afn()}" else ""),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (sug.hasDeduction || sug.overtimeHours > 0)
+                                        MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         } else {
                             Text(
                                 "حقوقِ ماهانه ثبت نشده (کارمزدی)",
@@ -405,5 +485,49 @@ fun PayrollScreen(
                 }
             }
         }
+    }
+}
+
+/**
+ * چند مبلغِ زدنی زیرِ فیلدِ حقوق — بر پایهٔ حضورِ همین ماه.
+ *
+ * فیلد خودش پر نمی‌شود (تصمیمِ کارفرماست، مثلِ پیشنهادِ قیمت)؛ اینجا فقط
+ * چند دکمه است، هر کدام با آنچه می‌سازدش. مبلغی که با عددِ تایپ‌شده یکی
+ * است دوباره نشان داده نمی‌شود.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SalarySuggestions(
+    s: PayrollSmart.Suggestion,
+    typed: Long,
+    onPick: (Long) -> Unit,
+) {
+    if (!s.hasData) return
+    val chips = buildList {
+        if (s.hasDeduction) {
+            add("حقوقِ ${s.daysPresent.fa()} روز حاضر" to s.proratedSalary)
+        }
+        if (s.overtimePay > 0) {
+            add("+ اضافه‌کاریِ ${s.overtimeHours.fa()} ساعت" to s.suggestedTotal)
+        }
+        add("حقوقِ کامل" to s.monthlySalary)
+    }.filter { (_, v) -> v != typed }
+    if (chips.isEmpty()) return
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            chips.forEach { (label, v) ->
+                AssistChip(
+                    onClick = { onPick(v) },
+                    label = { Text("$label: ${v.afn()}", maxLines = 1) }
+                )
+            }
+        }
+        Text(
+            "بر پایهٔ ${s.daysPresent.fa()} روز حاضر از ${s.workingDays.fa()} روزِ کاری" +
+                (if (s.overtimeHours > 0) " و ${s.overtimeHours.fa()} ساعت اضافه‌کاری" else "") +
+                " — پیشنهاد است، نه کسرِ خودکار.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }

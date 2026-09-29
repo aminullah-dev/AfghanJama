@@ -3,6 +3,7 @@ package com.afghanjama.ui.vm
 import com.afghanjama.util.nowMillis
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.afghanjama.data.PayrollSmart
 import com.afghanjama.data.PersonEdit
 import com.afghanjama.data.entities.SalaryPayment
 import com.afghanjama.data.repo.Repo
@@ -11,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -100,6 +102,21 @@ class PayrollViewModel(private val repo: Repo) : ViewModel() {
             bank = bank
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PayrollUi())
+
+    /**
+     * حضورِ همین ماهِ هر کارمند، برای پیشنهادِ حقوق — نام (trim‌شده) به
+     * فهرستِ شیفت‌ها. صفحه با این و روزهای کاریِ تنظیمات، پیشنهاد را
+     * می‌سازد ([PayrollSmart])؛ تنظیمات از خودِ صفحه خوانده می‌شود، نه
+     * از ViewModel.
+     */
+    val shiftsThisMonth: StateFlow<Map<String, List<PayrollSmart.Shift>>> =
+        repo.observeAttendance().map { records ->
+            val key = nowKey()
+            records
+                .filter { PersianDate.monthKey(it.checkIn) == key }
+                .groupBy { it.employee.trim() }
+                .mapValues { (_, rs) -> rs.map { PayrollSmart.Shift(it.checkIn, it.checkOut) } }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     /** ثبت/به‌روزرسانی حقوقِ ماهانهٔ توافقیِ یک کارمند. */
     fun saveStaff(name: String, role: String, monthlySalary: Long) = viewModelScope.launch {
