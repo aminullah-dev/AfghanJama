@@ -115,6 +115,9 @@ class DebtFollowUpViewModel(private val repo: Repo) : ViewModel() {
      */
     fun record(row: DebtFollowUp.Row, outcome: DebtFollowUp.Outcome, days: Int = 0) =
         viewModelScope.launch {
+            // «پیام» روی مشتریِ قول‌داده فقط پیام می‌فرستد و ثبت نمی‌شود،
+            // وگرنه قول (و روزش) با «پیام رفت» بازنویسی و گم می‌شد.
+            if (DebtFollowUp.wouldDiscardPromise(outcome, row.debtor.lastContact)) return@launch
             val now = nowMillis()
             val until = if (outcome == DebtFollowUp.Outcome.PROMISED) {
                 withTime(now + days.coerceAtLeast(0) * 86_400_000L, 0, 0)

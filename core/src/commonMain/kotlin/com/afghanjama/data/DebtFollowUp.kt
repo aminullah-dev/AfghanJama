@@ -104,6 +104,18 @@ object DebtFollowUp {
     fun encode(c: Contact): String =
         "نتیجه=${c.outcome.name}؛تا=${c.until}؛مانده=${c.owedThen}"
 
+    /**
+     * آیا ثبتِ [outcome] روی [existing] یک قولِ ثبت‌شده را از بین می‌برد؟
+     *
+     * ذخیره فقط **آخرین** رویداد را نگه می‌دارد. «پیام رفت» ضعیف‌ترین
+     * نتیجه است — یک یادآوریِ مؤدبانه — و اگر روی یک PROMISED نوشته شود،
+     * قول و روزش گم می‌شوند: مشتری‌ای که قول داده بود و در «بعداً» بود،
+     * بی آنکه قولش را شکسته باشد به فهرستِ امروز برمی‌گردد. پس پیام
+     * فرستاده می‌شود ولی این ثبت انجام نمی‌شود؛ قول سرِ جایش می‌ماند.
+     */
+    fun wouldDiscardPromise(outcome: Outcome, existing: Contact?): Boolean =
+        outcome == Outcome.MESSAGED && existing?.outcome == Outcome.PROMISED
+
     /** عکسِ [encode]؛ سطرِ خراب یا نتیجهٔ ناشناخته `null` است، نه خطا. */
     fun decode(payload: String, at: Long): Contact? {
         val kv = payload.split('؛').mapNotNull { part ->

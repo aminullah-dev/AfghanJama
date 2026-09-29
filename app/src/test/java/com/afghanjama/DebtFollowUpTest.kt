@@ -148,4 +148,20 @@ class DebtFollowUpTest {
         assertTrue(text.contains("۵٬۰۰۰ ؋"))
         assertFalse(text.contains("قسط"))
     }
+
+    @Test
+    fun `sending a courtesy message never overwrites a recorded promise`() {
+        val promised = Contact(today - day, Outcome.PROMISED, until = today + 3 * day, owedThen = 7_000)
+        // «پیام رفت» روی یک قول، قول را از بین می‌برد — پس ثبت نمی‌شود.
+        assertTrue(DebtFollowUp.wouldDiscardPromise(Outcome.MESSAGED, promised))
+        // ولی روی هر نتیجهٔ دیگری (یا بی‌پیگیریِ قبلی) آزاد است.
+        assertFalse(DebtFollowUp.wouldDiscardPromise(Outcome.MESSAGED, null))
+        assertFalse(
+            DebtFollowUp.wouldDiscardPromise(
+                Outcome.MESSAGED, Contact(today, Outcome.NO_ANSWER)
+            )
+        )
+        // و ثبتِ خودِ قول هیچ‌وقت مسدود نمی‌شود.
+        assertFalse(DebtFollowUp.wouldDiscardPromise(Outcome.PROMISED, promised))
+    }
 }
