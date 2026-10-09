@@ -3,6 +3,8 @@
 package com.afghanjama.ui.screens
 
 import com.afghanjama.ui.vm.Feature
+import com.afghanjama.ui.components.LicenceBanner
+import com.afghanjama.licence.LicenceGate
 import com.afghanjama.util.currentHour
 import com.afghanjama.util.nowMillis
 import androidx.compose.foundation.BorderStroke
@@ -143,12 +145,15 @@ fun HomeDashboardScreen(
      * پیش‌فرض همان رفتارِ قبلی است (مدیر همه، بقیه هیچ) تا صداکننده‌ای
      * که هنوز این را نمی‌دهد چیزی را بی‌اجازه نشان ندهد.
      */
-    can: (Feature) -> Boolean = { isManager }
+    can: (Feature) -> Boolean = { isManager },
+    /** صفحهٔ لایسنس — از بنرِ آزمایشی/مهلت/فقط‌خواندنی. */
+    onGoLicence: () -> Unit = onGoSettings,
 ) {
     val s by vm.summary.collectAsState()
     val runningOut by vm.runningOut.collectAsState()
     val insideNow by vm.insideNow.collectAsState()
     val action by actionVm.ui.collectAsState()
+    val licence by LicenceGate.status.collectAsState()
 
     // سنِ آخرین بکاپ برای بنرِ هشدار
     val backupSettings = LocalSettings.current
@@ -260,6 +265,17 @@ fun HomeDashboardScreen(
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Medium
                 )
+            }
+        }
+
+        // ---------- لایسنس ----------
+        //
+        // درست زیرِ سرصفحه: «چند روز مانده» یا «فقط‌خواندنی» چیزی است
+        // که پیش از هر دکمه‌ای باید دیده شود. وقتی لایسنس فعال و دور از
+        // تاریخ است، این بنر اصلاً جایی نمی‌گیرد.
+        if (licence?.needsBanner == true) {
+            item(span = { fullSpan() }) {
+                LicenceBanner(onOpen = onGoLicence)
             }
         }
 

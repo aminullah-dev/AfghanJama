@@ -16,6 +16,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.afghanjama.data.buildAppDatabase
 import com.afghanjama.data.repo.Repo
+import com.afghanjama.licence.AndroidMachineId
+import com.afghanjama.licence.Licensing
+import com.afghanjama.ui.components.LicenceHeartbeat
 import com.afghanjama.lan.AndroidLanHost
 import com.afghanjama.platform.AndroidBiometricGate
 import com.afghanjama.platform.AndroidCodeScanner
@@ -70,6 +73,9 @@ class MainActivity : FragmentActivity() {
             )
         }
 
+        // شناسهٔ دستگاه برای کدِ لایسنس (`ANDROID_ID`) از همین Context خوانده می‌شود.
+        AndroidMachineId.init(applicationContext)
+
         val db = buildAppDatabase(applicationContext)
         val repo = Repo(db)
 
@@ -100,6 +106,10 @@ class MainActivity : FragmentActivity() {
             LocalBiometricGate provides AndroidBiometricGate(this)
           ) {
             KhayatYarTheme {
+                // وضعیتِ لایسنس — پیش از قفل و ورود، تا درِ نوشتن از همان
+                // ثانیهٔ اول درست بداند. خودش هیچ صفحه‌ای نمی‌کشد.
+                LicenceHeartbeat(remember { Licensing(settings, repo) })
+
                 /*
                  * گزارشِ خرابیِ بارِ قبل — پیش از هر چیزِ دیگر.
                  *

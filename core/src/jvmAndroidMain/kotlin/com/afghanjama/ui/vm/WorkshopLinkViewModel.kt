@@ -13,6 +13,7 @@ import com.afghanjama.lan.RemoteWork
 import com.afghanjama.prefs.Settings
 import com.afghanjama.prefs.DeviceMode
 import com.afghanjama.prefs.LanPrefs
+import com.afghanjama.licence.LicenceGate
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -98,6 +99,7 @@ class WorkshopLinkViewModel(
     fun becomeMain(settings: Settings) {
         val code = LanPrefs.code(settings).ifBlank { LanPrefs.newCode().also { LanPrefs.setCode(settings, it) } }
         LanPrefs.setMode(settings, DeviceMode.MAIN)
+        LicenceGate.update { it.copy(mode = DeviceMode.MAIN) }
         startServing(settings, code)
     }
 
@@ -179,6 +181,7 @@ class WorkshopLinkViewModel(
             }
             is LanResult.Ok -> {
                 LanPrefs.setMode(settings, DeviceMode.WORKER)
+                LicenceGate.update { it.copy(mode = DeviceMode.WORKER) }
                 LanPrefs.setHost(settings, clean)
                 LanPrefs.setCode(settings, code)
                 _ui.update {
@@ -228,6 +231,7 @@ class WorkshopLinkViewModel(
 
     fun disconnect(settings: Settings) {
         LanPrefs.setMode(settings, DeviceMode.STANDALONE)
+        LicenceGate.update { it.copy(mode = DeviceMode.STANDALONE) }
         stopServing()
         _ui.update { it.copy(mode = DeviceMode.STANDALONE, myWork = emptyList()) }
     }

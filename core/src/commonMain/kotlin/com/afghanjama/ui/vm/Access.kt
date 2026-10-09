@@ -127,7 +127,11 @@ object RouteAccess {
         Routes.MY_WORK, Routes.QUOTE_CALC, Routes.WORKSHOP_LINK,
         // جست‌وجو و جزئیاتِ سفارش از قبل برای همه بود؛ ویرایش و حذفش
         // جداگانه تیک می‌خواهد (`EDIT_ORDER`).
-        Routes.SEARCH, Routes.ORDER_DETAIL
+        Routes.SEARCH, Routes.ORDER_DETAIL,
+        // لایسنس برای همه باز است: بنرِ خانه هر کسی را به آن می‌برد، و
+        // «چرا ثبت نمی‌شود» را باید هر کس بتواند بخوانَد. واردکردنِ کلید
+        // خطری ندارد — کلیدِ درست فقط از لینومیک می‌آید.
+        Routes.LICENCE
     )
 
     private val NEEDS: Map<String, Feature> = mapOf(

@@ -1,5 +1,10 @@
 package com.afghanjama.ios
 
+import com.afghanjama.licence.Licensing
+import com.afghanjama.ui.components.LicenceHeartbeat
+import com.afghanjama.ui.components.LicenceRefusalDialog
+import com.afghanjama.ui.screens.LicenceScreen
+import com.afghanjama.ui.vm.LicenceViewModel
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -267,6 +272,7 @@ private class Vms(repo: Repo, settings: Settings) {
     val cutting by lazy { CuttingViewModel(repo) }
     val attendance by lazy { AttendanceViewModel(repo) }
     val breakTime by lazy { BreakTimeViewModel(repo) }
+    val licence by lazy { LicenceViewModel(Licensing(settings, repo)) }
 }
 
 @Composable
@@ -278,6 +284,11 @@ private fun LoggedIn(repo: Repo, role: UserRole, auth: AuthViewModel, access: Ac
 
     val back = { nav.back() }
     val go = { route: String -> nav.go(route) }
+
+    // لایسنس: سرِ ورود و هر ده دقیقه خوانده می‌شود، و هر ثبتی که رد شود
+    // یک بار اینجا گفته می‌شود.
+    LicenceHeartbeat(remember(repo) { Licensing(settings, repo) })
+    LicenceRefusalDialog(onOpenLicence = { go(Routes.LICENCE) })
 
     /*
      * چیپ‌های مرحله (برش / دوخت / نظارت) جایگزین می‌شوند، نه انباشته —
@@ -365,6 +376,7 @@ private fun LoggedIn(repo: Repo, role: UserRole, auth: AuthViewModel, access: Ac
                     onGoWorkshopLink = { go(Routes.WORKSHOP_LINK) },
                     onGoBoard = { go(Routes.BOARD) },
                     can = { access.has(it) },
+                    onGoLicence = { go(Routes.LICENCE) },
                 )
 
                 Routes.ACTION_CENTER -> ActionCenterScreen(
@@ -580,6 +592,9 @@ private fun LoggedIn(repo: Repo, role: UserRole, auth: AuthViewModel, access: Ac
 
                 SHOP_PROFILE -> ShopProfileScreen(financeVm = vm.finance, onBack = back)
 
+                // آیفون فایل‌گزینِ مشترک ندارد؛ کلید چسبانده می‌شود.
+                Routes.LICENCE -> LicenceScreen(vm = vm.licence, onBack = back)
+
                 Routes.SETTINGS -> IosSettings(
                     role = role,
                     onGo = go,
@@ -676,6 +691,10 @@ private fun IosSettings(
             SettingsRow("کارگاهِ نمونه", "داده‌های آزمایشی برای یاد گرفتنِ اپ") {
                 onGo(Routes.SAMPLE_WORKSHOP)
             }
+        }
+
+        SettingsRow("لایسنس", "کدِ این دستگاه، وضعیت، و واردکردنِ کلید") {
+            onGo(Routes.LICENCE)
         }
 
         SettingsRow("راهنما", "کوتاه است، چون خودِ اپ باید واضح باشد") {
