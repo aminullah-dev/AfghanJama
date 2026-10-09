@@ -3,6 +3,8 @@ package com.afghanjama.lan
 import com.afghanjama.AppInfo
 import com.afghanjama.data.Db
 import com.afghanjama.data.entities.SyncRequest
+import com.afghanjama.licence.LicenceGate
+import com.afghanjama.licence.LicenceText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -126,6 +128,7 @@ class LanServer(private val db: Db) {
                 put("ok", true)
                 put("app", AppInfo.NAME_LATIN)
                 put("protocol", Lan.PROTOCOL)
+                licence()?.let { put("licence", it) }
             })
             return
         }
@@ -180,6 +183,7 @@ class LanServer(private val db: Db) {
         val doneCount = mine.count { it.status == "DONE" }
         respond(client, 200, JSONObject().apply {
             put("ok", true)
+            licence()?.let { put("licence", it) }
             put("worker", name)
             put("inHand", items)
             put("doneTotal", doneCount)
@@ -213,11 +217,36 @@ class LanServer(private val db: Db) {
         }
         respond(client, 200, JSONObject().apply {
             put("ok", true); put("rows", arr); put("at", now)
+            licence()?.let { put("licence", it) }
         })
+    }
+
+    /**
+     * وضعیتِ لایسنسِ همین دستگاهِ اصلی، برای گوشیِ کارگر.
+     *
+     * «یک لایسنس برای کلِ کارگاه»: کارگر لایسنسِ خودش را ندارد و پیرو
+     * همین است. با هر جواب فرستاده می‌شود تا کارگر بی پرسشِ جدا بداند.
+     * `null` یعنی هنوز خوانده نشده — آن‌وقت چیزی نمی‌گوییم.
+     */
+    private fun licence(): JSONObject? = LicenceGate.current()?.let { s ->
+        JSONObject().apply {
+            put("state", s.state.name)
+            put("writable", s.canWrite)
+        }
     }
 
     /** تنها راهِ نوشتن از شبکه — و فقط در صندوقِ درخواست‌ها. */
     private suspend fun acceptRequest(client: Socket, body: String) {
+        // دستگاهِ اصلیِ فقط‌خواندنی درخواستِ تازه هم نمی‌نشاند؛ وگرنه
+        // کارگر از راهِ همین در چیزی را ثبت می‌کرد که خودِ کارفرما
+        // نمی‌تواند.
+        if (!LicenceGate.canWrite()) {
+            respond(client, 403, JSONObject().apply {
+                put("ok", false); put("error", LicenceText.LAN_REFUSAL)
+                licence()?.let { put("licence", it) }
+            })
+            return
+        }
         val json = runCatching { JSONObject(body) }.getOrNull()
         if (json == null) {
             respond(client, 400, JSONObject().apply {

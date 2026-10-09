@@ -14,4 +14,8 @@ interface AuditDao {
 
     @Query("SELECT * FROM audit_log ORDER BY at DESC LIMIT 400")
     fun observeRecent(): Flow<List<AuditLog>>
+
+    /** زودترین ردیفِ یک کار — برای لنگرِ دورهٔ آزمایشیِ لایسنس در خودِ دفتر. */
+    @Query("SELECT MIN(at) FROM audit_log WHERE action = :action")
+    suspend fun firstAt(action: String): Long?
 }

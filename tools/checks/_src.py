@@ -68,7 +68,15 @@ IOS = REPO / "core/src/iosMain/kotlin"
 CORE_ROOTS = [COMMON, JVM_ANDROID, IOS]
 
 #: ریشه‌های سورس، به ترتیبِ جست‌وجو
-ROOTS = CORE_ROOTS + [
+# `androidMain` و `jvmMain`ِ `:core` — فقط سهمِ سکوییِ `expect/actual`
+# (مثلاً شناسهٔ دستگاه برای لایسنس). در `CORE_ROOTS` نیستند چون
+# `androidMain` حق دارد `android.*` بخوانَد و `purecheck` نباید قرمزش
+# کند؛ ولی بررسی‌های ایمپورت و نماد باید ببینندشان.
+CORE_PLATFORM_ROOTS = [
+    REPO / "core/src/androidMain/kotlin",
+    REPO / "core/src/jvmMain/kotlin",
+]
+ROOTS = CORE_ROOTS + CORE_PLATFORM_ROOTS + [
     REPO / "app/src/main/java",
     REPO / "desktop/src/main/kotlin",
 ]

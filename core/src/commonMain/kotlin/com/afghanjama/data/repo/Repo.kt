@@ -53,6 +53,7 @@ import com.afghanjama.data.entities.WorkCost
 import com.afghanjama.data.ResetPlan
 import com.afghanjama.data.StockFolders
 import com.afghanjama.data.SalePolicy
+import com.afghanjama.licence.LicenceGate
 import com.afghanjama.ui.format.bareWorkerName
 import com.afghanjama.util.CurrentUser
 import kotlinx.coroutines.flow.Flow
@@ -64,6 +65,20 @@ import com.afghanjama.util.randomUuid
 import com.afghanjama.util.uuidOf
 
 class Repo(private val db: Db) {
+
+    /**
+     * درِ لایسنس برای نوشتن‌هایی که بدنه‌شان یک عبارت است.
+     *
+     * هر تابعِ این کلاس که سند می‌سازد یا عوض می‌کند، پیش از اولین نوشتن
+     * `LicenceGate.requireWrite()` را صدا می‌زند؛ در فقط‌خواندنی همان‌جا
+     * می‌ایستد و هیچ چیز نوشته نمی‌شود. خواندن، چاپ، پشتیبان و بازیابی
+     * هرگز از این در نمی‌گذرند. این کمکی فقط برای تابع‌های یک‌خطی است
+     * تا بدنه‌شان عوض نشود.
+     */
+    private inline fun <T> writes(block: () -> T): T {
+        LicenceGate.requireWrite()
+        return block()
+    }
 
     companion object {
         /**
@@ -96,6 +111,9 @@ class Repo(private val db: Db) {
          * است و کسی بیرون نباید رویش حساب کند.
          */
         internal const val RETENTION_MONTHS = 24
+
+        /** کارِ لاگِ حسابرسی برای لنگرِ دورهٔ آزمایشیِ لایسنس. */
+        const val LICENCE_TRIAL_ACTION = "شروعِ دورهٔ آزمایشی"
 
         /** رویدادهای پیگیریِ طلب روی «مشتری» می‌نشینند، با نامش. */
         private const val FOLLOW_UP_AGGREGATE = "customer"
@@ -145,7 +163,7 @@ class Repo(private val db: Db) {
         db.orderDao().observeById(id)
 
     suspend fun updateOrder(order: Order) =
-        db.orderDao().update(order)
+        writes { db.orderDao().update(order) }
 
     /**
      * @return false اگر خرج‌کار نقدی باشد و صندوق کافی نباشد — و آن‌وقت
@@ -157,8 +175,13 @@ class Repo(private val db: Db) {
         order: Order,
         fabrics: List<OrderFabric> = emptyList(),
         workItems: List<OrderWorkItem> = emptyList()
-    ): Boolean = db.atomic {
-        createOrderTx(order, fabrics, workItems)
+    ): Boolean {
+        // سقفِ سفارشِ دورهٔ آزمایشی فقط همین‌جا سنجیده می‌شود: سقف بر
+        // **ساختن** است، نه بر دیدن یا ویرایشِ آنچه هست.
+        LicenceGate.requireOrderSlot { since -> db.orderDao().countCreatedSince(since) }
+        val ok = db.atomic { createOrderTx(order, fabrics, workItems) }
+        if (ok) LicenceGate.recount { since -> db.orderDao().countCreatedSince(since) }
+        return ok
     }
 
     private suspend fun createOrderTx(
@@ -268,6 +291,7 @@ class Repo(private val db: Db) {
         newStatus: String,
         mutate: (Order) -> Order = { it }
     ) {
+        LicenceGate.requireWrite()
         val now = nowMillis()
         db.orderDao().update(
             mutate(order).copy(status = newStatus, stageChangedAt = now)
@@ -332,6 +356,7 @@ class Repo(private val db: Db) {
      * می‌دید، پس حتی متوجه نمی‌شد کالا از قبل وارد انبار شده.
      */
     suspend fun approveQc(order: Order, inspector: String, note: String): Boolean {
+        LicenceGate.requireWrite()
         val fresh = db.orderDao().getById(order.id) ?: return false
         if (fresh.status != OrderStatus.REVIEW.name) return false
         // سقفِ باقی‌ماندهٔ سفارش هم اعمال می‌شود: سفارش هرگز بیش از عددِ
@@ -367,6 +392,7 @@ class Repo(private val db: Db) {
      * دارد و شیءِ کهنه همان عددها را دوباره می‌فرستد.
      */
     suspend fun sendOrderToReview(order: Order): String? {
+        LicenceGate.requireWrite()
         val fresh = db.orderDao().getById(order.id) ?: return "این سفارش پیدا نشد."
         if (fresh.status != OrderStatus.CUT_DONE.name && fresh.status != OrderStatus.SEWING.name)
             return "این سفارش در مرحلهٔ دوخت نیست."
@@ -439,6 +465,7 @@ class Repo(private val db: Db) {
      * با همان دکمه دوباره به نظارت می‌روند.
      */
     suspend fun rejectQc(order: Order, inspector: String, problem: String, tailor: String = "") {
+        LicenceGate.requireWrite()
         db.qcRecordDao().insert(
             QcRecord(
                 orderId = order.id.toString(),
@@ -469,6 +496,7 @@ class Repo(private val db: Db) {
      * (سفارش‌های مدل قدیم) دوباره کسر نمی‌شود.
      */
     suspend fun completeCutting(order: Order, cutter: String, pieces: Int, waste: String, note: String) {
+        LicenceGate.requireWrite()
         db.cuttingRecordDao().insert(
             CuttingRecord(
                 orderId = order.id.toString(),
@@ -553,6 +581,7 @@ class Repo(private val db: Db) {
      * پیش از برش) چیزی برنمی‌گردد چون چیزی از انبار کم نشده بود.
      */
     suspend fun deleteOrderWithStockReturn(order: Order) {
+        LicenceGate.requireWrite()
         db.orderPhotoDao().deleteForOrder(order.id.toString())
         if (order.materialsConsumed) {
             val allRows = db.orderFabricDao().listForOrder(order.id.toString())
@@ -608,9 +637,9 @@ class Repo(private val db: Db) {
     }
 
     // ✅ NEW: delete order (برای حذف سفارش) + پاک‌کردن جدول‌های فرزند
-    suspend fun deleteOrder(order: Order) = db.atomic {
+    suspend fun deleteOrder(order: Order) = writes { db.atomic {
         deleteOrderTx(order)
-    }
+    } }
 
     private suspend fun deleteOrderTx(
         order: Order
@@ -684,6 +713,7 @@ class Repo(private val db: Db) {
      * کل سفارش برسد، وضعیت سفارش به «دوخت» می‌رود.
      */
     suspend fun handoutToTailor(order: Order, tailorLabel: String, qty: Int, unitWage: Long) {
+        LicenceGate.requireWrite()
         // بیش از باقی‌ماندهٔ سفارش سپرده نمی‌شود. صفحه هم همین را می‌گوید،
         // ولی قاعده‌ای که فقط در صفحه زندگی کند با صفحهٔ تازه یا مسیرِ
         // همگام‌سازی دور زده می‌شود — و آن‌وقت «دوخته‌شده» از تعدادِ سفارش
@@ -724,6 +754,7 @@ class Repo(private val db: Db) {
      * می‌تواند به انبار برگردد و حذف شود.
      */
     suspend fun sendOrderBackToCutting(order: Order): Boolean {
+        LicenceGate.requireWrite()
         val handouts = db.sewingAssignmentDao().listForOrder(order.id.toString())
         if (handouts.isNotEmpty()) return false
         changeOrderStatus(order, OrderStatus.CUTTING.name)
@@ -732,6 +763,7 @@ class Repo(private val db: Db) {
 
     /** لغو یک تحویل (اصلاح اشتباه) — فقط تا وقتی دوخت تمام نشده. */
     suspend fun cancelAssignment(assignmentId: Long) {
+        LicenceGate.requireWrite()
         val a = db.sewingAssignmentDao().getById(assignmentId) ?: return
         if (a.status != "SEWING") return
         db.sewingAssignmentDao().deleteById(assignmentId)
@@ -750,9 +782,9 @@ class Repo(private val db: Db) {
      * دوخت یک تحویل تمام شد: کارمزد آن خیاط ثبت و تحویل بسته می‌شود.
      * اگر همه تحویل‌ها تمام و سفارش کامل تحویل شده باشد، به «نظارت» می‌رود.
      */
-    suspend fun completeAssignment(assignmentId: Long, quality: String = "", deliveredQty: Int? = null) = db.atomic {
+    suspend fun completeAssignment(assignmentId: Long, quality: String = "", deliveredQty: Int? = null) = writes { db.atomic {
         completeAssignmentTx(assignmentId, quality, deliveredQty)
-    }
+    } }
 
     private suspend fun completeAssignmentTx(
         assignmentId: Long,
@@ -829,6 +861,7 @@ class Repo(private val db: Db) {
 
     // شماره ترتیبی سفارش (برای جلوگیری از تکراری شدن کد سفارش)
     suspend fun nextOrderNumber(): Int {
+        LicenceGate.requireWrite()
         val current = db.orderCounterDao().get() ?: OrderCounter()
         db.orderCounterDao().upsert(current.copy(nextNumber = current.nextNumber + 1))
         return current.nextNumber
@@ -857,6 +890,7 @@ class Repo(private val db: Db) {
      * واقعی قاطی نکند.
      */
     suspend fun income(source: String, amount: Long, note: String, category: String = "") {
+        LicenceGate.requireWrite()
         db.financeDao().insertTx(
             Transaction(
                 type = "IN",
@@ -869,6 +903,7 @@ class Repo(private val db: Db) {
     }
 
     suspend fun spend(source: String, amount: Long, note: String, category: String = "") {
+        LicenceGate.requireWrite()
         db.financeDao().insertTx(
             Transaction(
                 type = "OUT",
@@ -882,6 +917,7 @@ class Repo(private val db: Db) {
 
     /** حذف تراکنش مالی (اصلاح اشتباه) — موجودی صندوق‌ها بازمحاسبه می‌شود. */
     suspend fun deleteTx(id: UUID) {
+        LicenceGate.requireWrite()
         db.financeDao().deleteTx(id)
         audit("حذف تراکنش مالی", id.toString().take(8))
     }
@@ -903,9 +939,9 @@ class Repo(private val db: Db) {
      * پول را از بین نمی‌برد ولی مبدأ می‌تواند منفی شود، پس همان کنترل
      * لازم است.
      */
-    suspend fun transfer(from: String, to: String, amount: Long, note: String): Boolean = db.atomic {
+    suspend fun transfer(from: String, to: String, amount: Long, note: String): Boolean = writes { db.atomic {
         transferTx(from, to, amount, note)
-    }
+    } }
 
     private suspend fun transferTx(
         from: String,
@@ -937,9 +973,9 @@ class Repo(private val db: Db) {
     }
 
     /** دریافتیِ دستی از مشتری: نقد + حساب مشتری + دفتر کل + ژورنال، یک‌جا. */
-    suspend fun recordCustomerReceipt(name: String, amount: Long, note: String = "") = db.atomic {
+    suspend fun recordCustomerReceipt(name: String, amount: Long, note: String = "") = writes { db.atomic {
         recordCustomerReceiptTx(name, amount, note)
-    }
+    } }
 
     private suspend fun recordCustomerReceiptTx(
         name: String,
@@ -981,9 +1017,9 @@ class Repo(private val db: Db) {
      * (SALE_BILLING)؛ این دریافت آن را بستانکار می‌کند، پس ماندهٔ حساب
      * دقیقاً «باقی‌ماندهٔ بدهیِ مشتری» می‌ماند.
      */
-    suspend fun recordOrderDeposit(order: Order, amount: Long, source: String = "WALLET") = db.atomic {
+    suspend fun recordOrderDeposit(order: Order, amount: Long, source: String = "WALLET") = writes { db.atomic {
         recordOrderDepositTx(order, amount, source)
-    }
+    } }
 
     private suspend fun recordOrderDepositTx(
         order: Order,
@@ -1048,9 +1084,9 @@ class Repo(private val db: Db) {
         category: String,
         amount: Long,
         note: String
-    ): Boolean = db.atomic {
+    ): Boolean = writes { db.atomic {
         recordExpenseTx(source, category, amount, note)
-    }
+    } }
 
     // ───────── هزینه‌های ثابتِ ماهانه ─────────
 
@@ -1058,10 +1094,10 @@ class Repo(private val db: Db) {
         db.recurringExpenseDao().observeAll()
 
     suspend fun upsertRecurringExpense(row: RecurringExpense) =
-        db.recurringExpenseDao().upsert(row)
+        writes { db.recurringExpenseDao().upsert(row) }
 
     suspend fun deleteRecurringExpense(row: RecurringExpense) =
-        db.recurringExpenseDao().delete(row)
+        writes { db.recurringExpenseDao().delete(row) }
 
     /** هزینه‌های ثابتی که ماهِ [ym] هنوز ثبت نشده‌اند. */
     suspend fun recurringDue(ym: Int): List<RecurringExpense> =
@@ -1085,7 +1121,7 @@ class Repo(private val db: Db) {
      *
      * @return چند قلم ثبت شد.
      */
-    suspend fun postRecurringExpenses(ym: Int): Int = db.atomic {
+    suspend fun postRecurringExpenses(ym: Int): Int = writes { db.atomic {
         var done = 0
         for (row in db.recurringExpenseDao().dueFor(ym)) {
             val note = "${row.title} — ${ymLabel(ym)}"
@@ -1095,7 +1131,7 @@ class Repo(private val db: Db) {
             }
         }
         done
-    }
+    } }
 
     /** `۱۴۰۵۰۶` → `۱۴۰۵/۶` — فقط برای متنِ سند. */
     private fun ymLabel(ym: Int) = "${ym / 100}/${ym % 100}"
@@ -1194,9 +1230,9 @@ class Repo(private val db: Db) {
         amount: Long,
         isIn: Boolean,
         note: String
-    ): Boolean = db.atomic {
+    ): Boolean = writes { db.atomic {
         recordManualCashTx(source, amount, isIn, note)
-    }
+    } }
 
     private suspend fun recordManualCashTx(
         source: String,
@@ -1244,6 +1280,7 @@ class Repo(private val db: Db) {
      * @return تعدادِ جدولی که خالی شد.
      */
     suspend fun resetOperationalData(): Int {
+        LicenceGate.requireWrite()
         val cleared = db.clearTables(ResetPlan.CLEAR)
         // هزینه‌های ثابت می‌مانند (تعریف‌اند، نه سند) ولی مهرِ «این ماه
         // ثبت شد» باید برود — وگرنه دفترِ تازه خیال می‌کند کرایهٔ این
@@ -1266,6 +1303,7 @@ class Repo(private val db: Db) {
         db.tailorWageDao().observeAll()
 
     suspend fun addTailorWage(wage: TailorWage) {
+        LicenceGate.requireWrite()
         db.tailorWageDao().insert(wage)
         postLedger("TAILOR", wage.tailorLabel, 0, wage.amount, "WAGE", wage.orderCode)
     }
@@ -1277,9 +1315,9 @@ class Repo(private val db: Db) {
      * [paySource] باید همان صندوقی باشد که موجودی‌اش کنترل شده است؛
      * وگرنه پول از صندوقی کم می‌شود که کاربر انتخابش نکرده بود.
      */
-    suspend fun settleTailorWages(tailorLabel: String, total: Long, paySource: String = "WALLET") = db.atomic {
+    suspend fun settleTailorWages(tailorLabel: String, total: Long, paySource: String = "WALLET") = writes { db.atomic {
         settleTailorWagesTx(tailorLabel, total, paySource)
-    }
+    } }
 
     private suspend fun settleTailorWagesTx(
         tailorLabel: String,
@@ -1311,6 +1349,7 @@ class Repo(private val db: Db) {
         db.customerPaymentDao().observeAll()
 
     suspend fun addCustomerPayment(payment: CustomerPayment) {
+        LicenceGate.requireWrite()
         db.customerPaymentDao().insert(payment)
         // آینه در دفتر کل: پرداختِ مشتری → بستانکارِ حساب مشتری.
         // اگر نامِ مشتری خالی است، از سفارشِ مرتبط پیدا می‌شود؛ پرداختِ
@@ -1366,9 +1405,9 @@ class Repo(private val db: Db) {
      * @return false اگر چیزی برای تسویه نباشد یا صندوق کافی نباشد؛ در هر
      * دو حال هیچ چیز ثبت نمی‌شود.
      */
-    suspend fun settleOrphanWorkCost(paySource: String): Boolean = db.atomic {
+    suspend fun settleOrphanWorkCost(paySource: String): Boolean = writes { db.atomic {
         settleOrphanWorkCostTx(paySource)
-    }
+    } }
 
     private suspend fun settleOrphanWorkCostTx(
         paySource: String
@@ -1400,6 +1439,7 @@ class Repo(private val db: Db) {
      * خریدِ یک‌بارهٔ سرِ کوچه نباید فهرست را شلوغ کند.
      */
     suspend fun rememberSupplier(name: String, phone: String = "") {
+        LicenceGate.requireWrite()
         val n = name.trim()
         if (n.isBlank()) return
         val exists = db.ledgerDao().observeParties().first()
@@ -1426,6 +1466,34 @@ class Repo(private val db: Db) {
     // =========================
 
     fun observeAudit(): Flow<List<AuditLog>> = db.auditDao().observeRecent()
+
+    // =========================
+    // لایسنس — آنچه از خودِ دفتر خوانده می‌شود
+    // =========================
+
+    /**
+     * شروعِ دورهٔ آزمایشی، آن‌طور که در **خودِ دفتر** ثبت شده — یا `null`.
+     *
+     * تنظیماتِ گوشی با پاک کردن و نصبِ دوبارهٔ اپ می‌روند، ولی دفتر با
+     * پشتیبان برمی‌گردد. اگر شروعِ دوره فقط در تنظیمات بود، «پاک کن،
+     * نصب کن، پشتیبان را برگردان» دوره را از صفر شروع می‌کرد. پس یک
+     * ردیف در لاگِ حسابرسی هم می‌نشیند و هر دو خوانده می‌شوند.
+     */
+    suspend fun licenceTrialAnchor(): Long? = db.auditDao().firstAt(LICENCE_TRIAL_ACTION)
+
+    /**
+     * ثبتِ همان لنگر در دفتر. **از درِ لایسنس نمی‌گذرد** — نوشتنِ کارِ
+     * خودِ لایسنس است نه سندِ کارگاه، و باید روی دستگاهِ فقط‌خواندنی هم
+     * بنشیند.
+     */
+    suspend fun writeLicenceTrialAnchor(at: Long) {
+        db.auditDao().insert(
+            AuditLog(user = "", role = "", action = LICENCE_TRIAL_ACTION, detail = "LNM1", at = at)
+        )
+    }
+
+    /** سفارش‌هایی که از [since] ساخته شده‌اند — برای سقفِ دورهٔ آزمایشی. */
+    suspend fun ordersCreatedSince(since: Long): Int = db.orderDao().countCreatedSince(since)
 
     private suspend fun audit(action: String, detail: String = "") {
         db.auditDao().insert(
@@ -1559,7 +1627,7 @@ class Repo(private val db: Db) {
         outcome: DebtFollowUp.Outcome,
         until: Long,
         owedThen: Long
-    ) = db.atomic {
+    ) = writes { db.atomic {
         val n = name.trim()
         if (n.isNotEmpty()) {
             emit(
@@ -1569,7 +1637,7 @@ class Repo(private val db: Db) {
                 payload = DebtFollowUp.encode(DebtFollowUp.Contact(0L, outcome, until, owedThen))
             )
         }
-    }
+    } }
 
     /** نوعِ رویدادِ «پیگیری طلب» — فارسی، مثلِ بقیهٔ رویدادها. */
     private val eventDebtFollowUp = "پیگیری طلب"
@@ -1723,6 +1791,7 @@ class Repo(private val db: Db) {
         refId: String = "",
         note: String = ""
     ) {
+        LicenceGate.requireWrite()
         if (amount <= 0) return
         val id = db.documentDao().insert(
             Document(
@@ -1756,9 +1825,9 @@ class Repo(private val db: Db) {
         isPayment: Boolean,
         paySource: String = "WALLET",
         note: String = ""
-    ): Boolean = db.atomic {
+    ): Boolean = writes { db.atomic {
         recordManualLedgerTx(type, name, amount, isPayment, paySource, note)
-    }
+    } }
 
     private suspend fun recordManualLedgerTx(
         type: String,
@@ -1885,9 +1954,9 @@ class Repo(private val db: Db) {
         amount: Long,
         owedToThem: Boolean,
         note: String = ""
-    ): Boolean = db.atomic {
+    ): Boolean = writes { db.atomic {
         setOpeningBalanceTx(type, name, amount, owedToThem, note)
-    }
+    } }
 
     private suspend fun setOpeningBalanceTx(
         type: String,
@@ -1957,6 +2026,7 @@ class Repo(private val db: Db) {
         refId: String = "",
         note: String = ""
     ) {
+        LicenceGate.requireWrite()
         if (debit == 0L && credit == 0L) return
         val nm = name.trim().ifBlank { "نامشخص" }
         db.ledgerDao().insertParty(Party(name = nm, type = type))
@@ -2035,6 +2105,7 @@ class Repo(private val db: Db) {
      * @return true اگر حذف شد.
      */
     suspend fun deleteMaterialStockIfEmpty(item: MaterialStock): Boolean {
+        LicenceGate.requireWrite()
         val cur = db.materialStockDao().find(item.name.trim(), item.unit.trim()) ?: return true
         if (cur.amount > 0.0) return false
         db.materialStockDao().deleteById(cur.id)
@@ -2054,6 +2125,7 @@ class Repo(private val db: Db) {
 
     /** افزودن خرید یک قلم به انبار با میانگین وزنی قیمت. */
     suspend fun addMaterialPurchase(name: String, unit: String, amount: Double, totalPrice: Long, note: String = "") {
+        LicenceGate.requireWrite()
         if (amount <= 0.0) return
         val now = nowMillis()
         val cur = db.materialStockDao().find(name.trim(), unit.trim())
@@ -2083,6 +2155,7 @@ class Repo(private val db: Db) {
         reason: String = "اصلاح",
         note: String = ""
     ): Long {
+        LicenceGate.requireWrite()
         if (delta == 0.0) return 0L
         val now = nowMillis()
 
@@ -2167,9 +2240,9 @@ class Repo(private val db: Db) {
         delta: Double,
         reason: String,
         note: String = ""
-    ): Double = db.atomic {
+    ): Double = writes { db.atomic {
         adjustMaterialStockTx(name, unit, delta, reason, note)
-    }
+    } }
 
     private suspend fun adjustMaterialStockTx(
         name: String,
@@ -2252,9 +2325,9 @@ class Repo(private val db: Db) {
         amount: Double,
         unitPrice: Long,
         note: String = ""
-    ): Boolean = db.atomic {
+    ): Boolean = writes { db.atomic {
         setOpeningStockTx(name, unit, amount, unitPrice, note)
-    }
+    } }
 
     private suspend fun setOpeningStockTx(
         name: String,
@@ -2325,7 +2398,7 @@ class Repo(private val db: Db) {
         id: Long,
         newName: String,
         newUnit: String
-    ): Boolean = db.atomic { renameMaterialTx(id, newName, newUnit) }
+    ): Boolean = writes { db.atomic { renameMaterialTx(id, newName, newUnit) } }
 
     private suspend fun renameMaterialTx(id: Long, newName: String, newUnit: String): Boolean {
         val nm = newName.trim()
@@ -2358,6 +2431,7 @@ class Repo(private val db: Db) {
     }
 
     suspend fun setMaterialMinLevel(name: String, unit: String, minLevel: Double) {
+        LicenceGate.requireWrite()
         val now = nowMillis()
         val cur = db.materialStockDao().find(name.trim(), unit.trim())
             ?: MaterialStock(name = name.trim(), unit = unit.trim(), amount = 0.0, updatedAt = now)
@@ -2387,9 +2461,9 @@ class Repo(private val db: Db) {
     suspend fun recordPurchaseInvoice(
         invoice: PurchaseInvoice,
         items: List<PurchaseItem>
-    ): Boolean = db.atomic {
+    ): Boolean = writes { db.atomic {
         recordPurchaseInvoiceTx(invoice, items)
-    }
+    } }
 
     private suspend fun recordPurchaseInvoiceTx(
         invoice: PurchaseInvoice,
@@ -2464,6 +2538,7 @@ class Repo(private val db: Db) {
 
     /** ثبت بدهی جدید به فروشنده (خرید نسیه). */
     suspend fun recordSupplierCredit(supplier: String, amount: Long, note: String) {
+        LicenceGate.requireWrite()
         if (amount <= 0) return
         db.supplierDao().insert(
             SupplierLedger(supplier = supplier.trim(), amount = amount, type = "CREDIT", note = note)
@@ -2473,9 +2548,9 @@ class Repo(private val db: Db) {
     }
 
     /** تسویهٔ (بخشی از) بدهی فروشنده: پول از صندوق کم و بدهی کاهش می‌یابد. */
-    suspend fun settleSupplier(supplier: String, amount: Long, paySource: String, note: String) = db.atomic {
+    suspend fun settleSupplier(supplier: String, amount: Long, paySource: String, note: String) = writes { db.atomic {
         settleSupplierTx(supplier, amount, paySource, note)
-    }
+    } }
 
     private suspend fun settleSupplierTx(
         supplier: String,
@@ -2522,9 +2597,9 @@ class Repo(private val db: Db) {
         refundCash: Boolean,
         cashBox: String = "WALLET",
         note: String = ""
-    ): Boolean = db.atomic {
+    ): Boolean = writes { db.atomic {
         recordPurchaseReturnTx(supplier, name, unit, qty, amount, refundCash, cashBox, note)
-    }
+    } }
 
     private suspend fun recordPurchaseReturnTx(
         supplier: String,
@@ -2599,9 +2674,9 @@ class Repo(private val db: Db) {
      * «تعداد × میانگینِ گردشده» را برمی‌گرداند، حسابِ موجودیِ محصول
      * حتی با انبارِ خالی هم به صفر برنمی‌گشت.
      */
-    suspend fun addFinishedStock(name: String, size: String, qty: Int, batchValue: Long) = db.atomic {
+    suspend fun addFinishedStock(name: String, size: String, qty: Int, batchValue: Long) = writes { db.atomic {
         addFinishedStockTx(name, size, qty, batchValue)
-    }
+    } }
 
     private suspend fun addFinishedStockTx(
         name: String,
@@ -2714,9 +2789,9 @@ class Repo(private val db: Db) {
      * اگر همان نام و سایز ردیفِ دیگری باشد `false`: ادغامِ دو ردیف با دو
      * بهای تمام‌شدهٔ متفاوت کارِ این تابع نیست.
      */
-    suspend fun renameFinishedStock(id: Long, name: String, size: String): Boolean = db.atomic {
+    suspend fun renameFinishedStock(id: Long, name: String, size: String): Boolean = writes { db.atomic {
         renameFinishedStockTx(id, name, size)
-    }
+    } }
 
     private suspend fun renameFinishedStockTx(id: Long, name: String, size: String): Boolean {
         val nm = name.trim()
@@ -2741,9 +2816,9 @@ class Repo(private val db: Db) {
         size: String,
         countedQty: Int,
         note: String = ""
-    ): Boolean = db.atomic {
+    ): Boolean = writes { db.atomic {
         adjustFinishedStockTx(name, size, countedQty, note)
-    }
+    } }
 
     private suspend fun adjustFinishedStockTx(
         name: String,
@@ -2828,9 +2903,9 @@ class Repo(private val db: Db) {
         qty: Int,
         unitCost: Long,
         note: String = ""
-    ): Boolean = db.atomic {
+    ): Boolean = writes { db.atomic {
         setOpeningFinishedStockTx(name, size, qty, unitCost, note)
-    }
+    } }
 
     private suspend fun setOpeningFinishedStockTx(
         name: String,
@@ -2895,9 +2970,9 @@ class Repo(private val db: Db) {
      * از این مسیر گذشته باشند؛ وگرنه به «دوخت» برمی‌گردد و منتظرِ دستهٔ
      * بعدی می‌ماند.
      */
-    suspend fun depositBatchToFinished(order: Order, batch: Int) = db.atomic {
+    suspend fun depositBatchToFinished(order: Order, batch: Int) = writes { db.atomic {
         depositBatchToFinishedTx(order, batch)
-    }
+    } }
 
     private suspend fun depositBatchToFinishedTx(
         order: Order,
@@ -2985,6 +3060,7 @@ class Repo(private val db: Db) {
         receivedNow: Long,
         applyPrepay: Long
     ): String? {
+        LicenceGate.requireWrite()
         if (order.customerName.isBlank())
             return "این سفارش مشتری ندارد؛ از انبار محصول بفروشید."
         if (order.status != OrderStatus.STORED.name)
@@ -3111,9 +3187,9 @@ class Repo(private val db: Db) {
         customerName: String,
         receivedNow: Long = -1L,
         applyPrepay: Long = 0L
-    ): Boolean = db.atomic {
+    ): Boolean = writes { db.atomic {
         sellInvoiceTx(lines, customerName, receivedNow, applyPrepay)
-    }
+    } }
 
     private suspend fun sellInvoiceTx(
         lines: List<SaleLine>,
@@ -3291,6 +3367,7 @@ class Repo(private val db: Db) {
         applyPrepay: Long = 0L,
         discount: Long = 0L
     ): Boolean {
+        LicenceGate.requireWrite()
         if (qty <= 0 || unitPrice <= 0) return false
         if (qty > item.qty && !SalePolicy.allowNegativeStock()) return false
         return sellInvoice(
@@ -3320,9 +3397,9 @@ class Repo(private val db: Db) {
         qty: Int,
         refundCash: Boolean,
         cashBox: String = "WALLET"
-    ): Boolean = db.atomic {
+    ): Boolean = writes { db.atomic {
         recordSaleReturnTx(sale, qty, refundCash, cashBox)
-    }
+    } }
 
     private suspend fun recordSaleReturnTx(
         sale: FinishedSale,
@@ -3461,19 +3538,19 @@ class Repo(private val db: Db) {
         db.masterDataDao().observeCustomers()
 
     suspend fun addFabricType(item: FabricType) =
-        db.masterDataDao().insertFabricType(item)
+        writes { db.masterDataDao().insertFabricType(item) }
 
     suspend fun addFabricColor(item: FabricColor) =
-        db.masterDataDao().insertFabricColor(item)
+        writes { db.masterDataDao().insertFabricColor(item) }
 
     suspend fun addSize(item: SizeItem) =
-        db.masterDataDao().insertSize(item)
+        writes { db.masterDataDao().insertSize(item) }
 
     suspend fun addTailor(item: Tailor) =
-        db.masterDataDao().insertTailor(item)
+        writes { db.masterDataDao().insertTailor(item) }
 
     suspend fun addInspector(item: Inspector) =
-        db.masterDataDao().insertInspector(item)
+        writes { db.masterDataDao().insertInspector(item) }
 
     /**
      * ثبت طرح با کدِ اختصاصیِ کاربر (تاریخچهٔ کارگاه کدهای خودش را دارد).
@@ -3481,6 +3558,7 @@ class Repo(private val db: Db) {
      * همان نام با کدِ جدید = اصلاحِ کدِ طرحِ موجود.
      */
     suspend fun addDesign(item: DesignItem) {
+        LicenceGate.requireWrite()
         val rowId = db.masterDataDao().insertDesign(item)
         when {
             rowId > 0 && item.code.isBlank() ->
@@ -3495,12 +3573,14 @@ class Repo(private val db: Db) {
      * خالی یعنی «دسته‌بندی‌نشده».
      */
     suspend fun setDesignCategory(id: Long, category: String) {
+        LicenceGate.requireWrite()
         db.masterDataDao().setDesignCategory(id, category.trim())
         audit("دستهٔ طرح", "#$id → ${category.trim().ifBlank { "بی‌دسته" }}")
     }
 
     /** نامِ یک دسته روی همهٔ طرح‌هایش؛ پوشه‌های انبارِ محصول از همین می‌خوانند. */
     suspend fun renameDesignCategory(from: String, to: String) {
+        LicenceGate.requireWrite()
         val f = from.trim()
         val t = to.trim()
         if (f.isEmpty() || t.isEmpty() || f == t) return
@@ -3510,6 +3590,7 @@ class Repo(private val db: Db) {
 
     /** کدِ طرح (مثلاً DIP-12)؛ خالی کد را پاک نمی‌کند. */
     suspend fun setDesignCode(id: Long, code: String) {
+        LicenceGate.requireWrite()
         val c = code.trim()
         if (c.isNotEmpty()) db.masterDataDao().setDesignCode(id, c)
     }
@@ -3536,6 +3617,7 @@ class Repo(private val db: Db) {
      * هم مقدارِ قبلی را از بین نمی‌برد.
      */
     suspend fun addStaff(name: String, role: String, monthlySalary: Long? = null) {
+        LicenceGate.requireWrite()
         val n = name.trim()
         if (n.isEmpty()) return
         db.masterDataDao().insertStaff(
@@ -3595,9 +3677,9 @@ class Repo(private val db: Db) {
         source: String = "WALLET",
         note: String = "",
         deductAdvance: Long = 0
-    ): Boolean = db.atomic {
+    ): Boolean = writes { db.atomic {
         paySalaryTx(employee, amount, periodKey, periodLabel, source, note, deductAdvance)
-    }
+    } }
 
     private suspend fun paySalaryTx(
         employee: String,
@@ -3661,7 +3743,7 @@ class Repo(private val db: Db) {
         db.orderDao().observeDesignProduction()
 
     suspend fun addCustomer(item: Customer) =
-        db.masterDataDao().insertCustomer(item)
+        writes { db.masterDataDao().insertCustomer(item) }
 
     /** کارگاه هیچ‌چیز ندارد؟ — شروعِ اجباری با کارگاهِ نمونه به این نگاه می‌کند. */
     suspend fun hasAnyWorkshopData(): Boolean =
@@ -3686,7 +3768,7 @@ class Repo(private val db: Db) {
 
     /** [address] `null` یعنی همان نشانیِ قبلی بماند. */
     suspend fun editCustomer(id: Long, name: String, phone: String, address: String? = null): PersonEdit =
-        db.atomic { editCustomerTx(id, name, phone, address) }
+        writes { db.atomic { editCustomerTx(id, name, phone, address) } }
 
     private suspend fun editCustomerTx(id: Long, name: String, phone: String, address: String?): PersonEdit {
         val dao = db.masterDataDao()
@@ -3719,7 +3801,7 @@ class Repo(private val db: Db) {
         return PersonEdit.DONE
     }
 
-    suspend fun deleteCustomer(id: Long): PersonEdit = db.atomic { deleteCustomerTx(id) }
+    suspend fun deleteCustomer(id: Long): PersonEdit = writes { db.atomic { deleteCustomerTx(id) } }
 
     private suspend fun deleteCustomerTx(id: Long): PersonEdit {
         val dao = db.masterDataDao()
@@ -3731,7 +3813,7 @@ class Repo(private val db: Db) {
         return PersonEdit.DONE
     }
 
-    suspend fun renameStaff(id: Long, name: String): PersonEdit = db.atomic { renameStaffTx(id, name) }
+    suspend fun renameStaff(id: Long, name: String): PersonEdit = writes { db.atomic { renameStaffTx(id, name) } }
 
     private suspend fun renameStaffTx(id: Long, name: String): PersonEdit {
         val dao = db.masterDataDao()
@@ -3761,7 +3843,7 @@ class Repo(private val db: Db) {
      * با نامِ خالی — هر دو با هم می‌روند.
      */
     suspend fun renameTailorWithHistory(id: Long, name: String): PersonEdit =
-        db.atomic { renameTailorTx(id, name) }
+        writes { db.atomic { renameTailorTx(id, name) } }
 
     private suspend fun renameTailorTx(id: Long, name: String): PersonEdit {
         val dao = db.masterDataDao()
@@ -3789,7 +3871,7 @@ class Repo(private val db: Db) {
 
     /** نامِ ناظر — مثلِ خیاط: «[کد] نام» در نظارت و دفتر، نامِ خالی در حضور. */
     suspend fun renameInspectorWithHistory(id: Long, name: String): PersonEdit =
-        db.atomic { renameInspectorTx(id, name) }
+        writes { db.atomic { renameInspectorTx(id, name) } }
 
     private suspend fun renameInspectorTx(id: Long, name: String): PersonEdit {
         val dao = db.masterDataDao()
@@ -3817,7 +3899,7 @@ class Repo(private val db: Db) {
      * نامِ فروشنده (تأمین‌کننده). فهرستِ جدا ندارد — در دفتر و فاکتورهای
      * خرید زندگی می‌کند — پس از دفتر کل عوض می‌شود.
      */
-    suspend fun renameSupplier(from: String, to: String): PersonEdit = db.atomic { renameSupplierTx(from, to) }
+    suspend fun renameSupplier(from: String, to: String): PersonEdit = writes { db.atomic { renameSupplierTx(from, to) } }
 
     private suspend fun renameSupplierTx(from: String, to: String): PersonEdit {
         val dao = db.masterDataDao()
@@ -3836,7 +3918,7 @@ class Repo(private val db: Db) {
         return PersonEdit.DONE
     }
 
-    suspend fun deleteStaff(id: Long): PersonEdit = db.atomic { deleteStaffTx(id) }
+    suspend fun deleteStaff(id: Long): PersonEdit = writes { db.atomic { deleteStaffTx(id) } }
 
     private suspend fun deleteStaffTx(id: Long): PersonEdit {
         val dao = db.masterDataDao()
@@ -3860,6 +3942,7 @@ class Repo(private val db: Db) {
 
     /** ثبت ورود؛ اگر کارمند از قبل «داخل» باشد کاری نمی‌کند. */
     suspend fun checkIn(employee: String) {
+        LicenceGate.requireWrite()
         val emp = employee.trim()
         if (emp.isEmpty()) return
         if (db.attendanceDao().findOpen(emp) != null) return
@@ -3879,6 +3962,7 @@ class Repo(private val db: Db) {
      * @return `false` اگر بازه وارونه باشد؛ آن‌وقت چیزی نوشته نمی‌شود.
      */
     suspend fun editAttendance(record: AttendanceRecord, checkIn: Long, checkOut: Long?): Boolean {
+        LicenceGate.requireWrite()
         if (checkOut != null && checkOut < checkIn) return false
         db.attendanceDao().update(record.copy(checkIn = checkIn, checkOut = checkOut))
         return true
@@ -3886,6 +3970,7 @@ class Repo(private val db: Db) {
 
     /** ثبت خروج برای بازهٔ بازِ کارمند. */
     suspend fun checkOut(employee: String) {
+        LicenceGate.requireWrite()
         val open = db.attendanceDao().findOpen(employee.trim()) ?: return
         db.attendanceDao().update(open.copy(checkOut = nowMillis()))
     }
@@ -3956,6 +4041,7 @@ class Repo(private val db: Db) {
      * @return پیغامِ خطا، یا null اگر انجام شد.
      */
     suspend fun approveRequest(id: Long, note: String = ""): String? {
+        LicenceGate.requireWrite()
         val r = db.syncRequestDao().getById(id) ?: return "درخواست پیدا نشد."
         if (r.status != "PENDING") return "این درخواست قبلاً رسیدگی شده."
 
@@ -3987,6 +4073,7 @@ class Repo(private val db: Db) {
     }
 
     suspend fun rejectRequest(id: Long, note: String = "") {
+        LicenceGate.requireWrite()
         val r = db.syncRequestDao().getById(id) ?: return
         if (r.status != "PENDING") return
         db.syncRequestDao().update(
@@ -4045,6 +4132,7 @@ class Repo(private val db: Db) {
         fileName: String,
         deleteFile: (String) -> Unit
     ) {
+        LicenceGate.requireWrite()
         val old = item.photoFile
         db.finishedStockDao().upsert(
             item.copy(photoFile = fileName.trim(), updatedAt = nowMillis())
@@ -4102,6 +4190,7 @@ class Repo(private val db: Db) {
             liveStockPhotoFileNames()
 
     suspend fun addOrderPhoto(order: Order, fileName: String, note: String = "") {
+        LicenceGate.requireWrite()
         db.orderPhotoDao().insert(
             com.afghanjama.data.entities.OrderPhoto(
                 orderId = order.id.toString(),
@@ -4121,6 +4210,7 @@ class Repo(private val db: Db) {
         photo: com.afghanjama.data.entities.OrderPhoto,
         deleteFile: (String) -> Unit
     ) {
+        LicenceGate.requireWrite()
         db.orderPhotoDao().delete(photo)
         deleteFile(photo.fileName)
         audit("حذف عکس سفارش", photo.orderCode)
@@ -4134,10 +4224,10 @@ class Repo(private val db: Db) {
         db.breakTimeDao().observeAll()
 
     suspend fun upsertBreakTime(row: com.afghanjama.data.entities.BreakTime): Long =
-        db.breakTimeDao().upsert(row)
+        writes { db.breakTimeDao().upsert(row) }
 
     suspend fun deleteBreakTime(row: com.afghanjama.data.entities.BreakTime) =
-        db.breakTimeDao().delete(row)
+        writes { db.breakTimeDao().delete(row) }
 
     suspend fun breakTimeCount(): Int = db.breakTimeDao().count()
 
@@ -4152,10 +4242,10 @@ class Repo(private val db: Db) {
         db.customerMeasurementDao().observeForCustomer(customerId)
 
     suspend fun upsertMeasurement(row: CustomerMeasurement) =
-        db.customerMeasurementDao().upsert(row.copy(updatedAt = nowMillis()))
+        writes { db.customerMeasurementDao().upsert(row.copy(updatedAt = nowMillis())) }
 
     suspend fun deleteMeasurement(id: Long) =
-        db.customerMeasurementDao().deleteById(id)
+        writes { db.customerMeasurementDao().deleteById(id) }
 
     // =========================
     //   اقساطِ مشتری
@@ -4172,10 +4262,10 @@ class Repo(private val db: Db) {
         db.customerInstallmentDao().observeFor(name.trim())
 
     suspend fun addInstallment(row: CustomerInstallment) =
-        db.customerInstallmentDao().insert(row.copy(customerName = row.customerName.trim()))
+        writes { db.customerInstallmentDao().insert(row.copy(customerName = row.customerName.trim())) }
 
     suspend fun deleteInstallment(row: CustomerInstallment) =
-        db.customerInstallmentDao().delete(row)
+        writes { db.customerInstallmentDao().delete(row) }
 
     /**
      * هر مشتری تا امروز چقدر داده — یک جا، برای هر کسی که بپرسد.
@@ -4214,7 +4304,7 @@ class Repo(private val db: Db) {
         db.catalogDao().observeWorkCosts()
 
     suspend fun insertWorkCost(item: WorkCost) =
-        db.catalogDao().insertWorkCosts(listOf(item))
+        writes { db.catalogDao().insertWorkCosts(listOf(item)) }
 
     // ✅ NEW: update work cost
     // =========================
@@ -4236,36 +4326,40 @@ class Repo(private val db: Db) {
     // =========================
 
     suspend fun renameFabricType(id: Long, title: String) {
+        LicenceGate.requireWrite()
         val v = title.trim()
         if (v.isNotEmpty()) db.masterDataDao().renameFabricType(id, v)
     }
 
     suspend fun renameFabricColor(id: Long, title: String) {
+        LicenceGate.requireWrite()
         val v = title.trim()
         if (v.isNotEmpty()) db.masterDataDao().renameFabricColor(id, v)
     }
 
     suspend fun renameSize(id: Long, title: String) {
+        LicenceGate.requireWrite()
         val v = title.trim()
         if (v.isNotEmpty()) db.masterDataDao().renameSize(id, v)
     }
 
     suspend fun renameDesign(id: Long, title: String) {
+        LicenceGate.requireWrite()
         val v = title.trim()
         if (v.isNotEmpty()) db.masterDataDao().renameDesign(id, v)
     }
 
-    suspend fun deleteTailor(id: Long) = db.masterDataDao().deleteTailor(id)
-    suspend fun deleteInspector(id: Long) = db.masterDataDao().deleteInspector(id)
-    suspend fun deleteFabricType(id: Long) = db.masterDataDao().deleteFabricType(id)
-    suspend fun deleteFabricColor(id: Long) = db.masterDataDao().deleteFabricColor(id)
-    suspend fun deleteSize(id: Long) = db.masterDataDao().deleteSize(id)
-    suspend fun deleteDesign(id: Long) = db.masterDataDao().deleteDesign(id)
+    suspend fun deleteTailor(id: Long) = writes { db.masterDataDao().deleteTailor(id) }
+    suspend fun deleteInspector(id: Long) = writes { db.masterDataDao().deleteInspector(id) }
+    suspend fun deleteFabricType(id: Long) = writes { db.masterDataDao().deleteFabricType(id) }
+    suspend fun deleteFabricColor(id: Long) = writes { db.masterDataDao().deleteFabricColor(id) }
+    suspend fun deleteSize(id: Long) = writes { db.masterDataDao().deleteSize(id) }
+    suspend fun deleteDesign(id: Long) = writes { db.masterDataDao().deleteDesign(id) }
 
     suspend fun updateWorkCost(item: WorkCost) =
-        db.catalogDao().updateWorkCost(item)
+        writes { db.catalogDao().updateWorkCost(item) }
 
     // ✅ NEW: delete work cost
     suspend fun deleteWorkCostById(id: Long) =
-        db.catalogDao().deleteWorkCostById(id)
+        writes { db.catalogDao().deleteWorkCostById(id) }
 }
