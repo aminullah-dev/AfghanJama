@@ -210,7 +210,7 @@ fun LicenceScreen(
                         onClick = onOpenFile,
                         enabled = !ui.working,
                         modifier = Modifier.fillMaxWidth()
-                    ) { Text("باز کردنِ فایلِ لایسنس (.lnmlic)") }
+                    ) { Text("باز کردنِ فایلِ لایسنس") }
                 }
                 ui.message?.let {
                     Text(

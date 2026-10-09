@@ -539,6 +539,23 @@ val authSmoke by tasks.registering(JavaExec::class) {
     }
 }
 
+/*
+ * `licenceSmoke` — شناسهٔ دستگاه روی خودِ ویندوز/مک خوانده می‌شود و
+ * امضای ECDSA روی همان کلاس‌هایی که در بسته می‌روند سنجیده می‌شود.
+ */
+val licenceSmoke by tasks.registering(JavaExec::class) {
+    group = "verification"
+    description = "شناسهٔ دستگاه و سنجشِ امضای لایسنس روی همین سکو"
+    dependsOn("createDistributable")
+    mainClass.set("com.afghanjama.desktop.data.LicenceSmokeKt")
+    jvmArgs("-Dfile.encoding=UTF-8", "-Dstdout.encoding=UTF-8")
+    doFirst {
+        val appDir = packagedJarDir()
+        val jars = appDir.listFiles { f: JFile -> f.name.endsWith(".jar") } ?: emptyArray()
+        classpath = files(appDir) + files(*jars)
+    }
+}
+
 val backupSmoke by tasks.registering(JavaExec::class) {
     group = "verification"
     description = "پشتیبان‌گیری و بازیابیِ ویندوز روی فایل‌های موقت"
