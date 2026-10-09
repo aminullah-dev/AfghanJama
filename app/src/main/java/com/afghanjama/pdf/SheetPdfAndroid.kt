@@ -15,6 +15,7 @@ import com.afghanjama.pdf.Align
 import com.afghanjama.pdf.DrawOp
 import com.afghanjama.pdf.Sheet
 import com.afghanjama.pdf.SheetDoc
+import com.afghanjama.pdf.Watermark
 import com.afghanjama.pdf.Weight
 import com.afghanjama.util.ShareUtil
 import java.io.File
@@ -131,7 +132,9 @@ object SheetPdfAndroid {
         val fonts = PdfKit.fonts(context)
         val out = PdfDocument()
         try {
-            doc.pages.forEachIndexed { i, s -> page(out, s, i + 1, fonts) }
+            // نشانِ «آزمایشی — بدون لایسنس» تا وقتی لایسنس نیست — همان
+            // نشانی که ویندوز می‌کشد، چون به خودِ برگه افزوده می‌شود.
+            Watermark.apply(doc).pages.forEachIndexed { i, s -> page(out, s, i + 1, fonts) }
             val file = File(ShareUtil.sharedDir(context), fileName)
             file.outputStream().use { out.writeTo(it) }
             return file

@@ -1,5 +1,6 @@
 package com.afghanjama.ui.vm
 
+import com.afghanjama.licence.Licensing
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.afghanjama.data.repo.Repo
@@ -79,6 +80,7 @@ class VmFactory(
             MyWorkViewModel::class.java -> MyWorkViewModel(repo)
             MoneyMoveViewModel::class.java -> MoneyMoveViewModel(repo)
             PurchaseReturnViewModel::class.java -> PurchaseReturnViewModel(repo)
+            LicenceViewModel::class.java -> LicenceViewModel(Licensing(settings, repo))
             // نامِ ناشناخته یعنی کسی ViewModel تازه‌ای ساخته و اینجا
             // اضافه نکرده. بلند می‌شکند، چون سکوت اینجا یعنی صفحه‌ای که
             // سرِ باز شدن می‌ترکد.

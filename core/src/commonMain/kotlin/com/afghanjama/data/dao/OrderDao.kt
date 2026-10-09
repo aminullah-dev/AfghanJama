@@ -65,6 +65,17 @@ interface OrderDao {
     suspend fun delete(order: Order)
 
     /**
+     * شمارِ سفارش‌هایی که از [since] به بعد ساخته شده‌اند — برای سقفِ
+     * سفارشِ دورهٔ آزمایشیِ لایسنس.
+     *
+     * از خودِ جدول شمرده می‌شود، نه از شمارندهٔ کد: کارگاهی که پیش از
+     * نسخهٔ لایسنس‌دار صدها سفارش داشته، سقفِ دوره‌اش از همان روزِ اول پر
+     * نمی‌شود.
+     */
+    @Query("SELECT COUNT(*) FROM orders WHERE createdAt >= :since")
+    suspend fun countCreatedSince(since: Long): Int
+
+    /**
      * متد کمکی برای حذف تمام سفارشات (در صورت نیاز به ریست کردن دیتا).
      */
     @Query("DELETE FROM orders")

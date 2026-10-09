@@ -62,6 +62,9 @@ object Routes {
     const val SAMPLE_WORKSHOP = "sample_workshop"
     const val SEARCH = "search"
 
+    /** لایسنس — ورودی‌اش در تنظیمات و در بنرِ خانه است. */
+    const val LICENCE = "licence"
+
     /** کاربران و دسترسی‌ها — فقط مدیر. */
     const val USERS = "users"
     const val ORDER_DETAIL = "order_detail"

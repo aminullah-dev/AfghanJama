@@ -110,6 +110,13 @@ import com.afghanjama.ui.vm.SewingViewModel
 import com.afghanjama.ui.vm.Permissions
 import com.afghanjama.ui.vm.UserRole
 import com.afghanjama.prefs.LocalSettings
+import com.afghanjama.licence.LicenceGate
+import com.afghanjama.licence.Licensing
+import com.afghanjama.ui.components.LicenceBanner
+import com.afghanjama.ui.components.LicenceRefusalDialog
+import com.afghanjama.ui.screens.LicenceScreen
+import com.afghanjama.ui.vm.LicenceViewModel
+import com.afghanjama.desktop.platform.pickLicenceFile
 import com.afghanjama.ui.components.NoAccessNotice
 import com.afghanjama.ui.screens.UsersScreen
 import com.afghanjama.ui.vm.UsersViewModel
@@ -184,6 +191,7 @@ internal enum class Section(val title: String) {
     Users("کاربران و دسترسی‌ها"),
     WorkshopLink("اشتراکِ کارگاه"),
     Backup("پشتیبان و بازیابی"),
+    Licence("لایسنس"),
     QuoteCalc("قیمت‌دهی"),
     Guide("راهنما")
 }
@@ -233,41 +241,62 @@ fun Shell(
             openOrder = null
         }
 
-        Box(Modifier.fillMaxSize()) {
-            val orderId = openOrder
-            val customerId = openCustomer
-            if (orderId != null) {
-                val vm: OrderDetailViewModel = viewModel { OrderDetailViewModel(repo) }
-                OrderDetailScreen(
-                    vm = vm,
-                    orderIdText = orderId,
-                    canReturnSale = role == UserRole.MANAGER,
-                    canEdit = role == UserRole.MANAGER,
-                    onBack = { openOrder = null }
-                )
-            } else
-            // پیگیریِ طلب هم پروندهٔ مشتری را باز می‌کند؛ «برگشت» به همان
-            // فهرستِ پیگیری برمی‌گردد، نه به «خریداران».
-            if ((section == Section.Customers || section == Section.FollowUp) && customerId != null) {
-                val vm: CustomerDetailViewModel = viewModel { CustomerDetailViewModel(repo) }
-                CustomerDetailScreen(
-                    vm,
-                    customerId,
-                    onBack = { openCustomer = null },
-                    onOpenOrder = { openOrder = it.toString() }
-                )
-            } else if (!section.allowedFor(access)) {
-                // از هشدار یا پیوندی به بخشی رسیده که تیکش را ندارد.
-                NoAccessNotice(onHome = { section = Section.Overview })
-            } else {
-                SectionContent(
-                    section = section,
-                    repo = repo,
-                    role = role,
-                    go = { section = it },
-                    onOpenCustomer = { openCustomer = it },
-                    onOpenOrder = { openOrder = it }
-                )
+        // هر ثبتی که لایسنس رد کند، یک بار و از هر بخشی اینجا گفته می‌شود.
+        val licence by LicenceGate.status.collectAsState()
+        LicenceRefusalDialog(onOpenLicence = {
+            section = Section.Licence
+            openCustomer = null
+            openOrder = null
+        })
+
+        Column(Modifier.fillMaxSize()) {
+            // بنرِ لایسنس بالای هر بخش — پی‌سی «خانه»ی گوشی را ندارد، پس
+            // روزهای مانده و فقط‌خواندنی همیشه بالای کار دیده می‌شود.
+            if (section != Section.Licence && licence?.needsBanner == true) {
+                Box(Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp)) {
+                    LicenceBanner(onOpen = {
+                        section = Section.Licence
+                        openCustomer = null
+                        openOrder = null
+                    })
+                }
+            }
+            Box(Modifier.fillMaxSize()) {
+                val orderId = openOrder
+                val customerId = openCustomer
+                if (orderId != null) {
+                    val vm: OrderDetailViewModel = viewModel { OrderDetailViewModel(repo) }
+                    OrderDetailScreen(
+                        vm = vm,
+                        orderIdText = orderId,
+                        canReturnSale = role == UserRole.MANAGER,
+                        canEdit = role == UserRole.MANAGER,
+                        onBack = { openOrder = null }
+                    )
+                } else
+                // پیگیریِ طلب هم پروندهٔ مشتری را باز می‌کند؛ «برگشت» به همان
+                // فهرستِ پیگیری برمی‌گردد، نه به «خریداران».
+                if ((section == Section.Customers || section == Section.FollowUp) && customerId != null) {
+                    val vm: CustomerDetailViewModel = viewModel { CustomerDetailViewModel(repo) }
+                    CustomerDetailScreen(
+                        vm,
+                        customerId,
+                        onBack = { openCustomer = null },
+                        onOpenOrder = { openOrder = it.toString() }
+                    )
+                } else if (!section.allowedFor(access)) {
+                    // از هشدار یا پیوندی به بخشی رسیده که تیکش را ندارد.
+                    NoAccessNotice(onHome = { section = Section.Overview })
+                } else {
+                    SectionContent(
+                        section = section,
+                        repo = repo,
+                        role = role,
+                        go = { section = it },
+                        onOpenCustomer = { openCustomer = it },
+                        onOpenOrder = { openOrder = it }
+                    )
+                }
             }
         }
     }
@@ -293,7 +322,7 @@ internal fun Section.allowedFor(access: Access): Boolean {
     if (access.isManager) return true
     val need: Feature = when (this) {
         Section.Overview, Section.OrderSearch, Section.MyWork,
-        Section.WorkshopLink, Section.QuoteCalc, Section.Guide -> return true
+        Section.WorkshopLink, Section.QuoteCalc, Section.Guide, Section.Licence -> return true
         Section.ActionCenter, Section.Audit -> Feature.AUDIT
         Section.Board, Section.WorkshopLoad -> Feature.BOARD
         Section.Inventory, Section.ProductionOrder -> Feature.ORDERS
@@ -671,6 +700,20 @@ internal fun SectionContent(
         }
 
         Section.Backup -> BackupScreen(onBack = back)
+
+        // همان صفحهٔ گوشی. فایلِ `.lnmlic` با پنجرهٔ بازکردنِ خودِ سیستم.
+        Section.Licence -> {
+            val settings = LocalSettings.current
+            val vm: LicenceViewModel = viewModel { LicenceViewModel(Licensing(settings, repo)) }
+            LicenceScreen(
+                vm = vm,
+                onBack = back,
+                onOpenFile = {
+                    val text = pickLicenceFile()
+                    if (text != null) vm.activate(text)
+                }
+            )
+        }
 
         Section.QuoteCalc -> QuoteCalculatorScreen(onBack = back)
         Section.Guide -> GuideScreen(onBack = back)

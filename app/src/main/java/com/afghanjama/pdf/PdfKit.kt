@@ -17,6 +17,8 @@ import androidx.core.content.res.ResourcesCompat
 import com.afghanjama.AppInfo
 import com.afghanjama.R
 import com.afghanjama.prefs.CompanyPrefs
+import com.afghanjama.licence.LicenceGate
+import com.afghanjama.licence.LicenceText
 import com.afghanjama.prefs.settings
 import com.afghanjama.util.PhotoStore
 import com.afghanjama.ui.format.PersianDate
@@ -256,6 +258,7 @@ object PdfKit {
         paper: Paper = Paper.A4
     ) {
         val top = footerTop(paper)
+        if (LicenceGate.watermark()) drawWatermark(c, f, paper, top)
         c.drawLine(paper.margin, top, paper.w - paper.margin, top,
             Paint().apply { color = LINE; strokeWidth = 0.8f })
 
@@ -276,6 +279,32 @@ object PdfKit {
         rtl(c, right, paper.margin, top + 8f, small, paper.contentW)
         rtlEnd(c, "صفحهٔ ${pageNo.fa()}", paper.margin, top + 8f, small, paper.contentW)
         rtl(c, credit, paper.margin, top + 22f, paint(8f, MUTED, f.regular), paper.contentW)
+    }
+
+    /**
+     * نشانِ «نسخهٔ آزمایشی — بدون لایسنس» برای سندهایی که هنوز روی
+     * همین `PdfKit` کشیده می‌شوند (سندهای `Sheet`ی نشانشان را از
+     * `Watermark`ِ مشترک می‌گیرند).
+     *
+     * پاصفحه آخرین چیزی است که روی هر صفحه کشیده می‌شود، پس متنِ وسط
+     * نیمه‌شفاف است تا روی جدول بنشیند و آن را نپوشاند؛ نوارِ بالای
+     * پاصفحه کدر است تا همیشه خوانده شود.
+     */
+    private fun drawWatermark(c: Canvas, f: Fonts, paper: Paper, footerTop: Float) {
+        val text = LicenceText.WATERMARK
+        val big = paint(if (paper.narrow) 11f else if (paper.w < Paper.A4.w) 22f else 30f, 0x33B3261E, f.bold)
+        c.save()
+        c.rotate(-30f, paper.w / 2f, paper.h * 0.45f)
+        rtlCenter(c, text, paper.margin, paper.h * 0.45f, big, paper.contentW)
+        c.restore()
+
+        val small = paint(if (paper.narrow) 7f else 8f, DANGER, f.bold)
+        val stripTop = footerTop - (if (paper.narrow) 14f else 16f)
+        c.drawRoundRect(
+            RectF(paper.margin, stripTop, paper.w - paper.margin, stripTop + small.textSize + 6f),
+            2f, 2f, fill(0xFFFFF3E8.toInt())
+        )
+        rtlCenter(c, text, paper.margin, stripTop + 2f, small, paper.contentW)
     }
 
     // ==================================================

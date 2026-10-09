@@ -94,6 +94,9 @@ import com.afghanjama.ui.screens.PurchaseReturnScreen
 import com.afghanjama.ui.screens.ReportsScreen
 import com.afghanjama.ui.screens.ReviewScreen
 import com.afghanjama.ui.screens.SelfTestScreen
+import com.afghanjama.ui.screens.LicenceScreen
+import com.afghanjama.ui.components.LicenceRefusalDialog
+import com.afghanjama.ui.vm.LicenceViewModel
 import com.afghanjama.ui.screens.SettingsScreen
 import com.afghanjama.ui.screens.SewingScreen
 import com.afghanjama.ui.screens.StockLedgerScreen
@@ -283,6 +286,11 @@ fun AppNav(factory: ViewModelProvider.Factory) {
         }
     }
 
+    // هر ثبتی که لایسنس رد کند، اینجا یک بار گفته می‌شود — از هر صفحه‌ای.
+    if (authUi.isLoggedIn) {
+        LicenceRefusalDialog(onOpenLicence = { navController.navigate(Routes.LICENCE) })
+    }
+
     if (askExit) {
         val activity = LocalContext.current as? Activity
         AlertDialog(
@@ -413,7 +421,34 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                     onGoGuide = { navController.navigate(Routes.GUIDE) },
                     onGoWorkshopLink = { navController.navigate(Routes.WORKSHOP_LINK) },
                     onGoBoard = { navController.navigate(Routes.BOARD) },
-                    can = { authUi.access.has(it) }
+                    can = { authUi.access.has(it) },
+                    onGoLicence = { navController.navigate(Routes.LICENCE) }
+                )
+            }
+
+            // ورودی‌اش در تنظیمات و در بنرِ خانه است.
+            composable(Routes.LICENCE) {
+                val licenceVm = viewModel<LicenceViewModel>(vmOwner, factory = factory)
+                val context = LocalContext.current
+                // فایلِ `.lnmlic` متنِ ساده است و پسوندش را هیچ گوشی‌ای
+                // نمی‌شناسد؛ گوشی آن را «octet-stream» می‌بیند. محتوا به هر
+                // حال سنجیده می‌شود، پس فایلِ اشتباه فقط پیامِ روشن می‌گیرد.
+                val keyFile = rememberLauncherForActivityResult(
+                    ActivityResultContracts.OpenDocument()
+                ) { uri ->
+                    if (uri != null) {
+                        val text = runCatching {
+                            context.contentResolver.openInputStream(uri)?.use {
+                                it.readBytes().take(64 * 1024).toByteArray().decodeToString()
+                            }
+                        }.getOrNull()
+                        if (text != null) licenceVm.activate(text) else licenceVm.fileFailed()
+                    }
+                }
+                LicenceScreen(
+                    vm = licenceVm,
+                    onBack = { navController.popBackStack() },
+                    onOpenFile = { keyFile.launch(arrayOf("application/octet-stream", "text/plain")) }
                 )
             }
 
@@ -760,6 +795,7 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                     onGoSelfTest = { navController.navigate(Routes.SELF_TEST) },
                     onGoSampleWorkshop = { navController.navigate(Routes.SAMPLE_WORKSHOP) },
                     onGoUsers = { navController.navigate(Routes.USERS) },
+                    onGoLicence = { navController.navigate(Routes.LICENCE) },
                     onLoggedOut = {
                         navController.navigate(Routes.LOGIN) {
                             popUpTo(0) { inclusive = true }

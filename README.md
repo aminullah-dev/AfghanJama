@@ -76,6 +76,12 @@ DMG، پس کشیدنِ برنامه روی `/Applications` مهرش را از �
 
 راهنمای کارِ روزمره: [`RAHNAMA.md`](RAHNAMA.md)
 
+**لایسنس (از نسخهٔ ۱.۹.۰).** هر کارگاه یک لایسنس می‌خواهد که لینومیک
+بی‌اینترنت فعال می‌کند و به دستگاهِ اصلی (یا تنها) بسته است؛ گوشی‌های
+کارگر زیرِ همان‌اند. بی‌لایسنس، ۱۴ روز و ۲۰ سفارش کامل کار می‌کند و بعد
+فقط‌خواندنی می‌شود — هیچ داده‌ای پاک یا پنهان نمی‌شود. صدور و فعال‌سازی:
+[`docs/LICENSING.md`](docs/LICENSING.md).
+
 </div>
 
 ---
@@ -172,6 +178,10 @@ seconds and catch what the compiler cannot — missing imports, absent
 migrations, non-atomic operations, unreachable screens, and money logic
 verified against an independent simulation. Every check must be proven
 to fail on deliberately broken code before it is accepted.
+
+From 1.9.0 every workshop needs an offline, device-bound licence issued by
+Linumic (14-day / 20-order trial, then read-only; worker phones are covered
+by the main device) — see [`docs/LICENSING.md`](docs/LICENSING.md).
 
 Build with JDK 17: `./gradlew testDebugUnitTest` for the money tests,
 `python3 tools/checks/run_all.py` for the structural checks, and

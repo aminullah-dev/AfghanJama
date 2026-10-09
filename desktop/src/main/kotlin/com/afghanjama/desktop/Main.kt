@@ -59,6 +59,9 @@ import com.afghanjama.ui.theme.LightColors
 import com.afghanjama.ui.screens.LoginScreen
 import com.afghanjama.ui.vm.AuthViewModel
 import com.afghanjama.ui.vm.SelfCheckViewModel
+import com.afghanjama.licence.Licensing
+import com.afghanjama.ui.components.LicenceHeartbeat
+import androidx.compose.runtime.remember
 
 
 
@@ -136,6 +139,10 @@ fun main() = application {
                  * نقش از همان‌جا می‌آید. رمز در `auth_prefs` است — روی
                  * ویندوز کنارِ دفتر، روی گوشی همان `SharedPreferences`.
                  */
+                // وضعیتِ لایسنس — پیش از ورود، تا درِ نوشتن از همان ثانیهٔ
+                // اول درست بداند. خودش هیچ چیزی نمی‌کشد.
+                LicenceHeartbeat(remember { Licensing(settings, DesktopLedger.repo().getOrNull()) })
+
                 val authVm: AuthViewModel = viewModel { AuthViewModel(settings) }
                 val auth by authVm.ui.collectAsState()
 

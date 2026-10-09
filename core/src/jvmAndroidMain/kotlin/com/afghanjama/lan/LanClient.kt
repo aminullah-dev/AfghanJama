@@ -1,5 +1,9 @@
 package com.afghanjama.lan
 
+import com.afghanjama.licence.LicenceGate
+import com.afghanjama.licence.LicenceState
+import com.afghanjama.licence.MainLicence
+import com.afghanjama.util.nowMillis
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -42,6 +46,7 @@ class LanClient(
             conn.disconnect()
             val json = runCatching { JSONObject(text) }.getOrNull()
                 ?: return@withContext LanResult.Err("جوابِ گوشیِ اصلی خوانده نشد.")
+            reportLicence(json)
             if (json.optBoolean("ok", false)) LanResult.Ok(json)
             else LanResult.Err(json.optString("error").ifBlank { "درخواست پذیرفته نشد." })
         }.getOrElse {
@@ -51,6 +56,18 @@ class LanClient(
                     "کارگاه‌اند و روی گوشیِ اصلی «اشتراکِ کارگاه» روشن است."
             )
         }
+    }
+
+    /**
+     * گوشیِ کارگر لایسنسِ خودش را ندارد؛ پیروِ دستگاهِ اصلی است. هر جوابی
+     * که وضعیتِ لایسنسِ آن را همراه دارد، اینجا به [LicenceGate] می‌رسد
+     * (و `Licensing` ماندگارش می‌کند). دستگاهِ اصلیِ نسخهٔ پیش از لایسنس
+     * چیزی نمی‌فرستد و کارگر هم بی‌دلیل بسته نمی‌شود.
+     */
+    private fun reportLicence(json: JSONObject) {
+        val l = json.optJSONObject("licence") ?: return
+        val state = runCatching { LicenceState.valueOf(l.optString("state")) }.getOrNull() ?: return
+        LicenceGate.onMainReport?.invoke(MainLicence(state, l.optBoolean("writable", true), nowMillis()))
     }
 
     override suspend fun ping(): LanResult<Unit> =

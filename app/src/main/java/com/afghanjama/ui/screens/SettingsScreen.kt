@@ -86,6 +86,8 @@ import com.afghanjama.ui.vm.FinanceViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.afghanjama.licence.LicenceGate
+import com.afghanjama.licence.LicenceText
 
 /** تنظیمات: اطلاعات پایه، پشتیبان‌گیری، خروجی CSV، تغییر رمز، خروج. */
 @Composable
@@ -100,6 +102,7 @@ fun SettingsScreen(
     onGoSelfTest: () -> Unit,
     onGoSampleWorkshop: () -> Unit,
     onGoUsers: () -> Unit,
+    onGoLicence: () -> Unit,
     onLoggedOut: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -261,6 +264,33 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+
+            // لایسنس — اولِ تنظیمات، چون «چرا ثبت نمی‌شود» را اینجا می‌جویند.
+            // برای همه، نه فقط مدیر: کدِ دستگاه و وضعیت را هر کسی باید ببیند.
+            val licence by LicenceGate.status.collectAsState()
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "لایسنس",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        licence?.let { LicenceText.title(it) + " — " + LicenceText.reason(it) }
+                            ?: "کدِ این دستگاه، وضعیتِ لایسنس، و واردکردنِ کلید.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedButton(onClick = onGoLicence, modifier = Modifier.fillMaxWidth()) {
+                        Text("لایسنس و کدِ دستگاه")
+                    }
+                }
+            }
 
             // اطلاعات پایه — فقط مدیر
             if (canManageMaster) {
