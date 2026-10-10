@@ -1,7 +1,14 @@
 package com.afghanjama.ios
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.runtime.remember
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -10,6 +17,8 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.window.ComposeUIViewController
 import com.afghanjama.platform.LocalDocs
+import com.afghanjama.platform.LocalFileExport
+import com.afghanjama.platform.LocalPhotos
 import com.afghanjama.platform.LocalSystemActions
 import com.afghanjama.prefs.IosSettings
 import com.afghanjama.prefs.LocalSettings
@@ -106,9 +115,26 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
             // صفحه‌های اسناد و گزارش باز می‌شوند؛ خودِ چاپ صریح می‌گوید
             // «هنوز نیست» — `IosDocs`.
             LocalDocs provides IosDocs,
+            // انبارِ محصول (تبِ فروش)، جزئیاتِ سفارش و بُرش `LocalPhotos` را
+            // سرِ باز شدن می‌خوانند و گزارش‌ها `LocalFileExport` را؛ بی این
+            // دو، آیفون روی همان صفحه‌ها می‌ترکید.
+            LocalPhotos provides IosPhotos,
+            LocalFileExport provides IosFileExport,
         ) {
             val auth = remember { AuthViewModel(settings) }
-            IosShell(auth)
+            // کیبوردِ آیفون روی کادرها و دکمه‌های پایینِ صفحه می‌افتاد
+            // (لایسنس، ورود، فرم‌ها). همان کاری که اندروید در
+            // `Theme.kt` می‌کند: یک جا برای کل اپ، نه تک‌تک صفحه‌ها.
+            // لمسِ بیرونِ کادر هم کیبورد را می‌بندد.
+            val focus = LocalFocusManager.current
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .imePadding()
+                    .pointerInput(Unit) { detectTapGestures { focus.clearFocus() } }
+            ) {
+                IosShell(auth)
+            }
         }
     }
 }
