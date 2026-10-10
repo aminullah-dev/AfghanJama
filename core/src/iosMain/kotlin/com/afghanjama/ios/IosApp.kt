@@ -10,6 +10,8 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.window.ComposeUIViewController
 import com.afghanjama.platform.LocalDocs
+import com.afghanjama.platform.LocalFileExport
+import com.afghanjama.platform.LocalPhotos
 import com.afghanjama.platform.LocalSystemActions
 import com.afghanjama.prefs.IosSettings
 import com.afghanjama.prefs.LocalSettings
@@ -106,6 +108,11 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
             // صفحه‌های اسناد و گزارش باز می‌شوند؛ خودِ چاپ صریح می‌گوید
             // «هنوز نیست» — `IosDocs`.
             LocalDocs provides IosDocs,
+            // انبارِ محصول (تبِ فروش)، جزئیاتِ سفارش و بُرش `LocalPhotos` را
+            // سرِ باز شدن می‌خوانند و گزارش‌ها `LocalFileExport` را؛ بی این
+            // دو، آیفون روی همان صفحه‌ها می‌ترکید.
+            LocalPhotos provides IosPhotos,
+            LocalFileExport provides IosFileExport,
         ) {
             val auth = remember { AuthViewModel(settings) }
             IosShell(auth)
