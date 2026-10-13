@@ -37,3 +37,6 @@ private object IosLanApi : LanApi {
 }
 
 actual fun lanClient(host: String, code: String): LanApi = IosLanApi
+
+/** روی آیفون اشتراکِ کارگاه نیست — پس صفحه‌ها ورودی‌اش را نشان نمی‌دهند. */
+actual fun workshopSharingAvailable(): Boolean = false

@@ -160,3 +160,6 @@ class LanClient(
  * سهمِ JVM و اندروید — همان مشتریِ HTTPی همیشگی.
  */
 actual fun lanClient(host: String, code: String): LanApi = LanClient(host, code)
+
+/** روی اندروید و کامپیوتر اشتراکِ کارگاه هست. */
+actual fun workshopSharingAvailable(): Boolean = true

@@ -3,6 +3,7 @@
 package com.afghanjama.ui.screens
 
 import com.afghanjama.ui.vm.Feature
+import com.afghanjama.lan.workshopSharingAvailable
 import com.afghanjama.ui.components.LicenceBanner
 import com.afghanjama.licence.LicenceGate
 import com.afghanjama.util.currentHour
@@ -214,7 +215,12 @@ fun HomeDashboardScreen(
         // می‌شوند — یکی «چند می‌گیرم» و دیگری «تا کِی می‌رسانم».
         if (can(Feature.BOARD)) add(HomeAction("بارِ کارگاه", Icons.Default.Speed, onGoWorkshopLoad))
         add(HomeAction("راهنما", Icons.AutoMirrored.Filled.HelpOutline, onGoGuide))
-        add(HomeAction("اشتراک کارگاه", Icons.Default.Wifi, onGoWorkshopLink))
+        // فقط جایی که اشتراکِ کارگاه واقعاً هست (اندروید/کامپیوتر). روی
+        // آیفون این دکمه به بن‌بستِ «روی آیفون نیست» می‌رسید، پس نمایش
+        // داده نمی‌شود.
+        if (workshopSharingAvailable()) {
+            add(HomeAction("اشتراک کارگاه", Icons.Default.Wifi, onGoWorkshopLink))
+        }
     }
 
     val sections = listOf(
