@@ -13,16 +13,19 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.Share
 import com.afghanjama.ui.platform.AppAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -32,6 +35,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -54,6 +58,7 @@ import com.afghanjama.ui.components.OrderCodeLine
 import com.afghanjama.data.entities.FabricUnit
 import com.afghanjama.data.entities.OrderStatus
 import com.afghanjama.ui.components.DeliverDialog
+import com.afghanjama.data.OrderMessage
 import com.afghanjama.ui.components.MeasurementsBlock
 import com.afghanjama.ui.components.OrderStageBar
 import com.afghanjama.ui.components.BusyButton
@@ -441,6 +446,45 @@ fun OrderDetailScreen(
                                     else MaterialTheme.colorScheme.primary
                                 )
                             }
+                        }
+                    }
+                }
+            }
+
+            // ---------- تماس با مشتری ----------
+            //
+            // شماره روی کارتِ مشخصات هست؛ این‌جا یک‌ضربه یا زنگ می‌زند یا
+            // پیامی آماده از وضعیتِ همین سفارش برای واتس‌اپ/پیامک می‌سازد.
+            // متنِ پیام در `OrderMessage` است تا به مرحله بخورد و CI
+            // بسنجدش. زنگ و اشتراک از همان مرزِ `SystemActions` می‌گذرند
+            // که پیگیریِ طلب هم از آن استفاده می‌کند.
+            if (o.customerPhone.isNotBlank()) {
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = { system.dial(o.customerPhone) },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("تماس")
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                system.shareText(
+                                    "پیام به مشتری",
+                                    OrderMessage.forCustomer(
+                                        CompanyPrefs.shopName(settings),
+                                        o.designTitle,
+                                        o.status
+                                    )
+                                )
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("پیام")
                         }
                     }
                 }
