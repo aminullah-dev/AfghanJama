@@ -55,6 +55,7 @@ import com.afghanjama.data.entities.FabricUnit
 import com.afghanjama.data.entities.OrderStatus
 import com.afghanjama.ui.components.DeliverDialog
 import com.afghanjama.ui.components.MeasurementsBlock
+import com.afghanjama.ui.components.OrderStageBar
 import com.afghanjama.ui.components.BusyButton
 import com.afghanjama.platform.LocalDocs
 import com.afghanjama.platform.LocalPhotos
@@ -369,6 +370,11 @@ fun OrderDetailScreen(
                             designCode = designCodeByOrder[o.orderCode].orEmpty(),
                             orderCode = "${o.orderCode} • ${o.shortCode}"
                         )
+
+                        HorizontalDivider(thickness = 0.5.dp)
+
+                        // کجای چرخه است: ثبت ← برش ← دوخت ← نظارت ← تحویل
+                        OrderStageBar(o.status)
 
                         HorizontalDivider(thickness = 0.5.dp)
 
