@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Sell
 import com.afghanjama.ui.platform.AppAlertDialog
 import androidx.compose.material3.Button
@@ -68,6 +69,10 @@ import com.afghanjama.ui.format.stockText
 import com.afghanjama.ui.format.stockBadge
 import com.afghanjama.platform.LocalPhotos
 import com.afghanjama.ui.components.SinglePhotoPicker
+import com.afghanjama.ui.components.QrImage
+import com.afghanjama.platform.LocalCodeScanner
+import com.afghanjama.data.StockLabel
+import com.afghanjama.ui.vm.StockScan
 import com.afghanjama.ui.vm.FinishedSaleViewModel
 
 @Composable
@@ -103,6 +108,18 @@ fun FinishedWarehouseScreen(
 
     // کالای آماده‌ای که از قبل در انبار است — مهاجرت از دفترِ قبلی.
     var addingOpening by remember { mutableStateOf(false) }
+
+    // ---- اسکنِ کالا: برچسبِ قفسه را بخوان، بهای تمام‌شدهٔ فی‌عدد را ببین ----
+    val scanResult by vm.scan.collectAsState()
+    var showScan by remember { mutableStateOf(false) }
+    var scanInput by remember { mutableStateOf("") }
+    var labelTarget by remember { mutableStateOf<FinishedStock?>(null) }
+    val scanner = LocalCodeScanner.current
+    val startScan = scanner?.rememberStart(
+        prompt = "برچسبِ کالا",
+        onCode = { showScan = true; scanInput = ""; vm.scanCode(it) },
+        onFailed = { showScan = true },
+    )
 
     if (addingOpening) {
         OpeningFinishedDialog(
@@ -467,6 +484,117 @@ fun FinishedWarehouseScreen(
         )
     }
 
+    // ---- دیالوگِ اسکنِ کالا ----
+    if (showScan) {
+        AppAlertDialog(
+            onDismissRequest = { showScan = false; vm.clearScan() },
+            title = { Text("اسکنِ کالا") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "برچسبِ قفسه را اسکن کن یا کدِ زیرِ QR را بنویس تا بهای تمام‌شدهٔ فی‌عددش دیده شود.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (startScan != null) {
+                        Button(
+                            onClick = { vm.clearScan(); startScan() },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.QrCodeScanner, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("اسکن با دوربین")
+                        }
+                    }
+                    OutlinedTextField(
+                        value = scanInput,
+                        onValueChange = { scanInput = it },
+                        singleLine = true,
+                        label = {
+                            Text(if (startScan == null) "کدِ کالا (اسکنر یا تایپ)" else "یا کدِ زیرِ QR را بنویس")
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    when (val r = scanResult) {
+                        is StockScan.Found -> {
+                            val s = r.stock
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                            ) {
+                                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(
+                                        s.name + if (s.size.isNotBlank()) " • سایز ${s.size}" else "",
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        "موجودی: ${s.qty.fa()} عدد",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        "بهای تمام‌شدهٔ هر عدد: ${s.unitValue.afn()}",
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    TextButton(onClick = { labelTarget = s }) {
+                                        Text("نمایش/چاپ برچسبِ این کالا")
+                                    }
+                                }
+                            }
+                        }
+
+                        StockScan.NotStock ->
+                            Text("این کدْ برچسبِ کالا نیست.", color = MaterialTheme.colorScheme.error)
+
+                        StockScan.NotFound ->
+                            Text("کالایی با این کد در انبار نماند.", color = MaterialTheme.colorScheme.error)
+
+                        null -> {}
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { if (scanInput.isNotBlank()) vm.scanCode(scanInput) }) {
+                    Text("پیدا کن")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showScan = false; vm.clearScan() }) { Text("بستن") }
+            }
+        )
+    }
+
+    // ---- دیالوگِ برچسبِ قفسه (QR فقط کد، بی‌بها) ----
+    labelTarget?.let { s ->
+        AppAlertDialog(
+            onDismissRequest = { labelTarget = null },
+            title = { Text("برچسبِ قفسه") },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        s.name + if (s.size.isNotBlank()) " • سایز ${s.size}" else "",
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    QrImage(StockLabel.encode(s.id))
+                    Text(StockLabel.encode(s.id), style = MaterialTheme.typography.labelMedium)
+                    Text(
+                        "این برچسب را چاپ کن و روی قفسه بچسبان. بها روی برچسب نیست؛ فقط بعد از اسکن داخلِ اپ دیده می‌شود.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { labelTarget = null }) { Text("بستن") }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -474,6 +602,13 @@ fun FinishedWarehouseScreen(
                 navigationIcon = {
                     androidx.compose.material3.IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "برگشت")
+                    }
+                },
+                actions = {
+                    androidx.compose.material3.IconButton(
+                        onClick = { vm.clearScan(); scanInput = ""; showScan = true }
+                    ) {
+                        Icon(Icons.Default.QrCodeScanner, contentDescription = "اسکنِ کالا")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)

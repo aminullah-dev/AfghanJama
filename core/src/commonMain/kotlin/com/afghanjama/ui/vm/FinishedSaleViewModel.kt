@@ -6,6 +6,7 @@ import com.afghanjama.data.entities.FinishedSale
 import com.afghanjama.data.entities.FinishedStock
 import com.afghanjama.data.ProductInsights
 import com.afghanjama.data.StockFolders
+import com.afghanjama.data.StockLabel
 import com.afghanjama.data.SalePolicy
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.ui.format.fa
@@ -26,8 +27,34 @@ data class FinishedSaleUi(
     val prepayOfCustomer: Long = 0
 )
 
+/** نتیجهٔ اسکنِ برچسبِ یک کالا. */
+sealed interface StockScan {
+    /** کالا پیدا شد — بهای فی‌عددش از همین‌جا خوانده می‌شود. */
+    data class Found(val stock: FinishedStock) : StockScan
+    /** کدِ خوانده‌شده برچسبِ کالا نیست (کارتِ کارمند، QRِ سفارش، یا بدخوانده). */
+    data object NotStock : StockScan
+    /** کد درست بود ولی کالایی با این شناسه در انبار نماند. */
+    data object NotFound : StockScan
+}
+
 /** فروش جزئی از انبار محصول نهایی. */
 class FinishedSaleViewModel(private val repo: Repo) : ViewModel() {
+
+    // ---- اسکنِ کالا: برچسب را بخوان، بهای تمام‌شدهٔ فی‌عدد را نشان بده ----
+    private val _scan = MutableStateFlow<StockScan?>(null)
+    val scan: StateFlow<StockScan?> = _scan
+    fun clearScan() { _scan.value = null }
+
+    /** کدِ اسکن‌شده یا تایپ‌شده را به یک ردیفِ انبار می‌نگارد. */
+    fun scanCode(raw: String) = viewModelScope.launch {
+        val id = StockLabel.parse(raw)
+        if (id == null) {
+            _scan.value = StockScan.NotStock
+            return@launch
+        }
+        val stock = repo.getFinishedStock(id)
+        _scan.value = if (stock != null) StockScan.Found(stock) else StockScan.NotFound
+    }
 
     /** نامِ مشتریانِ ثبت‌شده — برای پیشنهاد هنگامِ تایپ، تا یک مشتری دو بار ثبت نشود. */
     val customerNames: StateFlow<List<String>> =

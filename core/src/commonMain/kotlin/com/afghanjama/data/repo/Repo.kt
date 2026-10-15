@@ -2662,6 +2662,10 @@ class Repo(private val db: Db) {
     fun observeFinishedStock(): Flow<List<FinishedStock>> =
         db.finishedStockDao().observeAvailable()
 
+    /** یک ردیفِ انبارِ محصول با شناسه — برای «اسکنِ کالا». */
+    suspend fun getFinishedStock(id: Long): FinishedStock? =
+        db.finishedStockDao().findById(id)
+
     fun observeFinishedSales(): Flow<List<FinishedSale>> =
         db.finishedStockDao().observeSales()
 
