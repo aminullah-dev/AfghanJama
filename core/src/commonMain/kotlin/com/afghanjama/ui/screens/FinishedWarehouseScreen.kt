@@ -325,6 +325,16 @@ fun FinishedWarehouseScreen(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    // از همین‌جا برچسبِ قفسه ساخته می‌شود — بی‌نیاز به اینکه
+                    // اول کدی برای اسکن باشد (مشکلِ مرغ‌وتخم‌مرغ).
+                    TextButton(
+                        onClick = { editTarget = null; labelTarget = item },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.QrCodeScanner, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("نمایش/چاپ برچسبِ قفسه")
+                    }
                 }
             },
             confirmButton = {
