@@ -45,15 +45,26 @@ class FinishedSaleViewModel(private val repo: Repo) : ViewModel() {
     val scan: StateFlow<StockScan?> = _scan
     fun clearScan() { _scan.value = null }
 
+    /** شمارهٔ آخرین اسکن — تا نتیجهٔ یک اسکنِ کُند، اسکنِ تازه‌تر را لگد نکند. */
+    private var scanSeq = 0
+
     /** کدِ اسکن‌شده یا تایپ‌شده را به یک ردیفِ انبار می‌نگارد. */
-    fun scanCode(raw: String) = viewModelScope.launch {
+    fun scanCode(raw: String) {
+        // کارتِ کهنه را همین حالا پاک کن تا در حینِ خواندنِ دیتابیس، بهای
+        // کالای قبلی به‌جای این کد خوانده نشود.
+        _scan.value = null
         val id = StockLabel.parse(raw)
         if (id == null) {
             _scan.value = StockScan.NotStock
-            return@launch
+            return
         }
-        val stock = repo.getFinishedStock(id)
-        _scan.value = if (stock != null) StockScan.Found(stock) else StockScan.NotFound
+        val seq = ++scanSeq
+        viewModelScope.launch {
+            val stock = repo.getFinishedStock(id)
+            // اگر در این فاصله اسکنِ تازه‌تری آمده، این نتیجهٔ کهنه را ننشان.
+            if (seq != scanSeq) return@launch
+            _scan.value = if (stock != null) StockScan.Found(stock) else StockScan.NotFound
+        }
     }
 
     /** نامِ مشتریانِ ثبت‌شده — برای پیشنهاد هنگامِ تایپ، تا یک مشتری دو بار ثبت نشود. */

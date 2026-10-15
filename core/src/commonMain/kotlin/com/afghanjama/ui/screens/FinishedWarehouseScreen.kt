@@ -54,6 +54,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -113,12 +115,15 @@ fun FinishedWarehouseScreen(
     val scanResult by vm.scan.collectAsState()
     var showScan by remember { mutableStateOf(false) }
     var scanInput by remember { mutableStateOf("") }
+    var scanError by remember { mutableStateOf<String?>(null) }
     var labelTarget by remember { mutableStateOf<FinishedStock?>(null) }
+    val scanFocus = remember { FocusRequester() }
     val scanner = LocalCodeScanner.current
     val startScan = scanner?.rememberStart(
         prompt = "برچسبِ کالا",
-        onCode = { showScan = true; scanInput = ""; vm.scanCode(it) },
-        onFailed = { showScan = true },
+        onCode = { showScan = true; scanInput = ""; scanError = null; vm.scanCode(it) },
+        // قراردادِ CodeScanner: لغو یا خطا باید پیام بدهد، نه سکوت.
+        onFailed = { showScan = true; scanError = it },
     )
 
     if (addingOpening) {
@@ -497,10 +502,17 @@ fun FinishedWarehouseScreen(
     // ---- دیالوگِ اسکنِ کالا ----
     if (showScan) {
         AppAlertDialog(
-            onDismissRequest = { showScan = false; vm.clearScan() },
+            onDismissRequest = { showScan = false; vm.clearScan(); scanError = null },
             title = { Text("اسکنِ کالا") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // اسکنرِ USBِ ویندوز خودش را کیبورد جا می‌زند؛ بی فوکوس، ضربه‌ها
+                    // جایی نمی‌روند. پس وقتی دوربین نیست، کادر خودش فوکوس می‌گیرد.
+                    if (scanner == null) {
+                        LaunchedEffect(showScan) {
+                            if (showScan) runCatching { scanFocus.requestFocus() }
+                        }
+                    }
                     Text(
                         "برچسبِ قفسه را اسکن کن یا کدِ زیرِ QR را بنویس تا بهای تمام‌شدهٔ فی‌عددش دیده شود.",
                         style = MaterialTheme.typography.bodySmall,
@@ -523,8 +535,11 @@ fun FinishedWarehouseScreen(
                         label = {
                             Text(if (startScan == null) "کدِ کالا (اسکنر یا تایپ)" else "یا کدِ زیرِ QR را بنویس")
                         },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth().focusRequester(scanFocus)
                     )
+                    scanError?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
                     when (val r = scanResult) {
                         is StockScan.Found -> {
                             val s = r.stock
@@ -542,12 +557,22 @@ fun FinishedWarehouseScreen(
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                    Text(
-                                        "بهای تمام‌شدهٔ هر عدد: ${s.unitValue.afn()}",
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                    TextButton(onClick = { labelTarget = s }) {
+                                    if (s.qty > 0) {
+                                        Text(
+                                            "بهای تمام‌شدهٔ هر عدد: ${s.unitValue.afn()}",
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    } else {
+                                        // qty صفر یا منفی: unitValue صفر می‌شود و «۰ افغانی»
+                                        // دروغ است، پس عدد را نشان نمی‌دهیم.
+                                        Text(
+                                            "موجودی صفر — بهای فی‌عدد در دسترس نیست.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                                    TextButton(onClick = { showScan = false; labelTarget = s }) {
                                         Text("نمایش/چاپ برچسبِ این کالا")
                                     }
                                 }
@@ -565,12 +590,12 @@ fun FinishedWarehouseScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { if (scanInput.isNotBlank()) vm.scanCode(scanInput) }) {
+                TextButton(onClick = { if (scanInput.isNotBlank()) { scanError = null; vm.scanCode(scanInput) } }) {
                     Text("پیدا کن")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showScan = false; vm.clearScan() }) { Text("بستن") }
+                TextButton(onClick = { showScan = false; vm.clearScan(); scanError = null }) { Text("بستن") }
             }
         )
     }
@@ -586,12 +611,13 @@ fun FinishedWarehouseScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    val code = StockLabel.encode(s.id)
                     Text(
                         s.name + if (s.size.isNotBlank()) " • سایز ${s.size}" else "",
                         fontWeight = FontWeight.SemiBold
                     )
-                    QrImage(StockLabel.encode(s.id))
-                    Text(StockLabel.encode(s.id), style = MaterialTheme.typography.labelMedium)
+                    QrImage(code)
+                    Text(code, style = MaterialTheme.typography.labelMedium)
                     Text(
                         "این برچسب را چاپ کن و روی قفسه بچسبان. بها روی برچسب نیست؛ فقط بعد از اسکن داخلِ اپ دیده می‌شود.",
                         style = MaterialTheme.typography.labelSmall,

@@ -70,6 +70,14 @@ class StockLabelTest {
     }
 
     @Test
+    fun `the stock marker digit is disjoint from every employee kind digit`() {
+        // جداییِ کالا/کارمند بر این استوار است که نشانگرِ «۹» هیچ‌وقت رقمِ
+        // نوعِ کارمند نباشد. اگر روزی نوعی با «۹» اضافه شود، این می‌شکند و
+        // باید همین‌جا گرفته شود — نه سرِ ثبتِ اشتباهِ حضور.
+        assertTrue(EmployeeCard.Kind.entries.none { it.digit == '9' })
+    }
+
+    @Test
     fun `a stock code is never read as an employee card`() {
         // به‌ویژه شناسه‌هایی که با ۱/۲/۳ شروع می‌شوند — همان‌ها که می‌توانستند
         // با رقمِ نوعِ کارمند اشتباه شوند.
