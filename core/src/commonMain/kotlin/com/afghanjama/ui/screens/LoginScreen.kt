@@ -58,6 +58,7 @@ import com.afghanjama.ui.vm.AuthViewModel
 import com.afghanjama.ui.platform.AppDropdownMenu
 import com.afghanjama.ui.platform.AppDropdownMenuItem
 import com.afghanjama.ui.vm.UserRole
+import com.afghanjama.ui.vm.label
 
 /**
  * صفحهٔ ورود — اولین چیزی که هر روز صبح دیده می‌شود.
@@ -82,13 +83,7 @@ fun LoginScreen(
     val settings = LocalSettings.current
     val coName = remember { CompanyPrefs.name(settings) }
 
-    fun roleLabel(r: UserRole): String = when (r) {
-        UserRole.MANAGER -> "مدیریت"
-        UserRole.PURCHASE -> "مسئول خرید"
-        UserRole.SEWING -> "مدیریت دوخت"
-        UserRole.REVIEW -> "نظارت"
-        UserRole.SALES -> "مدیریت فروش"
-    }
+    fun roleLabel(r: UserRole): String = r.label
 
     LaunchedEffect(ui.isLoggedIn) {
         if (ui.isLoggedIn) onLoggedIn()

@@ -101,7 +101,15 @@ private data class HomeAction(
     val onClick: () -> Unit
 )
 
-private fun fullSpan() = androidx.compose.foundation.lazy.grid.GridItemSpan(2)
+/**
+ * کلِ عرضِ شبکه، هر چند ستون که باشد.
+ *
+ * تا ۱.۹ اینجا `GridItemSpan(2)` سفت بود، چون خانه فقط روی گوشی دوستونه
+ * بود. کامپیوتر همین صفحه را پهن‌تر و با ستونِ بیشتر نشان می‌دهد
+ * ([HomeDashboardScreen]ِ `columns`)، و عددِ ثابت آنجا سرصفحه را نصفه می‌کرد.
+ */
+private fun androidx.compose.foundation.lazy.grid.LazyGridItemSpanScope.fullSpan() =
+    androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan)
 
 @Composable
 fun HomeDashboardScreen(
@@ -149,6 +157,22 @@ fun HomeDashboardScreen(
     can: (Feature) -> Boolean = { isManager },
     /** صفحهٔ لایسنس — از بنرِ آزمایشی/مهلت/فقط‌خواندنی. */
     onGoLicence: () -> Unit = onGoSettings,
+    /**
+     * چند ستون. گوشی دو؛ کامپیوتر بسته به پهنای پنجره بیشتر، تا کاشی‌ها
+     * روی صفحهٔ پهن کشیده و توخالی نشوند.
+     */
+    columns: Int = 2,
+    /**
+     * سطرِ زیرِ کارتِ ساعتِ شیفت — یادآور روی هر سکو جورِ خودش خبر می‌دهد
+     * (گوشی با لرزش، کامپیوتر در خودِ برنامه)، پس متنش از سکو می‌آید.
+     */
+    shiftReminderNote: String = "یادآور پایان شیفت (۸ ساعت) فعال است؛ ۳۰ دقیقه قبل با لرزش خبر می‌دهد.",
+    /**
+     * کارتی که سکو زیرِ سرصفحه می‌گذارد — کامپیوتر اینجا کاشیِ «اشتراکِ
+     * کارگاه» را دارد (اصلی است؟ چند گوشی؟ چه منتظرِ تأیید است؟). گوشی
+     * چیزی نمی‌دهد.
+     */
+    extraTop: (@Composable () -> Unit)? = null,
 ) {
     val s by vm.summary.collectAsState()
     val runningOut by vm.runningOut.collectAsState()
@@ -231,7 +255,7 @@ fun HomeDashboardScreen(
     )
 
     LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
+        columns = GridCells.Fixed(columns.coerceAtLeast(1)),
         modifier = Modifier.fillMaxSize().padding(16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -283,6 +307,10 @@ fun HomeDashboardScreen(
             item(span = { fullSpan() }) {
                 LicenceBanner(onOpen = onGoLicence)
             }
+        }
+
+        if (extraTop != null) {
+            item(span = { fullSpan() }) { extraTop() }
         }
 
         // ---------- پرداخت و دریافتِ سریع ----------
@@ -418,7 +446,7 @@ fun HomeDashboardScreen(
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onErrorContainer
                         ) else Text(
-                            "یادآور پایان شیفت (۸ ساعت) فعال است؛ ۳۰ دقیقه قبل با لرزش خبر می‌دهد.",
+                            shiftReminderNote,
                             style = MaterialTheme.typography.labelSmall,
                             color = if (nearEnd) MaterialTheme.colorScheme.onErrorContainer
                             else MaterialTheme.colorScheme.onSecondaryContainer

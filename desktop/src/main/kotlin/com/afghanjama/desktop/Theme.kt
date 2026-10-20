@@ -21,6 +21,23 @@ internal val Bg = LightColors.background
 internal val CardBg = LightColors.surface
 internal val Bad = LightColors.error
 internal val BadSoft = LightColors.errorContainer
+internal val Coral = LightColors.secondary
+internal val CoralSoft = LightColors.secondaryContainer
+internal val Hairline = LightColors.outlineVariant
+
+/*
+ * شیشهٔ نرم — نوارِ کنار و کارت‌های خودِ کامپیوتر.
+ *
+ * Compose 1.8 تارِ واقعیِ پشتِ لایه را ندارد، پس شیشه شبیه‌سازی می‌شود:
+ * سطحِ سفید با کمی شفافیت روی زمینه‌ای که دو لکهٔ بسیار کم‌رنگِ رنگِ
+ * برند دارد ([DeskBackdrop]). همه از پالتِ مشترک — هیچ رنگِ تازه‌ای
+ * ساخته نمی‌شود (`palette`).
+ */
+internal val Glass = LightColors.surface.copy(alpha = 0.80f)
+internal val GlassEdge = LightColors.surface.copy(alpha = 0.60f)
+
+/** قرصِ کامل: برای بندِ انتخاب‌شده، نشان‌ها و برچسبِ نقش. */
+internal val PillShape = androidx.compose.foundation.shape.RoundedCornerShape(50)
 
 /**
  * فونتِ اپ، از همان فایلی که اندروید برمی‌دارد.
@@ -31,6 +48,10 @@ internal val BadSoft = LightColors.errorContainer
 internal val Vazirmatn: FontFamily = runCatching {
     FontFamily(
         Font("vazirmatn_regular.ttf", FontWeight.Normal),
+        // مقیاسِ مشترک برای عنوان‌ها و برچسب‌ها `Medium` می‌خواهد. تا ۱.۱۰ این
+        // وزن اینجا ثبت نبود و Skia نزدیک‌ترین را خودش می‌ساخت — همان
+        // Regular، کمی پررنگ‌تر کشیده.
+        Font("vazirmatn_medium.ttf", FontWeight.Medium),
         Font("vazirmatn_semibold.ttf", FontWeight.SemiBold),
         Font("vazirmatn_bold.ttf", FontWeight.Bold)
     )

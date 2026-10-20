@@ -105,6 +105,34 @@ for f in files:
                          r"[A-Za-z_][\w.<>?]*\.([A-Za-z_]\w*)\s*\(", code, re.M):
         ext_pkg.setdefault(m.group(1), pkg)
 
+def enum_entries(code):
+    """نامِ اعضای هر `enum class` در این متن — تا اولین `;` یا آکولادِ بسته."""
+    names = set()
+    for m in re.finditer(r"\benum class\s+\w+[^{]*\{", code):
+        depth, i, start = 1, m.end(), m.end()
+        while i < len(code) and depth:
+            c = code[i]
+            if c in "({[":
+                depth += 1
+            elif c in ")}]":
+                depth -= 1
+            elif c == ";" and depth == 1:
+                break
+            i += 1
+        entries = code[start:i]
+        # فقط سطحِ اول: آرگومان‌های داخلِ پرانتز کنار می‌روند.
+        flat, d = [], 0
+        for c in entries:
+            if c in "({[":
+                d += 1
+            elif c in ")}]":
+                d -= 1
+            elif d == 0:
+                flat.append(c)
+        names |= set(re.findall(r"(?:^|,)\s*([A-Za-z_]\w*)", "".join(flat)))
+    return names
+
+
 # ---- 2. check usage ----
 problems = []
 for f in files:
@@ -120,6 +148,11 @@ for f in files:
         r"\b(?:fun|val|var|const val|class|object|interface|enum class)\s+([A-Za-z_]\w*)",
         body_of[f]))
     body = body_of[f]
+    # اعضای enumی که در همین فایل تعریف شده‌اند هم «محلی»‌اند. بی این،
+    # `Licence("لایسنس", …)` در `DeskSection` با کلاسِ `licence.Licence`
+    # اشتباه گرفته می‌شد و ایمپورتِ بی‌معنا می‌خواست (Shell تا ۱.۹ برای
+    # همین `work.WorkshopLoad` را بی‌مصرف ایمپورت کرده بود).
+    local |= enum_entries(body)
     # (?<![.\w]) drops member accesses like order.qty / it.name
     used = set(re.findall(r"(?<![.\w])([A-Za-z_]\w*)\b", body))
     # extension calls: `.afn(` — dotted, but an import is still required

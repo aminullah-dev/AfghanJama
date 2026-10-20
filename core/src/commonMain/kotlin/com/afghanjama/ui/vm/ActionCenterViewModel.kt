@@ -437,7 +437,7 @@ class ActionCenterViewModel(
                         severity = if (days >= 7) AlertSeverity.URGENT else AlertSeverity.WARN,
                         icon = Icons.Default.CloudOff,
                         title = "بکاپ ${days.fa()} روز است گرفته نشده",
-                        detail = "همهٔ اطلاعاتِ کارگاه روی همین گوشی است. " +
+                        detail = "همهٔ اطلاعاتِ کارگاه روی همین دستگاه است. " +
                             "از تنظیمات یک بکاپِ دستی بگیرید.",
                         route = Routes.SETTINGS
                     )

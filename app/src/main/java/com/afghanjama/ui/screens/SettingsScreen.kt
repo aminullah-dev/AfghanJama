@@ -916,4 +916,4 @@ fun SettingsScreen(
     }
 }
 
-private const val SUPPORT_EMAIL = "aminhashemi979@gmail.com"
+private const val SUPPORT_EMAIL = AppInfo.SUPPORT_EMAIL
