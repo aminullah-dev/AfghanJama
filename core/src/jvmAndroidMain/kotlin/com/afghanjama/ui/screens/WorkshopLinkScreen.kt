@@ -451,7 +451,7 @@ private fun WorkerConnectCard(vm: WorkshopLinkViewModel, busy: Boolean) {
     fun onScanned(raw: String) {
         val link = Pairing.parse(raw)
         if (link == null) {
-            scanMsg = "این QRِ اشتراکِ کارگاه نیست. روی گوشیِ اصلی صفحهٔ «اشتراک کارگاه» را باز کنید."
+            scanMsg = Pairing.refusal(raw)
             return
         }
         scanMsg = null

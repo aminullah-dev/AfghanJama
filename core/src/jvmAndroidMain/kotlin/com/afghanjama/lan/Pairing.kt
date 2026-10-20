@@ -30,4 +30,23 @@ object Pairing {
         if (code.length !in 4..6 || code.any { it !in '0'..'9' }) return null
         return Link(ok.host, code)
     }
+
+    /** پیامِ QRی که اصلاً QRِ اتصالِ کارگاه نیست. */
+    const val NOT_PAIRING =
+        "این QRِ اشتراکِ کارگاه نیست. روی گوشیِ اصلی صفحهٔ «اشتراک کارگاه» را باز کنید."
+
+    /**
+     * چرا [parse] این QR را نپذیرفت — برای پیامِ اسکن.
+     *
+     * QRی که با `kylink:` شروع می‌شود واقعاً QRِ خیاط‌یار است. اگر فقط
+     * نشانی‌اش رد شده باشد (مثلاً نشانیِ عمومی که گوشیِ ۱.۹.۱ نمی‌پذیرد)،
+     * گفتنِ «این QRِ اشتراکِ کارگاه نیست» کاربر را دنبالِ QRِ دیگری
+     * می‌فرستاد؛ پس همان دلیلِ [HostAddress] گفته می‌شود.
+     */
+    fun refusal(raw: String): String {
+        val s = raw.trim()
+        if (!s.startsWith(PREFIX, ignoreCase = true)) return NOT_PAIRING
+        val host = s.substring(PREFIX.length).substringBeforeLast(':', missingDelimiterValue = "")
+        return (HostAddress.check(host) as? HostAddress.Result.Bad)?.reason ?: NOT_PAIRING
+    }
 }
