@@ -8,7 +8,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.afghanjama.data.buildAppDatabase
+import com.afghanjama.data.AppDb
 
 /**
  * اعلان روزانهٔ کمبود موجودی: اگر قلمی از انبار مواد به حد هشدار رسیده
@@ -20,16 +20,12 @@ class LowStockWorker(
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        val db = buildAppDatabase(applicationContext)
-        try {
-            val low = db.materialStockDao().lowStock()
-            if (low.isNotEmpty()) {
-                val names = low.take(3).joinToString("، ") { it.name }
-                val extra = if (low.size > 3) " و ${low.size - 3} قلم دیگر" else ""
-                showNotification(low.size, "$names$extra")
-            }
-        } finally {
-            db.close()
+        val db = AppDb.get(applicationContext)
+        val low = db.materialStockDao().lowStock()
+        if (low.isNotEmpty()) {
+            val names = low.take(3).joinToString("، ") { it.name }
+            val extra = if (low.size > 3) " و ${low.size - 3} قلم دیگر" else ""
+            showNotification(low.size, "$names$extra")
         }
         return Result.success()
     }

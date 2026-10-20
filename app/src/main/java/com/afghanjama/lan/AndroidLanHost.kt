@@ -2,7 +2,7 @@ package com.afghanjama.lan
 
 import android.content.Context
 import com.afghanjama.data.Db
-import com.afghanjama.data.buildAppDatabase
+import com.afghanjama.data.AppDb
 
 /**
  * [LanHost] روی اندروید — همان سه چیزی که تا دیروز مستقیم در
@@ -19,11 +19,12 @@ class AndroidLanHost(private val ctx: Context) : LanHost {
         (listOfNotNull(androidLocalIp(ctx)) + Lan.localIps()).distinct()
 
     /**
-     * دیتابیس یک بار ساخته می‌شود و می‌ماند. اگر هر بار تازه ساخته
-     * می‌شد، روشن و خاموش کردنِ اشتراک چند اتصالِ باز به یک فایل
-     * می‌گذاشت.
+     * **همان دفتری که صفحه‌ها می‌خوانند** ([AppDb])، نه نمونهٔ دوم.
+     *
+     * تا ۱.۹.۱ اینجا `buildAppDatabase` جدا صدا زده می‌شد. Room تغییرِ
+     * یک نمونه را به `Flow`های نمونهٔ دیگر خبر نمی‌دهد؛ پس درخواستی که
+     * گوشیِ کارگر می‌نشاند در فهرستِ «درخواست‌های منتظر» دیده نمی‌شد تا
+     * کارفرما صفحه را ترک کند و برگردد.
      */
-    private val db: Db by lazy { buildAppDatabase(ctx.applicationContext) }
-
-    override fun ledger(): Db = db
+    override fun ledger(): Db = AppDb.get(ctx)
 }

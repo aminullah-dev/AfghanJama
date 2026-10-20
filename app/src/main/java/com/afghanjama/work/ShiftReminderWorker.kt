@@ -13,7 +13,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.afghanjama.data.ShiftPolicy
-import com.afghanjama.data.buildAppDatabase
+import com.afghanjama.data.AppDb
 import java.util.concurrent.TimeUnit
 
 /**
@@ -29,16 +29,12 @@ class ShiftReminderWorker(
 
     override suspend fun doWork(): Result {
         val employee = inputData.getString(KEY_EMPLOYEE) ?: return Result.success()
-        val db = buildAppDatabase(applicationContext)
-        try {
-            val open = db.attendanceDao().findOpen(employee) ?: return Result.success()
-            // فقط اگر واقعاً نزدیکِ پایان شیفت است (محافظ در برابر ورودِ تازه‌تر)
-            val elapsed = System.currentTimeMillis() - open.checkIn
-            if (elapsed >= WARN_AFTER_MS - TimeUnit.MINUTES.toMillis(10)) {
-                showNotification(employee)
-            }
-        } finally {
-            db.close()
+        val db = AppDb.get(applicationContext)
+        val open = db.attendanceDao().findOpen(employee) ?: return Result.success()
+        // فقط اگر واقعاً نزدیکِ پایان شیفت است (محافظ در برابر ورودِ تازه‌تر)
+        val elapsed = System.currentTimeMillis() - open.checkIn
+        if (elapsed >= WARN_AFTER_MS - TimeUnit.MINUTES.toMillis(10)) {
+            showNotification(employee)
         }
         return Result.success()
     }

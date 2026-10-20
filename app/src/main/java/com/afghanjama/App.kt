@@ -4,7 +4,7 @@ import android.app.Application
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
-import com.afghanjama.data.buildAppDatabase
+import com.afghanjama.data.AppDb
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.prefs.SalePrefs
@@ -75,23 +75,20 @@ class App : Application() {
             // عکس‌های بی‌صاحب را جارو می‌کنیم: سفارشِ حذف‌شده، عکسِ نیمه‌کاره،
             // یا بازیابیِ پشتیبانی که سطرش را نداشته. یک جا برای همهٔ حالت‌ها.
             runCatching {
-                val db = buildAppDatabase(this@App)
-                try {
-                    val repo = Repo(db)
-                    PhotoStore.sweep(this@App, keptPhotoNames(repo))
+                // همان دفترِ مشترکِ پروسه، نه یک نمونهٔ جدا: نوشتنِ تعمیرِ
+                // پایین باید صفحه‌های بازِ همین پروسه را هم تازه کند.
+                val repo = Repo(AppDb.get(this@App))
+                PhotoStore.sweep(this@App, keptPhotoNames(repo))
 
-                    // تعمیرِ یک‌بارهٔ طبقه‌بندیِ نقدِ دستی.
-                    //
-                    // بی پرچم و بی شرط صدا زده می‌شود چون خودش
-                    // بی‌خطر در برابرِ اجرای دوباره است: بعد از یک
-                    // بار هیچ سطری برای جابه‌جایی نمی‌ماند و دو
-                    // پرس‌وجوی شمارش هزینه‌ای ندارد. پرچمی که
-                    // بتواند از دفتر جدا بیفتد، خودش یک اشکالِ تازه
-                    // است.
-                    repo.repairManualCashClassification()
-                } finally {
-                    db.close()
-                }
+                // تعمیرِ یک‌بارهٔ طبقه‌بندیِ نقدِ دستی.
+                //
+                // بی پرچم و بی شرط صدا زده می‌شود چون خودش
+                // بی‌خطر در برابرِ اجرای دوباره است: بعد از یک
+                // بار هیچ سطری برای جابه‌جایی نمی‌ماند و دو
+                // پرس‌وجوی شمارش هزینه‌ای ندارد. پرچمی که
+                // بتواند از دفتر جدا بیفتد، خودش یک اشکالِ تازه
+                // است.
+                repo.repairManualCashClassification()
             }
         }
     }

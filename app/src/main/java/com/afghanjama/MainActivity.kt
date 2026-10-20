@@ -14,7 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import com.afghanjama.data.buildAppDatabase
+import com.afghanjama.data.AppDb
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.licence.AndroidMachineId
 import com.afghanjama.licence.Licensing
@@ -76,7 +76,10 @@ class MainActivity : FragmentActivity() {
         // شناسهٔ دستگاه برای کدِ لایسنس (`ANDROID_ID`) از همین Context خوانده می‌شود.
         AndroidMachineId.init(applicationContext)
 
-        val db = buildAppDatabase(applicationContext)
+        // دفترِ مشترکِ پروسه — همان نمونه‌ای که سرورِ اشتراکِ کارگاه و
+        // کارهای پس‌زمینه می‌گیرند (`AppDb`). با چرخاندنِ گوشی `onCreate`
+        // دوباره اجرا می‌شود و دیگر هر بار یک اتصالِ تازه باز نمی‌ماند.
+        val db = AppDb.get(applicationContext)
         val repo = Repo(db)
 
         // تنظیمات یک بار ساخته می‌شود و از اینجا به کلِ درخت می‌رود.
