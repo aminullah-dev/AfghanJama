@@ -168,6 +168,22 @@ fun main() {
         dir.deleteRecursively()
     } && ok
 
+    // برچسبِ قفسه (از ۱.۱۰) — همان برگه‌ای که «چاپِ برچسب» باز می‌کند، با
+    // اندازه‌گیرِ واقعی و قلمِ واقعی، تا PDF.
+    ok = pdfCheck("the shelf label sheet renders to a real PDF") {
+        val dir = Files.createTempDirectory("khayatyar-label").toFile()
+        val out = java.io.File(dir, "label.pdf")
+        val code = com.afghanjama.data.StockLabel.encode(1234)
+        val doc = com.afghanjama.pdf.stockLabelSheet(
+            com.afghanjama.pdf.StockLabelInfo("پیراهن تنبانِ مردانه با یخنِ ایستاده", "XL", code),
+            "کارگاهِ خیاطیِ نمونه",
+            AwtTextMeasurer(fonts)
+        )
+        SheetPdf(fonts).write(doc, out)
+        pdfNeed(out.exists() && out.length() > 0, "no label PDF was written")
+        dir.deleteRecursively()
+    } && ok
+
     println("=".repeat(52))
     println(if (ok) "pdf path verified" else "pdf smoke FAILED")
     kotlin.system.exitProcess(if (ok) 0 else 1)

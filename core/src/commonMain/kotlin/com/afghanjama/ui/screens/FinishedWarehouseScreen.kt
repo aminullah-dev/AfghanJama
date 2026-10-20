@@ -52,6 +52,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import com.afghanjama.pdf.StockLabelInfo
+import com.afghanjama.pdf.stockLabelSheet
+import com.afghanjama.platform.LocalDocs
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.focus.FocusRequester
@@ -117,6 +122,10 @@ fun FinishedWarehouseScreen(
     var scanInput by remember { mutableStateOf("") }
     var scanError by remember { mutableStateOf<String?>(null) }
     var labelTarget by remember { mutableStateOf<FinishedStock?>(null) }
+    var labelBusy by remember { mutableStateOf(false) }
+    var labelError by remember { mutableStateOf<String?>(null) }
+    val docs = LocalDocs.current
+    val scope = rememberCoroutineScope()
     val scanFocus = remember { FocusRequester() }
     val scanner = LocalCodeScanner.current
     val startScan = scanner?.rememberStart(
@@ -601,9 +610,13 @@ fun FinishedWarehouseScreen(
     }
 
     // ---- دیالوگِ برچسبِ قفسه (QR فقط کد، بی‌بها) ----
+    //
+    // «چاپ» تا ۱.۱۰ نبود: دیالوگ می‌گفت «چاپ کن» و دکمه‌ای برایش نداشت. حالا
+    // برچسب از راهِ `Docs` PDF می‌شود — کامپیوتر بازش می‌کند تا چاپ شود،
+    // گوشی آن را به پنجرهٔ اشتراک (و چاپگر) می‌دهد.
     labelTarget?.let { s ->
         AppAlertDialog(
-            onDismissRequest = { labelTarget = null },
+            onDismissRequest = { labelTarget = null; labelError = null },
             title = { Text("برچسبِ قفسه") },
             text = {
                 Column(
@@ -623,10 +636,34 @@ fun FinishedWarehouseScreen(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    labelError?.let {
+                        Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                    }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { labelTarget = null }) { Text("بستن") }
+                TextButton(
+                    enabled = !labelBusy,
+                    onClick = {
+                        labelBusy = true
+                        labelError = null
+                        scope.launch {
+                            runCatching {
+                                val code = StockLabel.encode(s.id)
+                                val doc = stockLabelSheet(
+                                    StockLabelInfo(s.name, s.size, code),
+                                    CompanyPrefs.shopName(shopSettings),
+                                    docs.measurer
+                                )
+                                docs.share(doc, "barchasb-$code.pdf", "برچسبِ قفسه")
+                            }.onFailure { labelError = "PDF ساخته نشد: ${it.message ?: "خطای ناشناخته"}" }
+                            labelBusy = false
+                        }
+                    }
+                ) { Text(if (labelBusy) "در حالِ ساختن…" else "چاپِ برچسب") }
+            },
+            dismissButton = {
+                TextButton(onClick = { labelTarget = null; labelError = null }) { Text("بستن") }
             }
         )
     }

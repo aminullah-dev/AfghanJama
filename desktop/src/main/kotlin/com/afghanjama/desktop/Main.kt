@@ -1,6 +1,18 @@
 package com.afghanjama.desktop
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.window.Notification
+import androidx.compose.ui.window.Tray
+import androidx.compose.ui.window.isTraySupported
+import androidx.compose.ui.window.rememberTrayState
+import com.afghanjama.desktop.platform.DeskReminderLoop
+import com.afghanjama.desktop.platform.DesktopReminders
+import com.afghanjama.platform.LocalReminders
+import kotlinx.coroutines.flow.first
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -170,6 +182,7 @@ private fun onSomeScreen(x: Int, y: Int, w: Int, h: Int): Boolean = runCatching 
 @Composable
 private fun ApplicationScope.MainWindow(settings: Settings) {
     val windowState = remember { initialWindowState(settings) }
+    ReminderTray(windowState)
     Window(
         onCloseRequest = ::exitApplication,
         state = windowState,
@@ -205,6 +218,8 @@ private fun ApplicationScope.MainWindow(settings: Settings) {
                 LocalDocs provides DesktopDocsBridge(settings),
                 LocalFileExport provides DesktopFileExport(),
                 LocalPhotos provides DesktopPhotos(),
+                // یادآورِ شیفت و وقتِ نان و چای تا وقتی برنامه باز است.
+                LocalReminders provides DesktopReminders(),
                 LocalWidgets provides DesktopWidgets
             ) {
                 // وضعیتِ لایسنس — پیش از ورود، تا درِ نوشتن از همان ثانیهٔ
@@ -226,6 +241,11 @@ private fun ApplicationScope.MainWindow(settings: Settings) {
                             DeskNotices.show("پشتیبانِ خودکار گرفته نشد: ${it.message}", sticky = true)
                         }
                     }
+                }
+
+                // یادآورها از دفتر می‌پرسند چه کسی داخل است؛ بی دفتر کاری ندارند.
+                LaunchedEffect(Unit) {
+                    DesktopLedger.repo().getOrNull()?.let { DeskReminderLoop.run(it) }
                 }
 
                 // درِ ورود: نقش از `AuthViewModel` می‌آید، نه از فرض.
@@ -373,5 +393,41 @@ private fun FrameWindowScope.DeskMenuBar(
             Item(Section.Guide.title, enabled = can(Section.Guide), onClick = { nav.go(Section.Guide) })
             Item(Section.About.title, enabled = can(Section.About), onClick = { nav.go(Section.About) })
         }
+    }
+}
+
+/**
+ * نشانِ سینی (نوارِ وظیفهٔ ویندوز، نوارِ منوی مک) — فقط وقتی یادآوری
+ * خوانده‌نشده هست، و پیامِ سیستم با هر یادآورِ تازه.
+ *
+ * یادآور در خودِ پنجره هم هست؛ این برای وقتی است که پنجره کوچک شده یا
+ * پشتِ برنامهٔ دیگری است. اگر سیستم سینی ندارد، فقط همان پیامِ پنجره.
+ */
+@Composable
+private fun ApplicationScope.ReminderTray(windowState: WindowState) {
+    if (!isTraySupported) return
+    val notices by DeskNotices.items.collectAsState()
+    val pending = notices.any { it.sticky }
+    val trayState = rememberTrayState()
+    val showing by rememberUpdatedState(pending)
+    LaunchedEffect(Unit) {
+        DeskReminderLoop.fired.collect { due ->
+            // نشانِ سینی تازه ساخته می‌شود؛ پیام پیش از ساخته شدنش گم می‌شد.
+            snapshotFlow { showing }.first { it }
+            delay(300)
+            trayState.sendNotification(Notification(due.title, due.text, Notification.Type.Info))
+        }
+    }
+    if (pending) {
+        Tray(
+            icon = rememberVectorPainter(Icons.Default.NotificationsActive),
+            state = trayState,
+            tooltip = "${AppInfo.NAME} — یادآور",
+            onAction = { windowState.isMinimized = false },
+            menu = {
+                Item("باز کردنِ ${AppInfo.NAME}", onClick = { windowState.isMinimized = false })
+                Item("خواندم", onClick = { DeskNotices.dismissSticky() })
+            }
+        )
     }
 }

@@ -39,6 +39,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.afghanjama.data.DebtFollowUp
 import com.afghanjama.platform.LocalSystemActions
+import com.afghanjama.platform.SystemActions
+import com.afghanjama.platform.messageThen
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.ui.components.AppCard
@@ -145,15 +147,7 @@ fun DebtFollowUpScreen(
                             // بعد از تماس، نتیجه همان‌جا پرسیده می‌شود.
                             recording = row
                         },
-                        onMessage = {
-                            system.shareText(
-                                "یادآوری به ${row.debtor.name}",
-                                DebtFollowUp.message(
-                                    shop, row, row.debtor.amount.afn(), reasonDate(row)
-                                )
-                            )
-                            vm.record(row, DebtFollowUp.Outcome.MESSAGED)
-                        },
+                        onMessage = { sendReminder(system, shop, row, vm) },
                         onRecord = { recording = row },
                         onOpen = ids[row.debtor.name.trim()]?.let { id -> { onOpenCustomer(id) } }
                     )
@@ -169,15 +163,7 @@ fun DebtFollowUpScreen(
                             system.dial(row.debtor.phone)
                             recording = row
                         },
-                        onMessage = {
-                            system.shareText(
-                                "یادآوری به ${row.debtor.name}",
-                                DebtFollowUp.message(
-                                    shop, row, row.debtor.amount.afn(), reasonDate(row)
-                                )
-                            )
-                            vm.record(row, DebtFollowUp.Outcome.MESSAGED)
-                        },
+                        onMessage = { sendReminder(system, shop, row, vm) },
                         onRecord = { recording = row },
                         onOpen = ids[row.debtor.name.trim()]?.let { id -> { onOpenCustomer(id) } }
                     )
@@ -187,6 +173,24 @@ fun DebtFollowUpScreen(
             item { Spacer(Modifier.height(40.dp)) }
         }
     }
+}
+
+/**
+ * یادآوری به بدهکار. «پیام فرستاده شد» فقط وقتی ثبت می‌شود که برنامه‌ای
+ * برای فرستادن واقعاً باز شده باشد ([SystemActions.messageTo]) — نه وقتی
+ * متن فقط کپی شد.
+ */
+private fun sendReminder(
+    system: SystemActions,
+    shop: String,
+    row: DebtFollowUp.Row,
+    vm: DebtFollowUpViewModel,
+) {
+    system.messageThen(
+        row.debtor.phone,
+        DebtFollowUp.message(shop, row, row.debtor.amount.afn(), reasonDate(row)),
+        "یادآوری به ${row.debtor.name}"
+    ) { vm.record(row, DebtFollowUp.Outcome.MESSAGED) }
 }
 
 @Composable

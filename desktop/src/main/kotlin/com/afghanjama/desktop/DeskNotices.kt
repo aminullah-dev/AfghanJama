@@ -44,11 +44,22 @@ internal object DeskNotices {
 
     fun show(text: String, sticky: Boolean = false) {
         val n = Notice(ids.incrementAndGet(), text, sticky)
-        // بیش از سه خبر با هم خوانده نمی‌شود؛ قدیمی‌ترینِ غیرِ ماندگار می‌رود.
-        _items.update { (it + n).takeLast(MAX) }
+        // بیش از سه خبر با هم خوانده نمی‌شود. اول قدیمی‌ترینِ گذرا می‌رود؛
+        // یادآورِ ماندگار فقط وقتی کنار می‌رود که همه ماندگار باشند.
+        _items.update { list ->
+            val all = (list + n).toMutableList()
+            while (all.size > MAX) {
+                val i = all.indexOfFirst { !it.sticky }.takeIf { it >= 0 } ?: 0
+                all.removeAt(i)
+            }
+            all
+        }
     }
 
     fun dismiss(id: Long) = _items.update { list -> list.filterNot { it.id == id } }
+
+    /** همهٔ یادآورهای ماندگار — «خواندم»ِ سینی. */
+    fun dismissSticky() = _items.update { list -> list.filterNot { it.sticky } }
 
     private const val MAX = 3
     const val SHOW_MS = 4_500L

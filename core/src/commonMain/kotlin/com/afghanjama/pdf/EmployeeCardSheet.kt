@@ -161,7 +161,7 @@ private fun drawCard(
 }
 
 /** یک سطر که از [width] بیرون نزند — اگر زد، با «…» کوتاه می‌شود. */
-private fun fit(text: String, size: Float, width: Float, weight: Weight, m: TextMeasurer): String {
+internal fun fit(text: String, size: Float, width: Float, weight: Weight, m: TextMeasurer): String {
     if (m.width(text, size, weight) <= width) return text
     var t = text
     while (t.isNotEmpty() && m.width("$t…", size, weight) > width) t = t.dropLast(1)
