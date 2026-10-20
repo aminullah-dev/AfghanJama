@@ -79,7 +79,8 @@ def utf8_constants(data):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--commit", required=True, help="هفت حرفِ اولِ کامیت")
+    ap.add_argument("--commit", required=True,
+                    help="کامیتِ کوتاه، همان `git rev-parse --short=7` (هفت حرف یا بیشتر)")
     ap.add_argument("--channel", required=True, choices=["release", "test build"])
     ap.add_argument("--jars", action="append", default=[],
                     help="پوشهٔ یک بستهٔ ساخته‌شده که jarهایش سنجیده شود")

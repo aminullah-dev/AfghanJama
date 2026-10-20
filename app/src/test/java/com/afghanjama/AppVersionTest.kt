@@ -32,9 +32,14 @@ class AppVersionTest {
         assertEquals(props["appVersionCode"]?.toInt(), BuildInfo.CODE)
     }
 
+    /**
+     * `git rev-parse --short=7` **دستِ‌کم** هفت حرف است، نه دقیقاً هفت: اگر هفت
+     * حرف در مخزن یکتا نباشد، گیت بیشتر می‌دهد. `{7}` آن روز ساختِ درست را
+     * می‌شکست.
+     */
     @Test
-    fun `the commit is seven hex characters, or local without git`() {
-        assertTrue(BuildInfo.COMMIT, Regex("[0-9a-f]{7}|local").matches(BuildInfo.COMMIT))
+    fun `the commit is at least seven hex characters, or local without git`() {
+        assertTrue(BuildInfo.COMMIT, Regex("[0-9a-f]{7,}|local").matches(BuildInfo.COMMIT))
     }
 
     @Test
