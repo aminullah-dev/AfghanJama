@@ -56,6 +56,13 @@ class LanClient(
                 requestMethod = method
                 connectTimeout = 6_000
                 readTimeout = 8_000
+                // حواله دنبال نمی‌شود. `HttpURLConnection` پیش‌فرض دنبالِ
+                // جوابِ ۳۰۲ از http به http می‌رود و رمزِ کارگاه را هم
+                // همراه می‌بَرد؛ پس هر چیزی که روی یک نشانیِ خصوصی جواب
+                // بدهد می‌توانست گوشی را به هر میزبانِ اینترنتی بفرستد و
+                // مرزِ [HostAddress.isPrivate] بالا بی‌اثر می‌شد. سرورِ
+                // خیاط‌یار هرگز حواله نمی‌دهد.
+                instanceFollowRedirects = false
                 if (withCode) setRequestProperty(Lan.HEADER_CODE, code)
                 if (body != null) {
                     doOutput = true
@@ -64,6 +71,11 @@ class LanClient(
                 }
             }
             val status = conn.responseCode
+            if (status in 300..399) {
+                // جوابِ حواله هر بدنه‌ای داشته باشد خوانده نمی‌شود.
+                conn.disconnect()
+                return LanResult.Err("جوابِ گوشیِ اصلی خوانده نشد.")
+            }
             val text = (if (status in 200..299) conn.inputStream else conn.errorStream)
                 ?.bufferedReader()?.use { it.readText() }.orEmpty()
             conn.disconnect()

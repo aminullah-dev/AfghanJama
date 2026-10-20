@@ -25,6 +25,11 @@
 
 اگر یکی بی دیگری بماند، یا اتصال باز نمی‌شود (۱) یا متنِ ساده به هر
 نشانی‌ای می‌رود (۲).
+
+  ۳ حواله: `LanClient.send` باید `instanceFollowRedirects = false`
+    بگذارد. `HttpURLConnection` پیش‌فرض دنبالِ ۳۰۲ از http به http می‌رود
+    و سرخطِ رمز را هم می‌بَرد؛ پس مرزِ (۲) فقط برای نشانیِ اول بود و هر
+    چیزی روی یک نشانیِ خصوصی می‌توانست گوشی را به هر میزبانی بفرستد.
 """
 import re
 import sys
@@ -93,6 +98,18 @@ def client_problems(kt: str) -> list[str]:
     return []
 
 
+def redirect_problems(kt: str) -> list[str]:
+    """حواله در `LanClient.send` بسته است؟ فهرستِ خالی یعنی سالم."""
+    src = strip(kt)
+    m = re.search(r"private fun send\((.|\n)*?\n    }\n", src)
+    if not m:
+        return ["`LanClient.send` پیدا نشد — بررسیِ حواله پوچ می‌شد."]
+    if not re.search(r"instanceFollowRedirects\s*=\s*false", m.group(0)):
+        return ["`LanClient.send` حواله را نمی‌بندد (`instanceFollowRedirects = false`) — "
+                "یک ۳۰۲ گوشی و رمزش را به هر میزبانی می‌فرستد."]
+    return []
+
+
 def host_problems(kt: str) -> list[str]:
     src = strip(kt)
     m = re.search(r"fun check\((.|\n)*?\n    }\n", src)
@@ -130,6 +147,19 @@ BROKEN_CLIENT = {
               "        runCatching { if (!HostAddress.isPrivate(host)) error(1); send(p) }\n    }\n}\n",
 }
 
+GOOD_SEND = (
+    "class C {\n    private fun send(p: String): R {\n"
+    "        val c = open(p).apply { instanceFollowRedirects = false }\n"
+    "        return read(c)\n    }\n}\n"
+)
+BROKEN_SEND = {
+    "حوالهٔ باز (پیش‌فرض)": "class C {\n    private fun send(p: String): R {\n"
+                           "        return read(open(p))\n    }\n}\n",
+    "حوالهٔ صریحاً باز": "class C {\n    private fun send(p: String): R {\n"
+                         "        val c = open(p).apply { instanceFollowRedirects = true }\n"
+                         "        return read(c)\n    }\n}\n",
+}
+
 fail = []
 if config_problems(GOOD):
     fail.append("خودآزمایی: پیکربندیِ درست رد شد — بررسی خراب است.")
@@ -141,6 +171,11 @@ if client_problems(GOOD_CLIENT):
 for name, x in BROKEN_CLIENT.items():
     if not client_problems(x):
         fail.append(f"خودآزمایی: LanClientِ «{name}» گرفته نشد — بررسی پوچ است.")
+if redirect_problems(GOOD_SEND):
+    fail.append("خودآزمایی: sendِ درست رد شد — بررسیِ حواله خراب است.")
+for name, x in BROKEN_SEND.items():
+    if not redirect_problems(x):
+        fail.append(f"خودآزمایی: sendِ «{name}» گرفته نشد — بررسیِ حواله پوچ است.")
 
 # ── خودِ پروژه ────────────────────────────────────────────────────
 for path in (CONFIG, MANIFEST, CLIENT, HOST):
@@ -163,6 +198,8 @@ if not fail:
 
     fail += [f"{CLIENT.relative_to(_src.REPO)}: {p}"
              for p in client_problems(CLIENT.read_text(encoding="utf-8"))]
+    fail += [f"{CLIENT.relative_to(_src.REPO)}: {p}"
+             for p in redirect_problems(CLIENT.read_text(encoding="utf-8"))]
     fail += [f"{HOST.relative_to(_src.REPO)}: {p}"
              for p in host_problems(HOST.read_text(encoding="utf-8"))]
 
@@ -172,5 +209,6 @@ if fail:
         print(f"  • {f}")
     sys.exit(1)
 
-print(f"✓ متنِ ساده: base-config باز، بی دامنهٔ IP، و LanClient پیش از اتصال "
-      f"نشانیِ کارگاه را می‌سنجد ({len(BROKEN) + len(BROKEN_CLIENT)} نمونهٔ خراب گرفته شد)")
+print(f"✓ متنِ ساده: base-config باز، بی دامنهٔ IP، LanClient پیش از اتصال "
+      f"نشانیِ کارگاه را می‌سنجد و دنبالِ حواله نمی‌رود "
+      f"({len(BROKEN) + len(BROKEN_CLIENT) + len(BROKEN_SEND)} نمونهٔ خراب گرفته شد)")
