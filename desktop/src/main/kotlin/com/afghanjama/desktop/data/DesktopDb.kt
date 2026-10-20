@@ -78,6 +78,30 @@ fun ledgerFileVersion(file: File): Int? {
 }
 
 /**
+ * فایلِ دفتر سالم است؟ — `PRAGMA quick_check`، بی باز کردنِ Room.
+ *
+ * برای پشتیبانِ خودکار: کپیِ دفتر وقتی برنامه باز است و کار می‌کند
+ * گرفته می‌شود. اگر کپی وسطِ یک نوشتن بریده شده باشد، همین‌جا معلوم
+ * می‌شود، نه روزی که کسی بخواهد بازیابی‌اش کند.
+ */
+fun ledgerFileHealthy(file: File): Boolean {
+    if (!file.exists() || file.length() == 0L) return false
+    return runCatching {
+        val conn = BundledSQLiteDriver().open(file.absolutePath)
+        try {
+            val stmt = conn.prepare("PRAGMA quick_check")
+            try {
+                stmt.step() && stmt.getText(0).equals("ok", ignoreCase = true)
+            } finally {
+                stmt.close()
+            }
+        } finally {
+            conn.close()
+        }
+    }.getOrDefault(false)
+}
+
+/**
  * باز کردنِ دفتر.
  *
  * `BundledSQLiteDriver` کتابخانهٔ بومیِ SQLite را با خودش می‌آورد، پس
