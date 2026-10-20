@@ -375,8 +375,10 @@ internal fun SectionContent(
                     can = { access.has(it) },
                     onGoLicence = { go(Section.Licence) },
                     columns = columns,
-                    // کامپیوتر لرزش ندارد؛ آنچه واقعاً رخ می‌دهد همین است.
-                    shiftReminderNote = "شیفت ۸ ساعته است؛ ۳۰ دقیقه پیش از پایانش این کارت سرخ می‌شود.",
+                    // کامپیوتر لرزش ندارد؛ یادآورش در خودِ پنجره و سینی است
+                    // (`DesktopReminders`)، و فقط تا وقتی برنامه باز است.
+                    shiftReminderNote = "یادآورِ پایانِ شیفت (۸ ساعت) روشن است؛ ۳۰ دقیقه پیش از پایان، " +
+                        "تا وقتی برنامه باز است همین‌جا خبر می‌دهد.",
                     extraTop = {
                         WorkshopLinkTile(repo, access, onOpen = { go(Section.WorkshopLink) })
                     },
@@ -626,9 +628,25 @@ internal fun SectionContent(
             MasterDataScreen(vm, onBack = back)
         }
 
+        /*
+         * «افزودن به فاکتور» و «فاکتور» — همان کاری که گوشی (`AppNav`) می‌کند.
+         *
+         * تا ۱.۹ هیچ‌کدام داده نمی‌شد و پیش‌فرضِ هر دو `{}` بود: کالا انتخاب
+         * می‌شد و هیچ فاکتوری نمی‌دید، و دکمهٔ فاکتور هیچ جا نمی‌برد.
+         * `NewSaleViewModel` همان یکی است که «فروشِ نو» نشان می‌دهد (یک صاحب
+         * برای کلِ پنجره)، پس کالایی که اینجا افزوده شد همان‌جا پیدا می‌شود.
+         */
         Section.FinishedWarehouse -> {
             val vm: FinishedSaleViewModel = viewModel { FinishedSaleViewModel(repo) }
-            FinishedWarehouseScreen(vm, onBack = back)
+            val newSaleVm: NewSaleViewModel = viewModel { NewSaleViewModel(repo) }
+            val invoiceCount by newSaleVm.pickedCount.collectAsState()
+            FinishedWarehouseScreen(
+                vm,
+                onBack = back,
+                onOpenInvoice = { go(Section.NewSale) },
+                onAddToInvoice = { newSaleVm.addItem(it) },
+                invoiceCount = invoiceCount
+            )
         }
 
         // بی این صفحه، هر کاغذی که کامپیوتر چاپ می‌کرد نامِ پیش‌فرض داشت.

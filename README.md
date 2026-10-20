@@ -84,6 +84,12 @@ DMG، پس کشیدنِ برنامه روی `/Applications` مهرش را از �
 نصب کند**؛ گوشیِ ۱.۹.۰ به هیچ دستگاهِ اصلی‌ای وصل نمی‌شود. متنِ کامل:
 [`docs/RELEASE-1.9.1.md`](docs/RELEASE-1.9.1.md).
 
+**پس از آن: ۱.۱۰.۰ (شمارهٔ ساخت ۱۶) — کامپیوتر هم‌پای گوشی.** سه PR: #32
+نوارِ گروه‌بندی‌شده، «خانه»، «تنظیمات»، حساب و خروجیِ اکسل؛ #33 پشتیبانِ
+خودکارِ روزانه با عکس‌ها؛ و #34 فاکتور از انبارِ محصول، تماس و واتساپ،
+یادآور و چاپِ برچسب. قراردادِ اشتراکِ کارگاه عوض نشده است. متنِ کامل:
+[`docs/RELEASE-1.10.0.md`](docs/RELEASE-1.10.0.md).
+
 **لایسنس (از نسخهٔ ۱.۹.۰).** هر کارگاه یک لایسنس می‌خواهد که لینومیک
 بی‌اینترنت فعال می‌کند و به دستگاهِ اصلی (یا تنها) بسته است؛ گوشی‌های
 کارگر زیرِ همان‌اند. بی‌لایسنس، ۱۴ روز و ۲۰ سفارش کامل کار می‌کند و بعد
@@ -202,6 +208,12 @@ commit, and the app shows its version, commit and whether it is a release or
 a test build under "About". Every Android worker phone must install 1.9.1; a
 1.9.0 worker phone cannot reach any main device. Notes (Dari):
 [`docs/RELEASE-1.9.1.md`](docs/RELEASE-1.9.1.md).
+
+After that: **1.10.0 (build 16)**, desktop parity — #32 grouped sidebar,
+Home, Settings, account and CSV export; #33 daily automatic backup with
+photos; #34 invoice from the product warehouse, calls and WhatsApp, reminders
+and label printing. The workshop-sharing protocol is unchanged. Notes (Dari):
+[`docs/RELEASE-1.10.0.md`](docs/RELEASE-1.10.0.md).
 
 From 1.9.0 every workshop needs an offline, device-bound licence issued by
 Linumic (14-day / 20-order trial, then read-only; worker phones are covered

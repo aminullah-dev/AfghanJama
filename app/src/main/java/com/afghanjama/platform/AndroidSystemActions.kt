@@ -26,6 +26,10 @@ class AndroidSystemActions(private val ctx: Context) : SystemActions {
         ShareUtil.shareText(ctx, text = text, chooserTitle = title)
     }
 
+    /** پنجرهٔ اشتراک، مثلِ قبل؛ ولی حالا می‌گوید باز شد یا نه. */
+    override fun messageTo(phone: String, text: String, title: String): Boolean =
+        ShareUtil.shareText(ctx, text = text, chooserTitle = title)
+
     override fun dial(phone: String) {
         // گوشی‌ای که برنامهٔ تماس ندارد (تبلت) وگرنه اپ را می‌بست؛
         // `launch` خودش استثنا را می‌گیرد و `false` می‌دهد.

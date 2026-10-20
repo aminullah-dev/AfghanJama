@@ -537,7 +537,7 @@ fun AttendanceScreen(
                                 color = MaterialTheme.colorScheme.onSecondaryContainer
                             )
                             Text(
-                                "در وقتِ تعیین‌شده گوشی یادآوری می‌کند و می‌گوید چند نفر " +
+                                "در وقتِ تعیین‌شده برنامه یادآوری می‌کند و می‌گوید چند نفر " +
                                     "داخل‌اند — تا آشپز بداند برای چند نفر آماده کند.",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSecondaryContainer

@@ -163,6 +163,112 @@ for path in sorted(_src.CORE.rglob("*.kt")) + sorted(_src.APP.rglob("*.kt")):
                     f"زده می‌شود و هیچ نمی‌کند."
                 )
 
+# ── ۳ کامپیوتر: کنشی که به صفحهٔ مشترک خالی داده می‌شود، یا اصلاً داده نمی‌شود ──
+#
+# **خرابی‌ای که این بند را لازم کرد (۱.۹).** روی کامپیوتر دو دکمهٔ «انبارِ
+# محصول» («افزودن به فاکتور» و «فاکتور») و چرخ‌دندهٔ «سفارش‌ها» هیچ کاری
+# نمی‌کردند. هیچ‌کدام `onClick = {}` در خودِ صفحه نبود — صفحه درست بود. خرابی
+# در `Shell.kt` بود: یکی `onGoSettings = {}` گرفته بود، و دوتای دیگر اصلاً
+# داده نشده بودند و پیش‌فرضشان `{}` بود. بندهای بالا فقط `:core` و `:app` را
+# می‌دیدند.
+#
+# دو قاعده، فقط برای کدِ برنامهٔ کامپیوتر (نه دودآزمایی‌ها، که عمداً `{}`
+# می‌دهند):
+#   الف) `onX = {}` در فراخوانی — کنشی که داده شده ولی هیچ نمی‌کند.
+#   ب) صفحهٔ مشترکی که کنشی با پیش‌فرضِ `{}` دارد و کامپیوتر آن را نمی‌دهد.
+# هر استثنا باید با دلیل در فهرستِ زیر نوشته شود.
+
+#: (فایل، نامِ کنش) → دلیل
+DESK_ALLOWED_EMPTY = {
+    ("Main.kt", "onLoggedIn"):
+        "ورود حالتِ `AuthViewModel` را عوض می‌کند و بازترکیب خودش صفحه را "
+        "عوض می‌کند؛ کنشِ جدا لازم نیست.",
+}
+
+#: (صفحه، نامِ کنش) → دلیل
+DESK_ALLOWED_MISSING: dict = {}
+
+EMPTY_ARG = re.compile(r"\b(on[A-Z]\w*)\s*=\s*\{\s*\}")
+SCREEN_DECL = re.compile(r"\bfun\s+(\w+Screen)\s*\(")
+SCREEN_CALL = re.compile(r"(?<!fun )(?<![\w.])(\w+Screen)\s*\(")
+
+
+def split_top(args: str):
+    """پارامترها یا آرگومان‌ها در سطحِ اول — ویرگولِ داخلِ پرانتز و آکولاد نه."""
+    out, depth, cur = [], 0, []
+    prev = ""
+    for ch in args:
+        # `<…>`ِ نوعِ عام ویرگول دارد (`Map<A, B>`)؛ ولی `>`ِ پیکانِ `->` بسته نیست.
+        if ch in "([{<":
+            depth += 1
+        elif ch in ")]}" or (ch == ">" and prev != "-"):
+            depth -= 1
+        prev = ch
+        if ch == "," and depth == 0:
+            out.append("".join(cur))
+            cur = []
+        else:
+            cur.append(ch)
+    if "".join(cur).strip():
+        out.append("".join(cur))
+    return out
+
+
+# صفحه‌های مشترک و کنش‌هایی (`on…`) که پیش‌فرضشان `{}` است. جای خالیِ
+# اسکلت‌ها (`AppScreen`ِ `actions` و `snackbarHost`) کنش نیستند؛ فقط
+# صفحه‌های `ui/screens`.
+empty_defaults = {}
+for path in sorted((_src.COMMON / "com/afghanjama/ui/screens").rglob("*.kt")):
+    src = strip(path.read_text(encoding="utf-8"))
+    for m in SCREEN_DECL.finditer(src):
+        args, _ = call_body(src, m.end() - 1)
+        if args is None:
+            continue
+        for param in split_top(args):
+            pm = re.match(r"\s*(?:@\w+\s*)*(\w+)\s*:(.*)=\s*\{\s*\}\s*$", param, re.S)
+            if pm and pm.group(1).startswith("on") and "->" in pm.group(2) \
+                    and "Unit" in pm.group(2) and "@Composable" not in pm.group(2):
+                empty_defaults.setdefault(m.group(1), set()).add(pm.group(1))
+
+desk_files = [p for p in sorted(_src.DESKTOP.rglob("*.kt")) if "Smoke" not in p.name]
+desk_calls = 0
+for path in desk_files:
+    src = strip(path.read_text(encoding="utf-8"))
+    scanned += 1
+    rel = path.relative_to(_src.REPO)
+    for m in EMPTY_ARG.finditer(src):
+        if (path.name, m.group(1)) in DESK_ALLOWED_EMPTY:
+            continue
+        line = src[:m.start()].count("\n") + 1
+        fail.append(
+            f"{rel}:{line} — «{m.group(1)} = {{}}»: کنشی که به صفحه داده شده و هیچ "
+            f"نمی‌کند. یا جایی ببرد، یا با دلیل در DESK_ALLOWED_EMPTY بیاید."
+        )
+    for m in SCREEN_CALL.finditer(src):
+        name = m.group(1)
+        if name not in empty_defaults:
+            continue
+        args, _ = call_body(src, m.end() - 1)
+        if args is None:
+            continue
+        desk_calls += 1
+        for param in sorted(empty_defaults[name]):
+            if (name, param) in DESK_ALLOWED_MISSING:
+                continue
+            if not re.search(rf"\b{param}\s*=", args):
+                line = src[:m.start()].count("\n") + 1
+                fail.append(
+                    f"{rel}:{line} — «{name}» بی «{param}» صدا زده شده؛ پیش‌فرضش `{{}}` "
+                    f"است، پس دکمه‌اش روی کامپیوتر هیچ نمی‌کند."
+                )
+
+if not desk_files:
+    print("✗ هیچ فایلی از :desktop اسکن نشد — بند ۳ پوچ می‌شد.")
+    sys.exit(1)
+if not empty_defaults:
+    print("✗ هیچ صفحه‌ای با کنشِ پیش‌فرضِ `{}` پیدا نشد — یا الگو عوض شده، بند ۳ پوچ می‌شود.")
+    sys.exit(1)
+
 if not scanned:
     print("✗ هیچ فایلی اسکن نشد — بررسی پوچ می‌شد.")
     sys.exit(1)
@@ -177,4 +283,7 @@ if fail:
         print(f"  • {f}")
     sys.exit(1)
 
-print(f"✓ کنش‌ها: هر {menus} بندِ منو کاری می‌کند، و هیچ onClickی خالی نیست")
+print(
+    f"✓ کنش‌ها: هر {menus} بندِ منو کاری می‌کند، هیچ onClickی خالی نیست، و "
+    f"کامپیوتر به {desk_calls} صفحهٔ دارای کنشِ پیش‌فرضِ خالی همهٔ کنش‌ها را می‌دهد"
+)

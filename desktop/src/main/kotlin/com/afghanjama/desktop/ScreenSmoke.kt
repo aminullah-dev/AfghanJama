@@ -22,6 +22,8 @@ import com.afghanjama.desktop.platform.DesktopSystemActions
 import com.afghanjama.platform.LocalDocs
 import com.afghanjama.platform.LocalFileExport
 import com.afghanjama.platform.LocalPhotos
+import com.afghanjama.platform.LocalReminders
+import com.afghanjama.desktop.platform.DesktopReminders
 import com.afghanjama.desktop.platform.DesktopPhotos
 import com.afghanjama.platform.LocalSystemActions
 import com.afghanjama.prefs.LocalSettings
@@ -117,6 +119,7 @@ private fun renderOnce(
                 LocalDocs provides DesktopDocsBridge(settings),
                 LocalFileExport provides DesktopFileExport(),
                 LocalPhotos provides DesktopPhotos(),
+                LocalReminders provides DesktopReminders(),
                 // **هر چیزی که `Main.kt` می‌دهد، اینجا هم باید داده شود.**
                 //
                 // `LocalWidgets` بعد از نوشتنِ این آزمون به `:core` اضافه
