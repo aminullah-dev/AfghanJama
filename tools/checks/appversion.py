@@ -22,9 +22,20 @@
 ساخته می‌شود ولی ویندوز آن را نسخهٔ تازه نمی‌بیند و به‌روزرسانی روی
 پی‌سیِ کارگاه بی‌صدا رد می‌شود.
 
+**از ۱.۹.۱ دو بندِ دیگر:**
+
+  و) آیفون هم از همین می‌خوانَد: `iosApp/project.yml` هیچ نسخهٔ ثابتی
+     ندارد، دو کلیدِ `Info.plist` از `$(MARKETING_VERSION)` و
+     `$(CURRENT_PROJECT_VERSION)` می‌آیند، آن دو از `Version.xcconfig`، و
+     آن فایل را `tools/release/ios-version.sh` از `gradle.properties`
+     می‌سازد (و در گیت نیست). تا ۱.۹.۰ پروژهٔ آیفون نسخه نداشت و xcodegen
+     «۱.۰» می‌گذاشت.
+  ز) `BuildInfo` (نسخه و کامیتِ داخلِ برنامه) هم از `gradle.properties`
+     ساخته می‌شود، نه از عددی در `core/build.gradle.kts`.
+
 **آنچه این بررسی *نمی‌تواند* بگوید:** اینکه نسخه نسبت به بستهٔ قبلی
-**بالا** رفته یا نه. آن به تاریخچه نیاز دارد و اینجا نیست. قاعده‌اش در
-`DELIVERY.md` نوشته شده و مسئولیتش با کسی است که نسخه می‌دهد.
+**بالا** رفته یا نه. آن به تاریخچه نیاز دارد و اینجا نیست؛ از ۱.۹.۱
+`tools/release/gate.py` در `release.yml` آن را با تگ‌های گیت می‌سنجد.
 """
 import re
 import sys
@@ -34,8 +45,13 @@ import _src
 PROPS = _src.REPO / "gradle.properties"
 APP = _src.REPO / "app/build.gradle.kts"
 DESKTOP = _src.REPO / "desktop/build.gradle.kts"
+CORE = _src.REPO / "core/build.gradle.kts"
+IOS_YML = _src.REPO / "iosApp/project.yml"
+IOS_SCRIPT = _src.REPO / "tools/release/ios-version.sh"
+IOS_CI = _src.REPO / ".github/workflows/ios.yml"
+GITIGNORE = _src.REPO / ".gitignore"
 
-for p in (PROPS, APP, DESKTOP):
+for p in (PROPS, APP, DESKTOP, CORE, IOS_YML, IOS_SCRIPT, IOS_CI, GITIGNORE):
     if not p.exists():
         print(f"✗ {p} نیست — بررسی پوچ بود، مسیر را ببینید")
         sys.exit(1)
@@ -164,6 +180,73 @@ for override in ("msiPackageVersion", "exePackageVersion", "packageBuildVersion"
             f"و appVersion را دور می‌زند"
         )
 
+# ---- و) آیفون از همان منبع ----
+#
+# فقط خط‌های غیرِ توضیحِ YAML خوانده می‌شوند؛ توضیح‌ها حق دارند از این
+# نام‌ها حرف بزنند.
+ios_lines = [
+    l for l in IOS_YML.read_text(encoding="utf-8").splitlines()
+    if not l.lstrip().startswith("#")
+]
+ios_src = "\n".join(ios_lines)
+
+# کلیدِ تنظیماتِ ساخت با عدد — جای دومی برای نسخه.
+for key in ("MARKETING_VERSION", "CURRENT_PROJECT_VERSION"):
+    m = re.search(rf"^\s*{key}\s*:", ios_src, re.M)
+    if m:
+        problems.append(
+            f"iosApp/project.yml — {key} ثابت نوشته شده؛ باید از "
+            f"Version.xcconfig (یعنی gradle.properties) بیاید"
+        )
+
+PLIST_KEYS = {
+    "CFBundleShortVersionString": "$(MARKETING_VERSION)",
+    "CFBundleVersion": "$(CURRENT_PROJECT_VERSION)",
+}
+for key, want in PLIST_KEYS.items():
+    m = re.search(rf"^\s*{key}\s*:\s*(.*?)\s*$", ios_src, re.M)
+    got = m.group(1).strip("\"'") if m else None
+    if got != want:
+        problems.append(
+            f"iosApp/project.yml — {key} باید «{want}» باشد"
+            + (f"، نه «{got}»" if got is not None else "؛ نیست، و بی آن xcodegen ۱.۰ می‌گذارد")
+        )
+
+if not re.search(r"^\s*configFiles\s*:\s*$", ios_src, re.M) or \
+        len(re.findall(r"^\s*(?:Debug|Release)\s*:\s*Version\.xcconfig\s*$", ios_src, re.M)) < 2:
+    problems.append(
+        "iosApp/project.yml — configFiles برای Debug و Release هر دو باید "
+        "Version.xcconfig باشد"
+    )
+
+ios_script = IOS_SCRIPT.read_text(encoding="utf-8")
+for key in ("appVersion=", "appVersionCode=", "MARKETING_VERSION", "CURRENT_PROJECT_VERSION",
+            "iosApp/Version.xcconfig"):
+    if key not in ios_script:
+        problems.append(f"tools/release/ios-version.sh — «{key}» را ندارد")
+
+if not re.search(r"^/?iosApp/Version\.xcconfig\s*$", GITIGNORE.read_text(encoding="utf-8"), re.M):
+    problems.append(
+        ".gitignore — iosApp/Version.xcconfig را ندارد؛ در گیت بنشیند، جای "
+        "دومی برای نسخه می‌شود"
+    )
+
+ci = IOS_CI.read_text(encoding="utf-8")
+i_script, i_gen = ci.find("tools/release/ios-version.sh"), ci.find("xcodegen generate")
+if i_script < 0 or i_gen < 0 or i_script > i_gen:
+    problems.append(
+        ".github/workflows/ios.yml — tools/release/ios-version.sh باید پیش از "
+        "xcodegen generate اجرا شود"
+    )
+
+# ---- ز) `BuildInfo` هم از gradle.properties ----
+core_src = no_comments(CORE.read_text(encoding="utf-8"))
+for key in ("appVersion", "appVersionCode"):
+    if f'gradleProperty("{key}")' not in core_src:
+        problems.append(f"core/build.gradle.kts — BuildInfo {key} را از gradle.properties نمی‌خواند")
+if "generateBuildInfo" not in core_src or "srcDir(generateBuildInfo)" not in core_src:
+    problems.append("core/build.gradle.kts — generateBuildInfo نیست یا به commonMain وصل نیست")
+
 if problems:
     print(f"✗ {len(problems)} ایراد در نسخهٔ برنامه")
     for p in problems:
@@ -173,5 +256,5 @@ if problems:
 
 print(
     f"✓ نسخهٔ برنامه یک‌جاست — appVersion={version}، "
-    f"appVersionCode={code}، و هر دو سکو از همان می‌خوانند"
+    f"appVersionCode={code}، و اندروید، رومیزی، آیفون و BuildInfo از همان می‌خوانند"
 )

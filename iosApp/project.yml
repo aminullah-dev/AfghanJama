@@ -40,6 +40,17 @@ targets:
         buildPhase: resources
       - path: ../app/src/main/res/font/vazirmatn_bold.ttf
         buildPhase: resources
+    # ═══ نسخه — از `gradle.properties`، نه از اینجا ═══
+    #
+    # `tools/release/ios-version.sh` این فایل را از `appVersion` و
+    # `appVersionCode` می‌سازد و دو کلیدِ `info` پایین از آن می‌خوانند. تا
+    # ۱.۹.۰ اینجا هیچ نسخه‌ای نبود و xcodegen ۱.۰ می‌گذاشت.
+    #
+    # **عددی اینجا ننویسید.** `tools/checks/appversion.py` نمی‌گذارد: هر
+    # عددِ ثابت در این فایل یعنی جای دومی برای نسخه.
+    configFiles:
+      Debug: Version.xcconfig
+      Release: Version.xcconfig
     # Build the Kotlin framework for the SDK being built, before compiling Swift.
     # framework کاتلین را پیش از کامپایلِ Swift، برای همان SDK می‌سازد.
     # (static است، پس جداگانه embed/sign نمی‌شود؛ در خودِ باینری پیوند می‌خورد.)
@@ -58,11 +69,26 @@ targets:
             *) echo "unsupported SDK $PLATFORM_NAME"; exit 1 ;;
           esac
           cd "$SRCROOT/.."
+
+          # نسخهٔ Xcode همان gradle.properties است؟ اگر نه (نسخه بالا رفته و
+          # ios-version.sh دوباره زده نشده)، فایل را تازه می‌کند و ساخت را
+          # نگه می‌دارد. بی این، آیفون بی‌صدا با عددِ کهنه ساخته می‌شد.
+          want_v=$(sed -n 's/^appVersion=//p' gradle.properties | tr -d '[:space:]')
+          want_c=$(sed -n 's/^appVersionCode=//p' gradle.properties | tr -d '[:space:]')
+          if [ "${MARKETING_VERSION:-}" != "$want_v" ] || [ "${CURRENT_PROJECT_VERSION:-}" != "$want_c" ]; then
+            tools/release/ios-version.sh
+            echo "error: نسخهٔ Xcode «${MARKETING_VERSION:-خالی} (${CURRENT_PROJECT_VERSION:-خالی})» با gradle.properties «$want_v ($want_c)» یکی نبود. iosApp/Version.xcconfig تازه شد؛ دوباره بسازید."
+            exit 1
+          fi
+
           ./gradlew --no-daemon -q ":core:linkDebugFramework$TARGET"
     info:
       path: KhayatYar/Info.plist
       properties:
         CFBundleDisplayName: خیاط‌یار
+        # از `Version.xcconfig` (بالا) — یعنی از `gradle.properties`.
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         # **این کلید اختیاری نیست — بی آن برنامه سرِ راه‌اندازی می‌میرد.**
         #
         # Compose خودش `Info.plist` را می‌سنجد و اگر نباشد استثنا

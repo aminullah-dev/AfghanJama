@@ -72,6 +72,9 @@ wp-credentials.json
 iosApp/KhayatYar.xcodeproj/
 iosApp/build/
 iosApp/KhayatYar/Info.plist
+# نسخهٔ آیفون — `tools/release/ios-version.sh` از `gradle.properties`
+# می‌سازدش. در گیت بنشیند، جای دومی برای نسخه می‌شود.
+iosApp/Version.xcconfig
 
 # ---- زباله‌های سیستم‌عامل ----
 # فایندر اینها را خودش می‌سازد و هیچ ربطی به پروژه ندارند. تا امروز
