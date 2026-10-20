@@ -133,7 +133,7 @@ def main():
 
     # همان قاعدهٔ `BuildInfo` در `core/build.gradle.kts`.
     tagged = git("describe", "--exact-match", "--tags", "--match", own_tag, "HEAD") is not None
-    clean = git("--no-optional-locks", "status", "--porcelain") == ""
+    clean = git("--no-optional-locks", "status", "--porcelain", "--untracked-files=normal") == ""
     channel = "release" if tagged and clean else "test build"
     short = head[:7]
 

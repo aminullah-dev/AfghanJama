@@ -33,6 +33,13 @@
 # مثلاً `codesign` را روی مسیرِ `/` بیندازد.
 set -euo pipefail
 
+# **متغیرهای `GIT_*` پیش از هر فرمانِ گیت پاک می‌شوند.** با `GIT_DIR` و
+# `GIT_WORK_TREE` گیت به یک کپیِ تمیزِ دیگر نگاه می‌کرد و وارسیِ بندِ ۰
+# سبز می‌شد، در حالی که Gradle همین پوشهٔ تغییرکرده را می‌ساخت؛ با
+# `GIT_CONFIG_PARAMETERS` هم می‌شد فایلِ تازه را از `git status` پنهان کرد.
+# Gradle از همین شل اجرا می‌شود، پس `BuildInfo` هم همین محیطِ پاک را می‌بیند.
+for v in $(compgen -e | grep '^GIT_' || true); do unset "$v"; done
+
 IDENTITY="${1:-}"
 # نامِ نمایهٔ جاکلیدی که `notarytool store-credentials` ساخته.
 PROFILE="${NOTARY_PROFILE:-KhayatYar}"
@@ -82,12 +89,25 @@ if [ "$HEAD_SHA" != "$TAG_SHA" ]; then
   echo "همان کامیتی امضا می‌شود که release.yml از آن ساخته: git checkout $TAG" >&2
   exit 3
 fi
-DIRTY=$(git -C "$REPO" status --porcelain)
+# `--untracked-files=normal` عمدی است: اگر در تنظیمِ گیت
+# `status.showUntrackedFiles=no` باشد، `git status` بی این گزینه فایلِ
+# تازه را نشان نمی‌دهد و درخت تمیز دیده می‌شود.
+DIRTY=$(git -C "$REPO" status --porcelain --untracked-files=normal)
 if [ -n "$DIRTY" ]; then
   echo "✗ درخت تمیز نیست — این‌ها در تگِ $TAG نیستند:" >&2
   printf '%s\n' "$DIRTY" | head -20 >&2
   echo >&2
   echo "کنارشان بگذارید (git stash -u) یا در کامیتِ بعدی بیاورید." >&2
+  exit 3
+fi
+# فایلی که با `git update-index --skip-worktree` یا `--assume-unchanged`
+# علامت خورده، تغییرش در بسته می‌رود ولی `git status` نشانش نمی‌دهد.
+HIDDEN=$(git -C "$REPO" ls-files -v | grep '^[a-zS] ' || true)
+if [ -n "$HIDDEN" ]; then
+  echo "✗ این فایل‌ها از git status پنهان شده‌اند (skip-worktree یا assume-unchanged):" >&2
+  printf '%s\n' "$HIDDEN" | head -20 >&2
+  echo >&2
+  echo "علامت را بردارید: git update-index --no-skip-worktree --no-assume-unchanged <فایل>" >&2
   exit 3
 fi
 echo "✓ HEAD روی $TAG است ($(git -C "$REPO" rev-parse --short=7 HEAD)) و درخت تمیز."

@@ -122,7 +122,11 @@ val generateBuildInfo by tasks.registering {
     val code = buildInfoCode
     val commit = provider { git("rev-parse", "--short=7", "HEAD") ?: "local" }
     // گیتِ ناپیدا «تمیز» شمرده نمی‌شود: نامعلوم یعنی آزمایشی.
-    val dirty = provider { (git("--no-optional-locks", "status", "--porcelain") ?: "?").isNotEmpty() }
+    // `--untracked-files=normal`: با `status.showUntrackedFiles=no` در تنظیمِ
+    // گیت، فایلِ تازه دیده نمی‌شد و ساختی که آن را داشت «رسمی» نام می‌گرفت.
+    val dirty = provider {
+        (git("--no-optional-locks", "status", "--porcelain", "--untracked-files=normal") ?: "?").isNotEmpty()
+    }
     val tagged = provider {
         git("describe", "--exact-match", "--tags", "--match", "v$version", "HEAD") != null
     }
