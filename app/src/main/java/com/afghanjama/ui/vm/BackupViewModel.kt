@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.afghanjama.prefs.BackupPrefs
 import com.afghanjama.AppInfo
 import com.afghanjama.data.AppDb
+import com.afghanjama.data.CsvExport
 import com.afghanjama.data.DB_NAME
 import com.afghanjama.data.DB_VERSION
 import com.afghanjama.data.repo.Repo
@@ -272,7 +273,7 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
     // ------------------------------------------------
 
     /** واژه‌ای که کاربر باید بنویسد تا دکمهٔ ریست فعال شود. */
-    val resetPhrase: String get() = "پاک کن"
+    val resetPhrase: String get() = com.afghanjama.data.ResetPlan.CONFIRM_PHRASE
 
     /**
      * پاک‌کردنِ کارها و حساب‌ها. اطلاعات پایه و مشتریان می‌مانند.
@@ -342,34 +343,14 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
 
     // ------------------------------------------------
     // خروجی CSV — با BOM تا اکسل متن فارسی را درست نشان دهد
+    //
+    // خودِ متن از `CsvExport` در `:core` می‌آید، همان که کامپیوتر هم
+    // می‌نویسد؛ اینجا فقط نوشتنش در جایی است که کاربر انتخاب کرده.
     // ------------------------------------------------
     fun exportOrdersCsv(context: Context, uri: Uri) = viewModelScope.launch(Dispatchers.IO) {
         runCatching {
-            val orders = repo.observeAllOrders().first()
-            context.contentResolver.openOutputStream(uri)?.use { out ->
-                writeBom(out)
-                val w = out.writer(Charsets.UTF_8)
-                w.appendLine(
-                    listOf(
-                        "کد سفارش", "کد کوتاه", "طرح", "تعداد", "نوع پارچه", "رنگ", "سایز",
-                        "مقدار پارچه", "واحد", "منبع پارچه", "قیمت پارچه", "خرج کار",
-                        "قیمت توافقی", "مشتری", "تلفن", "خیاط", "وضعیت", "تاریخ ایجاد"
-                    ).joinToString(",") { csv(it) }
-                )
-                orders.forEach { o ->
-                    w.appendLine(
-                        listOf(
-                            o.orderCode, o.shortCode, o.designTitle, o.qty.toString(),
-                            o.fabricType, o.fabricColor, o.size,
-                            o.fabricAmount.toString(), o.fabricUnit, o.fabricSource,
-                            o.fabricPrice.toString(), o.workCost.toString(),
-                            o.agreedPrice.toString(), o.customerName, o.customerPhone,
-                            o.assignedTailor ?: "", o.status, formatDate(o.createdAt)
-                        ).joinToString(",") { csv(it) }
-                    )
-                }
-                w.flush()
-            } ?: error("openOutputStream returned null")
+            val text = CsvExport.orders(repo.observeAllOrders().first())
+            writeCsv(context, uri, text)
         }.onSuccess {
             _ui.update { it.copy(message = "خروجی سفارش‌ها ذخیره شد.", isError = false) }
         }.onFailure { e ->
@@ -379,25 +360,8 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
 
     fun exportTransactionsCsv(context: Context, uri: Uri) = viewModelScope.launch(Dispatchers.IO) {
         runCatching {
-            val txList = repo.observeTx().first()
-            context.contentResolver.openOutputStream(uri)?.use { out ->
-                writeBom(out)
-                val w = out.writer(Charsets.UTF_8)
-                w.appendLine(
-                    listOf("نوع", "صندوق", "مبلغ", "دسته", "یادداشت", "تاریخ")
-                        .joinToString(",") { csv(it) }
-                )
-                txList.forEach { t ->
-                    w.appendLine(
-                        listOf(
-                            if (t.type == "IN") "دریافت" else "پرداخت",
-                            t.source, t.amount.toString(), t.category, t.note,
-                            formatDate(t.createdAt)
-                        ).joinToString(",") { csv(it) }
-                    )
-                }
-                w.flush()
-            } ?: error("openOutputStream returned null")
+            val text = CsvExport.transactions(repo.observeTx().first())
+            writeCsv(context, uri, text)
         }.onSuccess {
             _ui.update { it.copy(message = "خروجی تراکنش‌ها ذخیره شد.", isError = false) }
         }.onFailure { e ->
@@ -405,16 +369,19 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
         }
     }
 
+    private fun writeCsv(context: Context, uri: Uri, text: String) {
+        context.contentResolver.openOutputStream(uri)?.use { out ->
+            writeBom(out)
+            val w = out.writer(Charsets.UTF_8)
+            w.write(text)
+            w.flush()
+        } ?: error("openOutputStream returned null")
+    }
+
     private fun writeBom(out: OutputStream) {
         out.write(0xEF)
         out.write(0xBB)
         out.write(0xBF)
     }
-
-    private fun csv(v: String): String = "\"" + v.replace("\"", "\"\"") + "\""
-
-    // تاریخ شمسی با ارقام لاتین — قابل مرتب‌سازی در اکسل
-    private fun formatDate(millis: Long): String =
-        com.afghanjama.ui.format.PersianDate.csv(millis)
 
 }
