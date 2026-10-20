@@ -59,6 +59,8 @@ import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.format.toPersianDigits
+import com.afghanjama.ui.vm.Access
+import com.afghanjama.ui.vm.WorkshopLinkAccess
 import com.afghanjama.ui.vm.WorkshopLinkViewModel
 import com.afghanjama.ui.vm.hubOffText
 
@@ -71,10 +73,16 @@ import com.afghanjama.ui.vm.hubOffText
 @Composable
 fun WorkshopLinkScreen(
     vm: WorkshopLinkViewModel,
-    isManager: Boolean,
+    /**
+     * دسترسیِ کسی که وارد شده. روی دستگاهِ اصلی، روشن و خاموش و رمزِ تازه
+     * و قطعِ اشتراک فقط با مدیر است، و هر درخواست را کسی تأیید می‌کند که
+     * تیکِ همان کار را دارد ([WorkshopLinkAccess]).
+     */
+    access: Access,
     onBack: () -> Unit
 ) {
     val settings = LocalSettings.current
+    val canRunHub = WorkshopLinkAccess.canRunHub(access)
     val ui by vm.ui.collectAsState()
     val designCodeByOrder by vm.designCodeByOrder.collectAsState()
     val pending by vm.pending.collectAsState()
@@ -144,7 +152,7 @@ fun WorkshopLinkScreen(
             when (ui.mode) {
                 DeviceMode.STANDALONE -> {
                     item { SectionTitleRow("این گوشی چه نقشی دارد؟") }
-                    if (isManager) {
+                    if (canRunHub) {
                         item {
                             OutlinedButton(
                                 onClick = { vm.becomeMain(settings) },
@@ -156,62 +164,86 @@ fun WorkshopLinkScreen(
                 }
 
                 DeviceMode.MAIN -> {
-                    item { MainCard(vm, ui.serving, ui.hubOff, ui.ip, ui.code, ui.alternatives) }
-                    item { SectionTitleRow("درخواست‌های منتظر (${pending.size.fa()})") }
-                    if (pending.isEmpty()) {
+                    item { MainCard(vm, ui.serving, ui.hubOff, ui.ip, ui.code, ui.alternatives, canRunHub) }
+                    if (!WorkshopLinkAccess.seesRequests(access)) {
+                        // فروشنده یا خیاطی که پشتِ دستگاهِ اصلی نشسته: درخواست‌ها کارِ او نیست.
                         item {
                             Text(
-                                "چیزی منتظرِ تأیید نیست.",
+                                "درخواست‌های گوشیِ کارگران را مدیر تأیید می‌کند، یا کسی که تیکِ " +
+                                    "«حضور و غیاب» یا «تسویهٔ کارمزدِ خیاط» دارد.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                    }
-                    items(pending, key = { it.id }) { r ->
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                        ) {
-                            Column(
-                                Modifier.padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
+                    } else {
+                        item { SectionTitleRow("درخواست‌های منتظر (${pending.size.fa()})") }
+                        if (pending.isEmpty()) {
+                            item {
                                 Text(
-                                    "${syncRequestLabel(r.type)} — ${r.worker}",
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Text(
-                                    r.summary,
+                                    "چیزی منتظرِ تأیید نیست.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                Text(
-                                    "${r.deviceName} • ${PersianDate.shortWithTime(r.createdAt)}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    BusyButton(
-                                        text = "تأیید و ثبت",
-                                        onClick = { vm.approve(r.id) },
-                                        busy = busy,
-                                        modifier = Modifier.weight(1f)
+                            }
+                        }
+                        items(pending, key = { it.id }) { r ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                            ) {
+                                Column(
+                                    Modifier.padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        "${syncRequestLabel(r.type)} — ${r.worker}",
+                                        fontWeight = FontWeight.SemiBold
                                     )
-                                    OutlinedButton(
-                                        onClick = { vm.reject(r.id) },
-                                        enabled = !busy,
-                                        modifier = Modifier.weight(1f)
-                                    ) { Text("رد") }
+                                    Text(
+                                        r.summary,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        "${r.deviceName} • ${PersianDate.shortWithTime(r.createdAt)}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                                    if (WorkshopLinkAccess.canDecide(access, r.type)) {
+                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            BusyButton(
+                                                text = "تأیید و ثبت",
+                                                onClick = { vm.approve(r.id) },
+                                                busy = busy,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            OutlinedButton(
+                                                onClick = { vm.reject(r.id) },
+                                                enabled = !busy,
+                                                modifier = Modifier.weight(1f)
+                                            ) { Text("رد") }
+                                        }
+                                    } else {
+                                        Text(
+                                            if (r.type == "SEWING_DONE")
+                                                "تأییدِ «تمام شد» کارمزد می‌نشاند؛ با مدیر است، یا با کسی که تیکِ «تسویهٔ کارمزدِ خیاط» دارد."
+                                            else "تأییدِ این درخواست با مدیر است، یا با کسی که تیکِ «حضور و غیاب» دارد.",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
-                    item {
-                        TextButton(onClick = { vm.disconnect(settings) }, modifier = Modifier.fillMaxWidth()) {
-                            Text("خاموش‌کردن اشتراک و برگشت به حالتِ تک‌گوشی")
+                    if (canRunHub) {
+                        item {
+                            TextButton(onClick = { vm.disconnect(settings) }, modifier = Modifier.fillMaxWidth()) {
+                                Text("خاموش‌کردن اشتراک و برگشت به حالتِ تک‌گوشی")
+                            }
                         }
                     }
                 }
@@ -371,6 +403,7 @@ private fun MainCard(
     ip: String?,
     code: String,
     alternatives: List<String>,
+    canRunHub: Boolean,
 ) {
     val settings = LocalSettings.current
     Card(
@@ -435,15 +468,23 @@ private fun MainCard(
                     color = MaterialTheme.colorScheme.error
                 )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
-                    onClick = { if (serving) vm.stopServing() else vm.startServing(settings) },
-                    modifier = Modifier.weight(1f)
-                ) { Text(if (serving) "خاموش" else "روشن") }
-                OutlinedButton(
-                    onClick = { vm.newCode(settings) },
-                    modifier = Modifier.weight(1f)
-                ) { Text("رمز تازه") }
+            if (canRunHub) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = { if (serving) vm.stopServing() else vm.startServing(settings) },
+                        modifier = Modifier.weight(1f)
+                    ) { Text(if (serving) "خاموش" else "روشن") }
+                    OutlinedButton(
+                        onClick = { vm.newCode(settings) },
+                        modifier = Modifier.weight(1f)
+                    ) { Text("رمز تازه") }
+                }
+            } else {
+                Text(
+                    "روشن و خاموش کردنِ اشتراک و ساختنِ رمزِ تازه با مدیر است.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }

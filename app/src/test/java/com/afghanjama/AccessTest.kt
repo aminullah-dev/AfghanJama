@@ -9,6 +9,7 @@ import com.afghanjama.ui.vm.Permissions
 import com.afghanjama.ui.vm.RouteAccess
 import com.afghanjama.ui.vm.UserRole
 import com.afghanjama.ui.vm.UserStore
+import com.afghanjama.ui.vm.WorkshopLinkAccess
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -120,6 +121,71 @@ class AccessTest {
         val back = UserStore.decode(raw)
         assertEquals(1, back.size)
         assertEquals(setOf(Feature.CUTTING), back[0].features)
+    }
+
+    // ---------------- اشتراکِ کارگاه روی دستگاهِ اصلی ----------------
+
+    private val requestTypes = listOf("ATTENDANCE_IN", "ATTENDANCE_OUT", "SEWING_DONE", "NOTE")
+
+    @Test
+    fun `the manager decides every worker request and runs the hub`() {
+        requestTypes.forEach { assertTrue(it, WorkshopLinkAccess.canDecide(Access.MANAGER, it)) }
+        assertTrue(WorkshopLinkAccess.seesRequests(Access.MANAGER))
+        assertTrue(WorkshopLinkAccess.canRunHub(Access.MANAGER))
+    }
+
+    @Test
+    fun `a seller at the hub computer cannot approve, reject, or touch the hub`() {
+        // تا ۱.۹.۱ هر کسی که پشتِ دستگاهِ اصلی وارد شده بود تأیید می‌کرد —
+        // و تأییدِ «تمام شد» کارمزد و سندِ دفترِ روزنامه می‌نشاند.
+        val seller = Access(false, setOf(Feature.SALES, Feature.CUSTOMERS))
+        requestTypes.forEach { assertFalse(it, WorkshopLinkAccess.canDecide(seller, it)) }
+        assertFalse("no badge for someone who cannot act on it", WorkshopLinkAccess.seesRequests(seller))
+        assertFalse(WorkshopLinkAccess.canRunHub(seller))
+    }
+
+    @Test
+    fun `a tailor cannot approve a finished job - not even with the sewing tick`() {
+        val tailor = Access(false, setOf(Feature.SEWING, Feature.CUTTING, Feature.BOARD))
+        assertFalse(WorkshopLinkAccess.canDecide(tailor, "SEWING_DONE"))
+        assertFalse(WorkshopLinkAccess.seesRequests(tailor))
+        listOf(UserRole.SEWING, UserRole.SALES, UserRole.REVIEW, UserRole.PURCHASE).forEach { role ->
+            val a = Access.forRole(role)
+            requestTypes.forEach { assertFalse("$role / $it", WorkshopLinkAccess.canDecide(a, it)) }
+            assertFalse("$role runs the hub", WorkshopLinkAccess.canRunHub(a))
+        }
+    }
+
+    @Test
+    fun `attendance and wages each approve their own kind of request`() {
+        val clerk = Access(false, setOf(Feature.ATTENDANCE))
+        assertTrue(WorkshopLinkAccess.canDecide(clerk, "ATTENDANCE_IN"))
+        assertTrue(WorkshopLinkAccess.canDecide(clerk, "ATTENDANCE_OUT"))
+        assertTrue(WorkshopLinkAccess.canDecide(clerk, "NOTE"))
+        assertFalse("a finished job posts a wage", WorkshopLinkAccess.canDecide(clerk, "SEWING_DONE"))
+        assertTrue(WorkshopLinkAccess.seesRequests(clerk))
+
+        val payer = Access(false, setOf(Feature.SETTLE_WAGES))
+        assertTrue(WorkshopLinkAccess.canDecide(payer, "SEWING_DONE"))
+        assertTrue(WorkshopLinkAccess.canDecide(payer, "NOTE"))
+        assertFalse(WorkshopLinkAccess.canDecide(payer, "ATTENDANCE_IN"))
+        assertTrue(WorkshopLinkAccess.seesRequests(payer))
+    }
+
+    @Test
+    fun `running the hub stays with the manager even with every tick`() {
+        // روشن، خاموش، رمزِ تازه و قطعِ اشتراک — رمز تنها قفلِ قراردادِ ۱ است.
+        val everything = Access(false, Feature.entries.toSet())
+        assertFalse(WorkshopLinkAccess.canRunHub(everything))
+        requestTypes.forEach { assertTrue(it, WorkshopLinkAccess.canDecide(everything, it)) }
+        assertFalse("an unknown request type", WorkshopLinkAccess.canDecide(everything, "PAY_ME"))
+    }
+
+    @Test
+    fun `nobody logged in decides nothing`() {
+        requestTypes.forEach { assertFalse(it, WorkshopLinkAccess.canDecide(Access.NONE, it)) }
+        assertFalse(WorkshopLinkAccess.seesRequests(Access.NONE))
+        assertFalse(WorkshopLinkAccess.canRunHub(Access.NONE))
     }
 
     @Test

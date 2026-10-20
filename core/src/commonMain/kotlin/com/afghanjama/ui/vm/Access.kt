@@ -103,6 +103,49 @@ data class Access(val isManager: Boolean, val features: Set<Feature>) {
 }
 
 /**
+ * «اشتراکِ کارگاه» روی دستگاهِ اصلی: چه کسی چه می‌تواند.
+ *
+ * **چرا لازم شد.** صفحه برای هر کسی که وارد شده باز است (`RouteAccess`)،
+ * چون گوشیِ کارگر هم از همین صفحه وصل می‌شود. ولی روی دستگاهِ اصلی، تا
+ * ۱.۹.۱ فقط «این دستگاهِ اصلی است» با مدیر بود؛ تأیید، رد، رمزِ تازه،
+ * خاموش کردن و قطعِ اشتراک برای فروشنده و خیاطی که پشتِ همان پی‌سی نشسته
+ * هم باز بود. تأییدِ «تمام شد» کارمزد و سندِ دفترِ روزنامه می‌نشاند، و
+ * تأییدِ حضور ساعتِ کارِ کسی را ثبت می‌کند — و از ۱.۹.۱ درخواست‌های
+ * منتظرِ قبلیِ همان کارگر را هم با خودش تأیید می‌کند.
+ *
+ * - تأیید و رد: مدیر، یا کسی که تیکِ همان کار را دارد — حضور با
+ *   [Feature.ATTENDANCE]، «تمام شد» با [Feature.SETTLE_WAGES] (کارمزد
+ *   می‌نشاند)، پیام با هر کدام.
+ * - روشن، خاموش، رمزِ تازه و قطعِ اشتراکِ دستگاهِ اصلی: فقط مدیر — همان
+ *   کسی که «این دستگاهِ اصلی است» را می‌زند. رمز تنها قفلِ قراردادِ ۱ است.
+ * - شمارِ درخواست‌های منتظر (نشانِ نوارِ کنار) فقط برای کسی که دستِ‌کم
+ *   یک نوع را می‌تواند تأیید کند؛ بقیه کاری با آن ندارند.
+ *
+ * قطعِ اتصالِ **گوشیِ کارگر** اینجا نیست: آن گوشیِ خودِ کارگر است.
+ */
+object WorkshopLinkAccess {
+
+    /** تأیید یا ردِ درخواستی از نوعِ [type] (`SEWING_DONE`، `ATTENDANCE_IN`…). */
+    fun canDecide(access: Access, type: String): Boolean = when {
+        access.isManager -> true
+        type == "ATTENDANCE_IN" || type == "ATTENDANCE_OUT" -> access.has(Feature.ATTENDANCE)
+        type == "SEWING_DONE" -> access.has(Feature.SETTLE_WAGES)
+        type == "NOTE" -> access.has(Feature.ATTENDANCE) || access.has(Feature.SETTLE_WAGES)
+        else -> false
+    }
+
+    /** فهرست و شمارِ درخواست‌های منتظر را می‌بیند؟ */
+    fun seesRequests(access: Access): Boolean =
+        access.isManager || access.has(Feature.ATTENDANCE) || access.has(Feature.SETTLE_WAGES)
+
+    /** روشن، خاموش، رمزِ تازه و قطعِ اشتراکِ دستگاهِ اصلی. */
+    fun canRunHub(access: Access): Boolean = access.isManager
+
+    /** پیامِ کسی که دکمه‌ای را زده که کارِ او نیست (اگر صفحه پنهانش نکرده باشد). */
+    const val NOT_YOURS = "این کار با مدیر است، یا با کسی که مدیر اجازه‌اش را داده."
+}
+
+/**
  * دسترسیِ همین حالا — برای [Permissions]، که از ده‌ها صفحه با `role`
  * صدا زده می‌شود. ورود و خروج (`AuthViewModel`) تنظیمش می‌کنند.
  *

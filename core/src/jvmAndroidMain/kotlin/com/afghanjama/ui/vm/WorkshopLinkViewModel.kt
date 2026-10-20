@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -63,6 +64,12 @@ class WorkshopLinkViewModel(
      * روشن بود که کسی این صفحه را باز کرده بود. آزمون هابِ خودش را می‌دهد.
      */
     private val hub: LanHub = LanHub.shared,
+    /**
+     * دسترسیِ کسی که همین حالا وارد شده ([WorkshopLinkAccess]). صفحه
+     * دکمه‌های غیرمجاز را پنهان می‌کند؛ اینجا دوباره سنجیده می‌شود تا
+     * دکمه‌ای که روزی پنهان نشد هم کاری نکند.
+     */
+    private val access: () -> Access = { CurrentAccess.value },
 ) : ViewModel() {
 
     /**
@@ -105,7 +112,16 @@ class WorkshopLinkViewModel(
 
     // ---------------- گوشیِ اصلی ----------------
 
+    /** دکمه‌ای که کارِ این نفر نیست: پیام، و هیچ کارِ دیگری. */
+    private fun allowed(ok: Boolean): Boolean {
+        if (!ok) _ui.update { it.copy(message = WorkshopLinkAccess.NOT_YOURS, isError = true) }
+        return ok
+    }
+
+    private fun mayRunHub(): Boolean = allowed(WorkshopLinkAccess.canRunHub(access()))
+
     fun becomeMain(settings: Settings) {
+        if (!mayRunHub()) return
         val code = LanPrefs.code(settings).ifBlank { LanPrefs.newCode().also { LanPrefs.setCode(settings, it) } }
         LanPrefs.setMode(settings, DeviceMode.MAIN)
         LicenceGate.update { it.copy(mode = DeviceMode.MAIN) }
@@ -115,6 +131,7 @@ class WorkshopLinkViewModel(
 
     /** رمزِ تازه — بی بستنِ درگاه؛ گوشی‌هایی که با رمزِ کهنه بسته شده بودند باز می‌شوند. */
     fun newCode(settings: Settings) {
+        if (!mayRunHub()) return
         val c = LanPrefs.newCode()
         LanPrefs.setCode(settings, c)
         hub.changeCode(c)
@@ -126,6 +143,7 @@ class WorkshopLinkViewModel(
      * از این پس هر بار که برنامه روی همین شبکه باز شود، خودش روشن می‌شود.
      */
     fun startServing(settings: Settings) {
+        if (!mayRunHub()) return
         val ok = hub.start(settings, lan)
         _ui.update {
             it.copy(
@@ -146,12 +164,29 @@ class WorkshopLinkViewModel(
     }
 
     fun stopServing() {
+        if (!mayRunHub()) return
+        stopHub()
+    }
+
+    private fun stopHub() {
         hub.stop()
         _ui.update { it.copy(message = "اشتراکِ کارگاه خاموش شد.", isError = false) }
     }
 
+    /**
+     * نوعِ درخواست از خودِ دفتر خوانده می‌شود، نه از صفحه؛ دسترسی بر همان
+     * سنجیده می‌شود ([WorkshopLinkAccess.canDecide]).
+     */
+    private suspend fun mayDecide(id: Long): Boolean {
+        val a = access()
+        if (!WorkshopLinkAccess.seesRequests(a)) return allowed(false)
+        val r = repo.observePendingRequests().first().firstOrNull { it.id == id } ?: return true
+        return allowed(WorkshopLinkAccess.canDecide(a, r.type))
+    }
+
     fun approve(id: Long) = viewModelScope.launch {
         busy.once {
+            if (!mayDecide(id)) return@once
             val err = repo.approveRequest(id)
             _ui.update {
                 if (err == null) it.copy(message = "تأیید و ثبت شد.", isError = false)
@@ -162,6 +197,7 @@ class WorkshopLinkViewModel(
 
     fun reject(id: Long) = viewModelScope.launch {
         busy.once {
+            if (!mayDecide(id)) return@once
             repo.rejectRequest(id)
             _ui.update { it.copy(message = "درخواست رد شد.", isError = false) }
         }
@@ -239,11 +275,16 @@ class WorkshopLinkViewModel(
         }
     }
 
+    /**
+     * برگشت به حالتِ تک‌دستگاه. روی دستگاهِ اصلی فقط مدیر؛ روی گوشیِ کارگر
+     * هر کس — آن گوشیِ خودِ کارگر است.
+     */
     fun disconnect(settings: Settings) {
         val wasMain = LanPrefs.mode(settings) == DeviceMode.MAIN
+        if (wasMain && !mayRunHub()) return
         LanPrefs.setMode(settings, DeviceMode.STANDALONE)
         LicenceGate.update { it.copy(mode = DeviceMode.STANDALONE) }
-        stopServing()
+        stopHub()
         // دستگاهی که دیگر اصلی نیست شبکهٔ کارگاه را هم فراموش می‌کند؛ اگر
         // دوباره اصلی شود، همان لحظه از نو به یاد می‌سپارد.
         if (wasMain) LanPrefs.setNetwork(settings, "")
