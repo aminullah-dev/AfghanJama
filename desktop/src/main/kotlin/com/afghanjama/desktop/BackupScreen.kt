@@ -11,6 +11,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -19,7 +20,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.afghanjama.desktop.data.DesktopBackup
+import com.afghanjama.desktop.data.LedgerStatusViewModel
 import com.afghanjama.desktop.data.dataDir
 import com.afghanjama.ui.components.AppCard
 import com.afghanjama.ui.components.AppScreen
@@ -53,6 +56,10 @@ internal fun BackupScreen(onBack: () -> Unit) {
     var isError by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var needsRestart by remember { mutableStateOf(false) }
+    // حالِ دفتر — تا ۱.۹ روی صفحهٔ اولِ کامپیوتر بود؛ از ۱.۱۰ که صفحهٔ اول
+    // «خانه» است، اینجاست: همان جایی که کسی می‌پرسد «دفتر کجاست و سالم است؟».
+    val ledgerVm: LedgerStatusViewModel = viewModel { LedgerStatusViewModel() }
+    val ledger by ledgerVm.ui.collectAsState()
 
     AppScreen(title = "پشتیبان و بازیابی", onBack = onBack) { pad ->
         Column(
@@ -63,6 +70,8 @@ internal fun BackupScreen(onBack: () -> Unit) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            LedgerCard(ledger)
+
             AppCard {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
@@ -75,11 +84,6 @@ internal fun BackupScreen(onBack: () -> Unit) {
                             "که اپِ گوشی می‌سازد و می‌خوانَد، پس بینِ گوشی و " +
                             "پی‌سی جابه‌جا می‌شود.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        "دفتر اینجاست: ${dataDir().absolutePath}",
-                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Button(
@@ -98,7 +102,7 @@ internal fun BackupScreen(onBack: () -> Unit) {
                                     busy = false
                                     isError = r.isFailure
                                     message = r.fold(
-                                        { "✅ پشتیبان ساخته شد:\n${target.absolutePath}" },
+                                        { "پشتیبان ساخته شد:\n${target.absolutePath}" },
                                         { "خطا در پشتیبان‌گیری: ${it.message}" }
                                     )
                                 }
@@ -141,7 +145,7 @@ internal fun BackupScreen(onBack: () -> Unit) {
                                     needsRestart = r.isSuccess
                                     message = r.fold(
                                         {
-                                            "✅ بازیابی انجام شد. برنامه را ببندید و " +
+                                            "بازیابی انجام شد. برنامه را ببندید و " +
                                                 "دوباره باز کنید."
                                         },
                                         { "بازیابی نشد: ${it.message}" }

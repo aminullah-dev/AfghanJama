@@ -28,6 +28,7 @@ import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.ui.screens.CustomerDetailScreen
 import com.afghanjama.ui.theme.LightColors
 import com.afghanjama.ui.vm.CustomerDetailViewModel
+import com.afghanjama.ui.vm.AuthViewModel
 import com.afghanjama.ui.vm.UserRole
 
 /*
@@ -90,11 +91,19 @@ private val shotDir: java.io.File by lazy {
 private fun renderOnce(
     settings: com.afghanjama.prefs.Settings,
     shotName: String? = null,
+    width: Int = 1280,
+    height: Int = 800,
+    /**
+     * چند فریم. یک فریم یعنی «ترکیب شد»؛ ولی نشان‌های نوار (شمارِ هشدار)
+     * از جریانی می‌آیند که پس از فریمِ اول می‌رسد. برای عکسِ پنجرهٔ کامل
+     * فریمِ دوم هم رسم می‌شود تا عکس همان چیزی باشد که کاربر می‌بیند.
+     */
+    frames: Int = 1,
     body: @Composable () -> Unit
 ) {
     ImageComposeScene(
-        width = 1280,
-        height = 800,
+        width = width,
+        height = height,
         density = Density(1f)
     ) {
         MaterialTheme(colorScheme = LightColors, typography = vazirTypography()) {
@@ -127,7 +136,11 @@ private fun renderOnce(
     }.use { scene ->
         // رسمِ واقعی، نه فقط ترکیب: چیدمان و کشیدن هم باید جواب بدهند،
         // وگرنه نیمی از خطاها دیده نمی‌شوند.
-        val image = scene.render()
+        var image = scene.render()
+        repeat(frames - 1) { i ->
+            Thread.sleep(400)
+            image = scene.render((i + 1) * 500_000_000L)
+        }
 
         // نوشتنِ عکس عمداً داخلِ `runCatching` است: اگر رمزگذاری روی
         // رانری شکست بخورد، نباید آزمونی را قرمز کند که کارش سنجیدنِ
@@ -156,9 +169,16 @@ fun main() {
     val settings = desktopSettings()
     var failed = 0
 
-    fun check(id: String, title: String, body: @Composable () -> Unit) {
+    fun check(
+        id: String,
+        title: String,
+        width: Int = 1280,
+        height: Int = 800,
+        frames: Int = 1,
+        body: @Composable () -> Unit
+    ) {
         try {
-            renderOnce(settings, id, body)
+            renderOnce(settings, id, width, height, frames, body)
             println("OK    ${id.padEnd(16)} ($title)")
         } catch (t: Throwable) {
             failed++
@@ -186,11 +206,26 @@ fun main() {
     // کلِ پنجره با نوارِ کنار — گردشِ بالا فقط محتوای هر بخش را رسم می‌کند،
     // پس جای بندها در نوار (مثلاً «اشتراکِ کارگاه» بالای آن) و کاشیِ صفحهٔ
     // اول هیچ‌جا دیده نمی‌شد.
-    check("shell", "نوارِ کنار و صفحهٔ اول") {
-        Shell(repo, UserRole.MANAGER)
+    //
+    // **در دو پهنا:** ۱۱۰۰ (کمترین اندازهٔ پنجره) و ۱۴۴۰ (پیش‌فرض). نوارِ
+    // گروه‌بندی‌شده و خانهٔ چندستونه باید در هر دو جا شوند؛ عکسِ هر دو در
+    // `build/screens` می‌ماند.
+    val shellSizes = listOf(1100 to 700, 1440 to 900)
+    for ((w, h) in shellSizes) {
+        check("shell-$w", "نوارِ کنار و خانه در پهنای $w", w, h, frames = 2) {
+            // با حساب، تا پایینِ نوار (نام، نقش، تغییرِ رمز، خروج) هم رسم شود.
+            val auth: AuthViewModel = viewModel { AuthViewModel(settings) }
+            Shell(repo, UserRole.MANAGER, auth = auth)
+        }
     }
 
-    val total = Section.entries.size + 2
+    // نوار برای نقشی که بیشترِ بخش‌ها را ندارد — گروه‌های خالی نباید سرگروهِ
+    // تنها بکشند.
+    check("shell-sales", "نوارِ کنار برای فروشنده", 1100, 700, frames = 2) {
+        Shell(repo, UserRole.SALES)
+    }
+
+    val total = Section.entries.size + 1 + shellSizes.size + 1
     println("=".repeat(52))
     val shots = shotDir.listFiles { f: java.io.File -> f.name.endsWith(".png") }?.size ?: 0
     println("screenshots: $shots in ${shotDir.absolutePath}")

@@ -1,74 +1,68 @@
 package com.afghanjama.desktop
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.runtime.CompositionLocalProvider
-import com.afghanjama.ui.platform.LocalWidgets
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.ApplicationScope
+import androidx.compose.ui.window.FrameWindowScope
+import androidx.compose.ui.window.MenuBar
 import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.WindowPlacement
+import androidx.compose.ui.window.WindowPosition
+import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.application
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.afghanjama.AppInfo
 import com.afghanjama.AppVersion
-import com.afghanjama.selftest.CheckResult
-import com.afghanjama.selftest.CheckStatus
-import com.afghanjama.ui.format.PersianDate
-import com.afghanjama.desktop.data.LedgerStatus
-import com.afghanjama.desktop.data.LedgerStatusViewModel
+import com.afghanjama.desktop.data.DeskPrefs
 import com.afghanjama.desktop.data.DesktopLanHost
 import com.afghanjama.desktop.data.DesktopLedger
 import com.afghanjama.desktop.data.desktopSettings
 import com.afghanjama.desktop.platform.DesktopDocsBridge
 import com.afghanjama.desktop.platform.DesktopFileExport
+import com.afghanjama.desktop.platform.DesktopPhotos
 import com.afghanjama.desktop.platform.DesktopSystemActions
+import com.afghanjama.lan.LanHub
+import com.afghanjama.licence.Licensing
 import com.afghanjama.platform.LocalDocs
 import com.afghanjama.platform.LocalFileExport
 import com.afghanjama.platform.LocalPhotos
-import com.afghanjama.desktop.platform.DesktopPhotos
 import com.afghanjama.platform.LocalSystemActions
-import com.afghanjama.lan.LanHub
 import com.afghanjama.prefs.LocalSettings
+import com.afghanjama.prefs.SalePrefs
 import com.afghanjama.prefs.Settings
-import com.afghanjama.ui.format.fa
-import com.afghanjama.ui.theme.LightColors
-import com.afghanjama.ui.screens.LoginScreen
-import com.afghanjama.ui.vm.AuthViewModel
-import com.afghanjama.ui.vm.SelfCheckViewModel
-import com.afghanjama.licence.Licensing
 import com.afghanjama.ui.components.LicenceHeartbeat
-import androidx.compose.runtime.remember
-
-
+import com.afghanjama.ui.nav.allowedFor
+import com.afghanjama.ui.platform.LocalWidgets
+import com.afghanjama.ui.screens.LoginScreen
+import com.afghanjama.ui.theme.LightColors
+import com.afghanjama.ui.vm.AuthUi
+import com.afghanjama.ui.vm.AuthViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import java.awt.Dimension
+import java.awt.GraphicsEnvironment
+import java.awt.Rectangle
 
 /**
  * جایی که ViewModelها زندگی می‌کنند.
@@ -76,23 +70,16 @@ import androidx.compose.runtime.remember
  * روی اندروید این را خودِ اندروید می‌دهد (Activity یک
  * `ViewModelStoreOwner` است). روی دسکتاپ چنین چیزی از آسمان نمی‌آید و
  * باید صریح داده شود، وگرنه `viewModel { }` سرِ اجرا می‌ترکد.
- *
- * **چرا صریح و نه به امیدِ پیش‌فرضِ Compose Multiplatform:** CI فقط
- * *کامپایل* می‌کند و اجرا نمی‌کند. اگر روی پیش‌فرضِ کتابخانه حساب
- * می‌کردیم و آن پیش‌فرض نبود، ساخت سبز می‌ماند و برنامه روی پی‌سیِ
- * کارگاه بالا نمی‌آمد — خرابی‌ای که هیچ بررسی‌ای اینجا نمی‌گرفت.
  */
 private object DesktopViewModelStoreOwner : ViewModelStoreOwner {
     override val viewModelStore = ViewModelStore()
 }
 
 /**
- * نامی که روی نوارِ پنجره می‌نشیند.
+ * نامی که روی نوارِ پنجره می‌نشیند — «نسخهٔ مک» یا «نسخهٔ ویندوز».
  *
- * تا دیروز اینجا «نسخهٔ ویندوز» سفت نوشته شده بود، چون این ماژول فقط
- * ویندوز را می‌ساخت. حالا همین ماژول DMGِ مک را هم می‌سازد و نتیجه‌اش
- * پنجره‌ای بود که روی مک خودش را «نسخهٔ ویندوز» معرفی می‌کرد — چیزی که
- * هیچ بررسیِ خودکاری نمی‌گیرد و فقط با باز کردنِ برنامه دیده می‌شود.
+ * تا دیروز اینجا «نسخهٔ ویندوز» سفت نوشته شده بود و پنجرهٔ مک خودش را
+ * «نسخهٔ ویندوز» معرفی می‌کرد.
  */
 internal val platformName: String = run {
     val os = System.getProperty("os.name").orEmpty().lowercase()
@@ -103,46 +90,115 @@ internal val platformName: String = run {
     }
 }
 
+/** منوی بالای صفحه فقط روی مک: روی ویندوز `MenuBar` داخلِ خودِ پنجره می‌نشیند. */
+internal val isMac: Boolean =
+    System.getProperty("os.name").orEmpty().lowercase().let { it.contains("mac") || it.contains("darwin") }
+
+/** اندازهٔ پیش‌فرضِ پنجره، و کمترین اندازه‌ای که نوارِ کنار و کار با هم جا شوند. */
+private val DEFAULT_SIZE = DpSize(1440.dp, 900.dp)
+private const val MIN_W = 1100
+private const val MIN_H = 700
+
 fun main() {
     // **یک** نمونه از تنظیمات برای کلِ برنامه. `FileSettings` هر فایل را در
     // حافظهٔ خودش نگه می‌دارد؛ اگر صفحه‌ها و اشتراکِ کارگاه هر کدام نمونهٔ
-    // خودشان را داشتند، شبکهٔ کارگاهی که یکی به یاد می‌سپرد دیگری نمی‌دید.
+    // خودشان را داشتند، چیزی که یکی به یاد می‌سپرد دیگری نمی‌دید.
     val settings = desktopSettings()
 
+    // سیاستِ فروش («فروشِ بیشتر از موجودی») از همان اول، پیش از هر ثبتی —
+    // همان کاری که `App.onCreate` روی گوشی می‌کند. تا ۱.۹ کامپیوتر این را
+    // نمی‌خواند و تا صفحه‌ای آن را نمی‌خواند، پیش‌فرض را به کار می‌برد.
+    SalePrefs.allowNegativeStock(settings)
+    DeskIdle.minutes.value = DeskPrefs.idleLockMinutes(settings)
+
     // اشتراکِ کارگاه — اگر این کامپیوتر دستگاهِ اصلی است، همین که لایسنس
-    // خوانده شد و کامپیوتر روی شبکهٔ کارگاه بود، خودش روشن می‌شود؛ پیش از
-    // ورودِ کسی و بی باز کردنِ صفحهٔ «اشتراکِ کارگاه». تا ۱.۹.۱ سرور فقط
-    // از همان صفحه روشن می‌شد.
+    // خوانده شد و کامپیوتر روی شبکهٔ کارگاه بود، خودش روشن می‌شود.
     LanHub.shared.autoStart(settings, DesktopLanHost())
 
     application { MainWindow(settings) }
 }
 
+/**
+ * فضای قابلِ استفادهٔ صفحه (بی نوارِ وظیفه و Dock). روی رانرِ بی‌صفحه
+ * استثنا می‌دهد؛ آنجا اندازهٔ پیش‌فرض.
+ */
+private fun usableScreen(): Rectangle = runCatching {
+    GraphicsEnvironment.getLocalGraphicsEnvironment().maximumWindowBounds
+}.getOrElse { Rectangle(0, 0, DEFAULT_SIZE.width.value.toInt(), DEFAULT_SIZE.height.value.toInt()) }
+
+/**
+ * اندازه و جای پنجره در شروع.
+ *
+ * - **اندازهٔ پیش‌فرضِ Compose کوچک است** و تا ۱.۹ همان به کار می‌رفت؛
+ *   «اشتراکِ کارگاه» زیرِ لبهٔ پنجره می‌ماند.
+ * - ولی ۱۴۴۰×۹۰۰ از صفحهٔ لپ‌تاپِ ۱۳۶۶×۷۶۸ بزرگ‌تر است. پس اندازه به
+ *   صفحه بریده می‌شود، و اگر بارِ اول جا نشد، پنجره تمام‌صفحه باز می‌شود.
+ * - اندازه و جای آخرین بار به یاد می‌ماند؛ جایی که دیگر روی هیچ صفحه‌ای
+ *   نیست (مانیتورِ کنده‌شده) نادیده گرفته می‌شود.
+ */
+private fun initialWindowState(settings: Settings): WindowState {
+    val screen = usableScreen()
+    val saved = DeskPrefs.bounds(settings)
+    val wantW = saved?.width ?: DEFAULT_SIZE.width.value.toInt()
+    val wantH = saved?.height ?: DEFAULT_SIZE.height.value.toInt()
+    val fits = wantW <= screen.width && wantH <= screen.height
+    val size = DpSize(wantW.coerceAtMost(screen.width).dp, wantH.coerceAtMost(screen.height).dp)
+    val position = saved?.let { b ->
+        val x = b.x
+        val y = b.y
+        if (x != null && y != null && onSomeScreen(x, y, b.width, b.height)) WindowPosition(x.dp, y.dp)
+        else null
+    } ?: WindowPosition(Alignment.Center)
+    val placement = when {
+        saved?.maximized == true -> WindowPlacement.Maximized
+        saved == null && !fits -> WindowPlacement.Maximized
+        else -> WindowPlacement.Floating
+    }
+    return WindowState(placement = placement, position = position, size = size)
+}
+
+/** دستِ‌کم ۱۰۰ نقطه از پنجره روی یکی از صفحه‌ها می‌افتد؟ */
+private fun onSomeScreen(x: Int, y: Int, w: Int, h: Int): Boolean = runCatching {
+    val win = Rectangle(x, y, w, h)
+    GraphicsEnvironment.getLocalGraphicsEnvironment().screenDevices.any { d ->
+        val r = d.defaultConfiguration.bounds.intersection(win)
+        !r.isEmpty && r.width >= 100 && r.height >= 100
+    }
+}.getOrDefault(false)
+
 @Composable
 private fun ApplicationScope.MainWindow(settings: Settings) {
+    val windowState = remember { initialWindowState(settings) }
     Window(
         onCloseRequest = ::exitApplication,
-        // نسخه و کامیت روی نوارِ پنجره — همان چیزی که پشتیبانی اول می‌پرسد،
-        // بی باز کردنِ هیچ صفحه‌ای. ساختِ آزمایشی «آزمایشی» می‌گوید.
-        title = "${AppInfo.NAME} — ${AppVersion.short()} — $platformName"
+        state = windowState,
+        // نسخه و کامیت روی نوارِ پنجره — همان چیزی که پشتیبانی اول می‌پرسد.
+        title = "${AppInfo.NAME} — ${AppVersion.short()} — $platformName",
+        // هر کلیدی یعنی کسی پشتِ کامپیوتر است (قفلِ خودکار). رویداد را
+        // نمی‌خورد؛ فقط می‌بیند.
+        onPreviewKeyEvent = {
+            DeskIdle.touch()
+            false
+        }
     ) {
+        LaunchedEffect(Unit) {
+            val screen = usableScreen()
+            window.minimumSize = Dimension(MIN_W.coerceAtMost(screen.width), MIN_H.coerceAtMost(screen.height))
+        }
+        RememberBounds(windowState, settings)
+
         MaterialTheme(
-            // **همان پالتِ گوشی**، از `:core`. تا دیروز اینجا چهار رنگ
-            // دستی نوشته شده بود و چهارده نقشِ دیگر از پالتِ پیش‌فرضِ
-            // بنفشِ متریال می‌آمد — یعنی همان صفحه روی پی‌سی رنگِ دیگری
-            // داشت.
+            // **همان پالتِ گوشی**، از `:core`.
             colorScheme = LightColors,
             // صفحه‌های مشترک قلم را هم از تم می‌گیرند، نه از خودشان.
             typography = vazirTypography()
         ) {
-            // کلِ برنامه راست‌به‌چپ، مستقلِ از زبانِ ویندوز — همان
-            // کاری که KhayatYarTheme روی اندروید می‌کند.
+            // کلِ برنامه راست‌به‌چپ، مستقلِ از زبانِ سیستم.
             CompositionLocalProvider(
                 LocalLayoutDirection provides LayoutDirection.Rtl,
                 LocalViewModelStoreOwner provides DesktopViewModelStoreOwner,
                 // صفحه‌های مشترک تنظیمات را از اینجا می‌گیرند، همان‌طور
-                // که روی اندروید از `MainActivity`. بی این خط، اولین
-                // صفحهٔ مشترکی که ویندوز نشان دهد سرِ اجرا می‌شکند.
+                // که روی اندروید از `MainActivity`.
                 LocalSettings provides settings,
                 LocalSystemActions provides DesktopSystemActions(),
                 LocalDocs provides DesktopDocsBridge(settings),
@@ -150,243 +206,154 @@ private fun ApplicationScope.MainWindow(settings: Settings) {
                 LocalPhotos provides DesktopPhotos(),
                 LocalWidgets provides DesktopWidgets
             ) {
-                /*
-                 * درِ ورود — تا دیروز نبود.
-                 *
-                 * پنجره مستقیم باز می‌شد و `Shell` نقشِ مدیر را **فرض**
-                 * می‌کرد؛ یعنی هر کسی که پشتِ پی‌سی می‌نشست همه‌کاره
-                 * بود، حتی اگر روی گوشیِ همان کارگاه نقشش خیاط بود.
-                 *
-                 * حالا همان `AuthViewModel`ِ گوشی اینجا هم اجرا می‌شود و
-                 * نقش از همان‌جا می‌آید. رمز در `auth_prefs` است — روی
-                 * ویندوز کنارِ دفتر، روی گوشی همان `SharedPreferences`.
-                 */
                 // وضعیتِ لایسنس — پیش از ورود، تا درِ نوشتن از همان ثانیهٔ
-                // اول درست بداند. خودش هیچ چیزی نمی‌کشد.
+                // اول درست بداند.
                 LicenceHeartbeat(remember { Licensing(settings, DesktopLedger.repo().getOrNull()) })
 
+                // درِ ورود: نقش از `AuthViewModel` می‌آید، نه از فرض.
                 val authVm: AuthViewModel = viewModel { AuthViewModel(settings) }
                 val auth by authVm.ui.collectAsState()
+                val nav = remember { DeskNav() }
 
-                if (!auth.isLoggedIn) {
-                    // `onLoggedIn` لازم نیست کاری کند: حالت خودش عوض
-                    // می‌شود و بازترکیب صفحه را رد می‌کند.
-                    LoginScreen(authVm, onLoggedIn = {})
-                } else {
-                    Shell(DesktopLedger.repo().getOrNull(), auth.role, auth.access)
+                if (isMac) DeskMenuBar(nav, auth, authVm, windowState)
+
+                // کسی که دوباره وارد می‌شود سرِ جای قبلی‌اش برمی‌گردد (مثلاً
+                // پس از قفلِ خودکار)؛ کسِ دیگری از «خانه» شروع می‌کند.
+                var lastUser by remember { mutableStateOf<String?>(null) }
+                LaunchedEffect(auth.isLoggedIn, auth.userId, auth.role) {
+                    if (auth.isLoggedIn) {
+                        val who = "${auth.userId}|${auth.role}"
+                        if (who != lastUser) nav.go(Section.Home)
+                        lastUser = who
+                    }
+                }
+
+                IdleLock(active = auth.isLoggedIn, onLock = { authVm.logout() })
+
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .pointerInput(Unit) {
+                            // هر حرکت و کلیکِ موس — بی آنکه رویداد خورده شود.
+                            awaitPointerEventScope {
+                                while (true) {
+                                    awaitPointerEvent(PointerEventPass.Initial)
+                                    DeskIdle.touch()
+                                }
+                            }
+                        }
+                ) {
+                    if (!auth.isLoggedIn) {
+                        // `onLoggedIn` لازم نیست کاری کند: حالت خودش عوض
+                        // می‌شود و بازترکیب صفحه را رد می‌کند.
+                        LoginScreen(authVm, onLoggedIn = {})
+                    } else {
+                        Shell(DesktopLedger.repo().getOrNull(), auth.role, auth.access, nav, authVm)
+                    }
                 }
             }
         }
     }
 }
 
+/**
+ * اندازه و جای پنجره را پس از هر جابه‌جایی (با کمی درنگ) به یاد می‌سپارد.
+ *
+ * در حالتِ تمام‌صفحه فقط «تمام‌صفحه بود» نوشته می‌شود و اندازهٔ شناورِ
+ * قبلی دست نمی‌خورد، تا برگشتن از تمام‌صفحه به همان اندازه برگردد.
+ */
 @Composable
-internal fun Overview(
-    /**
-     * کاشیِ اشتراکِ کارگاه ([WorkshopLinkTile]) — از `Shell` داده می‌شود،
-     * چون دفتر و دسترسیِ این نفر آنجاست. وقتی دفتر باز نشد، نیست.
-     */
-    linkTile: (@Composable () -> Unit)? = null
-) {
-    // همان `viewModel { }`ِ اندروید، همان کلاسِ ViewModel، همان
-    // `viewModelScope`. تنها فرق این است که اینجا صاحبِ ViewModel را
-    // خودمان بالاتر گذاشته‌ایم.
-    val vm: SelfCheckViewModel = viewModel { SelfCheckViewModel() }
-    val ui by vm.ui.collectAsState()
-    val ledgerVm: LedgerStatusViewModel = viewModel { LedgerStatusViewModel() }
-    val ledger by ledgerVm.ui.collectAsState()
-
-    Column(
-        Modifier.fillMaxSize().background(Bg).padding(28.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Header()
-
-        linkTile?.invoke()
-
-        SummaryCard(
-            passed = ui.passed,
-            failed = ui.failed,
-            total = ui.results.size,
-            running = ui.running,
-            onRun = { vm.run() }
-        )
-
-        LedgerCard(ledger)
-
-        Text(
-            "این‌ها همان بررسی‌هایی‌اند که روی گوشی هم اجرا می‌شوند — " +
-                "کلمه به کلمه همان کد، از ماژولِ مشترک.",
-            fontFamily = Vazirmatn, fontSize = 13.sp, color = Muted
-        )
-
-        Column(
-            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            ui.results.groupBy { it.group }.forEach { (group, rows) ->
-                Text(
-                    group,
-                    fontFamily = Vazirmatn,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp,
-                    color = Ink,
-                    modifier = Modifier.padding(top = 10.dp, bottom = 2.dp)
-                )
-                rows.forEach { ResultRow(it) }
+private fun RememberBounds(state: WindowState, settings: Settings) {
+    LaunchedEffect(state) {
+        snapshotFlow { Triple(state.size, state.position, state.placement) }
+            .collectLatest { (size, pos, placement) ->
+                delay(600)
+                val prev = DeskPrefs.bounds(settings)
+                when (placement) {
+                    WindowPlacement.Floating -> DeskPrefs.saveBounds(
+                        settings,
+                        DeskPrefs.Bounds(
+                            width = size.width.value.toInt(),
+                            height = size.height.value.toInt(),
+                            x = if (pos.isSpecified) pos.x.value.toInt() else null,
+                            y = if (pos.isSpecified) pos.y.value.toInt() else null,
+                            maximized = false,
+                        )
+                    )
+                    else -> DeskPrefs.saveBounds(
+                        settings,
+                        (prev ?: DeskPrefs.Bounds(
+                            DEFAULT_SIZE.width.value.toInt(), DEFAULT_SIZE.height.value.toInt(),
+                            null, null, false
+                        )).copy(maximized = true)
+                    )
+                }
             }
-            Spacer(Modifier.height(24.dp))
-        }
     }
 }
 
+/**
+ * قفلِ خودکار: اگر [DeskIdle.minutes] دقیقه هیچ کلید و موسی نیامد، از
+ * حساب بیرون می‌رود. صفر یعنی خاموش (پیش‌فرض).
+ */
 @Composable
-private fun Header() {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            Modifier.width(52.dp).height(52.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(BrandSoft),
-            contentAlignment = Alignment.Center
-        ) {
-            Text("خ", fontFamily = Vazirmatn, fontWeight = FontWeight.Bold,
-                fontSize = 24.sp, color = Brand)
-        }
-        Spacer(Modifier.width(14.dp))
-        Column {
-            Text(
-                AppInfo.NAME,
-                fontFamily = Vazirmatn, fontWeight = FontWeight.Bold,
-                fontSize = 26.sp, color = Ink
-            )
-            Text(
-                PersianDate.long(System.currentTimeMillis()),
-                fontFamily = Vazirmatn, fontSize = 13.sp, color = Muted
-            )
-        }
-    }
-}
-
-@Composable
-private fun SummaryCard(
-    passed: Int,
-    failed: Int,
-    total: Int,
-    running: Boolean,
-    onRun: () -> Unit
-) {
-    val ok = failed == 0
-    Row(
-        Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(if (ok) BrandSoft else BadSoft)
-            .padding(18.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(
-            Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(
-                when {
-                    running -> "در حالِ بررسی…"
-                    ok -> "حسابداری روی این کامپیوتر همان جوابِ گوشی را می‌دهد"
-                    else -> "$failed مورد اینجا جوابِ دیگری داد"
-                },
-                fontFamily = Vazirmatn, fontWeight = FontWeight.Bold,
-                fontSize = 17.sp, color = if (ok) Brand else Bad
-            )
-            Text(
-                "$passed قبول از $total بررسی",
-                fontFamily = Vazirmatn, fontSize = 13.sp,
-                color = if (ok) Brand else Bad
-            )
-        }
-        // دکمهٔ واقعی: `viewModelScope` را روی دسکتاپ به کار می‌اندازد.
-        // اگر کار کند، یعنی کوروتینِ ViewModel اینجا هم زنده است.
-        Button(
-            onClick = onRun,
-            enabled = !running,
-            colors = ButtonDefaults.buttonColors(containerColor = Brand)
-        ) {
-            Text("بررسیِ دوباره", fontFamily = Vazirmatn, fontSize = 13.sp)
-        }
-    }
-}
-
-@Composable
-private fun ResultRow(r: CheckResult) {
-    val bad = r.status == CheckStatus.FAIL
-    Row(
-        Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(CardBg)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            if (bad) "✕" else "✓",
-            fontFamily = Vazirmatn, fontWeight = FontWeight.Bold,
-            fontSize = 15.sp, color = if (bad) Bad else Brand
-        )
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.fillMaxWidth()) {
-            Text(r.name, fontFamily = Vazirmatn, fontSize = 14.sp, color = Ink)
-            Text(r.detail, fontFamily = Vazirmatn, fontSize = 12.sp, color = Muted)
+private fun IdleLock(active: Boolean, onLock: () -> Unit) {
+    val minutes by DeskIdle.minutes.collectAsState()
+    LaunchedEffect(active, minutes) {
+        if (!active || minutes <= 0) return@LaunchedEffect
+        DeskIdle.touch()
+        while (true) {
+            delay(15_000)
+            if (System.currentTimeMillis() - DeskIdle.last >= minutes * 60_000L) {
+                onLock()
+                break
+            }
         }
     }
 }
 
 /**
- * حالِ دفتر — اولین چیزی که روی ویندوز از دادهٔ واقعی خوانده می‌شود.
+ * منوی بالای صفحهٔ مک — «پرونده»، «نما»، «پنجره»، «راهنما».
  *
- * روی دفترِ نو عددها صفرند و همان هم خبرِ خوبی است: یعنی فایل ساخته شد،
- * جدول‌ها نشستند و پرس‌وجوها جواب دادند.
+ * فقط مک: روی ویندوز `MenuBar` نوارِ جدایی داخلِ خودِ پنجره می‌سازد که با
+ * نوارِ کنار تکراری است. هر بند همان بندِ نوارِ کنار است و همان دسترسی را
+ * می‌خواهد.
  */
 @Composable
-private fun LedgerCard(s: LedgerStatus) {
-    val failed = s.error != null
-    Column(
-        Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(if (failed) BadSoft else CardBg)
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        Text(
-            when {
-                s.opening -> "در حالِ باز کردنِ دفتر…"
-                failed -> "دفتر باز نشد"
-                // **«نسخهٔ دفتر»، نه «نسخه».**
-                //
-                // این عدد `DB_VERSION` است (اسکیمای دیتابیس)، نه نسخهٔ
-                // برنامه. تا دیروز فقط «نسخهٔ ۶۱» می‌نوشت و این تنها
-                // عددی بود که روی داشبورد «نسخه» نام داشت — یعنی
-                // کارفرمایی که می‌پرسیدند «کدام نسخه را داری؟» جواب
-                // می‌داد «۶۱».
-                //
-                // نسخهٔ خودِ برنامه از ۱.۹.۱ روی نوارِ پنجره، پایینِ نوارِ
-                // کنار و در «دربارهٔ خیاط‌یار» است (`AppVersion`)؛ این
-                // کارت همچنان فقط از دفتر حرف می‌زند.
-                else -> "دفتر باز است — ${s.tables.fa()} جدول، نسخهٔ دفتر ${s.version.fa()}"
-            },
-            fontFamily = Vazirmatn, fontWeight = FontWeight.SemiBold,
-            fontSize = 15.sp, color = if (failed) Bad else Ink
-        )
-        if (failed) {
-            Text(
-                s.error.orEmpty(),
-                fontFamily = Vazirmatn, fontSize = 12.sp, color = Bad
-            )
-        } else if (!s.opening) {
-            Text(
-                "مشتری: ${s.customers.fa()}  •  صندوق: ${s.wallet.fa()} ؋  " +
-                    "•  بانک: ${s.bank.fa()} ؋",
-                fontFamily = Vazirmatn, fontSize = 13.sp, color = Muted
+private fun FrameWindowScope.DeskMenuBar(
+    nav: DeskNav,
+    auth: AuthUi,
+    authVm: AuthViewModel,
+    state: WindowState,
+) {
+    val inside = auth.isLoggedIn
+    fun can(s: Section) = inside && s.allowedFor(auth.access)
+    MenuBar {
+        Menu("پرونده") {
+            Item("پشتیبان و بازیابی", enabled = can(Section.Backup), onClick = { nav.go(Section.Backup) })
+            Item("تنظیمات", enabled = can(Section.Settings), onClick = { nav.go(Section.Settings) })
+            Separator()
+            Item("خروج از حساب", enabled = inside, onClick = { authVm.logout() })
+        }
+        Menu("نما") {
+            listOf(Section.Home, Section.ActionCenter, Section.WorkshopLink, Section.OrderSearch).forEach { s ->
+                Item(s.title, enabled = can(s), onClick = { nav.go(s) })
+            }
+        }
+        Menu("پنجره") {
+            Item("کوچک کردن", onClick = { state.isMinimized = true })
+            Item(
+                if (state.placement == WindowPlacement.Maximized) "اندازهٔ قبلی" else "تمام‌صفحه",
+                onClick = {
+                    state.placement =
+                        if (state.placement == WindowPlacement.Maximized) WindowPlacement.Floating
+                        else WindowPlacement.Maximized
+                }
             )
         }
-        if (s.path.isNotBlank()) {
-            Text(s.path, fontFamily = Vazirmatn, fontSize = 11.sp, color = Muted)
+        Menu("راهنما") {
+            Item(Section.Guide.title, enabled = can(Section.Guide), onClick = { nav.go(Section.Guide) })
+            Item(Section.About.title, enabled = can(Section.About), onClick = { nav.go(Section.About) })
         }
     }
 }

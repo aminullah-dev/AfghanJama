@@ -8,7 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
-import com.afghanjama.desktop.data.dataDir
+import com.afghanjama.desktop.data.photosDir
 import com.afghanjama.platform.Photos
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -32,7 +32,7 @@ import kotlin.math.max
 class DesktopPhotos : Photos {
 
     private val dir: File by lazy {
-        File(dataDir(), "order_photos").apply { mkdirs() }
+        photosDir().apply { mkdirs() }
     }
 
     private fun file(name: String) = File(dir, name)

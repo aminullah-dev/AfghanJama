@@ -3,7 +3,6 @@ package com.afghanjama.desktop.data
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.afghanjama.data.DB_VERSION
-import com.afghanjama.data.repo.Repo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -52,8 +51,13 @@ class LedgerStatusViewModel : ViewModel() {
         val file = databaseFile()
         try {
             val status = withContext(Dispatchers.IO) {
-                val db = openDatabase(file)
-                val repo = Repo(db)
+                // **همان دفترِ برنامه، نه اتصالِ دوم.** تا ۱.۹ اینجا
+                // `openDatabase(file)` بود: یک اتصالِ تازه به همان فایل، کنارِ
+                // [DesktopLedger]، که هرگز بسته نمی‌شد. دو نویسنده روی یک
+                // فایلِ SQLite روزی سرِ قفل به هم می‌خورند — و اگر دفتر باز
+                // نشده بود، همین‌جا دوباره و بی‌صدا تلاش می‌شد.
+                val db = DesktopLedger.db().getOrThrow()
+                val repo = DesktopLedger.repo().getOrThrow()
                 LedgerStatus(
                     opening = false,
                     path = file.absolutePath,

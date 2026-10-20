@@ -25,18 +25,21 @@ import _src
 SHELL = _src.DESKTOP / "com/afghanjama/desktop/Shell.kt"
 MAIN = _src.DESKTOP / "com/afghanjama/desktop/Main.kt"
 SCREENS = _src.CORE / "com/afghanjama/ui/screens"
+#: از ۱.۱۰ فهرستِ بخش‌ها در `:core` است (`DeskSection`)، تا آزمونِ واحد
+#: ببیندش؛ `Shell.kt` فقط نامِ کوتاهِ `Section` را برایش دارد.
+SECTIONS = _src.CORE / "com/afghanjama/ui/nav/DeskSections.kt"
 
 #: صفحه‌هایی که عمداً در نوارِ کناری نیستند — با دلیل.
 EXCLUDED = {
     "PostLoginQuoteScreen":
         "صفحهٔ خوش‌آمدِ گوشی است؛ روی پی‌سی که کاربر تمامِ روز پایش "
         "نشسته، یک پردهٔ اضافه بینِ او و کار است.",
-    "HomeDashboardScreen":
-        "شبکهٔ میان‌بُرهای گوشی. روی ویندوز خودِ نوارِ کناری همان کار "
-        "را می‌کند و همیشه دیده می‌شود؛ دو ناوبری کنارِ هم سردرگمی است.",
 }
+# «HomeDashboardScreen» تا ۱.۹ اینجا بود («دو ناوبری کنارِ هم سردرگمی
+# است»). از ۱.۱۰ صفحهٔ اولِ کامپیوتر است: صفحهٔ اولِ قبلی خودآزمایی بود و
+# کارفرما روی آن هیچ عددی از کارگاه نمی‌دید.
 
-for p in (SHELL, MAIN, SCREENS):
+for p in (SHELL, MAIN, SCREENS, SECTIONS):
     if not p.exists():
         print(f"✗ {p.name} نیست — بررسی پوچ می‌شد.")
         sys.exit(1)
@@ -86,20 +89,24 @@ for name in sorted(EXCLUDED):
 # `when` روی enum بدونِ `else` اگر شاخه‌ای کم داشته باشد کامپایل
 # نمی‌شود، ولی اگر کسی `else -> Unit` بگذارد، بخشِ تازه بی‌صدا صفحهٔ
 # خالی نشان می‌دهد. این بند همان را می‌گیرد.
-m = re.search(r"internal enum class Section\s*\([^)]*\)\s*\{", shell)
+sections = strip(SECTIONS.read_text(encoding="utf-8"))
+if not re.search(r"typealias Section\s*=\s*DeskSection", shell):
+    print("✗ `Section` در Shell دیگر همان `DeskSection` نیست — ساختار عوض شده.")
+    sys.exit(1)
+m = re.search(r"enum class DeskSection\s*\([^)]*\)\s*\{", sections)
 if not m:
-    print("✗ enum Section پیدا نشد — ساختارِ Shell عوض شده.")
+    print("✗ enum DeskSection پیدا نشد — ساختارِ DeskSections عوض شده.")
     sys.exit(1)
 depth, end = 0, None
-for i in range(m.end() - 1, len(shell)):
-    if shell[i] == "{":
+for i in range(m.end() - 1, len(sections)):
+    if sections[i] == "{":
         depth += 1
-    elif shell[i] == "}":
+    elif sections[i] == "}":
         depth -= 1
         if depth == 0:
             end = i
             break
-body = shell[m.end():end] if end else ""
+body = sections[m.end():end] if end else ""
 members = set(re.findall(r"^\s{4}(\w+)\s*\(", body, re.M))
 branches = set(re.findall(r"Section\.(\w+)\s*->", shell))
 

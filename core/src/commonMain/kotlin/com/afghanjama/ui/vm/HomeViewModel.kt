@@ -8,7 +8,11 @@ import com.afghanjama.data.StockForecast
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.ui.format.STAGE_WARN_DAYS
 import com.afghanjama.ui.format.stageDays
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
@@ -84,12 +88,25 @@ class HomeViewModel(repo: Repo) : ViewModel() {
      * در خیاطی تمام شدنِ پارچه وسطِ سفارش یعنی خطِ تولید می‌خوابد، پس این
      * هشدار باید پیش از خوابیدنِ کار برسد.
      */
+    /*
+     * **سرِ بازه ساعتی یک بار جلو می‌رود.** تا ۱.۹ `since` یک بار سرِ ساختنِ
+     * ViewModel حساب می‌شد. روی گوشی فرقی نمی‌کرد، چون صفحه زود بسته
+     * می‌شود؛ ولی خانهٔ کامپیوتر همهٔ روز (و روزها) باز می‌ماند و ViewModelش
+     * تا بسته شدنِ برنامه زنده است — پس «مصرفِ ۳۰ روزِ گذشته» کم‌کم ۳۱ و ۴۰
+     * روز می‌شد. همان کاری که `journalLast30` می‌کند.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
     val runningOut: StateFlow<List<StockForecast.Forecast>> = run {
         val windowMs = StockForecast.WINDOW_DAYS * 24L * 60L * 60L * 1000L
-        val since = nowMillis() - windowMs
+        val hourly = flow {
+            while (true) {
+                emit(nowMillis())
+                delay(60L * 60 * 1000)
+            }
+        }
         combine(
             repo.observeMaterialStock(),
-            repo.observeStockMovementsSince(since)
+            hourly.flatMapLatest { now -> repo.observeStockMovementsSince(now - windowMs) }
         ) { stock, moves ->
             val draws = moves
                 // فقط خروجِ واقعی؛ اصلاحِ دستی و برگشت نرخِ مصرف نیستند

@@ -59,7 +59,12 @@ import com.afghanjama.ui.vm.SelfTestViewModel
 @Composable
 fun SelfTestScreen(
     vm: SelfTestViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    /**
+     * کارتی بالای نتیجه‌ها — کامپیوتر اینجا خودآزماییِ حساب را می‌گذارد،
+     * کارتی که تا ۱.۹ صفحهٔ اولش بود. گوشی چیزی نمی‌دهد.
+     */
+    header: (@Composable () -> Unit)? = null
 ) {
     val ui by vm.ui.collectAsState()
     val system = LocalSystemActions.current
@@ -83,6 +88,7 @@ fun SelfTestScreen(
             modifier = Modifier.padding(pad).fillMaxSize().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            if (header != null) item { header() }
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
