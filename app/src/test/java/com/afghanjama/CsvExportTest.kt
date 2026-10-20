@@ -72,6 +72,37 @@ class CsvExportTest {
         assertEquals("\"a\",\"b,c\",\"\"", CsvExport.row(listOf("a", "b,c", "")))
     }
 
+    /**
+     * خانه‌ای که با `=`، `+`، `-` یا `@` شروع شود، در اکسل فرمول است — گیومه
+     * جلویش را نمی‌گیرد. کامپیوتر فایل را پس از ذخیره خودش باز می‌کند.
+     */
+    @Test
+    fun `a cell that Excel would run as a formula is made text`() {
+        assertEquals("\"'=1+1\"", CsvExport.cell("=1+1"))
+        assertEquals("\"'+SUM(A1:A9)\"", CsvExport.cell("+SUM(A1:A9)"))
+        assertEquals("\"'-2+3\"", CsvExport.cell("-2+3"))
+        assertEquals("\"'@SUM(A1)\"", CsvExport.cell("@SUM(A1)"))
+        assertEquals("\"'\t=1\"", CsvExport.cell("\t=1"))
+        assertEquals("\"'\r=1\"", CsvExport.cell("\r=1"))
+    }
+
+    @Test
+    fun `a formula in a customer name reaches the file as text`() {
+        val row = CsvExport.orders(listOf(order("=HYPERLINK(\"http://x\",\"y\")"))).lines()[1]
+        assertTrue(row, row.contains(",\"'=HYPERLINK(\"\"http://x\"\",\"\"y\"\")\","))
+        assertTrue(row, !row.contains(",\"=HYPERLINK"))
+    }
+
+    @Test
+    fun `numbers and ordinary text are left alone`() {
+        assertEquals("\"-250\"", CsvExport.cell("-250"))
+        assertEquals("\"+93700123456\"", CsvExport.cell("+93700123456"))
+        assertEquals("\"4.5\"", CsvExport.cell("4.5"))
+        assertEquals("\"کابل - کارته ۳\"", CsvExport.cell("کابل - کارته ۳"))
+        assertEquals("\"a=b\"", CsvExport.cell("a=b"))
+        assertEquals("\"\"", CsvExport.cell(""))
+    }
+
     @Test
     fun `the orders header is the Dari header of 1-9`() {
         val first = CsvExport.orders(emptyList()).lines().first()

@@ -876,6 +876,10 @@ fun checkBackupArchive(
         "photos/../../../databases/afghanjama.db" to "بالا رفتن از پوشه",
         "photos/../evil.jpg" to "یک پله بالا",
         "photos/sub/dir.jpg" to "زیرپوشه",
+        // از ۱.۱۰ کامپیوتر (ویندوز) هم عکس‌های پشتیبان را باز می‌کند، و آنجا
+        // «\» هم جداکنندهٔ پوشه است.
+        "photos/..\\..\\evil.jpg" to "بالا رفتن با جداکنندهٔ ویندوز",
+        "photos/C:\\Windows\\evil.dll" to "مسیرِ مطلقِ ویندوز",
         "photos/" to "نامِ خالی",
         "photos/.." to "خودِ پوشهٔ بالا",
         "database" to "خارج از پوشهٔ عکس",

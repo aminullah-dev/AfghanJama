@@ -5,10 +5,13 @@ import androidx.sqlite.execSQL
 import com.afghanjama.data.DB_NAME
 import com.afghanjama.data.DB_VERSION
 import com.afghanjama.data.DESKTOP_BASELINE
+import com.afghanjama.data.ResetPlan
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.prefs.BackupPrefs
 import com.afghanjama.prefs.CompanyPrefs
+import com.afghanjama.ui.vm.UserRole
 import com.afghanjama.util.BackupArchive
+import com.afghanjama.util.BackupArchiveIo
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import java.io.File
@@ -253,6 +256,83 @@ fun main() {
         need(manual.exists() && safety.exists(), "manual and pre-reset backups are not the auto backup's to delete")
     } && ok
 
+    // ۱۰ب — پوشهٔ کاربر (iCloud، OneDrive) چیزهای دیگری هم دارد: کپیِ ویندوز و
+    // مک، فایلِ نیمه‌نوشته، یادداشت با همان پیشوند، میان‌بُر. هیچ‌کدام مالِ
+    // پشتیبانِ خودکار نیست.
+    ok = check("auto-backup retention never touches copies, .part files, other files or links") {
+        val folder = File(dir, "autos-foreign").apply { mkdirs() }
+        val day = 24L * 60 * 60 * 1000
+        val base = 1_760_000_000_000L
+        val autos = (0 until 3).map { File(folder, DesktopAutoBackup.fileName(base + it * day)).apply { writeText("a") } }
+        val stem = DesktopAutoBackup.fileName(base - 10 * day).removeSuffix(".ajb")
+        val foreign = listOf(
+            "$stem - Copy.ajb", "$stem copy.ajb", "$stem.ajb.part", "KhayatYar-auto-notes.ajb",
+            "KhayatYar-auto-20251301-000000.ajb", "${stem}.AJB", "${stem}.ajb.txt"
+        ).map { File(folder, it).apply { writeText("user") } }
+        val outside = File(dir, "outside-target.ajb").apply { writeText("keep me") }
+        val link = File(folder, DesktopAutoBackup.fileName(base - 20 * day))
+        val linked = runCatching { Files.createSymbolicLink(link.toPath(), outside.toPath()) }.isSuccess
+        val folderLike = File(folder, DesktopAutoBackup.fileName(base - 30 * day)).apply { mkdirs() }
+
+        val pruned = DesktopAutoBackup.prune(folder, keep = 1)
+        need(pruned == 2, "only the two older real auto backups should go, $pruned went")
+        need(autos.last().exists() && !autos[0].exists() && !autos[1].exists(), "the newest real auto backup should stay")
+        foreign.forEach { need(it.exists(), "${it.name} is not an auto backup and must stay") }
+        need(folderLike.isDirectory, "a folder is not an auto backup")
+        need(outside.readText() == "keep me", "a link's target must never be touched")
+        if (linked) need(Files.isSymbolicLink(link.toPath()), "a link named like an auto backup must stay")
+    } && ok
+
+    // ۱۰ج — ساعتِ نادرست. کامپیوتری که باتریِ ساعتش تمام شده به سالِ ۲۰۰۰
+    // برمی‌گردد؛ پشتیبانِ تازه نباید درست پس از نوشتنش پاک شود.
+    ok = check("a wrong clock never deletes the backup just written, nor stalls the next one") {
+        val day = 24L * 60 * 60 * 1000
+        val hour = 60L * 60 * 1000
+        val base = 1_790_000_000_000L
+        val backup = { f: File -> runCatching { DesktopBackup.writeBackup(live, f) } }
+
+        // ساعت به ۲۰۰۰ برگشت.
+        val folderA = File(dir, "skew-back").apply { mkdirs() }
+        val oldOnes = (0 until DesktopAutoBackup.KEEP).map {
+            File(folderA, DesktopAutoBackup.fileName(base + it * day)).apply { writeText("a") }
+        }
+        val settingsA = FileSettings(File(dir, "prefs-skew-a"))
+        BackupPrefs.setLastAuto(settingsA, base + 13 * day)
+        val y2000 = 946_684_800_000L
+        need(DesktopAutoBackup.isDue(BackupPrefs.lastAuto(settingsA), y2000), "a last backup 'in the future' must not stall the next one")
+        val runA = DesktopAutoBackup.runIfDue(settingsA, y2000, fallbackDir = folderA, backup = backup)!!.getOrThrow()
+        need(runA.file.isFile, "the backup just written must not be pruned")
+        need(oldOnes.all { it.exists() }, "backups from before the clock went wrong must stay")
+        need(BackupPrefs.lastAuto(settingsA) == y2000, "lastAuto should follow the clock")
+
+        // ساعت ۱۲ ساعت عقب رفت: تازه‌ترین نامِ روی دیسک از «حالا» جلوتر است.
+        val folderB = File(dir, "skew-12h").apply { mkdirs() }
+        val dayOnes = (0 until DesktopAutoBackup.KEEP).map {
+            File(folderB, DesktopAutoBackup.fileName(base + it * day)).apply { writeText("b") }
+        }
+        val runB = DesktopAutoBackup.runIfDue(
+            FileSettings(File(dir, "prefs-skew-b")), base + 13 * day - 12 * hour,
+            force = true, fallbackDir = folderB, backup = backup
+        )!!.getOrThrow()
+        need(runB.file.isFile && runB.pruned == 0, "nothing may be pruned while the clock is behind the newest backup")
+        need(dayOnes.all { it.exists() }, "no older backup may go while the clock is behind")
+
+        // ساعت روزی جلو بود: پشتیبانِ «۲۰۹۹» نه شمرده می‌شود نه پاک.
+        val folderC = File(dir, "skew-ahead").apply { mkdirs() }
+        val future = File(folderC, DesktopAutoBackup.fileName(4_070_908_800_000L)).apply { writeText("f") }
+        val normal = (0 until 3).map { File(folderC, DesktopAutoBackup.fileName(base + it * day)).apply { writeText("c") } }
+        val runC = DesktopAutoBackup.runIfDue(
+            FileSettings(File(dir, "prefs-skew-c")), base + 5 * day,
+            force = true, fallbackDir = folderC, backup = backup
+        )!!.getOrThrow()
+        need(runC.file.isFile, "today's backup must stay even with a 'future' one on disk")
+        need(future.exists(), "a backup dated in the future is not pruned")
+        need(normal.all { it.exists() }, "under the limit nothing is pruned")
+        need(DesktopAutoBackup.prune(folderC, keep = 1, newest = runC.file, now = base + 5 * day) == 3,
+            "with the future file set aside, normal pruning resumes")
+        need(runC.file.exists() && future.exists(), "the newest and the future one stay")
+    } && ok
+
     // ۱۱ — «وقتش رسیده؟» و نوشتنِ lastAuto — همان عددی که هشدار می‌خوانَد.
     ok = check("auto backup runs only when 24 hours have passed, then records lastAuto") {
         val settings = FileSettings(File(dir, "prefs11"))
@@ -331,12 +411,14 @@ fun main() {
                 repo.checkIn("کارمندِ آزمون")
                 need(repo.observeAttendance().first().size == 1, "setup: one attendance row")
 
-                val refused = DesktopReset.run(repo, settings, backups, photos) { Result.failure(IllegalStateException("دیسک پر است")) }
+                val refused = DesktopReset.run(repo, settings, UserRole.MANAGER, ResetPlan.CONFIRM_PHRASE, backups, photos) {
+                    Result.failure(IllegalStateException("دیسک پر است"))
+                }
                 need(refused.isFailure, "reset must refuse when the safety backup fails")
                 need(repo.observeAttendance().first().size == 1, "nothing may be cleared without the safety backup")
                 need(orderPhoto.exists() && logo.exists(), "no photo may be swept without the safety backup")
 
-                val done = DesktopReset.run(repo, settings, backups, photos) { f ->
+                val done = DesktopReset.run(repo, settings, UserRole.MANAGER, ResetPlan.CONFIRM_PHRASE, backups, photos) { f ->
                     runCatching { db.checkpoint(); DesktopBackup.writeBackup(ledger, f, photos) }
                 }.getOrThrow()
                 need(done.safetyBackup.isFile, "the safety backup should exist")
@@ -344,6 +426,84 @@ fun main() {
                 need(repo.observeAttendance().first().isEmpty(), "attendance should be cleared")
                 need(logo.exists(), "the workshop logo must survive a reset")
                 need(!orderPhoto.exists(), "order photos go with the orders")
+            }
+        } finally {
+            db.close()
+        }
+    } && ok
+
+    // «پاک‌کردنِ کارها و حساب‌ها» — هیچ راهی به پاک‌کردن بی پشتیبانِ ایمنیِ
+    // **سنجیده** نیست، و نقش و واژه در خودِ DesktopReset سنجیده می‌شوند.
+    ok = check("reset needs a manager, the phrase, and a safety backup that opens") {
+        val ledger = File(dir, "reset-guard.db")
+        val db = openDatabase(ledger)
+        val repo = Repo(db)
+        val settings = FileSettings(File(dir, "prefs-reset-guard"))
+        val photos = File(dir, "photos-reset-guard").apply { mkdirs() }
+        val logo = File(photos, "logo_1.png").apply { writeBytes(byteArrayOf(1)) }
+        val orderPhoto = File(photos, "p_9.jpg").apply { writeBytes(byteArrayOf(2)) }
+        CompanyPrefs.saveLogo(settings, logo.name)
+        val backups = File(dir, "backups-reset-guard")
+        val phrase = ResetPlan.CONFIRM_PHRASE
+        val good: (File) -> Result<Unit> = { f -> runCatching { db.checkpoint(); DesktopBackup.writeBackup(ledger, f) } }
+        try {
+            runBlocking {
+                repo.checkIn("کارمندِ آزمون")
+                suspend fun untouched(why: String) {
+                    need(repo.observeAttendance().first().size == 1, "$why: nothing may be cleared")
+                    need(orderPhoto.exists() && logo.exists(), "$why: no photo may be swept")
+                }
+
+                val notManager = DesktopReset.run(repo, settings, UserRole.SALES, phrase, backups, photos, good)
+                need(notManager.isFailure, "a non-manager must be refused")
+                untouched("non-manager")
+
+                val noPhrase = DesktopReset.run(repo, settings, UserRole.MANAGER, "پاک", backups, photos, good)
+                need(noPhrase.isFailure, "a wrong confirmation phrase must be refused")
+                untouched("wrong phrase")
+
+                val failed = DesktopReset.run(repo, settings, UserRole.MANAGER, phrase, backups, photos) {
+                    Result.failure(IllegalStateException("دیسک پر است"))
+                }
+                need(failed.isFailure, "reset must refuse when the safety backup fails")
+                untouched("failed backup")
+
+                // «نوشته شد» ولی هیچ فایلی نیست — پشتیبانی که خطا نداد ولی چیزی ننوشت.
+                val empty = DesktopReset.run(repo, settings, UserRole.MANAGER, phrase, backups, photos) {
+                    Result.success(Unit)
+                }
+                need(empty.isFailure, "a safety backup that wrote nothing must be refused")
+                untouched("empty backup")
+
+                // نوشته شد، ولی باز نمی‌شود (برق رفت، دیسک خراب، کدِ نادرست).
+                val junk = DesktopReset.run(repo, settings, UserRole.MANAGER, phrase, backups, photos) { f ->
+                    runCatching { f.writeText("این پشتیبان نیست") }
+                }
+                need(junk.isFailure, "a safety backup that does not open must be refused")
+                untouched("unreadable backup")
+                need(backups.listFiles().orEmpty().none { it.length() > 0 && it.readText() == "این پشتیبان نیست" },
+                    "the unreadable safety file must not be left looking like a backup")
+
+                // پشتیبانِ سالم ولی بی عکس: دفتر پاک می‌شود، عکسی که در پشتیبان نیست می‌ماند.
+                val noPhotos = DesktopReset.run(repo, settings, UserRole.MANAGER, " $phrase ", backups, photos, good)
+                    .getOrThrow()
+                need(DesktopReset.verify(noPhotos.safetyBackup).isSuccess, "the safety backup should verify")
+                need(repo.observeAttendance().first().isEmpty(), "attendance should be cleared")
+                need(orderPhoto.exists(), "a photo that is not in the safety backup must not be deleted")
+                need(logo.exists(), "the workshop logo must survive a reset")
+
+                // پشتیبانِ سالم با عکس: عکسِ سفارش می‌رود، لوگو می‌ماند.
+                val withPhotos = DesktopReset.run(repo, settings, UserRole.MANAGER, phrase, backups, photos) { f ->
+                    runCatching {
+                        db.checkpoint()
+                        f.outputStream().use { BackupArchiveIo.write(ledger, photos, it) }
+                        Unit
+                    }
+                }.getOrThrow()
+                need(DesktopReset.verify(withPhotos.safetyBackup).getOrThrow() == setOf(logo.name, orderPhoto.name),
+                    "the safety backup should carry both photos")
+                need(!orderPhoto.exists(), "an order photo that is in the safety backup goes with the orders")
+                need(logo.exists(), "the workshop logo must survive a reset")
             }
         } finally {
             db.close()
