@@ -111,6 +111,22 @@ for miss in sorted(members - branches):
 if re.search(r"else\s*->", body):
     pass  # داخلِ خودِ enum معنایی ندارد
 
+# ── ۴ «اشتراکِ کارگاه» بالای نوار بماند ──────────────────────────
+#
+# تا ۱.۹.۱ سی‌ونهمین بند از چهل‌وسه بود و کارفرما روی مک پیدایش نکرد؛ گوشیِ
+# هر کارگر از همان‌جا وصل می‌شود. نوار به ترتیبِ همین enum ساخته می‌شود، پس
+# جای بند همین ترتیب است. بندی که روزی «مرتب‌سازی» پایینش بفرستد اینجا
+# قرمز می‌شود.
+TOP = 3
+order = re.findall(r"^\s{4}(\w+)\s*\(", body, re.M)
+if "WorkshopLink" not in order:
+    fail.append("بخشِ WorkshopLink در Section پیدا نشد — صفحهٔ اشتراکِ کارگاه از نوار افتاده.")
+elif order.index("WorkshopLink") >= TOP:
+    fail.append(
+        f"«اشتراکِ کارگاه» بندِ {order.index('WorkshopLink') + 1}ِ نوار است؛ باید میانِ "
+        f"{TOP} بندِ اول بماند (همان جایی که کارفرما پیدایش می‌کند)."
+    )
+
 if fail:
     print(f"✗ {len(fail)} شکاف در صفحه‌های ویندوز")
     for f in fail:

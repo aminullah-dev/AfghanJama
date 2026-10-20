@@ -74,21 +74,24 @@ class LanClient(
             if (status in 300..399) {
                 // جوابِ حواله هر بدنه‌ای داشته باشد خوانده نمی‌شود.
                 conn.disconnect()
-                return LanResult.Err("جوابِ گوشیِ اصلی خوانده نشد.")
+                return LanResult.Err("جوابِ دستگاهِ اصلی خوانده نشد.")
             }
             val text = (if (status in 200..299) conn.inputStream else conn.errorStream)
                 ?.bufferedReader()?.use { it.readText() }.orEmpty()
             conn.disconnect()
             val json = runCatching { JSONObject(text) }.getOrNull()
-                ?: return LanResult.Err("جوابِ گوشیِ اصلی خوانده نشد.")
+                ?: return LanResult.Err("جوابِ دستگاهِ اصلی خوانده نشد.")
             reportLicence(json)
             if (json.optBoolean("ok", false)) LanResult.Ok(json)
             else LanResult.Err(json.optString("error").ifBlank { "درخواست پذیرفته نشد." })
         }.getOrElse {
-            // خطای شبکه را با زبانِ خودِ کاربر می‌گوییم، نه با متنِ جاوا
+            // خطای شبکه را با زبانِ خودِ کاربر می‌گوییم، نه با متنِ جاوا.
+            // «دستگاهِ اصلی»، نه «گوشیِ اصلی»: کارگر نمی‌داند آن‌سو گوشی است
+            // یا کامپیوتر، و کارگاهی که مک دارد دنبالِ گوشی می‌گشت.
             LanResult.Err(
-                "به گوشیِ اصلی وصل نشد. مطمئن شوید هر دو گوشی روی وای‌فای " +
-                    "کارگاه‌اند و روی گوشیِ اصلی «اشتراکِ کارگاه» روشن است."
+                "به دستگاهِ اصلیِ کارگاه وصل نشد. مطمئن شوید این گوشی و دستگاهِ اصلی " +
+                    "(گوشی یا کامپیوتر) روی یک وای‌فایِ کارگاه‌اند و روی دستگاهِ اصلی " +
+                    "«اشتراکِ کارگاه» روشن است."
             )
         }
     }

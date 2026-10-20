@@ -10,6 +10,8 @@ import com.afghanjama.ui.vm.RouteAccess
 import com.afghanjama.ui.vm.UserRole
 import com.afghanjama.ui.vm.UserStore
 import com.afghanjama.ui.vm.WorkshopLinkAccess
+import com.afghanjama.ui.vm.AlertSeverity
+import com.afghanjama.ui.vm.pendingRequestsAlert
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -179,6 +181,25 @@ class AccessTest {
         assertFalse(WorkshopLinkAccess.canRunHub(everything))
         requestTypes.forEach { assertTrue(it, WorkshopLinkAccess.canDecide(everything, it)) }
         assertFalse("an unknown request type", WorkshopLinkAccess.canDecide(everything, "PAY_ME"))
+    }
+
+    @Test
+    fun `the pending-requests alert reaches only those who can approve, and leads to the workshop link`() {
+        // همان قاعدهٔ نشانِ نوارِ کنار: هشداری که کسی نمی‌تواند رویش کاری کند
+        // فقط یاد می‌دهد مرکزِ هشدار را نخوانند.
+        val a = pendingRequestsAlert(3, Access.MANAGER)
+        requireNotNull(a)
+        assertEquals("pending_requests", a.id)
+        assertEquals(AlertSeverity.WARN, a.severity)
+        assertEquals(Routes.WORKSHOP_LINK, a.route)
+        assertTrue(a.title, a.title.contains("۳"))
+        assertTrue(pendingRequestsAlert(1, Access(false, setOf(Feature.ATTENDANCE))) != null)
+        assertTrue(pendingRequestsAlert(1, Access(false, setOf(Feature.SETTLE_WAGES))) != null)
+
+        val auditor = Access(false, setOf(Feature.AUDIT, Feature.SALES))
+        assertEquals("an auditor sees the alert centre but cannot approve", null, pendingRequestsAlert(5, auditor))
+        assertEquals(null, pendingRequestsAlert(5, Access.NONE))
+        assertEquals("nothing waiting, no alert", null, pendingRequestsAlert(0, Access.MANAGER))
     }
 
     @Test

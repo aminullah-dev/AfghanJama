@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material.icons.filled.WatchLater
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.afghanjama.data.DebtFollowUp
@@ -80,7 +81,14 @@ data class ActionCenterUi(
 /** بیشتر از این چند روز ماندنِ کارِ آماده در انبار، یعنی باید زنگ زد. */
 private const val DELIVERY_WAIT_DAYS = 3
 
-class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
+class ActionCenterViewModel(
+    private val repo: Repo,
+    /**
+     * دسترسیِ کسی که همین حالا وارد شده — هشدارِ درخواست‌های گوشیِ کارگران
+     * فقط برای کسی است که می‌تواند تأییدشان کند ([pendingRequestsAlert]).
+     */
+    private val access: () -> Access = { CurrentAccess.value },
+) : ViewModel() {
 
     private val activeProduction = setOf(
         OrderStatus.IN_STOCK.name, OrderStatus.CUTTING.name, OrderStatus.CUT_DONE.name,
@@ -640,6 +648,13 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
             }
         }
 
+    /**
+     * درخواست‌های گوشیِ کارگران که منتظرِ تأییدند — فقط روی دستگاهِ اصلی پر
+     * می‌شود؛ روی گوشیِ کارگر و دستگاهِ تنها همیشه صفر است.
+     */
+    private val requestAlerts: Flow<List<Alert>> =
+        repo.observePendingRequestCount().map { listOfNotNull(pendingRequestsAlert(it, access())) }
+
     val ui: StateFlow<ActionCenterUi> =
         combine(
             coreAlerts,
@@ -650,7 +665,7 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
             // شش‌تا پیش از رسیدن به آنجا یکی می‌شوند.
             combine(
                 staleAlerts, followUpAlerts, deliveryAlerts, recurringAlerts,
-                combine(financeAlerts, productAlerts, lateForecastAlerts) { f, p, l -> f + p + l }
+                combine(financeAlerts, productAlerts, lateForecastAlerts, requestAlerts) { f, p, l, r -> f + p + l + r }
             ) { stale, inst, deliv, rec, smart ->
                 stale + inst + deliv + rec + smart
             }
@@ -672,4 +687,28 @@ class ActionCenterViewModel(private val repo: Repo) : ViewModel() {
          */
         const val STALE_DEBT_DAYS = 30
     }
+}
+
+/**
+ * «۳ درخواست از گوشیِ کارگران منتظرِ تأیید است» — یا `null`.
+ *
+ * **چرا هشدار لازم شد.** تا ۱.۹.۱ درخواستی که از گوشیِ کارگر می‌رسید فقط در
+ * صفحهٔ «اشتراکِ کارگاه» دیده می‌شد، و آن صفحه روی کامپیوتر سی‌ونهمین بندِ
+ * نوار بود. ورود و «تمام شد»ِ کارگر تا تأیید نشود ثبت نمی‌شود؛ پس درخواستی
+ * که کسی نمی‌بیند یعنی حضور و کارمزدی که گم می‌شود.
+ *
+ * فقط برای کسی که دستِ‌کم یک نوعِ درخواست را می‌تواند تأیید کند
+ * ([WorkshopLinkAccess.seesRequests]) — همان قاعدهٔ نشانِ نوارِ کنار.
+ * بقیه کاری با آن ندارند و هشدارِ بی‌کار فقط یاد می‌دهد مرکزِ هشدار را نخوانند.
+ */
+fun pendingRequestsAlert(count: Int, access: Access): Alert? {
+    if (count <= 0 || !WorkshopLinkAccess.seesRequests(access)) return null
+    return Alert(
+        id = "pending_requests",
+        severity = AlertSeverity.WARN,
+        icon = Icons.Default.Smartphone,
+        title = "${count.fa()} درخواست از گوشیِ کارگران منتظرِ تأیید است",
+        detail = "ورود، خروج و «تمام شد»ِ کارگر تا تأیید نشود ثبت نمی‌شود — در «اشتراکِ کارگاه» تأیید یا رد کنید.",
+        route = Routes.WORKSHOP_LINK
+    )
 }

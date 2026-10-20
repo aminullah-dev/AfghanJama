@@ -135,6 +135,12 @@ object PersianDate {
         return "${j[0]}/${j[1].pad2()}/${j[2].pad2()} ${h.pad2()}:${m.pad2()}".toPersianDigits()
     }
 
+    /** «۱۰:۳۰» — فقط ساعت، برای چیزی که امروز رخ داده. */
+    fun time(millis: Long): String {
+        val (_, h, m) = jalaliOf(millis)
+        return "${h.pad2()}:${m.pad2()}".toPersianDigits()
+    }
+
     /** «۱۵ سرطان ۱۴۰۴» — بلند و رسمی برای فاکتور و رسید. */
     fun long(millis: Long): String {
         val (j, _, _) = jalaliOf(millis)

@@ -147,6 +147,13 @@ internal enum class Section(val title: String) {
     Overview("وضعیت"),
     ActionCenter("مرکزِ هشدار"),
 
+    // **بالای نوار، نه در «بقیه».** تا ۱.۹.۱ این سی‌ونهمین بند از
+    // چهل‌وسه بود و کارفرما روی مک پیدایش نکرد — در حالی که گوشیِ هر
+    // کارگر از همین‌جا وصل می‌شود و درخواست‌هایش همین‌جا تأیید. نامش هم
+    // می‌گوید با چه چیزی شریک می‌شود. `deskscreens` نگهش می‌دارد که
+    // دوباره پایین نرود.
+    WorkshopLink("اشتراکِ کارگاه با گوشی‌ها"),
+
     // کارگاه — از سفارش تا تحویل
     Board("تختهٔ کار"),
     Inventory("سفارش‌ها"),
@@ -192,7 +199,6 @@ internal enum class Section(val title: String) {
     SelfTest("خودآزمایی و سلامتِ داده"),
     SampleShop("کارگاهِ نمونه"),
     Users("کاربران و دسترسی‌ها"),
-    WorkshopLink("اشتراکِ کارگاه"),
     Backup("پشتیبان و بازیابی"),
     Licence("لایسنس"),
     QuoteCalc("قیمت‌دهی"),
@@ -401,6 +407,8 @@ internal fun sectionForRoute(route: String): Section? = when (route) {
     Routes.ATTENDANCE -> Section.Attendance
     Routes.RECURRING -> Section.Recurring
     Routes.ACTION_CENTER -> Section.ActionCenter
+    // هشدارِ «درخواست‌های منتظر» از مرکزِ هشدار به همین‌جا می‌آید.
+    Routes.WORKSHOP_LINK -> Section.WorkshopLink
     // روی ویندوز نیستند — حضور و غیاب هنوز در `:app` است، و
     // «تنظیمات»ِ اندروید اینجا به دو بخشِ جدا شکسته شده.
     else -> null
@@ -421,7 +429,11 @@ internal fun SectionContent(
     val back = { go(Section.Overview) }
 
     when (section) {
-        Section.Overview -> Overview()
+        // صفحهٔ اول، با کاشیِ اشتراکِ کارگاه بالایش: «این کامپیوتر دستگاهِ
+        // اصلی است؟ چند گوشی رسیده؟ چه چیزی منتظرِ تأیید است؟»
+        Section.Overview -> Overview {
+            WorkshopLinkTile(repo, access, onOpen = { go(Section.WorkshopLink) })
+        }
 
         /*
          * مرکزِ هشدار — همان صفحه‌ای که روی گوشی هست.

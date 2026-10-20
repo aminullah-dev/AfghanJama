@@ -178,7 +178,13 @@ private fun ApplicationScope.MainWindow(settings: Settings) {
 }
 
 @Composable
-internal fun Overview() {
+internal fun Overview(
+    /**
+     * کاشیِ اشتراکِ کارگاه ([WorkshopLinkTile]) — از `Shell` داده می‌شود،
+     * چون دفتر و دسترسیِ این نفر آنجاست. وقتی دفتر باز نشد، نیست.
+     */
+    linkTile: (@Composable () -> Unit)? = null
+) {
     // همان `viewModel { }`ِ اندروید، همان کلاسِ ViewModel، همان
     // `viewModelScope`. تنها فرق این است که اینجا صاحبِ ViewModel را
     // خودمان بالاتر گذاشته‌ایم.
@@ -192,6 +198,8 @@ internal fun Overview() {
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Header()
+
+        linkTile?.invoke()
 
         SummaryCard(
             passed = ui.passed,
@@ -279,7 +287,7 @@ private fun SummaryCard(
             Text(
                 when {
                     running -> "در حالِ بررسی…"
-                    ok -> "حسابداری روی ویندوز همان جوابِ گوشی را می‌دهد"
+                    ok -> "حسابداری روی این کامپیوتر همان جوابِ گوشی را می‌دهد"
                     else -> "$failed مورد اینجا جوابِ دیگری داد"
                 },
                 fontFamily = Vazirmatn, fontWeight = FontWeight.Bold,
