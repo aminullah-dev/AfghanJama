@@ -127,7 +127,7 @@ internal fun SettingsSection(
                     second()
                 }
                 // آخرین کارت، چون برگشت ندارد — همان جای گوشی.
-                if (Permissions.canResetData(role)) ResetCard(repo)
+                if (Permissions.canResetData(role)) ResetCard(repo, role)
                 Spacer(Modifier.height(24.dp))
             }
         }
@@ -410,10 +410,13 @@ internal fun copyText(text: String) {
 
 /**
  * «پاک‌کردنِ کارها و حساب‌ها» — فقط مدیر، با نوشتنِ «پاک کن»، و پس از یک
- * پشتیبانِ ایمنیِ کامل ([DesktopReset]).
+ * پشتیبانِ ایمنیِ کامل و سنجیده ([DesktopReset]).
+ *
+ * نقش و واژه به [DesktopReset.run] هم داده می‌شوند و آنجا دوباره سنجیده
+ * می‌شوند؛ پنهان بودنِ این کارت تنها نگهبان نیست.
  */
 @Composable
-private fun ResetCard(repo: Repo) {
+private fun ResetCard(repo: Repo, role: UserRole) {
     val settings = LocalSettings.current
     val scope = rememberCoroutineScope()
     var asking by remember { mutableStateOf(false) }
@@ -465,8 +468,8 @@ private fun ResetCard(repo: Repo) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("این کار برگشت ندارد.", fontWeight = FontWeight.SemiBold, color = Bad)
                     Text(
-                        "پیش از پاک‌کردن، یک پشتیبانِ کامل خودکار در پوشهٔ «backups» کنارِ " +
-                            "دفتر نوشته می‌شود. اگر آن نوشته نشود، هیچ چیزی پاک نمی‌شود.",
+                        "پیش از پاک‌کردن، یک پشتیبانِ کاملِ خودکار در پوشهٔ «backups» کنارِ " +
+                            "دفتر نوشته و سنجیده می‌شود. اگر نوشته یا سنجیده نشود، هیچ چیزی پاک نمی‌شود.",
                         style = MaterialTheme.typography.bodySmall
                     )
                     OutlinedTextField(
@@ -483,11 +486,14 @@ private fun ResetCard(repo: Repo) {
                 TextButton(
                     enabled = typed.trim() == phrase && !working,
                     onClick = {
+                        val confirmed = typed
                         asking = false
                         working = true
                         result = null
                         scope.launch {
-                            val r = withContext(Dispatchers.IO) { DesktopReset.run(repo, settings) }
+                            val r = withContext(Dispatchers.IO) {
+                                DesktopReset.run(repo, settings, role, confirmed)
+                            }
                             working = false
                             result = r.fold(
                                 {

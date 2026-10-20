@@ -5,10 +5,13 @@ import androidx.sqlite.execSQL
 import com.afghanjama.data.DB_NAME
 import com.afghanjama.data.DB_VERSION
 import com.afghanjama.data.DESKTOP_BASELINE
+import com.afghanjama.data.ResetPlan
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.prefs.BackupPrefs
 import com.afghanjama.prefs.CompanyPrefs
+import com.afghanjama.ui.vm.UserRole
 import com.afghanjama.util.BackupArchive
+import com.afghanjama.util.BackupArchiveIo
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import java.io.File
@@ -331,12 +334,14 @@ fun main() {
                 repo.checkIn("کارمندِ آزمون")
                 need(repo.observeAttendance().first().size == 1, "setup: one attendance row")
 
-                val refused = DesktopReset.run(repo, settings, backups, photos) { Result.failure(IllegalStateException("دیسک پر است")) }
+                val refused = DesktopReset.run(repo, settings, UserRole.MANAGER, ResetPlan.CONFIRM_PHRASE, backups, photos) {
+                    Result.failure(IllegalStateException("دیسک پر است"))
+                }
                 need(refused.isFailure, "reset must refuse when the safety backup fails")
                 need(repo.observeAttendance().first().size == 1, "nothing may be cleared without the safety backup")
                 need(orderPhoto.exists() && logo.exists(), "no photo may be swept without the safety backup")
 
-                val done = DesktopReset.run(repo, settings, backups, photos) { f ->
+                val done = DesktopReset.run(repo, settings, UserRole.MANAGER, ResetPlan.CONFIRM_PHRASE, backups, photos) { f ->
                     runCatching { db.checkpoint(); DesktopBackup.writeBackup(ledger, f, photos) }
                 }.getOrThrow()
                 need(done.safetyBackup.isFile, "the safety backup should exist")
@@ -344,6 +349,84 @@ fun main() {
                 need(repo.observeAttendance().first().isEmpty(), "attendance should be cleared")
                 need(logo.exists(), "the workshop logo must survive a reset")
                 need(!orderPhoto.exists(), "order photos go with the orders")
+            }
+        } finally {
+            db.close()
+        }
+    } && ok
+
+    // «پاک‌کردنِ کارها و حساب‌ها» — هیچ راهی به پاک‌کردن بی پشتیبانِ ایمنیِ
+    // **سنجیده** نیست، و نقش و واژه در خودِ DesktopReset سنجیده می‌شوند.
+    ok = check("reset needs a manager, the phrase, and a safety backup that opens") {
+        val ledger = File(dir, "reset-guard.db")
+        val db = openDatabase(ledger)
+        val repo = Repo(db)
+        val settings = FileSettings(File(dir, "prefs-reset-guard"))
+        val photos = File(dir, "photos-reset-guard").apply { mkdirs() }
+        val logo = File(photos, "logo_1.png").apply { writeBytes(byteArrayOf(1)) }
+        val orderPhoto = File(photos, "p_9.jpg").apply { writeBytes(byteArrayOf(2)) }
+        CompanyPrefs.saveLogo(settings, logo.name)
+        val backups = File(dir, "backups-reset-guard")
+        val phrase = ResetPlan.CONFIRM_PHRASE
+        val good: (File) -> Result<Unit> = { f -> runCatching { db.checkpoint(); DesktopBackup.writeBackup(ledger, f) } }
+        try {
+            runBlocking {
+                repo.checkIn("کارمندِ آزمون")
+                suspend fun untouched(why: String) {
+                    need(repo.observeAttendance().first().size == 1, "$why: nothing may be cleared")
+                    need(orderPhoto.exists() && logo.exists(), "$why: no photo may be swept")
+                }
+
+                val notManager = DesktopReset.run(repo, settings, UserRole.SALES, phrase, backups, photos, good)
+                need(notManager.isFailure, "a non-manager must be refused")
+                untouched("non-manager")
+
+                val noPhrase = DesktopReset.run(repo, settings, UserRole.MANAGER, "پاک", backups, photos, good)
+                need(noPhrase.isFailure, "a wrong confirmation phrase must be refused")
+                untouched("wrong phrase")
+
+                val failed = DesktopReset.run(repo, settings, UserRole.MANAGER, phrase, backups, photos) {
+                    Result.failure(IllegalStateException("دیسک پر است"))
+                }
+                need(failed.isFailure, "reset must refuse when the safety backup fails")
+                untouched("failed backup")
+
+                // «نوشته شد» ولی هیچ فایلی نیست — پشتیبانی که خطا نداد ولی چیزی ننوشت.
+                val empty = DesktopReset.run(repo, settings, UserRole.MANAGER, phrase, backups, photos) {
+                    Result.success(Unit)
+                }
+                need(empty.isFailure, "a safety backup that wrote nothing must be refused")
+                untouched("empty backup")
+
+                // نوشته شد، ولی باز نمی‌شود (برق رفت، دیسک خراب، کدِ نادرست).
+                val junk = DesktopReset.run(repo, settings, UserRole.MANAGER, phrase, backups, photos) { f ->
+                    runCatching { f.writeText("این پشتیبان نیست") }
+                }
+                need(junk.isFailure, "a safety backup that does not open must be refused")
+                untouched("unreadable backup")
+                need(backups.listFiles().orEmpty().none { it.length() > 0 && it.readText() == "این پشتیبان نیست" },
+                    "the unreadable safety file must not be left looking like a backup")
+
+                // پشتیبانِ سالم ولی بی عکس: دفتر پاک می‌شود، عکسی که در پشتیبان نیست می‌ماند.
+                val noPhotos = DesktopReset.run(repo, settings, UserRole.MANAGER, " $phrase ", backups, photos, good)
+                    .getOrThrow()
+                need(DesktopReset.verify(noPhotos.safetyBackup).isSuccess, "the safety backup should verify")
+                need(repo.observeAttendance().first().isEmpty(), "attendance should be cleared")
+                need(orderPhoto.exists(), "a photo that is not in the safety backup must not be deleted")
+                need(logo.exists(), "the workshop logo must survive a reset")
+
+                // پشتیبانِ سالم با عکس: عکسِ سفارش می‌رود، لوگو می‌ماند.
+                val withPhotos = DesktopReset.run(repo, settings, UserRole.MANAGER, phrase, backups, photos) { f ->
+                    runCatching {
+                        db.checkpoint()
+                        f.outputStream().use { BackupArchiveIo.write(ledger, photos, it) }
+                        Unit
+                    }
+                }.getOrThrow()
+                need(DesktopReset.verify(withPhotos.safetyBackup).getOrThrow() == setOf(logo.name, orderPhoto.name),
+                    "the safety backup should carry both photos")
+                need(!orderPhoto.exists(), "an order photo that is in the safety backup goes with the orders")
+                need(logo.exists(), "the workshop logo must survive a reset")
             }
         } finally {
             db.close()
