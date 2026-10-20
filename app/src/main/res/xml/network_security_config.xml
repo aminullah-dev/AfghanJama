@@ -3,12 +3,19 @@
   اشتراکِ کارگاه روی وای‌فایِ محلی با http ساده کار می‌کند، چون گوشی‌ها
   گواهیِ TLS ندارند و نشانی‌شان هم فقط یک IPِ خصوصی است. بیرون از شبکهٔ
   محلی هیچ ارتباطی برقرار نمی‌شود — اپ هیچ آدرسِ اینترنتی صدا نمی‌زند.
+
+  چرا متنِ ساده برای همه باز است و نه برای چند «دامنه»:
+  تا نسخهٔ ۱.۹.۰ اینجا سه دامنه نوشته شده بود (10.0.0.0، 192.168.0.0،
+  172.16.0.0). ولی <domain> نامِ میزبان را عیناً می‌سنجد، نه بازهٔ نشانی؛
+  پس 192.168.1.7 با هیچ‌کدام جور نمی‌شد و اندروید هر اتصالِ گوشیِ کارگر را
+  پیش از رفتن رد می‌کرد — به هر دستگاهِ اصلی‌ای، گوشی یا کامپیوتر.
+
+  مرزِ واقعی حالا در کد است: LanClient پیش از هر اتصال با
+  HostAddress.isPrivate می‌سنجد که نشانی مالِ شبکهٔ کارگاه باشد
+  (10/8، 172.16/12، 192.168/16، 100.64/10). بررسیِ tools/checks/cleartext.py
+  هر دو نیمه را با هم نگه می‌دارد. اینجا دوباره <domain> با نشانیِ IP
+  نگذارید؛ کار نمی‌کند.
 -->
 <network-security-config>
-    <base-config cleartextTrafficPermitted="false" />
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="false">10.0.0.0</domain>
-        <domain includeSubdomains="false">192.168.0.0</domain>
-        <domain includeSubdomains="false">172.16.0.0</domain>
-    </domain-config>
+    <base-config cleartextTrafficPermitted="true" />
 </network-security-config>
