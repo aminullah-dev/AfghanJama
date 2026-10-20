@@ -3,6 +3,12 @@
 # چرا xcodegen: فایلِ `.pbxproj` چند هزار خطِ تولیدشده است که هیچ‌کس
 # نمی‌خوانَدش و هر ادغام رویش تعارض می‌دهد. این چهل خط همان را توصیف
 # می‌کند و با `xcodegen generate` ساخته می‌شود.
+#
+# **اول `tools/release/ios-version.sh`، بعد xcodegen.** این فایل نسخه را از
+# `Version.xcconfig` می‌خوانَد و آن را همان اسکریپت از `gradle.properties`
+# می‌سازد (در گیت نیست). از ریشهٔ مخزن:
+#
+#     tools/release/ios-version.sh && (cd iosApp && xcodegen generate)
 name: KhayatYar
 options:
   bundleIdPrefix: com.afghanjama
