@@ -95,3 +95,10 @@ Thumbs.db
 *.aab
 *.msi
 *.dmg
+
+# خروجیِ «Generate Signed APK»ِ Android Studio (`DELIVERY.md`، گامِ ۲).
+# کنارِ APK یک `output-metadata.json` هم می‌گذارد که `*.apk` نمی‌گیردش، و
+# از آن پس درخت «تمیز» نیست: ساختِ بعدی روی همان تگ در «دربارهٔ خیاط‌یار»
+# «آزمایشی» می‌گفت و امضای مک رد می‌کرد.
+/app/release/
+/app/debug/

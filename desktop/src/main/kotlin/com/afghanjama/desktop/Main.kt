@@ -39,6 +39,7 @@ import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.afghanjama.AppInfo
+import com.afghanjama.AppVersion
 import com.afghanjama.selftest.CheckResult
 import com.afghanjama.selftest.CheckStatus
 import com.afghanjama.ui.format.PersianDate
@@ -93,7 +94,7 @@ private object DesktopViewModelStoreOwner : ViewModelStoreOwner {
  * پنجره‌ای بود که روی مک خودش را «نسخهٔ ویندوز» معرفی می‌کرد — چیزی که
  * هیچ بررسیِ خودکاری نمی‌گیرد و فقط با باز کردنِ برنامه دیده می‌شود.
  */
-private val platformName: String = run {
+internal val platformName: String = run {
     val os = System.getProperty("os.name").orEmpty().lowercase()
     when {
         os.contains("mac") || os.contains("darwin") -> "نسخهٔ مک"
@@ -121,7 +122,9 @@ fun main() {
 private fun ApplicationScope.MainWindow(settings: Settings) {
     Window(
         onCloseRequest = ::exitApplication,
-        title = "${AppInfo.NAME} — $platformName"
+        // نسخه و کامیت روی نوارِ پنجره — همان چیزی که پشتیبانی اول می‌پرسد،
+        // بی باز کردنِ هیچ صفحه‌ای. ساختِ آزمایشی «آزمایشی» می‌گوید.
+        title = "${AppInfo.NAME} — ${AppVersion.short()} — $platformName"
     ) {
         MaterialTheme(
             // **همان پالتِ گوشی**، از `:core`. تا دیروز اینجا چهار رنگ
@@ -362,10 +365,9 @@ private fun LedgerCard(s: LedgerStatus) {
                 // کارفرمایی که می‌پرسیدند «کدام نسخه را داری؟» جواب
                 // می‌داد «۶۱».
                 //
-                // نسخهٔ خودِ برنامه (`appVersion` در `gradle.properties`)
-                // امروز سرِ اجرا در دسترس نیست: `:core` ماژولِ سادهٔ JVM
-                // است و `BuildConfig` ندارد. تا آن روز، دستِ‌کم این عدد
-                // ادعای غلط نمی‌کند.
+                // نسخهٔ خودِ برنامه از ۱.۹.۱ روی نوارِ پنجره، پایینِ نوارِ
+                // کنار و در «دربارهٔ خیاط‌یار» است (`AppVersion`)؛ این
+                // کارت همچنان فقط از دفتر حرف می‌زند.
                 else -> "دفتر باز است — ${s.tables.fa()} جدول، نسخهٔ دفتر ${s.version.fa()}"
             },
             fontFamily = Vazirmatn, fontWeight = FontWeight.SemiBold,

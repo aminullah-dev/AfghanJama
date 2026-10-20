@@ -62,6 +62,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.material3.Switch
 import com.afghanjama.util.ShareUtil
 import com.afghanjama.AppInfo
+import com.afghanjama.AppVersion
+import com.afghanjama.ui.components.AppVersionCard
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.SalePrefs
 import androidx.compose.ui.Alignment
@@ -735,7 +737,11 @@ fun SettingsScreen(
                         onClick = {
                             val mail = Intent(Intent.ACTION_SENDTO).apply {
                                 data = Uri.parse("mailto:$SUPPORT_EMAIL")
-                                putExtra(Intent.EXTRA_SUBJECT, "پشتیبانی اپ ${AppInfo.NAME}")
+                                // نسخه و کامیت در خودِ عنوان، تا پشتیبانی نپرسد.
+                                putExtra(
+                                    Intent.EXTRA_SUBJECT,
+                                    "پشتیبانی اپ ${AppInfo.NAME} — ${AppVersion.supportLine()}"
+                                )
                             }
                             ShareUtil.launchChooser(
                                 context, mail, "ارسال ایمیل به پشتیبانی"
@@ -749,6 +755,10 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            // دربارهٔ خیاط‌یار — نسخه، کامیت، و رسمی یا آزمایشی. همان کارتِ
+            // آیفون و کامپیوتر، از `:core`.
+            AppVersionCard()
 
             // ---------- خودآزمایی ----------
             //

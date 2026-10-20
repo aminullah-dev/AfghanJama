@@ -1,5 +1,6 @@
 package com.afghanjama.util
 
+import com.afghanjama.AppVersion
 import android.app.Application
 import android.content.Context
 import android.os.Build
@@ -61,10 +62,13 @@ object CrashLog {
     private fun write(app: Application, thread: Thread, error: Throwable) {
         val stack = StringWriter().also { error.printStackTrace(PrintWriter(it)) }.toString()
 
+        // از ۱.۹.۱ کامیت و کانال هم می‌آید: «۱.۹.۰» به‌تنهایی سه ساختِ
+        // متفاوت را یکی نشان می‌داد. عددِ نصب‌شده هم می‌ماند، تا اگر روزی
+        // با `BuildInfo` جور نبود، همین گزارش نشانش بدهد.
         val version = runCatching {
             val p = app.packageManager.getPackageInfo(app.packageName, 0)
-            "${p.versionName} (${p.longVersionCodeCompat()})"
-        }.getOrElse { "?" }
+            "${p.versionName} (${p.longVersionCodeCompat()}) — ${AppVersion.supportLine()}"
+        }.getOrElse { AppVersion.supportLine() }
 
         val when_ = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
 

@@ -72,6 +72,93 @@ ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
 
+/*
+ * ═══ `BuildInfo` — نسخه و کامیت، داخلِ خودِ برنامه ═══
+ *
+ * **چرا لازم شد.** تا ۱.۹.۰ هر ساختی خودش را «۱.۹.۰» می‌نامید و
+ * ساخت‌ها با هم فرق داشتند: DMGِ مکِ ۱۵ اکتبر همه‌چیز را داشت، APKِ ۱۳
+ * اکتبر اسکنِ محصول را نداشت، آیفونِ ۹ اکتبر کهنه‌تر بود. هیچ‌کدام
+ * نمی‌گفت از کدام کامیت ساخته شده، پس «کدام نسخه را داری؟» جوابی
+ * نداشت که به کدِ واقعی برسد.
+ *
+ * این تسک یک فایلِ کاتلین در `commonMain` می‌سازد، پس **هر سه سکو**
+ * (اندروید، مک و ویندوز، آیفون) همان چهار عدد را می‌بینند:
+ *
+ *   - `VERSION` و `CODE` از `gradle.properties` — همان منبعی که APK،
+ *     MSI، DMG و (از راهِ `tools/release/ios-version.sh`) آیفون می‌خوانند.
+ *   - `COMMIT` هفت حرفِ اولِ کامیت (`local` اگر گیت نبود).
+ *   - `CHANNEL` فقط وقتی `release` است که HEAD **دقیقاً** روی تگِ
+ *     `v$appVersion` باشد (`git describe --exact-match`) و درخت تمیز. هر
+ *     ساختِ دیگری `test build` است — از جمله ساختِ محلیِ کارفرما از روی
+ *     شاخه، یا ساختی که یک فایلِ ثبت‌نشده دارد.
+ *
+ * **چرا کانال از گیت و نه از CI.** DMGِ امضاشده روی مکِ خودِ کارفرما
+ * ساخته می‌شود، نه در CI (`tools/macos-signing/sign-and-notarize.sh`).
+ * اگر «رسمی» یعنی «در CI و روی تگ»، همان DMGی که به کارگاه می‌رود
+ * «آزمایشی» نام می‌گرفت.
+ *
+ * **زمانِ ساخت عمداً نیست:** دو ساخت از یک کامیت باید بایت‌به‌بایت یکی
+ * باشند.
+ *
+ * گیت سه بار و ارزان صدا زده می‌شود. `--no-optional-locks` قفلِ
+ * `index.lock` را نمی‌گیرد، تا ساخت با گیتِ IDE که هم‌زمان کار می‌کند
+ * دعوا نکند.
+ */
+val buildInfoVersion: String = providers.gradleProperty("appVersion").get()
+val buildInfoCode: String = providers.gradleProperty("appVersionCode").get()
+
+/** خروجیِ یک فرمانِ گیت در ریشهٔ مخزن، یا `null` اگر گیت نبود یا فرمان شکست. */
+fun git(vararg args: String): String? = runCatching {
+    val run = providers.exec {
+        commandLine(listOf("git", "-C", rootDir.absolutePath) + args)
+        isIgnoreExitValue = true
+    }
+    if (run.result.get().exitValue == 0) run.standardOutput.asText.get().trim() else null
+}.getOrNull()
+
+val generateBuildInfo by tasks.registering {
+    description = "BuildInfo.kt را از gradle.properties و گیت می‌سازد."
+    val version = buildInfoVersion
+    val code = buildInfoCode
+    val commit = provider { git("rev-parse", "--short=7", "HEAD") ?: "local" }
+    // گیتِ ناپیدا «تمیز» شمرده نمی‌شود: نامعلوم یعنی آزمایشی.
+    val dirty = provider { (git("--no-optional-locks", "status", "--porcelain") ?: "?").isNotEmpty() }
+    val tagged = provider {
+        git("describe", "--exact-match", "--tags", "--match", "v$version", "HEAD") != null
+    }
+    val outDir = layout.buildDirectory.dir("generated/buildinfo/commonMain/kotlin")
+
+    inputs.property("version", version)
+    inputs.property("code", code)
+    inputs.property("commit", commit)
+    inputs.property("dirty", dirty)
+    inputs.property("tagged", tagged)
+    outputs.dir(outDir)
+
+    doLast {
+        val isDirty = dirty.get()
+        val channel = if (tagged.get() && !isDirty && commit.get() != "local") "release" else "test build"
+        fun lit(s: String) = "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"").replace("$", "\\$") + "\""
+        val file = outDir.get().asFile.resolve("com/afghanjama/BuildInfo.kt")
+        file.parentFile.mkdirs()
+        file.writeText(
+            """
+            |// تولیدشده با `:core:generateBuildInfo` از `gradle.properties` و گیت — دستی ویرایش نکنید.
+            |package com.afghanjama
+            |
+            |/** نسخه و ساختِ همین برنامه. معنا و متنش در [AppVersion]. */
+            |object BuildInfo {
+            |    const val VERSION: String = ${lit(version)}
+            |    const val CODE: Int = ${code.toInt()}
+            |    const val COMMIT: String = ${lit(commit.get())}
+            |    const val DIRTY: Boolean = $isDirty
+            |    const val CHANNEL: String = ${lit(channel)}
+            |}
+            |""".trimMargin()
+        )
+    }
+}
+
 kotlin {
     jvm {
         compilerOptions {
@@ -149,6 +236,11 @@ kotlin {
         }
         jvmMain.get().dependsOn(jvmAndroidMain)
         androidMain.get().dependsOn(jvmAndroidMain)
+
+        // `BuildInfo.kt` — از تسکِ بالا. دادنِ خودِ تسک (نه مسیرش) وابستگی را
+        // هم می‌سازد: هر کامپایلی که `commonMain` را می‌خواند، اول آن را
+        // اجرا می‌کند.
+        commonMain.configure { kotlin.srcDir(generateBuildInfo) }
 
         commonMain.dependencies {
             /*
