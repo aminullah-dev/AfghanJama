@@ -4,8 +4,10 @@ import com.afghanjama.data.Db
 import com.afghanjama.data.dao.AttendanceDao
 import com.afghanjama.data.dao.SyncRequestDao
 import com.afghanjama.data.entities.AttendanceRecord
+import com.afghanjama.data.entities.REQUEST_REPEAT_WINDOW_MS
 import com.afghanjama.data.entities.SewingAssignment
 import com.afghanjama.data.entities.SyncRequest
+import com.afghanjama.data.entities.isRepeatOf
 import com.afghanjama.data.entities.ownsAssignment
 import com.afghanjama.data.entities.requestWorkerLabel
 import com.afghanjama.data.repo.Repo
@@ -286,5 +288,26 @@ class WorkerRequestApprovalTest {
         // برچسبِ بلندتر از سقف: سرور می‌بُرد و تأیید هم همان‌طور می‌سنجد
         val long = "[T1] " + "الف".repeat(30)
         assertTrue(ownsAssignment(assignment(3, long), requestWorkerLabel(long)))
+    }
+
+    // ------------------------------------------------------------
+    // تلاشِ دوباره
+    // ------------------------------------------------------------
+
+    @Test
+    fun `a resend of the same press is a repeat`() {
+        val now = day0 + 8 * hour
+        val last = SyncRequest(
+            id = 5, deviceName = "گوشی", worker = ahmad, type = "ATTENDANCE_IN", summary = "",
+            createdAt = now - 60_000
+        )
+        assertTrue(isRepeatOf(last, ahmad, "ATTENDANCE_IN", 0, 0, "", now))
+        assertFalse("نوعِ دیگر", isRepeatOf(last, ahmad, "ATTENDANCE_OUT", 0, 0, "", now))
+        assertFalse("کارگرِ دیگر", isRepeatOf(last, "[T2] محمود", "ATTENDANCE_IN", 0, 0, "", now))
+        assertFalse("متنِ دیگر", isRepeatOf(last, ahmad, "ATTENDANCE_IN", 0, 0, "x", now))
+        assertFalse("تعدادِ دیگر", isRepeatOf(last, ahmad, "ATTENDANCE_IN", 0, 3, "", now))
+        assertFalse("رسیدگی‌شده", isRepeatOf(last.copy(status = "APPROVED"), ahmad, "ATTENDANCE_IN", 0, 0, "", now))
+        assertFalse("کهنه", isRepeatOf(last, ahmad, "ATTENDANCE_IN", 0, 0, "", last.createdAt + REQUEST_REPEAT_WINDOW_MS + 1))
+        assertFalse("هیچ", isRepeatOf(null, ahmad, "ATTENDANCE_IN", 0, 0, "", now))
     }
 }

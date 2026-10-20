@@ -82,3 +82,43 @@ fun requestWorkerLabel(raw: String): String = raw.trim().take(REQUEST_WORKER_MAX
 fun ownsAssignment(a: SewingAssignment, worker: String): Boolean =
     requestWorkerLabel(a.tailorLabel).isNotEmpty() &&
         requestWorkerLabel(a.tailorLabel) == requestWorkerLabel(worker)
+
+/**
+ * چند دقیقه یک درخواستِ همسان هنوز «همان فشارِ دکمه» شمرده می‌شود.
+ *
+ * ده دقیقه: بیش از هر تلاشِ دوباره‌ای که کارگر بعد از پیامِ «وصل نشد»
+ * می‌کند، و کمتر از فاصلهٔ دو کارِ واقعیِ همسان.
+ */
+const val REQUEST_REPEAT_WINDOW_MS = 10 * 60 * 1000L
+
+/**
+ * آیا درخواستِ تازه همان [last] است که دوباره فرستاده شده؟
+ *
+ * **چرا لازم شد:** جوابِ سرور اگر به گوشی نرسد (وای‌فای لحظه‌ای قطع شود)،
+ * کارگر پیامِ «وصل نشد» می‌بیند و دوباره می‌زند — در حالی که اولی نشسته
+ * است. بی این، کارفرما دو ورود یا دو تحویلِ یکسان می‌دید.
+ *
+ * [last] **آخرین** درخواستِ همین کارگر است، نه هر درخواستی. فقط اگر
+ * آخرینِ او همین باشد، هنوز منتظر، و تازه، تکرار است. پس «ورود، خروج،
+ * ورود» در ده دقیقه سه درخواستِ جداست، چون وسطی آخرین را عوض کرده.
+ *
+ * این کار شناسهٔ مشتری نمی‌خواهد و طرحِ دیتابیس را عوض نمی‌کند؛ کلیدِ
+ * تکرارنشدنیِ واقعی با دفترِ ۶۷ می‌آید.
+ */
+fun isRepeatOf(
+    last: SyncRequest?,
+    worker: String,
+    type: String,
+    refId: Long,
+    amount: Int,
+    note: String,
+    now: Long,
+): Boolean =
+    last != null &&
+        last.status == "PENDING" &&
+        last.worker == worker &&
+        last.type == type &&
+        last.refId == refId &&
+        last.amount == amount &&
+        last.note == note &&
+        now - last.createdAt in 0L..REQUEST_REPEAT_WINDOW_MS

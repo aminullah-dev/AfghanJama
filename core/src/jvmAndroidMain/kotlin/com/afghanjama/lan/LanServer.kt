@@ -3,8 +3,12 @@ package com.afghanjama.lan
 import com.afghanjama.AppInfo
 import com.afghanjama.data.Db
 import com.afghanjama.data.entities.SyncRequest
+import com.afghanjama.data.entities.isRepeatOf
+import com.afghanjama.data.entities.ownsAssignment
+import com.afghanjama.data.entities.requestWorkerLabel
 import com.afghanjama.licence.LicenceGate
 import com.afghanjama.licence.LicenceText
+import com.afghanjama.util.nowMillis
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -12,6 +16,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedInputStream
@@ -52,6 +58,12 @@ class LanServer(
 
     private var socket: ServerSocket? = null
     private var scope: CoroutineScope? = null
+
+    /**
+     * فقط یک درخواست در هر لحظه در صندوق می‌نشیند. بی این، دو تلاشِ
+     * هم‌زمانِ یک کارگر هر دو «تکراری نیست» می‌دیدند و هر دو ثبت می‌شدند.
+     */
+    private val inbox = Mutex()
 
     @Volatile var running: Boolean = false
         private set
@@ -273,20 +285,55 @@ class LanServer(
             })
             return
         }
-        val id = db.syncRequestDao().insert(
-            SyncRequest(
-                deviceName = json.optString("device").take(60).ifBlank { "گوشی کارگر" },
-                worker = json.optString("worker").trim().take(60),
-                type = type,
-                summary = json.optString("summary").take(200),
-                refId = json.optLong("refId", 0L),
-                amount = json.optInt("amount", 0),
-                note = json.optString("note").take(300)
-            )
-        )
+        val worker = requestWorkerLabel(json.optString("worker"))
+        val refId = json.optLong("refId", 0L)
+        val amount = json.optInt("amount", 0)
+        val note = json.optString("note").take(300)
+
+        // «تمام شد» فقط برای کارِ خودِ همین کارگر. همین قاعده سرِ تأیید هم
+        // سنجیده می‌شود؛ اینجا فقط زودتر به خودِ کارگر گفته می‌شود.
+        if (type == "SEWING_DONE") {
+            val a = db.sewingAssignmentDao().getById(refId)
+            val refusal = when {
+                a == null -> "این کار پیدا نشد؛ «تازه‌سازی کارها» را بزنید."
+                !ownsAssignment(a, worker) -> "این کار به نامِ شما نیست."
+                a.status == "DONE" -> "این کار قبلاً تحویل شده."
+                else -> null
+            }
+            if (refusal != null) {
+                respond(client, 409, JSONObject().apply {
+                    put("ok", false); put("error", refusal)
+                })
+                return
+            }
+        }
+
+        val (id, repeated) = inbox.withLock {
+            val last = db.syncRequestDao().observeAll().first().firstOrNull { it.worker == worker }
+            if (isRepeatOf(last, worker, type, refId, amount, note, nowMillis())) {
+                // همان فشارِ دکمه، دوباره رسیده — همان ردیف را برمی‌گردانیم.
+                last!!.id to true
+            } else {
+                db.syncRequestDao().insert(
+                    SyncRequest(
+                        deviceName = json.optString("device").take(60).ifBlank { "گوشی کارگر" },
+                        worker = worker,
+                        type = type,
+                        summary = json.optString("summary").take(200),
+                        refId = refId,
+                        amount = amount,
+                        note = note
+                    )
+                ) to false
+            }
+        }
         respond(client, 200, JSONObject().apply {
             put("ok", true); put("id", id)
-            put("message", "درخواست ثبت شد و منتظرِ تأییدِ کارفرماست.")
+            put(
+                "message",
+                if (repeated) "این درخواست پیش‌تر رسیده بود و منتظرِ تأییدِ کارفرماست."
+                else "درخواست ثبت شد و منتظرِ تأییدِ کارفرماست."
+            )
         })
     }
 
