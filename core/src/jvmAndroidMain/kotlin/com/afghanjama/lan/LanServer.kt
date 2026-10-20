@@ -14,8 +14,9 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.InputStreamReader
+import java.io.BufferedInputStream
+import java.net.InetAddress
+import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.URLDecoder
@@ -37,12 +38,26 @@ import java.net.URLDecoder
  * با گرفتنِ `Db`، این سرور دیگر نمی‌داند روی چه چیزی اجرا می‌شود: گوشیِ
  * کارفرما یا پی‌سیِ دفتر. همان چیزی که فاز ۶ می‌خواست.
  */
-class LanServer(private val db: Db) {
+class LanServer(
+    private val db: Db,
+    /**
+     * نشانی‌ای که سرور روی آن گوش می‌دهد. `null` یعنی همهٔ کارت‌های شبکه
+     * — همان چیزی که دستگاهِ اصلی لازم دارد. آزمونِ دودی فقط loopback را
+     * می‌گیرد تا روی ماشینِ CI درگاهی رو به شبکه باز نکند.
+     */
+    private val bindAddress: InetAddress? = null,
+    /** درگاه؛ برنامه همیشه [Lan.PORT]. آزمون درگاهِ خودش را می‌دهد. */
+    private val port: Int = Lan.PORT,
+) {
 
     private var socket: ServerSocket? = null
     private var scope: CoroutineScope? = null
 
     @Volatile var running: Boolean = false
+        private set
+
+    /** درگاهی که واقعاً گرفته شد؛ صفر وقتی خاموش است. */
+    @Volatile var boundPort: Int = 0
         private set
 
     /** رمزِ اتصال؛ روی گوشیِ اصلی نمایش داده می‌شود و کارگر واردش می‌کند. */
@@ -52,17 +67,31 @@ class LanServer(private val db: Db) {
         if (running) return true
         code = pairCode.trim()
         if (code.isBlank()) return false
+        var opened: ServerSocket? = null
         return runCatching {
-            val s = ServerSocket(Lan.PORT)
-            s.reuseAddress = true
+            val s = ServerSocket().also { opened = it }
+            // **`reuseAddress` پیش از `bind`.** تا دیروز بعد از ساختنِ
+            // `ServerSocket(port)` گذاشته می‌شد — یعنی بعد از bind، جایی که
+            // دیگر هیچ اثری ندارد. پس روشن کردنِ دوبارهٔ اشتراک چند ثانیه
+            // بعد از خاموش کردنش (وقتی اتصال‌های قبلی هنوز در TIME_WAIT
+            // بودند) با «پورت باز نشد» رد می‌شد.
+            //
+            // روی ویندوز گذاشته نمی‌شود: آنجا همین پرچم یعنی برنامهٔ دیگری
+            // هم می‌تواند همین درگاه را بگیرد، و ویندوز TIME_WAIT را مانعِ
+            // گوش دادن نمی‌داند.
+            if (!onWindows) s.reuseAddress = true
+            s.bind(InetSocketAddress(bindAddress, port))
             socket = s
+            boundPort = s.localPort
             val sc = CoroutineScope(SupervisorJob() + Dispatchers.IO)
             scope = sc
             running = true
             sc.launch { acceptLoop(s, sc) }
             true
         }.getOrElse {
+            runCatching { opened?.close() }
             running = false
+            boundPort = 0
             false
         }
     }
@@ -71,6 +100,7 @@ class LanServer(private val db: Db) {
         running = false
         runCatching { socket?.close() }
         socket = null
+        boundPort = 0
         scope?.cancel()
         scope = null
     }
@@ -84,39 +114,21 @@ class LanServer(private val db: Db) {
 
     private suspend fun handle(client: Socket) {
         client.soTimeout = 10_000
-        val reader = BufferedReader(InputStreamReader(client.getInputStream()))
-        val requestLine = reader.readLine() ?: return
-        val parts = requestLine.split(" ")
-        if (parts.size < 2) return
-        val method = parts[0]
-        val target = parts[1]
-
-        // هدرها
-        var contentLength = 0
-        var givenCode = ""
-        while (true) {
-            val line = reader.readLine() ?: break
-            if (line.isBlank()) break
-            val i = line.indexOf(':')
-            if (i <= 0) continue
-            val key = line.substring(0, i).trim()
-            val value = line.substring(i + 1).trim()
-            when {
-                key.equals("Content-Length", true) -> contentLength = value.toIntOrNull() ?: 0
-                key.equals(Lan.HEADER_CODE, true) -> givenCode = value
+        // خواندنِ بایتی و UTF-8ِ صریح — داستانش در [LanWire].
+        val request = when (val r = LanWire.readRequest(BufferedInputStream(client.getInputStream()))) {
+            is LanWire.Read.Ok -> r.request
+            is LanWire.Read.Bad -> {
+                respond(client, r.status, JSONObject().apply {
+                    put("ok", false); put("error", r.message)
+                })
+                return
             }
+            LanWire.Read.Closed -> return
         }
-
-        val body = if (contentLength > 0) {
-            val buf = CharArray(contentLength)
-            var read = 0
-            while (read < contentLength) {
-                val n = reader.read(buf, read, contentLength - read)
-                if (n <= 0) break
-                read += n
-            }
-            String(buf, 0, read)
-        } else ""
+        val method = request.method
+        val target = request.target
+        val givenCode = request.header(Lan.HEADER_CODE).orEmpty()
+        val body = request.body
 
         val path = target.substringBefore('?')
         val query = target.substringAfter('?', "")
@@ -304,5 +316,8 @@ class LanServer(private val db: Db) {
         val ALLOWED_TYPES = setOf(
             "SEWING_DONE", "ATTENDANCE_IN", "ATTENDANCE_OUT", "NOTE"
         )
+
+        private val onWindows: Boolean =
+            System.getProperty("os.name").orEmpty().startsWith("Windows", ignoreCase = true)
     }
 }
