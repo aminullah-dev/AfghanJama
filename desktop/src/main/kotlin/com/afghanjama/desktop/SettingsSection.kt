@@ -51,6 +51,8 @@ import com.afghanjama.data.CsvExport
 import com.afghanjama.data.ResetPlan
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.desktop.data.DeskPrefs
+import com.afghanjama.desktop.data.DesktopAutoBackup
+import com.afghanjama.prefs.BackupPrefs
 import com.afghanjama.desktop.data.DesktopReset
 import com.afghanjama.platform.LocalFileExport
 import com.afghanjama.prefs.LocalSettings
@@ -224,12 +226,27 @@ private fun ExportCard(repo: Repo) {
 private fun stamp(): String =
     java.text.SimpleDateFormat("yyyyMMdd-HHmm", java.util.Locale.US).format(java.util.Date())
 
-/** پیوند به «پشتیبان و بازیابی» — هشدارِ پشتیبان اول اینجا می‌آورد. */
+/**
+ * پیوند به «پشتیبان و بازیابی» — هشدارِ پشتیبان اول اینجا می‌آورد، پس
+ * همین‌جا گفته می‌شود آخرین پشتیبانِ خودکار کِی بود.
+ */
 @Composable
 private fun BackupLinkCard(go: (Section) -> Unit) {
+    val settings = LocalSettings.current
+    val status by DesktopAutoBackup.status.collectAsState()
+    val lastAuto = remember(status) { BackupPrefs.lastAuto(settings) }
     AppCard(onClick = { go(Section.Backup) }) {
         CardTitle("پشتیبان و بازیابی")
-        CardHint("ساختنِ فایلِ پشتیبان از کلِ دفتر، و بازیابی از آن. همان قالبِ گوشی است.")
+        Text(
+            lastAutoText(lastAuto),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = if (lastAuto > 0L) Brand else Bad
+        )
+        CardHint(
+            "پشتیبانِ خودکار هر روز با عکس‌ها گرفته می‌شود. ساختنِ پشتیبانِ دستی، " +
+                "انتخابِ پوشه و بازیابی در همان بخش است."
+        )
     }
 }
 

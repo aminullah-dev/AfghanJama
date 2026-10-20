@@ -73,4 +73,14 @@ object DeskPrefs {
 
     /** گزینه‌هایی که «تنظیمات» نشان می‌دهد. */
     val IDLE_LOCK_CHOICES: List<Int> = listOf(0, 5, 10, 15, 30)
+
+    /**
+     * پوشهٔ پشتیبانِ خودکار. خالی یعنی پیش‌فرض: `backups/` کنارِ دفتر.
+     *
+     * کارفرما می‌تواند پوشه‌ای در iCloud Drive یا OneDrive بدهد تا پشتیبان
+     * از خودِ کامپیوتر هم بیرون برود.
+     */
+    fun backupFolder(s: Settings): String = s.getString(FILE, "backup_folder", "")
+
+    fun setBackupFolder(s: Settings, path: String) = s.putString(FILE, "backup_folder", path)
 }

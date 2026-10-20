@@ -22,12 +22,22 @@ import java.io.File
  * می‌شود و برعکس. همان انتقالی که کلِ نقشهٔ «پی‌سی میزبان شود» رویش
  * سوار است، حالا یک مسیرِ واقعی دارد.
  *
- * عکس‌ها اینجا نیستند (`photoDir = null`): دوربین و `PhotoStore`
- * اندرویدی‌اند. پشتیبانِ گوشی که عکس دارد روی پی‌سی باز می‌شود و
- * عکس‌هایش کنار گذاشته می‌شوند — دیتابیس کامل می‌آید و همان چیزی است که
- * دفترِ حساب را می‌سازد.
+ * **عکس‌ها هم هستند (از ۱.۱۰).** تا ۱.۹ اینجا `photoDir = null` بود:
+ * پشتیبانِ کامپیوتر عکسِ سفارش‌ها و لوگو را نداشت، و پشتیبانِ گوشی که
+ * عکس داشت روی کامپیوتر باز می‌شد و عکس‌هایش دور ریخته می‌شد — در حالی که
+ * کامپیوتر از اول عکس‌ها را در `order_photos` کنارِ دفتر نگه می‌داشت.
+ * حالا هر دو سو عکس دارند، پس «انتقالِ دفتر از گوشی به کامپیوتر» چیزی را
+ * جا نمی‌گذارد.
  */
 object DesktopBackup {
+
+    /**
+     * دفتر پس از بازیابی بسته است تا برنامه دوباره باز شود. پشتیبانِ خودکار
+     * در این فاصله کاری نمی‌کند — دفتری برای پشتیبان‌گیری باز نیست.
+     */
+    @Volatile
+    var ledgerClosed: Boolean = false
+        private set
 
     /** نامِ پیشنهادی؛ تاریخ در نام است تا پشتیبان‌ها روی هم نیفتند. */
     fun suggestedName(stamp: String): String = "KhayatYar-backup-$stamp.ajb"
@@ -38,10 +48,14 @@ object DesktopBackup {
      * بی `checkpoint` آخرین نوشته‌ها هنوز در `-wal`اند و پشتیبان ناقص
      * می‌شود — دقیقاً همان چند فاکتوری که تازه ثبت شده‌اند.
      */
-    fun backupTo(target: File): Result<Unit> = runCatching {
+    fun backupTo(target: File): Result<Unit> = backupWithPhotos(target).map { }
+
+    /** همان، با شمارِ عکس‌هایی که در پشتیبان رفت. */
+    fun backupWithPhotos(target: File): Result<Int> = runCatching {
+        if (ledgerClosed) error("دفتر پس از بازیابی بسته است؛ برنامه را ببندید و دوباره باز کنید.")
         val repo = DesktopLedger.repo().getOrThrow()
         repo.checkpoint()
-        writeBackup(databaseFile(), target)
+        writeBackup(databaseFile(), target, photosDir())
     }
 
     /**
@@ -51,10 +65,24 @@ object DesktopBackup {
      * گره خورده و آزمونی که آن را صدا بزند روی دادهٔ واقعی کار می‌کند.
      * ریسکِ این کد همه در همین‌جاست، پس همین‌جا باید آزموده شود.
      */
-    internal fun writeBackup(db: File, target: File) {
+    internal fun writeBackup(db: File, target: File, photoDir: File? = null): Int {
         if (!db.exists() || db.length() <= 0L) error("دفتری برای پشتیبان‌گیری نیست.")
-        target.outputStream().use { out ->
-            BackupArchiveIo.write(db, null, out)
+        // اول در فایلِ کنار، بعد جابه‌جا: پشتیبانِ نیمه‌نوشته (دیسکِ پر، برق)
+        // نباید با نامِ پشتیبانِ سالم روی دیسک بماند.
+        target.parentFile?.mkdirs()
+        val part = File(target.path + ".part")
+        try {
+            val photos = part.outputStream().use { out ->
+                BackupArchiveIo.write(db, photoDir, out)
+            }
+            target.delete()
+            if (!part.renameTo(target)) {
+                part.copyTo(target, overwrite = true)
+                part.delete()
+            }
+            return photos
+        } finally {
+            part.delete()
         }
     }
 
@@ -79,9 +107,10 @@ object DesktopBackup {
      * پس از موفقیت باید برنامه بسته و باز شود: `DesktopLedger` دفتر را
      * یک بار باز می‌کند و همان را نگه می‌دارد.
      */
-    fun restoreFrom(source: File): Result<Unit> = runCatching {
+    fun restoreFrom(source: File): Result<Int> = runCatching {
         val db = databaseFile()
-        val staged = stageAndValidate(source, db.parentFile)
+        val dir = db.parentFile
+        val staged = stageAndValidate(source, dir)
 
         // سرورِ اشتراکِ کارگاه همین دفتر را می‌نویسد؛ پیش از بستنِ دفتر
         // خاموش می‌شود تا درخواستِ گوشیِ کارگری وسطِ جایگزینی ننشیند.
@@ -89,10 +118,37 @@ object DesktopBackup {
         val repo = DesktopLedger.repo().getOrThrow()
         repo.checkpoint()
         repo.closeDatabase()
+        ledgerClosed = true
         File(db.path + "-wal").delete()
         File(db.path + "-shm").delete()
 
         swapIn(staged, db)
+        // عکس‌ها فقط پس از نشستنِ دفتر، و روی هم — عکسِ هم‌نامِ کامپیوتر
+        // جایش را به عکسِ پشتیبان می‌دهد، بقیه می‌مانند (همان کارِ گوشی).
+        adoptPhotos(stagedPhotos(dir), photosDir())
+    }
+
+    /** پوشه‌ای که عکس‌های پشتیبان پیش از سنجش در آن باز می‌شوند. */
+    internal fun stagedPhotos(dir: File): File = File(dir, "restore-photos")
+
+    /**
+     * عکس‌های بازشده را سرِ جایشان می‌گذارد و پوشهٔ موقت را پاک می‌کند.
+     *
+     * @return شمارِ عکس‌هایی که نشستند.
+     */
+    internal fun adoptPhotos(from: File, to: File): Int {
+        var n = 0
+        try {
+            val files = from.listFiles()?.filter { it.isFile && it.length() > 0 }.orEmpty()
+            if (files.isNotEmpty()) to.mkdirs()
+            files.forEach { f ->
+                f.copyTo(File(to, f.name), overwrite = true)
+                n++
+            }
+        } finally {
+            from.deleteRecursively()
+        }
+        return n
     }
 
     /**
@@ -119,25 +175,31 @@ object DesktopBackup {
             error("این فایل پشتیبانِ خیاط‌یار نیست.")
         }
 
-        // عکس‌ها روی ویندوز جایی ندارند؛ به پوشهٔ دورانداختنی می‌روند تا
-        // `extract` کارش را بکند و بعد پاک می‌شود.
-        val scratchPhotos = File(dir, "restore-photos")
+        // عکس‌ها اول در پوشهٔ موقت باز می‌شوند و فقط وقتی دفتر سنجیده و
+        // جایگزین شد سرِ جایشان می‌روند ([adoptPhotos]). اگر پشتیبان رد شود،
+        // پوشهٔ موقت پاک می‌شود و عکس‌های کامپیوتر دست نمی‌خورند.
+        val photoStage = stagedPhotos(dir)
+        photoStage.deleteRecursively()
         try {
             source.inputStream().use { input ->
                 if (format == BackupArchive.Format.ZIP) {
-                    val res = BackupArchiveIo.extract(input, staged, scratchPhotos)
+                    val res = BackupArchiveIo.extract(input, staged, photoStage)
                     if (!res.dbWritten) error("فایلِ پشتیبان دیتابیس ندارد.")
                 } else {
                     staged.outputStream().use { input.copyTo(it) }
                 }
             }
-        } finally {
-            scratchPhotos.deleteRecursively()
+            if (staged.length() <= 0L) error("فایلِ پشتیبان خالی است.")
+            validateStaged(staged)
+        } catch (t: Throwable) {
+            photoStage.deleteRecursively()
+            throw t
         }
+        return staged
+    }
 
-        if (staged.length() <= 0L) error("فایلِ پشتیبان خالی است.")
-
-        // ---- سنجش، پیش از هر دست‌زدنی به دفترِ زنده ----
+    /** نسخهٔ فایلِ بازشده — پیش از هر دست‌زدنی به دفترِ زنده. */
+    private fun validateStaged(staged: File) {
         val version = ledgerFileVersion(staged)
         when {
             version == null || version <= 0 -> {
@@ -169,8 +231,6 @@ object DesktopBackup {
                 )
             }
         }
-
-        return staged
     }
 
     /**
