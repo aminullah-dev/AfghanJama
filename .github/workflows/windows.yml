@@ -142,21 +142,29 @@ jobs:
       #
       # پس حالا خطای استاندارد هم خوانده می‌شود: هر استثنا یعنی قرمز،
       # حتی اگر فرایند زنده مانده باشد.
+      #
+      # **خروجی‌ها زیرِ `build/`، نه ریشهٔ مخزن.** `app-out.txt` و
+      # `app-err.txt` در ریشه فایلِ ثبت‌نشده بودند: `git status` از این پله
+      # به بعد درخت را ناتمیز می‌دید، پله‌های Gradleِ پایین `BuildInfo` را
+      # دوباره با `DIRTY = true` می‌ساختند و MSIِ همین کار «-dirty» می‌گفت.
+      # `/build/` در `.gitignore` است. فقط همین پله این دو فایل را می‌خواند.
       - name: مطمئن شو برنامه واقعاً بالا می‌آید
         shell: bash
         run: |
           exe=$(find desktop/build/compose/binaries -name 'KhayatYar.exe' | head -1)
           echo "اجرا: $exe"
-          "$exe" >app-out.txt 2>app-err.txt &
+          logs=build/launch
+          mkdir -p "$logs"
+          "$exe" >"$logs/app-out.txt" 2>"$logs/app-err.txt" &
           pid=$!
           sleep 25
           alive=0
           kill -0 "$pid" 2>/dev/null && alive=1
           kill "$pid" 2>/dev/null || true
 
-          if [ -s app-err.txt ]; then
+          if [ -s "$logs/app-err.txt" ]; then
             echo "✗ برنامه روی خطای استاندارد چیزی نوشت:"
-            cat app-err.txt
+            cat "$logs/app-err.txt"
             exit 1
           fi
 
@@ -165,8 +173,14 @@ jobs:
           else
             echo "✗ برنامه بی‌درنگ بسته شد."
             echo "  یعنی JVMِ همراه ناقص است یا برنامه سرِ شروع می‌ترکد."
-            cat app-out.txt || true
+            cat "$logs/app-out.txt" || true
             exit 1
+          fi
+
+          # همان چیزی که پله‌های بعد در `BuildInfo` می‌بینند.
+          if [ -n "$(git status --porcelain --untracked-files=normal)" ]; then
+            echo "::warning::درخت بعد از اجرای برنامه تمیز نیست؛ بسته‌های بعدی «-dirty» می‌گویند:"
+            git status --porcelain --untracked-files=normal
           fi
 
       # ---------------------------------------------------------------

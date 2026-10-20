@@ -80,6 +80,15 @@ jobs:
     needs: gate
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    # خروجی‌های دروازه از `env:` به پوسته می‌رسند (در هر چهار کارِ بعدی)،
+    # نه با `${{ }}` درونِ `run:`. آنجا مقدار پیش از اجرا در متنِ اسکریپت
+    # جا می‌گیرد و اگر روزی چیزی جز عدد و هگز باشد، تکه‌ای از فرمان
+    # می‌شود. از `env:` فقط مقدار است.
+    env:
+      GATE_VERSION: ${{ needs.gate.outputs.version }}
+      GATE_CODE: ${{ needs.gate.outputs.code }}
+      GATE_COMMIT: ${{ needs.gate.outputs.commit }}
+      GATE_CHANNEL: ${{ needs.gate.outputs.channel }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -103,20 +112,20 @@ jobs:
       - name: مطمئن شو همان نسخه و کامیت است
         run: |
           python3 tools/release/verify-build.py \
-            --commit "${{ needs.gate.outputs.commit }}" \
-            --channel "${{ needs.gate.outputs.channel }}"
+            --commit "$GATE_COMMIT" \
+            --channel "$GATE_CHANNEL"
 
           apk=$(ls app/build/outputs/apk/release/*.apk | head -1)
           aapt2=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)aapt2
           badge=$("$aapt2" dump badging "$apk" | head -1)
           echo "$badge"
-          echo "$badge" | grep -q "versionCode='${{ needs.gate.outputs.code }}'" \
+          echo "$badge" | grep -qF "versionCode='$GATE_CODE'" \
             || { echo "::error::versionCode در APK همان appVersionCode نیست"; exit 1; }
-          echo "$badge" | grep -q "versionName='${{ needs.gate.outputs.version }}'" \
+          echo "$badge" | grep -qF "versionName='$GATE_VERSION'" \
             || { echo "::error::versionName در APK همان appVersion نیست"; exit 1; }
 
           mkdir -p dist
-          cp "$apk" "dist/KhayatYar-${{ needs.gate.outputs.version }}-unsigned.apk"
+          cp "$apk" "dist/KhayatYar-$GATE_VERSION-unsigned.apk"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -129,6 +138,11 @@ jobs:
     needs: gate
     runs-on: macos-latest
     timeout-minutes: 40
+    env:
+      GATE_VERSION: ${{ needs.gate.outputs.version }}
+      GATE_CODE: ${{ needs.gate.outputs.code }}
+      GATE_COMMIT: ${{ needs.gate.outputs.commit }}
+      GATE_CHANNEL: ${{ needs.gate.outputs.channel }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -152,19 +166,19 @@ jobs:
       - name: مطمئن شو همان نسخه و کامیت است
         run: |
           python3 tools/release/verify-build.py \
-            --commit "${{ needs.gate.outputs.commit }}" \
-            --channel "${{ needs.gate.outputs.channel }}" \
+            --commit "$GATE_COMMIT" \
+            --channel "$GATE_CHANNEL" \
             --jars desktop/build/compose/binaries/main/app
 
           plist=$(find desktop/build/compose/binaries/main/app -maxdepth 3 -path '*KhayatYar.app/Contents/Info.plist' | head -1)
           short=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$plist")
           echo "CFBundleShortVersionString=$short"
-          [ "$short" = "${{ needs.gate.outputs.version }}" ] \
+          [ "$short" = "$GATE_VERSION" ] \
             || { echo "::error::نسخهٔ بستهٔ مک همان appVersion نیست"; exit 1; }
 
           dmg=$(ls desktop/build/compose/binaries/main/dmg/*.dmg | head -1)
           mkdir -p dist
-          cp "$dmg" "dist/KhayatYar-${{ needs.gate.outputs.version }}-unsigned.dmg"
+          cp "$dmg" "dist/KhayatYar-$GATE_VERSION-unsigned.dmg"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -177,6 +191,11 @@ jobs:
     needs: gate
     runs-on: windows-latest
     timeout-minutes: 40
+    env:
+      GATE_VERSION: ${{ needs.gate.outputs.version }}
+      GATE_CODE: ${{ needs.gate.outputs.code }}
+      GATE_COMMIT: ${{ needs.gate.outputs.commit }}
+      GATE_CHANNEL: ${{ needs.gate.outputs.channel }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -205,17 +224,17 @@ jobs:
         shell: bash
         run: |
           python tools/release/verify-build.py \
-            --commit "${{ needs.gate.outputs.commit }}" \
-            --channel "${{ needs.gate.outputs.channel }}" \
+            --commit "$GATE_COMMIT" \
+            --channel "$GATE_CHANNEL" \
             --jars desktop/build/compose/binaries/main/app
 
           msi=$(ls desktop/build/compose/binaries/main/msi/*.msi | head -1)
           case "$msi" in
-            *"-${{ needs.gate.outputs.version }}.msi") ;;
-            *) echo "::error::نامِ MSI نسخهٔ ${{ needs.gate.outputs.version }} را ندارد: $msi"; exit 1 ;;
+            *"-$GATE_VERSION.msi") ;;
+            *) echo "::error::نامِ MSI نسخهٔ $GATE_VERSION را ندارد: $msi"; exit 1 ;;
           esac
           mkdir -p dist
-          cp "$msi" "dist/KhayatYar-${{ needs.gate.outputs.version }}.msi"
+          cp "$msi" "dist/KhayatYar-$GATE_VERSION.msi"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -228,6 +247,11 @@ jobs:
     needs: [gate, android, macos, windows]
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      GATE_VERSION: ${{ needs.gate.outputs.version }}
+      GATE_CODE: ${{ needs.gate.outputs.code }}
+      GATE_COMMIT: ${{ needs.gate.outputs.commit }}
+      GATE_CHANNEL: ${{ needs.gate.outputs.channel }}
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -250,7 +274,7 @@ jobs:
       - name: خلاصه
         run: |
           {
-            echo "## خیاط‌یار ${{ needs.gate.outputs.version }} (${{ needs.gate.outputs.code }}) — کامیتِ ${{ needs.gate.outputs.commit }}، کانالِ ${{ needs.gate.outputs.channel }}"
+            echo "## خیاط‌یار $GATE_VERSION ($GATE_CODE) — کامیتِ $GATE_COMMIT، کانالِ $GATE_CHANNEL"
             echo
             echo '```'
             cat dist/SHA256SUMS

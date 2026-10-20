@@ -86,7 +86,8 @@ ksp {
  *
  *   - `VERSION` و `CODE` از `gradle.properties` — همان منبعی که APK،
  *     MSI، DMG و (از راهِ `tools/release/ios-version.sh`) آیفون می‌خوانند.
- *   - `COMMIT` هفت حرفِ اولِ کامیت (`local` اگر گیت نبود).
+ *   - `COMMIT` کامیتِ کوتاه با `git rev-parse --short=7`: دستِ‌کم هفت حرف،
+ *     و بیشتر اگر هفت حرف در مخزن یکتا نباشد (`local` اگر گیت نبود).
  *   - `CHANNEL` فقط وقتی `release` است که HEAD **دقیقاً** روی تگِ
  *     `v$appVersion` باشد (`git describe --exact-match`) و درخت تمیز. هر
  *     ساختِ دیگری `test build` است — از جمله ساختِ محلیِ کارفرما از روی
