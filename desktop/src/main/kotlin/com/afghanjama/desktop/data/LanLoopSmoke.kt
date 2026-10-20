@@ -86,8 +86,10 @@ private fun loopNeed(cond: Boolean, msg: String) {
  */
 private class FakeHost(private val db: Db, @Volatile var nets: Map<String, LanNetwork>) : LanHost {
     override val deviceName: String = "میزِ آزمون"
+    /** چند بار شبکه دیده شد — روی کامپیوترِ واقعی هر بار یعنی اجرای `route` و `arp`. */
+    @Volatile var looked = 0
     override fun localIp(): String? = nets.keys.firstOrNull()
-    override fun networks(): Map<String, LanNetwork> = nets
+    override fun networks(): Map<String, LanNetwork> = nets.also { looked++ }
     override fun ledger(): Db = db
 }
 
@@ -202,6 +204,66 @@ fun main() {
             loopNeed(runBlocking { client.board() } is LanResult.Err, "ten wrong codes did not shut this phone out")
             loopNeed(server.changeCode(code), "changeCode refused")
             loopNeed(runBlocking { client.board() } is LanResult.Ok, "the block survived a new code")
+        }
+
+        loopCheck("forty wrong codes sent at once still get only ten answers; the rest are shut out") {
+            // هر اتصال روی رشتهٔ خودش سنجیده می‌شود. اگر «بسته است؟» و «یک
+            // نادرستِ دیگر» دو قدمِ جدا باشند، چهل حدسِ هم‌زمان همه از قدمِ
+            // اول می‌گذرند پیش از آنکه دهمی ثبت شود — و سقف دیگر ده نیست.
+            loopNeed(runBlocking { client.board() } is LanResult.Ok, "the right code was refused before the burst")
+            val n = 40
+            val head = "GET /board HTTP/1.1\r\nX-Workshop-Code: 000000\r\n\r\n".toByteArray(Charsets.ISO_8859_1)
+            val sockets = List(n) { Socket(InetAddress.getLoopbackAddress(), port).apply { soTimeout = 5_000 } }
+            val go = java.util.concurrent.CountDownLatch(1)
+            val statuses = java.util.concurrent.ConcurrentLinkedQueue<String>()
+            val senders = sockets.map { s ->
+                thread {
+                    s.use {
+                        go.await()
+                        runCatching {
+                            it.getOutputStream().apply { write(head); flush() }
+                            statuses += it.getInputStream().readBytes().toString(Charsets.UTF_8).lineSequence().first()
+                        }
+                    }
+                }
+            }
+            go.countDown()
+            senders.forEach { it.join(10_000) }
+            // بستنِ همین نشانی (loopback) بندهای بعدی را نگیرد، چه این بند قبول شود چه نه.
+            val wrong = statuses.count { it.startsWith("HTTP/1.1 401") }
+            val shut = statuses.count { it.startsWith("HTTP/1.1 429") }
+            loopNeed(server.changeCode(code), "changeCode refused")
+            loopNeed(
+                wrong == LanGuard.MAX_FAILURES && shut == n - wrong,
+                "$wrong answered as a wrong code and $shut shut out, of $n guesses sent at once"
+            )
+        }
+
+        loopCheck("an IPv6 peer is turned away (it can take a fresh address for every ten guesses)") {
+            val v6 = runCatching { InetAddress.getByName("::1") }.getOrNull()
+            val p6 = freeLoopbackPort()
+            val s6 = v6?.let { LanServer(db, it, p6) }
+            if (s6 == null || !s6.start(code)) {
+                println("        (no IPv6 loopback here - skipped)")
+                return@loopCheck
+            }
+            try {
+                val s = runCatching { Socket(v6, p6) }.getOrElse {
+                    throw IllegalStateException("could not reach the IPv6 test server: $it")
+                }
+                // سرور بی جواب می‌بندد؛ خواندن یا هیچ برمی‌گرداند یا «reset» —
+                // هر دو یعنی هیچ بایتی از دفتر نرسید.
+                val got = s.use {
+                    it.soTimeout = 5_000
+                    runCatching {
+                        it.getOutputStream().apply { write("GET /ping HTTP/1.1\r\n\r\n".toByteArray(Charsets.ISO_8859_1)); flush() }
+                        it.getInputStream().readBytes().size
+                    }.getOrDefault(0)
+                }
+                loopNeed(got == 0, "an IPv6 peer got $got bytes back")
+            } finally {
+                s6.stop()
+            }
         }
 
         val text = "خیاط احمد کارِ سفارشِ ۱۲ را تمام کرد؛ آستین‌ها را دوباره دوخت. ".repeat(10).take(300)
@@ -508,6 +570,26 @@ fun main() {
             old.autoStart(fresh, FakeHost(db, mapOf("192.168.77.7" to workshop)))
             loopNeed(waitFor(3_000) { old.state.value.off == HubOff.NEW_NETWORK }, "state ${old.state.value}")
             loopNeed(!listening(p3), "an unknown network was trusted")
+        }
+
+        loopCheck("after a restore, the next opening of the app shares again (a phone's process outlives «close the app»)") {
+            hub.stopForRestore()
+            loopNeed(!listening(hubPort), "stopForRestore left the port open")
+            hub.autoStart(hubSettings, host)
+            loopNeed(waitFor(3_000) { hub.state.value.serving }, "not serving after restore and reopening: ${hub.state.value}")
+            loopNeed(runBlocking { hubClient.ping() } is LanResult.Ok, "serving but not answering")
+        }
+
+        loopCheck("a device that is not the main one never looks at the network (no route/arp at every launch)") {
+            val plain = FileSettings(File(dir, "plain-settings"))
+            val probe = FakeHost(db, mapOf("192.168.77.7" to workshop))
+            val p4 = freeLoopbackPort()
+            val idle = LanHub(InetAddress.getLoopbackAddress(), p4, licenceLoaded = {}, offIntervalMs = 100, onIntervalMs = 100)
+            extraHubs += idle
+            idle.autoStart(plain, probe)
+            loopNeed(waitFor(3_000) { idle.state.value.off == HubOff.NOT_MAIN }, "state ${idle.state.value}")
+            loopNeed(probe.looked == 0, "a device that is not the main one looked at the network ${probe.looked} times")
+            loopNeed(!listening(p4), "a device that is not the main one bound")
         }
 
         hub.stop()

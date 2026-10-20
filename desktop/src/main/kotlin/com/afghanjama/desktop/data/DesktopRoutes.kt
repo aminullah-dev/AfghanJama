@@ -4,6 +4,7 @@ import com.afghanjama.lan.DefaultRoute
 import com.afghanjama.lan.LanNetwork
 import com.afghanjama.lan.RouteTable
 import java.io.File
+import java.net.InetAddress
 import java.util.concurrent.TimeUnit
 
 /**
@@ -31,7 +32,28 @@ internal object DesktopRoutes {
         else -> run(tool("/usr/sbin/ip", "/sbin/ip", "ip"), "-4", "route", "show", "default")?.let { RouteTable.parseIpRoute(it) }
     }.orEmpty()
 
-    fun mac(ip: String): String? = when {
+    /**
+     * نشانیِ سخت‌افزاریِ [ip] (مودم) از جدولِ ARP.
+     *
+     * **اگر نبود، یک بار مودم را صدا می‌زند و دوباره می‌خوانَد.** سیستم
+     * نشانیِ مودم را فقط وقتی در جدول دارد که تازگی چیزی برایش فرستاده
+     * باشد. بی این، کامپیوتری که تازه بیدار شده یا کارگاهی که اینترنت ندارد
+     * نشانی را «نمی‌دانم» می‌دید: سرِ «روشن» شبکهٔ کارگاه بی آن به یاد
+     * سپرده می‌شد (و دیگر هرگز چایخانهٔ هم‌مدل را جدا نمی‌کرد)، و در
+     * چایخانه تا یک دقیقه، تا بارِ بعدیِ دیدن، اشتراک باز می‌ماند.
+     * صدا زدن با `isReachable` است (روی ویندوز ICMP، جای دیگر اتصالِ TCP
+     * به درگاهِ ۷): فقط بیرون می‌رود و درگاهی باز نمی‌کند، پس پنجرهٔ
+     * دیوارِ آتشِ ویندوز را هم بالا نمی‌آورد.
+     */
+    fun mac(ip: String): String? {
+        readMac(ip)?.let { return it }
+        runCatching { InetAddress.getByName(ip).isReachable(POKE_MS) }
+        return readMac(ip)
+    }
+
+    private const val POKE_MS = 300
+
+    private fun readMac(ip: String): String? = when {
         onWindows -> run("arp", "-a", ip)
         onMac -> run(tool("/usr/sbin/arp", "arp"), "-n", ip)
         else -> run(tool("/usr/sbin/ip", "/sbin/ip", "ip"), "neigh", "show", ip)

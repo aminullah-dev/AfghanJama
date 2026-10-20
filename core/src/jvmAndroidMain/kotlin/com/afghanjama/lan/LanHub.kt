@@ -2,6 +2,7 @@ package com.afghanjama.lan
 
 import com.afghanjama.data.Db
 import com.afghanjama.licence.LicenceGate
+import com.afghanjama.prefs.DeviceMode
 import com.afghanjama.prefs.LanPrefs
 import com.afghanjama.prefs.Settings
 import kotlinx.coroutines.CoroutineScope
@@ -142,6 +143,23 @@ class LanHub(
     }
 
     /**
+     * دفتر بازیابی می‌شود: مثلِ [stop]، ولی بارِ بعدی که برنامه باز شود
+     * ([autoStart]) دوباره خودش روشن می‌کند.
+     *
+     * روی گوشی «بستنِ اپ» پس از بازیابی پروسه را نمی‌کُشد و `App.onCreate`
+     * دوباره اجرا نمی‌شود؛ با [stop]ِ ساده اشتراک تا مرگِ پروسه خاموش
+     * می‌ماند، در حالی که صفحه می‌گفت «دفعهٔ بعد که برنامه باز شود خودش
+     * روشن می‌شود». `MainActivity` هم [autoStart] را صدا می‌زند؛ بی این،
+     * آن صدا هیچ نمی‌کند.
+     */
+    fun stopForRestore() {
+        synchronized(lock) {
+            stop()
+            autoStarted = false
+        }
+    }
+
+    /**
      * رمزِ تازه، بی بستنِ درگاه؛ گوشی‌هایی که با رمزِ کهنه بسته شده بودند
      * باز می‌شوند ([LanServer.changeCode]). اگر خاموش است، بارِ بعد که
      * روشن شود رمزِ تازه را از تنظیمات می‌خوانَد.
@@ -178,8 +196,16 @@ class LanHub(
                 if (!wanted) return
                 (settings ?: return) to (lan ?: return)
             }
-            val current = runCatching { l.networks().values }.getOrDefault(emptyList())
-            val off = AutoStartRule.decide(LanPrefs.mode(s), LanPrefs.code(s), remembered, current)
+            val mode = LanPrefs.mode(s)
+            val code = LanPrefs.code(s)
+            val known = remembered
+            // شبکه فقط وقتی دیده می‌شود که به کار بیاید: روی کامپیوتر یعنی
+            // اجرای `route`/`arp`، و کامپیوتری که اصلاً «اصلی» نیست نباید سرِ
+            // هر باز شدن ابزارِ سیستم اجرا کند.
+            val current = if (mode == DeviceMode.MAIN && code.isNotBlank() && known != null) {
+                runCatching { l.networks().values }.getOrDefault(emptyList())
+            } else emptyList()
+            val off = AutoStartRule.decide(mode, code, known, current)
             val serving = synchronized(lock) {
                 if (!wanted) return
                 val running = server?.running == true

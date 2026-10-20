@@ -1,6 +1,7 @@
 package com.afghanjama.lan
 
 import com.afghanjama.ui.format.fa
+import java.net.InetAddress
 import java.security.MessageDigest
 
 /**
@@ -21,8 +22,9 @@ import java.security.MessageDigest
  * سقف نمی‌رسند. رمزِ درست شمارِ نادرست‌ها را پاک می‌کند، و «رمز تازه»
  * ([reset]) همه را: حدس‌های رمزِ قبلی دیگر به چیزی نزدیک نمی‌کنند.
  *
- * **چیزی که این نمی‌بندد:** کسی که روی همان شبکه چند نشانی بگیرد، از هر
- * نشانی همان ده حدس را دارد. بستنِ کامل با جفت کردنِ دستگاه‌ها می‌آید
+ * **چیزی که این نمی‌بندد:** کسی که روی همان شبکه چند نشانیِ IPv4 بگیرد، از
+ * هر نشانی همان ده حدس را دارد. (IPv6، که نشانی‌اش بی‌شمار است، اصلاً
+ * پذیرفته نمی‌شود: [peerKey].) بستنِ کامل با جفت کردنِ دستگاه‌ها می‌آید
  * (فازِ B)؛ این فقط حدس زدن را از چند دقیقه به روزها می‌کشاند.
  *
  * بی `org.json` و بی اندروید است تا آزمونِ JVMِ `:app` بسنجدش.
@@ -42,6 +44,43 @@ class LanGuard(
     }
 
     private val peers = HashMap<String, Peer>()
+
+    /** حکمِ یک درخواست. */
+    sealed interface Verdict {
+        /** رمز درست است و نشانی باز. */
+        data object Pass : Verdict
+
+        /** رمز نادرست است؛ شمرده شد. */
+        data object Wrong : Verdict
+
+        /** نشانی بسته است، رمز هر چه باشد. */
+        data class Blocked(val waitMs: Long) : Verdict
+    }
+
+    /**
+     * حکمِ یک درخواست از [peer] — «بسته است؟» و «یک نادرستِ دیگر» **در یک
+     * قفل**.
+     *
+     * سرور هر اتصال را روی رشتهٔ خودش می‌سنجد. تا وقتی این دو قدم جدا
+     * بودند ([blockedFor] و بعد [failed])، چهل حدسِ هم‌زمان از یک نشانی
+     * همه از قدمِ اول می‌گذشتند پیش از آنکه دهمی ثبت شود؛ `lanLoopSmoke`
+     * یازده جوابِ «رمز نادرست» دید، نه ده. حالا هر حدس پس از حدسِ قبلی
+     * داوری می‌شود و سقف دقیقاً ده است.
+     *
+     * [codeOk] پیش از این صدا با [sameCode] حساب می‌شود، تا زمانِ مقایسه
+     * به بسته بودن یا نبودن ربطی نداشته باشد.
+     */
+    @Synchronized
+    fun admit(peer: String, codeOk: Boolean): Verdict {
+        val wait = blockedFor(peer)
+        if (wait > 0) return Verdict.Blocked(wait)
+        if (codeOk) {
+            succeeded(peer)
+            return Verdict.Pass
+        }
+        failed(peer)
+        return Verdict.Wrong
+    }
 
     /** چند میلی‌ثانیهٔ دیگر این نشانی بسته است؛ صفر یعنی باز. */
     @Synchronized
@@ -104,6 +143,28 @@ class LanGuard(
 
         /** بیشترین نشانی‌ای که در حافظه دنبال می‌شود. */
         const val MAX_PEERS = 1024
+
+        /**
+         * کلیدِ نگهبان برای نشانیِ [address]؛ `null` یعنی «جواب نده».
+         *
+         * **فقط IPv4.** سرور روی همهٔ کارت‌ها گوش می‌دهد و جاوا با آن
+         * همهٔ اتصال‌های IPv6 را هم می‌پذیرد (حتی وقتی صریحاً `0.0.0.0`
+         * داده شود). روی IPv6 هر دستگاهی در شبکه می‌تواند برای هر ده حدس
+         * نشانیِ تازه‌ای بگیرد (`fe80::…` بی‌شمار است)، پس سقفِ «هر نشانی»
+         * آنجا هیچ است. گوشیِ کارگر هم هرگز از IPv6 نمی‌آید: QR و
+         * [HostAddress.isPrivate] فقط نشانیِ IPv4 می‌شناسند.
+         *
+         * نشانیِ IPv4ِ پیچیده در IPv6 (`::ffff:192.168.1.5`) همان IPv4 است؛
+         * جاوا و اندروید معمولاً خودشان بازش می‌کنند، این‌جا هم برای اطمینان.
+         */
+        fun peerKey(address: InetAddress?): String? {
+            val b = address?.address ?: return null
+            if (b.size == 4) return address.hostAddress
+            val mapped = b.size == 16 && (0 until 10).all { b[it] == 0.toByte() } &&
+                b[10] == 0xFF.toByte() && b[11] == 0xFF.toByte()
+            if (!mapped) return null
+            return (12 until 16).joinToString(".") { (b[it].toInt() and 0xFF).toString() }
+        }
 
         /**
          * رمزی که آمده همان رمزِ این دستگاه است؟ — با زمانِ ثابت.

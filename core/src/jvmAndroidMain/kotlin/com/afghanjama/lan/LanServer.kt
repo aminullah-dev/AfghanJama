@@ -144,6 +144,10 @@ class LanServer(
     }
 
     private suspend fun handle(client: Socket) {
+        // فقط IPv4 — روی IPv6 هر دستگاه نشانیِ بی‌شمار دارد و سقفِ رمزِ
+        // «هر نشانی» بی‌معنا می‌شد (داستانش در [LanGuard.peerKey]). بی جواب
+        // بسته می‌شود؛ هیچ گوشیِ کارگری از این راه نمی‌آید.
+        val peer = LanGuard.peerKey(client.inetAddress) ?: return
         client.soTimeout = 10_000
         // خواندنِ بایتی و UTF-8ِ صریح — داستانش در [LanWire].
         val request = when (val r = LanWire.readRequest(BufferedInputStream(client.getInputStream()))) {
@@ -176,28 +180,29 @@ class LanServer(
             return
         }
 
-        // سقفِ رمزِ نادرست برای هر نشانی (داستانش در [LanGuard]). نشانیِ
-        // بسته حتی با رمزِ درست هم پذیرفته نمی‌شود؛ وگرنه همین که بسته
-        // نمی‌ماند می‌گفت کدام حدس درست بوده.
-        val peer = client.inetAddress?.hostAddress.orEmpty()
-        val wait = guard.blockedFor(peer)
-        if (wait > 0) {
-            respond(client, 429, JSONObject().apply {
-                put("ok", false); put("error", LanGuard.blockedMessage(wait))
-            })
-            return
-        }
-
         // مقایسه با زمانِ ثابت ([LanGuard.sameCode]): `!=` در اولین حرفِ
         // ناجور برمی‌گشت و زمانِ جواب نشان می‌داد چند رقمِ اولِ رمز درست بوده.
-        if (!LanGuard.sameCode(givenCode, code)) {
-            guard.failed(peer)
-            respond(client, 401, JSONObject().apply {
-                put("ok", false); put("error", "رمزِ اتصال درست نیست.")
-            })
-            return
+        val codeOk = LanGuard.sameCode(givenCode, code)
+
+        // سقفِ رمزِ نادرست برای هر نشانی (داستانش در [LanGuard]) — یک حکم در
+        // یک قفل، تا حدس‌های هم‌زمان از کنارِ هم نگذرند. نشانیِ بسته حتی با
+        // رمزِ درست هم پذیرفته نمی‌شود؛ وگرنه همین که بسته نمی‌ماند می‌گفت
+        // کدام حدس درست بوده.
+        when (val verdict = guard.admit(peer, codeOk)) {
+            is LanGuard.Verdict.Blocked -> {
+                respond(client, 429, JSONObject().apply {
+                    put("ok", false); put("error", LanGuard.blockedMessage(verdict.waitMs))
+                })
+                return
+            }
+            LanGuard.Verdict.Wrong -> {
+                respond(client, 401, JSONObject().apply {
+                    put("ok", false); put("error", "رمزِ اتصال درست نیست.")
+                })
+                return
+            }
+            LanGuard.Verdict.Pass -> Unit
         }
-        guard.succeeded(peer)
 
         when {
             method == "GET" && path == Lan.PATH_MY_WORK -> serveMyWork(client, param(query, "worker"))
