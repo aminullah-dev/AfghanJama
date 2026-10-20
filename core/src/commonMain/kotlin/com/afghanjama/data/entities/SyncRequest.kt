@@ -56,3 +56,29 @@ fun syncRequestLabel(type: String): String = when (type) {
     "NOTE" -> "پیام"
     else -> type
 }
+
+/** دو نوعِ درخواستِ حضور؛ این دو به ترتیبِ زمانِ رسیدن ثبت می‌شوند. */
+val ATTENDANCE_REQUEST_TYPES = setOf("ATTENDANCE_IN", "ATTENDANCE_OUT")
+
+/** بیشترین طولِ برچسبِ کارگر در صندوقِ درخواست‌ها. */
+const val REQUEST_WORKER_MAX = 60
+
+/**
+ * برچسبِ کارگر همان‌طور که در صندوق می‌نشیند.
+ *
+ * سرور همین را ذخیره می‌کند و تأیید هم با همین می‌سنجد؛ اگر هر کدام برشِ
+ * خودش را داشت، برچسبِ بلندتر از ۶۰ حرف هرگز با صاحبِ کار جور نمی‌شد.
+ */
+fun requestWorkerLabel(raw: String): String = raw.trim().take(REQUEST_WORKER_MAX)
+
+/**
+ * آیا این کارِ دوخت مالِ همین کارگر است؟
+ *
+ * **چرا لازم شد:** تأییدِ «تحویلِ دوخت» فقط می‌دید که کار هست و تمام
+ * نشده — هرگز نمی‌پرسید به نامِ کیست. پس گوشیِ یک خیاط می‌توانست کارِ
+ * خیاطِ دیگری را «تمام شد» بزند و کارمزدِ آن به حسابِ صاحبِ کار برود بی
+ * آنکه او چیزی دوخته باشد. هم سرور سرِ رسیدن این را می‌پرسد و هم تأیید.
+ */
+fun ownsAssignment(a: SewingAssignment, worker: String): Boolean =
+    requestWorkerLabel(a.tailorLabel).isNotEmpty() &&
+        requestWorkerLabel(a.tailorLabel) == requestWorkerLabel(worker)
