@@ -6,6 +6,8 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.afghanjama.data.AppDb
 import com.afghanjama.data.repo.Repo
+import com.afghanjama.lan.AndroidLanHost
+import com.afghanjama.lan.LanHub
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.prefs.SalePrefs
 import com.afghanjama.prefs.settings
@@ -69,6 +71,14 @@ class App : Application() {
         // سیاستِ فروش پیش از هر کارِ دیگری خوانده می‌شود، چون `Repo` به
         // Context دسترسی ندارد و از نسخهٔ حافظه‌ایِ همین می‌خواند.
         SalePrefs.allowNegativeStock(settings)
+
+        // اشتراکِ کارگاه — **یک بار در هر پروسه**، نه هر بار که اکتیویتی
+        // ساخته می‌شود. اگر این گوشیِ اصلی است، همین که لایسنس خوانده شد
+        // (`LicenceHeartbeat`ِ `MainActivity`) و گوشی روی شبکهٔ کارگاه بود،
+        // خودش روشن می‌شود؛ پیش از آن «نوشتن مجاز است» پیش‌فرض است و نباید
+        // درخواستی بنشیند. پروسه‌ای که فقط برای یک کارِ پس‌زمینه بالا آمده
+        // و اکتیویتی ندارد، لایسنس نمی‌خوانَد و سرور هم روشن نمی‌کند.
+        LanHub.shared.autoStart(settings, AndroidLanHost(this))
 
         CoroutineScope(Dispatchers.IO).launch {
             runCatching { BreakReminderWorker.rescheduleAll(this@App) }

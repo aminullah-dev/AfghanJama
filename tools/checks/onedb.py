@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""یک دفتر در هر پروسهٔ اندروید — و کسی آن را نمی‌بندد.
+"""یک دفتر در هر پروسهٔ اندروید — و کسی آن را نمی‌بندد؛ یک سرورِ کارگاه در هر برنامه.
 
 **اشکالی که این بررسی را ساخت** (تا ۱.۹.۱، روی گوشیِ اصلیِ اندرویدی):
 
@@ -18,6 +18,10 @@ Room فقط تغییرهای **همان نمونه** را به `Flow`هایش خ
   ۲ نمونه‌ای که از `AppDb.get` آمده بسته نشود (`.close()`)؛ بستن فقط
     کارِ بازیابیِ پشتیبان است، از راهِ `repo.closeDatabase()` و پس از آن
     `AppDb.forget()`.
+  ۳ `LanServer(` فقط در `LanHub` ساخته شود (و در آزمونِ دودیِ loopback).
+    تا ۱.۹.۱ صفحهٔ «اشتراکِ کارگاه» سرورِ خودش را می‌ساخت و با بسته شدنش
+    خاموشش می‌کرد، و `DesktopServer` سرورِ دومی بود که برنامه هرگز صدایش
+    نمی‌زد. سرورِ دوم یعنی دو صاحب برای یک درگاه.
 """
 import re
 import sys
@@ -48,6 +52,25 @@ def builder_calls(name: str, kt: str) -> list[str]:
             continue  # خودِ تعریف
         lineno = src.count("\n", 0, m.start()) + 1
         out.append(f"خطِ {lineno}: `buildAppDatabase` جدا صدا زده شده — `AppDb.get(context)` بگیرید.")
+    return out
+
+
+SERVER_OWNERS = {"LanHub.kt", "LanLoopSmoke.kt"}
+
+
+def server_builds(name: str, kt: str) -> list[str]:
+    """ساختنِ `LanServer` بیرون از `LanHub`؛ خالی یعنی سالم."""
+    if name in SERVER_OWNERS:
+        return []
+    src = strip(kt)
+    out = []
+    # `\b`، نه «بی نقطه پیش از آن»: `com.afghanjama.lan.LanServer(` هم ساختن است.
+    for m in re.finditer(r"\bLanServer\s*\(", src):
+        line_start = src.rfind("\n", 0, m.start()) + 1
+        if re.match(r"\s*(?:\w+\s+)*class\s+LanServer", src[line_start:m.start() + 10]):
+            continue  # خودِ تعریف
+        lineno = src.count("\n", 0, m.start()) + 1
+        out.append(f"خطِ {lineno}: `LanServer` جدا ساخته شده — سرور مالِ `LanHub.shared` است.")
     return out
 
 
@@ -82,7 +105,20 @@ BROKEN_CLOSE = {
     "بستنِ مستقیم": "class W {\n    fun x() { AppDb.get(ctx).close() }\n}\n",
 }
 
+GOOD_HUB = "class LanServer(\n    private val db: Db,\n) {\n}\n"
+BROKEN_SERVER = {
+    "سرورِ صفحه": "class Vm {\n    private var server: LanServer? = null\n"
+                 "    fun start() { val s = server ?: LanServer(lan.ledger()).also { server = it } }\n}\n",
+    "سرورِ دوم": "object DesktopServer {\n    fun start() { LanServer(db).start(code) }\n}\n",
+    "سرورِ با نامِ کامل": "class Vm {\n    private val s = com.afghanjama.lan.LanServer(lan.ledger())\n}\n",
+}
+
 fail = []
+if server_builds("LanServer.kt", GOOD_HUB):
+    fail.append("خودآزمایی: تعریفِ LanServer ساختن شمرده شد — بررسی خراب است.")
+for name, x in BROKEN_SERVER.items():
+    if not server_builds("X.kt", x):
+        fail.append(f"خودآزمایی: نمونهٔ خرابِ «{name}» گرفته نشد — بررسی پوچ است.")
 if builder_calls("W.kt", GOOD) or closes(GOOD):
     fail.append("خودآزمایی: کدِ درست رد شد — بررسی خراب است.")
 for name, x in BROKEN_BUILD.items():
@@ -107,6 +143,14 @@ if not fail:
         fail += [f"{rel}: {p}" for p in builder_calls(path.name, text)]
         fail += [f"{rel}: {p}" for p in closes(text)]
         seen_get += len(re.findall(r"AppDb\.get\(", strip(text)))
+    built = 0
+    for path in _src.kt_files():
+        text = path.read_text(encoding="utf-8")
+        fail += [f"{path.relative_to(_src.REPO)}: {p}" for p in server_builds(path.name, text)]
+        if path.name == "LanHub.kt":
+            built += len(re.findall(r"\bLanServer\s*\(", strip(text)))
+    if built == 0:
+        fail.append("`LanHub` هیچ `LanServer`ی نمی‌سازد — سرور از کجا می‌آید؟")
     # اگر هیچ‌کس `AppDb.get` را صدا نزند، یعنی دفتر از راهِ دیگری باز
     # می‌شود و این بررسی چیزی را نمی‌پاید.
     if seen_get < 3:
@@ -117,4 +161,4 @@ if fail:
     for f in fail:
         print("  " + f)
     sys.exit(1)
-print("✓ یک دفتر در پروسهٔ اندروید، و کسی آن را نمی‌بندد")
+print("✓ یک دفتر در پروسهٔ اندروید که کسی نمی‌بندد، و یک سرورِ کارگاه که فقط LanHub می‌سازد")

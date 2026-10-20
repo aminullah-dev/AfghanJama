@@ -56,6 +56,24 @@ object Lan {
             .let { rank(it) }
     }.getOrDefault(emptyList())
 
+    /**
+     * هر نشانیِ خصوصیِ این دستگاه با زیرشبکه‌اش — برای شناختنِ «شبکهٔ
+     * کارگاه» ([LanNetwork]). دروازه را اینجا نمی‌دانیم؛ جاوا آن را
+     * نمی‌دهد و هر سکو خودش اضافه می‌کند (`LanHost.networks`).
+     */
+    fun links(): List<LanLink> = runCatching {
+        NetworkInterface.getNetworkInterfaces().toList()
+            .filter { it.isUp && !it.isLoopback }
+            .flatMap { nic ->
+                nic.interfaceAddresses.mapNotNull { ia ->
+                    val ip = (ia.address as? Inet4Address)?.hostAddress ?: return@mapNotNull null
+                    if (!HostAddress.isPrivate(ip)) return@mapNotNull null
+                    val subnet = LanNetwork.subnetOf(ip, ia.networkPrefixLength.toInt()) ?: return@mapNotNull null
+                    LanLink(ip, nic.name.orEmpty(), LanNetwork(subnet))
+                }
+            }
+    }.getOrDefault(emptyList())
+
     /** یک نشانی روی یک کارتِ شبکه. */
     data class Candidate(val iface: String, val display: String, val address: String)
 

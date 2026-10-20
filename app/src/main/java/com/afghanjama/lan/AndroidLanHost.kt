@@ -18,6 +18,15 @@ class AndroidLanHost(private val ctx: Context) : LanHost {
     override fun localIps(): List<String> =
         (listOfNotNull(androidLocalIp(ctx)) + Lan.localIps()).distinct()
 
+    /** زیرشبکه‌ها از کارت‌های شبکه، و دروازهٔ وای‌فای برای نشانیِ وای‌فای. */
+    override fun networks(): Map<String, LanNetwork> {
+        val base = super.networks()
+        val (ip, gw) = androidWifiGateway(ctx) ?: return base
+        val net = base[ip] ?: return base
+        if (!LanNetwork.contains(net.subnet, gw)) return base
+        return base + (ip to net.copy(gateway = gw))
+    }
+
     /**
      * **همان دفتری که صفحه‌ها می‌خوانند** ([AppDb])، نه نمونهٔ دوم.
      *

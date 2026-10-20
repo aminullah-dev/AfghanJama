@@ -1,6 +1,7 @@
 package com.afghanjama.desktop.data
 
 import com.afghanjama.lan.Lan
+import com.afghanjama.lan.LanNetwork
 
 /*
  * دودآزماییِ مرزِ شبکه روی ویندوز.
@@ -19,7 +20,12 @@ import com.afghanjama.lan.Lan
  *    خیاط کار را جلو می‌برد و صفحهٔ پی‌سی همان‌جا می‌ماند.
  *
  * سرور روشن نمی‌شود (درگاه گرفتن روی ماشینِ CI کارِ درستی نیست)؛ آنچه
- * سنجیده می‌شود قراردادهاست.
+ * سنجیده می‌شود قراردادهاست. روشن کردنِ واقعی در `lanLoopSmoke` است، روی
+ * loopback.
+ *
+ * `DesktopServer` در ۱.۹.۱ برداشته شد: برنامه هیچ‌وقت صدایش نمی‌زد و فقط
+ * همین آزمون؛ حالا تنها صاحبِ سرور `LanHub` است و نشانیِ نشان‌داده‌شده از
+ * `DesktopLanHost` می‌آید — همانی که صفحه و QR می‌خوانند.
  */
 
 private class LanFailure(msg: String) : RuntimeException(msg)
@@ -45,7 +51,7 @@ fun main() {
     var ok = true
 
     ok = lanCheck("the shown address carries no port (LanClient adds it)") {
-        val shown = DesktopServer.address()
+        val shown = DesktopLanHost().localIp()
         val ip = Lan.localIp()
         if (ip == null) {
             // روی ماشینی بی کارتِ شبکه هر دو باید `null` باشند؛ سکوت
@@ -73,6 +79,22 @@ fun main() {
             "the server would open a second connection - phone writes would " +
                 "not refresh the PC's screen"
         )
+    } && ok
+
+    ok = lanCheck("the workshop network of the shown address is known (subnet, and the router where the OS tells)") {
+        val ip = DesktopLanHost().localIp()
+        if (ip == null) {
+            println("        (no network interface here - nothing to remember)")
+            return@lanCheck
+        }
+        val net = DesktopLanHost().networks()[ip]
+        lanNeed(net != null, "no network for the shown address $ip - the hub could never remember the workshop")
+        lanNeed(LanNetwork.contains(net!!.subnet, ip), "subnet ${net.subnet} does not hold $ip")
+        // چاپ، نه شرط: مسیرِ پیش‌فرضِ رانرِ CI ممکن است روی کارتِ دیگری باشد.
+        // این خط نشان می‌دهد خوانندهٔ جدولِ مسیریابی روی همین سیستمِ واقعی چه دید.
+        println("        ($ip -> ${net.subnet}, router ${net.gateway ?: "unknown"}, router hardware ${net.gatewayMac ?: "unknown"})")
+        val back = LanNetwork.decode(net.encode())
+        lanNeed(back == net, "the remembered network did not survive settings: $back")
     } && ok
 
     ok = lanCheck("the device name is never blank") {

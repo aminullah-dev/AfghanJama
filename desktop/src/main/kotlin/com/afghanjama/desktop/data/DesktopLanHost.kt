@@ -3,6 +3,8 @@ package com.afghanjama.desktop.data
 import com.afghanjama.data.Db
 import com.afghanjama.lan.Lan
 import com.afghanjama.lan.LanHost
+import com.afghanjama.lan.LanNetwork
+import com.afghanjama.lan.RouteTable
 import java.net.InetAddress
 
 /**
@@ -42,6 +44,18 @@ class DesktopLanHost : LanHost {
     override fun localIp(): String? = Lan.localIp()
 
     override fun localIps(): List<String> = Lan.localIps()
+
+    /**
+     * زیرشبکه از کارت‌های شبکه، به‌علاوهٔ مودم و نشانیِ سخت‌افزاری‌اش از
+     * جدول‌های خودِ سیستم ([DesktopRoutes]). کامپیوترِ کارگاه اغلب لپ‌تاپ
+     * است و چایخانه هم ممکن است همان مدلِ مودم و همان «۱۹۲.۱۶۸.۱.۱» را
+     * داشته باشد؛ نشانیِ سخت‌افزاریِ مودم است که آن دو را از هم جدا می‌کند.
+     */
+    override fun networks(): Map<String, LanNetwork> {
+        val links = Lan.links()
+        if (links.isEmpty()) return emptyMap()
+        return RouteTable.attach(links, DesktopRoutes.defaultRoutes(), DesktopRoutes::mac)
+    }
 
     /**
      * **همان دفتری که پنجره باز کرده** — نه یک اتصالِ تازه.

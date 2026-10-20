@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.afghanjama.data.entities.syncRequestLabel
 import com.afghanjama.lan.HostAddress
+import com.afghanjama.lan.HubOff
 import com.afghanjama.prefs.DeviceMode
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.WorkerPrefs
@@ -59,6 +60,7 @@ import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.format.toPersianDigits
 import com.afghanjama.ui.vm.WorkshopLinkViewModel
+import com.afghanjama.ui.vm.hubOffText
 
 /**
  * اشتراکِ کارگاه — مدلِ «یک نویسنده».
@@ -154,7 +156,7 @@ fun WorkshopLinkScreen(
                 }
 
                 DeviceMode.MAIN -> {
-                    item { MainCard(vm, ui.serving, ui.ip, ui.code, ui.alternatives) }
+                    item { MainCard(vm, ui.serving, ui.hubOff, ui.ip, ui.code, ui.alternatives) }
                     item { SectionTitleRow("درخواست‌های منتظر (${pending.size.fa()})") }
                     if (pending.isEmpty()) {
                         item {
@@ -365,6 +367,7 @@ private fun SectionTitleRow(text: String) {
 private fun MainCard(
     vm: WorkshopLinkViewModel,
     serving: Boolean,
+    off: HubOff?,
     ip: String?,
     code: String,
     alternatives: List<String>,
@@ -383,6 +386,19 @@ private fun MainCard(
                 if (serving) "اشتراک روشن است" else "اشتراک خاموش است",
                 fontWeight = FontWeight.Bold
             )
+            // چرا خاموش است — اشتراک دیگر با صفحه روشن و خاموش نمی‌شود، پس
+            // کارفرما باید بداند چرا خودش روشن نشد (شبکهٔ دیگر، درگاهِ گرفته…).
+            if (!serving) {
+                hubOffText(off)?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (off == HubOff.STOPPED || off == HubOff.WAITING)
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        else MaterialTheme.colorScheme.error
+                    )
+                }
+            }
             // QR فقط وقتی اشتراک روشن است: QRی که به سرورِ خاموش اشاره کند،
             // کارگر را به همان پیامِ گمراه‌کنندهٔ «وای‌فای را ببینید» می‌رساند.
             if (serving && ip != null && code.isNotBlank()) {

@@ -10,6 +10,7 @@ import com.afghanjama.data.AppDb
 import com.afghanjama.data.DB_NAME
 import com.afghanjama.data.DB_VERSION
 import com.afghanjama.data.repo.Repo
+import com.afghanjama.lan.LanHub
 import com.afghanjama.prefs.settings
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.util.BackupArchive
@@ -167,6 +168,9 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
                 )
             }
 
+            // سرورِ اشتراکِ کارگاه همین دفتر را می‌نویسد؛ پیش از بستنِ دفتر
+            // خاموش می‌شود تا درخواستِ کارگری وسطِ جایگزینی ننشیند.
+            LanHub.shared.stop()
             repo.checkpoint()
             // اتصالِ باز باید قبل از بازنویسیِ فایل بسته شود؛ وگرنه صفحه‌های
             // کش‌شدهٔ آن اتصال روی دیتابیسِ تازه می‌نشیند و خرابش می‌کند.

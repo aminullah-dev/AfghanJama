@@ -15,6 +15,7 @@ object LanPrefs {
     private const val KEY_CODE = "code"
     private const val KEY_HOST = "host"
     private const val KEY_DEVICE = "device_name"
+    private const val KEY_NETWORK = "workshop_network"
 
     fun mode(s: Settings): DeviceMode =
         runCatching { DeviceMode.valueOf(s.getString(FILE, KEY_MODE)) }
@@ -33,6 +34,14 @@ object LanPrefs {
     /** نامی که این دستگاه خودش را با آن معرفی می‌کند. */
     fun deviceName(s: Settings): String = s.getString(FILE, KEY_DEVICE)
     fun setDeviceName(s: Settings, n: String) = s.putString(FILE, KEY_DEVICE, n.trim())
+
+    /**
+     * شبکهٔ کارگاه، همان‌طور که دستگاهِ اصلی وقتِ «اصلی» شدن (یا «روشن»ِ
+     * دستی) دیده — اشتراک فقط روی همین شبکه خودش روشن می‌شود. قالبش را
+     * `LanNetwork.encode` می‌داند؛ رشتهٔ خالی یعنی هنوز هیچ.
+     */
+    fun network(s: Settings): String = s.getString(FILE, KEY_NETWORK)
+    fun setNetwork(s: Settings, raw: String) = s.putString(FILE, KEY_NETWORK, raw.trim())
 
     /** رمزِ شش‌رقمیِ تازه. عمداً عددی است تا روی کیبوردِ گوشی سریع وارد شود. */
     fun newCode(): String = (100_000..999_999).random().toString()
