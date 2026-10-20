@@ -148,8 +148,8 @@ fun BoardScreen(
                 )
                 Text(
                     when {
-                        ui.error != null -> "قطع از گوشیِ اصلی"
-                        ui.remote -> "از گوشیِ اصلی"
+                        ui.error != null -> "قطع از دستگاهِ اصلی"
+                        ui.remote -> "از دستگاهِ اصلی"
                         else -> "زنده"
                     },
                     color = if (ui.error != null) BoardLate else BoardOk,

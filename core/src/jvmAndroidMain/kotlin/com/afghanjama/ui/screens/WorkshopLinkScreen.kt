@@ -46,8 +46,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.afghanjama.data.entities.syncRequestLabel
+import com.afghanjama.lan.DeviceKind
 import com.afghanjama.lan.HostAddress
 import com.afghanjama.lan.HubOff
+import com.afghanjama.lan.LanPeers
 import com.afghanjama.prefs.DeviceMode
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.WorkerPrefs
@@ -63,6 +65,7 @@ import com.afghanjama.ui.vm.Access
 import com.afghanjama.ui.vm.WorkshopLinkAccess
 import com.afghanjama.ui.vm.WorkshopLinkViewModel
 import com.afghanjama.ui.vm.hubOffText
+import com.afghanjama.ui.vm.phonesSeenText
 
 /**
  * اشتراکِ کارگاه — مدلِ «یک نویسنده».
@@ -86,6 +89,7 @@ fun WorkshopLinkScreen(
     val ui by vm.ui.collectAsState()
     val designCodeByOrder by vm.designCodeByOrder.collectAsState()
     val pending by vm.pending.collectAsState()
+    val seen by vm.seen.collectAsState()
     val busy by vm.busy.state.collectAsState()
     val myLabel = remember { WorkerPrefs.myLabel(settings) }
 
@@ -106,15 +110,21 @@ fun WorkshopLinkScreen(
                 ) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            "یک گوشی دفتر را دارد",
+                            "یک دستگاه دفتر را دارد",
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSecondaryContainer
                         )
                         Text(
-                            "گوشیِ کارفرما «اصلی» می‌شود و تنها همان می‌فروشد، می‌خرد و " +
-                                "پرداخت می‌کند. گوشیِ کارگر کارش را می‌بیند و «تمام شد» " +
-                                "می‌زند — که یک درخواست است و روی گوشیِ اصلی تأیید می‌شود. " +
-                                "هر دو باید روی وای‌فای یا هات‌اسپاتِ کارگاه باشند.",
+                            if (ui.kind == DeviceKind.COMPUTER)
+                                "دستگاهِ کارفرما — همین کامپیوتر یا یک گوشی — «اصلی» می‌شود و تنها " +
+                                    "همان می‌فروشد، می‌خرد و پرداخت می‌کند. گوشیِ کارگر کارش را می‌بیند " +
+                                    "و «تمام شد» می‌زند — که یک درخواست است و روی دستگاهِ اصلی تأیید " +
+                                    "می‌شود. کامپیوتر و گوشی‌ها باید روی یک وای‌فای یا شبکهٔ کارگاه باشند."
+                            else
+                                "گوشیِ کارفرما «اصلی» می‌شود و تنها همان می‌فروشد، می‌خرد و " +
+                                    "پرداخت می‌کند. گوشیِ کارگر کارش را می‌بیند و «تمام شد» " +
+                                    "می‌زند — که یک درخواست است و روی گوشیِ اصلی تأیید می‌شود. " +
+                                    "هر دو باید روی وای‌فای یا هات‌اسپاتِ کارگاه باشند.",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSecondaryContainer
                         )
@@ -151,20 +161,28 @@ fun WorkshopLinkScreen(
             // ---------------- نقشِ این گوشی ----------------
             when (ui.mode) {
                 DeviceMode.STANDALONE -> {
-                    item { SectionTitleRow("این گوشی چه نقشی دارد؟") }
+                    item { SectionTitleRow("این ${ui.kind.noun} چه نقشی دارد؟") }
                     if (canRunHub) {
                         item {
                             OutlinedButton(
                                 onClick = { vm.becomeMain(settings) },
                                 modifier = Modifier.fillMaxWidth()
-                            ) { Text("این گوشیِ اصلیِ کارگاه است") }
+                            ) { Text(mainDeviceLine(ui.kind)) }
+                        }
+                    } else {
+                        item {
+                            Text(
+                                "«دستگاهِ اصلی» کردنِ این ${ui.kind.noun} با مدیر است.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
-                    item { WorkerConnectCard(vm, busy) }
+                    item { WorkerConnectCard(vm, busy, ui.kind) }
                 }
 
                 DeviceMode.MAIN -> {
-                    item { MainCard(vm, ui.serving, ui.hubOff, ui.ip, ui.code, ui.alternatives, canRunHub) }
+                    item { MainCard(vm, ui.kind, ui.serving, ui.hubOff, ui.ip, ui.code, ui.alternatives, canRunHub, seen) }
                     if (!WorkshopLinkAccess.seesRequests(access)) {
                         // فروشنده یا خیاطی که پشتِ دستگاهِ اصلی نشسته: درخواست‌ها کارِ او نیست.
                         item {
@@ -242,7 +260,10 @@ fun WorkshopLinkScreen(
                     if (canRunHub) {
                         item {
                             TextButton(onClick = { vm.disconnect(settings) }, modifier = Modifier.fillMaxWidth()) {
-                                Text("خاموش‌کردن اشتراک و برگشت به حالتِ تک‌گوشی")
+                                Text(
+                                    if (ui.kind == DeviceKind.COMPUTER) "خاموش‌کردن اشتراک و برگشت به حالتِ تک‌دستگاه"
+                                    else "خاموش‌کردن اشتراک و برگشت به حالتِ تک‌گوشی"
+                                )
                             }
                         }
                     }
@@ -257,7 +278,8 @@ fun WorkshopLinkScreen(
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                         ) {
                             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("وصل به گوشیِ اصلی", fontWeight = FontWeight.SemiBold)
+                                // گوشیِ کارگر نمی‌داند دستگاهِ اصلی گوشی است یا کامپیوتر.
+                                Text("وصل به دستگاهِ اصلی", fontWeight = FontWeight.SemiBold)
                                 Text(
                                     ui.host.toPersianDigits(),
                                     style = MaterialTheme.typography.labelMedium,
@@ -395,15 +417,26 @@ private fun SectionTitleRow(text: String) {
     )
 }
 
+/**
+ * «این … دستگاهِ اصلیِ کارگاه است» — دکمهٔ حالتِ تک‌دستگاه و برچسبِ کارتِ
+ * دستگاهِ اصلی، به زبانِ همان دستگاه.
+ */
+private fun mainDeviceLine(kind: DeviceKind): String = when (kind) {
+    DeviceKind.PHONE -> "این گوشیِ اصلیِ کارگاه است"
+    DeviceKind.COMPUTER -> "این کامپیوتر دستگاهِ اصلیِ کارگاه است"
+}
+
 @Composable
 private fun MainCard(
     vm: WorkshopLinkViewModel,
+    kind: DeviceKind,
     serving: Boolean,
     off: HubOff?,
     ip: String?,
     code: String,
     alternatives: List<String>,
     canRunHub: Boolean,
+    seen: LanPeers.Seen,
 ) {
     val settings = LocalSettings.current
     Card(
@@ -415,6 +448,11 @@ private fun MainCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                mainDeviceLine(kind),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Text(
                 if (serving) "اشتراک روشن است" else "اشتراک خاموش است",
                 fontWeight = FontWeight.Bold
@@ -432,27 +470,37 @@ private fun MainCard(
                     )
                 }
             }
+            // آیا گوشیِ کارگر اصلاً رسید؟ پس از اسکنِ QR همین‌جا یکی بالا می‌رود.
+            Text(
+                phonesSeenText(seen, kind),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             // QR فقط وقتی اشتراک روشن است: QRی که به سرورِ خاموش اشاره کند،
             // کارگر را به همان پیامِ گمراه‌کنندهٔ «وای‌فای را ببینید» می‌رساند.
-            if (serving && ip != null && code.isNotBlank()) {
-                Column(
-                    Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    QrImage(Pairing.encode(ip, code), size = 200.dp)
-                    Text(
-                        "روی گوشیِ کارگر «اسکنِ QRِ گوشیِ اصلی» را بزنید.",
-                        style = MaterialTheme.typography.labelSmall
-                    )
+            if (kind == DeviceKind.COMPUTER) {
+                ComputerPairing(ip, code, showQr = serving && ip != null && code.isNotBlank())
+            } else {
+                if (serving && ip != null && code.isNotBlank()) {
+                    Column(
+                        Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        QrImage(Pairing.encode(ip, code), size = 200.dp)
+                        Text(
+                            "روی گوشیِ کارگر «اسکنِ QRِ دستگاهِ اصلی» را بزنید.",
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
                 }
+                Text(
+                    "یا روی گوشیِ کارگر این دو را دستی وارد کنید:",
+                    style = MaterialTheme.typography.labelSmall
+                )
+                Text("نشانی: ${(ip ?: "—").toPersianDigits()}", fontWeight = FontWeight.SemiBold)
+                Text("رمز: ${code.toPersianDigits()}", fontWeight = FontWeight.SemiBold)
             }
-            Text(
-                "یا روی گوشیِ کارگر این دو را دستی وارد کنید:",
-                style = MaterialTheme.typography.labelSmall
-            )
-            Text("نشانی: ${(ip ?: "—").toPersianDigits()}", fontWeight = FontWeight.SemiBold)
-            Text("رمز: ${code.toPersianDigits()}", fontWeight = FontWeight.SemiBold)
             if (alternatives.isNotEmpty()) {
                 Text(
                     "اگر وصل نشد، این نشانی‌های همین دستگاه را امتحان کنید: " +
@@ -463,7 +511,8 @@ private fun MainCard(
             }
             if (ip == null) {
                 Text(
-                    "نشانی پیدا نشد — وای‌فای یا هات‌اسپاتِ کارگاه را روشن کنید.",
+                    if (kind == DeviceKind.COMPUTER) "نشانی پیدا نشد — این کامپیوتر را به وای‌فای یا شبکهٔ کارگاه وصل کنید."
+                    else "نشانی پیدا نشد — وای‌فای یا هات‌اسپاتِ کارگاه را روشن کنید.",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.error
                 )
@@ -490,8 +539,56 @@ private fun MainCard(
     }
 }
 
+/**
+ * نشانی، رمز و QR روی کامپیوتر — کنارِ هم و درشت.
+ *
+ * روی گوشی همه زیرِ هم‌اند و صفحه باریک است. روی پنجرهٔ پهنِ کامپیوتر همان
+ * چیدمان QR را وسطِ یک کارتِ هزارپیکسلی تنها می‌گذاشت و نشانی را با قلمِ
+ * متن در گوشهٔ دیگر؛ کارفرما باید نشانی را از سه متر آن‌طرف‌تر برای کارگر
+ * بخوانَد. اینجا نشانی و رمز درشت‌اند و QR بزرگ‌تر کنارشان.
+ */
 @Composable
-private fun WorkerConnectCard(vm: WorkshopLinkViewModel, busy: Boolean) {
+private fun ComputerPairing(ip: String?, code: String, showQr: Boolean) {
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(24.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                if (showQr) "روی گوشیِ کارگر «اسکنِ QRِ دستگاهِ اصلی» را بزنید و دوربین را رو به این QR بگیرید. " +
+                    "اگر دوربین نبود، این دو را روی گوشی دستی وارد کنید:"
+                else "روی گوشیِ کارگر این دو را دستی وارد کنید:",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "نشانیِ این کامپیوتر",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                (ip ?: "—").toPersianDigits(),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                "رمزِ اتصال",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                code.ifBlank { "—" }.toPersianDigits(),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        if (showQr && ip != null) QrImage(Pairing.encode(ip, code), size = 240.dp)
+    }
+}
+
+@Composable
+private fun WorkerConnectCard(vm: WorkshopLinkViewModel, busy: Boolean, kind: DeviceKind) {
     val settings = LocalSettings.current
     var host by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
@@ -502,7 +599,7 @@ private fun WorkerConnectCard(vm: WorkshopLinkViewModel, busy: Boolean) {
     }
     val hostBad = (hostCheck as? HostAddress.Result.Bad)?.reason
 
-    // اسکنِ QRِ گوشیِ اصلی — بی تایپِ نشانی، پس بی آن نقطهٔ جاافتاده.
+    // اسکنِ QRِ دستگاهِ اصلی — بی تایپِ نشانی، پس بی آن نقطهٔ جاافتاده.
     var scanMsg by remember { mutableStateOf<String?>(null) }
 
     fun onScanned(raw: String) {
@@ -518,7 +615,7 @@ private fun WorkerConnectCard(vm: WorkshopLinkViewModel, busy: Boolean) {
     }
 
     val startScan = LocalCodeScanner.current?.rememberStart(
-        prompt = "QRِ صفحهٔ «اشتراک کارگاه» روی گوشیِ اصلی را اسکن کنید",
+        prompt = "QRِ صفحهٔ «اشتراک کارگاه» روی دستگاهِ اصلی (گوشی یا کامپیوتر) را اسکن کنید",
         onCode = { onScanned(it) },
         onFailed = { msg -> scanMsg = msg },
     )
@@ -529,7 +626,11 @@ private fun WorkerConnectCard(vm: WorkshopLinkViewModel, busy: Boolean) {
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("این گوشیِ یک کارگر است", fontWeight = FontWeight.SemiBold)
+            Text(
+                if (kind == DeviceKind.COMPUTER) "این کامپیوتر به دستگاهِ اصلیِ کارگاه وصل می‌شود"
+                else "این گوشیِ یک کارگر است",
+                fontWeight = FontWeight.SemiBold
+            )
             if (startScan != null) {
                 Button(
                     onClick = { startScan() },
@@ -537,7 +638,7 @@ private fun WorkerConnectCard(vm: WorkshopLinkViewModel, busy: Boolean) {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(Icons.Default.QrCodeScanner, contentDescription = null)
-                    Text("  اسکنِ QRِ گوشیِ اصلی")
+                    Text("  اسکنِ QRِ دستگاهِ اصلی")
                 }
                 scanMsg?.let {
                     Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
@@ -554,10 +655,10 @@ private fun WorkerConnectCard(vm: WorkshopLinkViewModel, busy: Boolean) {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                 OutlinedTextField(
                     value = host,
-                    // ارقامِ فارسی همان‌جا لاتین می‌شوند: گوشیِ اصلی نشانی
+                    // ارقامِ فارسی همان‌جا لاتین می‌شوند: دستگاهِ اصلی نشانی
                     // را فارسی نشان می‌دهد، پس کاربر فارسی تایپ می‌کند.
                     onValueChange = { host = HostAddress.clean(it) },
-                    label = { Text("نشانیِ گوشیِ اصلی") },
+                    label = { Text("نشانیِ دستگاهِ اصلی") },
                     placeholder = { Text("10.0.0.101") },
                     singleLine = true,
                     isError = hostBad != null,

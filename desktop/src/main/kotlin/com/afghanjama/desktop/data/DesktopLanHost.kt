@@ -1,6 +1,7 @@
 package com.afghanjama.desktop.data
 
 import com.afghanjama.data.Db
+import com.afghanjama.lan.DeviceKind
 import com.afghanjama.lan.Lan
 import com.afghanjama.lan.LanHost
 import com.afghanjama.lan.LanNetwork
@@ -17,6 +18,9 @@ import java.net.InetAddress
  * خاموش یا بیرون از کارگاه باشد.
  */
 class DesktopLanHost : LanHost {
+
+    /** صفحه «این کامپیوتر…» می‌گوید، نه «این گوشی…». */
+    override val kind: DeviceKind get() = DeviceKind.COMPUTER
 
     /**
      * نامِ کامپیوتر، همان‌طور که در شبکهٔ کارگاه دیده می‌شود.

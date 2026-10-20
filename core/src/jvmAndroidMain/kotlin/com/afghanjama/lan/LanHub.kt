@@ -50,7 +50,7 @@ import java.net.InetAddress
 class LanHub(
     private val bindAddress: InetAddress? = null,
     private val port: Int = Lan.PORT,
-    /** ساعتِ نگهبانِ رمز ([LanGuard])؛ آزمون ساعتِ خودش را می‌دهد. */
+    /** ساعتِ نگهبانِ رمز ([LanGuard]) و شمارِ گوشی‌ها ([LanPeers])؛ آزمون ساعتِ خودش را می‌دهد. */
     private val guardClock: () -> Long = { System.currentTimeMillis() },
     /** صبر تا لایسنس خوانده شود — پیش از آن هر نوشتنی «مجاز» است. */
     private val licenceLoaded: suspend () -> Unit = { LicenceGate.status.first { it != null } },
@@ -69,6 +69,13 @@ class LanHub(
 
     private val _state = MutableStateFlow(State())
     val state: StateFlow<State> = _state.asStateFlow()
+
+    /**
+     * گوشی‌هایی که به این دستگاه رسیده‌اند ([LanPeers]). با هاب می‌ماند، نه با
+     * سرور: سرورِ تازه پس از بازیابی همان گوشی‌ها را دوباره نمی‌شمارد.
+     */
+    private val peers = LanPeers(guardClock)
+    val seen: StateFlow<LanPeers.Seen> get() = peers.seen
 
     private val lock = Any()
     // IO، چون شناختنِ شبکه روی کامپیوتر یک دستورِ سیستم را اجرا می‌کند و منتظرش می‌ماند.
@@ -249,7 +256,7 @@ class LanHub(
         var srv = server
         if (srv == null || serverDb !== db) {
             srv?.stop()
-            srv = LanServer(db, bindAddress, port, LanGuard(guardClock))
+            srv = LanServer(db, bindAddress, port, LanGuard(guardClock), peers)
             server = srv
             serverDb = db
         }

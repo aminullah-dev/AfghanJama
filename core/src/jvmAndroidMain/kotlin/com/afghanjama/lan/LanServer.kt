@@ -60,6 +60,11 @@ class LanServer(
      * ([changeCode]). آزمونِ دودی ساعتِ خودش را به آن می‌دهد.
      */
     private val guard: LanGuard = LanGuard(),
+    /**
+     * گوشی‌هایی که رسیده‌اند ([LanPeers]) — فقط برای اینکه کارفرما ببیند.
+     * مثلِ [guard] با [LanHub] می‌ماند، نه با یک سرورِ تنها.
+     */
+    private val peers: LanPeers = LanPeers(),
 ) {
 
     private var socket: ServerSocket? = null
@@ -171,6 +176,9 @@ class LanServer(
         // /ping بدونِ رمز جواب می‌دهد تا کارگر بفهمد نشانی درست است؛
         // ولی هیچ داده‌ای در آن نیست.
         if (path == Lan.PATH_PING) {
+            // اسکنِ QR و «اتصال» روی گوشیِ کارگر فقط همین را می‌فرستند؛ پس
+            // گوشی‌ای که تازه وصل شد همین‌جا دیده می‌شود.
+            peers.accepted(peer)
             respond(client, 200, JSONObject().apply {
                 put("ok", true)
                 put("app", AppInfo.NAME_LATIN)
@@ -201,7 +209,7 @@ class LanServer(
                 })
                 return
             }
-            LanGuard.Verdict.Pass -> Unit
+            LanGuard.Verdict.Pass -> peers.accepted(peer)
         }
 
         when {

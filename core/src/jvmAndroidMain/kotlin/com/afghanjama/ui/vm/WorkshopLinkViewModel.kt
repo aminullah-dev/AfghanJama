@@ -4,17 +4,22 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.afghanjama.data.entities.SyncRequest
 import com.afghanjama.data.repo.Repo
+import com.afghanjama.lan.DeviceKind
 import com.afghanjama.lan.HostAddress
 import com.afghanjama.lan.HubOff
 import com.afghanjama.lan.LanClient
 import com.afghanjama.lan.LanResult
 import com.afghanjama.lan.LanHost
 import com.afghanjama.lan.LanHub
+import com.afghanjama.lan.LanPeers
 import com.afghanjama.lan.RemoteWork
 import com.afghanjama.prefs.Settings
 import com.afghanjama.prefs.DeviceMode
 import com.afghanjama.prefs.LanPrefs
 import com.afghanjama.licence.LicenceGate
+import com.afghanjama.ui.format.PersianDate
+import com.afghanjama.ui.format.fa
+import com.afghanjama.util.nowMillis
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -25,6 +30,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class WorkshopLinkUi(
+    /** گوشی یا کامپیوتر — صفحه «این کامپیوتر…» یا «این گوشی…» می‌گوید. */
+    val kind: DeviceKind = DeviceKind.PHONE,
     val mode: DeviceMode = DeviceMode.STANDALONE,
     /** از [LanHub]، نه از خودِ صفحه — سرور با بسته شدنِ صفحه خاموش نمی‌شود. */
     val serving: Boolean = false,
@@ -80,10 +87,13 @@ class WorkshopLinkViewModel(
         repo.observeDesignCodeByOrder()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
-    private val _ui = MutableStateFlow(WorkshopLinkUi())
+    private val _ui = MutableStateFlow(WorkshopLinkUi(kind = lan.kind))
     val ui: StateFlow<WorkshopLinkUi> =
         combine(_ui, hub.state) { u, h -> u.copy(serving = h.serving, hubOff = h.off) }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, WorkshopLinkUi())
+            .stateIn(viewModelScope, SharingStarted.Eagerly, WorkshopLinkUi(kind = lan.kind))
+
+    /** گوشی‌هایی که به این دستگاه رسیده‌اند ([LanPeers]) — از هاب، نه از صفحه. */
+    val seen: StateFlow<LanPeers.Seen> = hub.seen
 
     /** درخواست‌های منتظر — فقط روی گوشیِ اصلی پر می‌شود. */
     val pending: StateFlow<List<SyncRequest>> =
@@ -294,6 +304,29 @@ class WorkshopLinkViewModel(
     fun clearMessage() = _ui.update { it.copy(message = null, isError = false) }
 
     // `onCleared` دیگر سرور را خاموش نمی‌کند: سرور مالِ [LanHub] است، نه این صفحه.
+}
+
+/** چند گوشی از سرِ امروز (ساعتِ ۰۰:۰۰ همین دستگاه) به این دستگاه رسیده‌اند. */
+fun phonesToday(seen: LanPeers.Seen, now: Long = nowMillis()): Int {
+    val d = PersianDate.todayJalali(now)
+    return seen.countSince(PersianDate.startOfJalaliDay(d[0], d[1], d[2]))
+}
+
+/**
+ * «امروز ۳ گوشی به این کامپیوتر وصل شد؛ آخرین بار ساعتِ ۱۰:۴۲.»
+ *
+ * روی کامپیوتر، وقتی هنوز هیچ گوشی‌ای نرسیده، دیوارِ آتش را هم یاد می‌دهد:
+ * گوشیِ کارگر فقط «وصل نشد» می‌بیند، و اینجا تنها جایی است که معلوم
+ * می‌شود درخواستش اصلاً به کامپیوتر نرسیده.
+ */
+fun phonesSeenText(seen: LanPeers.Seen, kind: DeviceKind, now: Long = nowMillis()): String {
+    val n = phonesToday(seen, now)
+    val last = seen.lastAt
+    if (n == 0 || last == null) {
+        return "امروز هنوز هیچ گوشی‌ای به این ${kind.noun} نرسیده." +
+            if (kind == DeviceKind.COMPUTER) " اگر گوشیِ کارگر «وصل نشد» می‌گوید، دیوارِ آتشِ این کامپیوتر را ببینید." else ""
+    }
+    return "امروز ${n.fa()} گوشی به این ${kind.noun} وصل شد؛ آخرین بار ساعتِ ${PersianDate.time(last)}."
 }
 
 /**

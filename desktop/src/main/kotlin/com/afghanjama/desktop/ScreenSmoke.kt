@@ -183,7 +183,14 @@ fun main() {
         CustomerDetailScreen(vm, customerId = 1L, onBack = {}, onOpenOrder = {})
     }
 
-    val total = Section.entries.size + 1
+    // کلِ پنجره با نوارِ کنار — گردشِ بالا فقط محتوای هر بخش را رسم می‌کند،
+    // پس جای بندها در نوار (مثلاً «اشتراکِ کارگاه» بالای آن) و کاشیِ صفحهٔ
+    // اول هیچ‌جا دیده نمی‌شد.
+    check("shell", "نوارِ کنار و صفحهٔ اول") {
+        Shell(repo, UserRole.MANAGER)
+    }
+
+    val total = Section.entries.size + 2
     println("=".repeat(52))
     val shots = shotDir.listFiles { f: java.io.File -> f.name.endsWith(".png") }?.size ?: 0
     println("screenshots: $shots in ${shotDir.absolutePath}")
