@@ -134,7 +134,15 @@ xcrun notarytool store-credentials KhayatYar \
 
 ## اجرا
 
+**از ۱.۹.۱ فقط از روی تگِ نسخه.** اسکریپت پیش از هر کاری می‌سنجد که
+HEAD دقیقاً روی تگِ `v<appVersion>` باشد و درخت تمیز (نه تغییرِ
+ثبت‌نشده، نه فایلِ تازه)، و اگر نبود با کدِ ۳ می‌ایستد. بعد از ساخت هم
+می‌سنجد که بستهٔ ساخته‌شده همان کامیت را با کانالِ `release` بگوید
+(`BuildInfo` در jarِ `:core`). راهِ دورزدن ندارد: ساختِ آزمایشی نباید
+مهرِ اپل بخورد.
+
 ```bash
+git fetch --tags && git checkout v1.9.1    # همان کامیتی که release.yml ساخت
 ./tools/macos-signing/sign-and-notarize.sh \
   "Developer ID Application: NAME (TEAMID)"
 ```

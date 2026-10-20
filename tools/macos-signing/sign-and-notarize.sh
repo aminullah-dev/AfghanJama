@@ -33,9 +33,84 @@
 # مثلاً `codesign` را روی مسیرِ `/` بیندازد.
 set -euo pipefail
 
+# **متغیرهای `GIT_*` پیش از هر فرمانِ گیت پاک می‌شوند.** با `GIT_DIR` و
+# `GIT_WORK_TREE` گیت به یک کپیِ تمیزِ دیگر نگاه می‌کرد و وارسیِ بندِ ۰
+# سبز می‌شد، در حالی که Gradle همین پوشهٔ تغییرکرده را می‌ساخت؛ با
+# `GIT_CONFIG_PARAMETERS` هم می‌شد فایلِ تازه را از `git status` پنهان کرد.
+# Gradle از همین شل اجرا می‌شود، پس `BuildInfo` هم همین محیطِ پاک را می‌بیند.
+for v in $(compgen -e | grep '^GIT_' || true); do unset "$v"; done
+
 IDENTITY="${1:-}"
 # نامِ نمایهٔ جاکلیدی که `notarytool store-credentials` ساخته.
 PROFILE="${NOTARY_PROFILE:-KhayatYar}"
+
+cd "$(dirname "$0")/../.."
+REPO="$PWD"
+
+VERSION=$(sed -n 's/^appVersion=//p' "$REPO/gradle.properties" | tr -d '[:space:]')
+if [ -z "$VERSION" ]; then
+  echo "✗ appVersion در gradle.properties نبود." >&2
+  exit 1
+fi
+TAG="v$VERSION"
+
+# ---------------------------------------------------------------------
+# ۰. فقط از روی تگِ همین نسخه، با درختِ تمیز — **پیش از هر چیزِ دیگر.**
+#
+# تا ۱.۹.۰ این اسکریپت از هر شاخه و هر درختی امضا می‌کرد. DMGِ مکی که
+# خودش را «۱.۹.۰» می‌نامید از کامیتی بود که APK و آیفون نبودند، و هیچ
+# راهی نبود بفهمیم کدام. امضا و مهرِ اپل آن را «رسمی» هم نشان می‌داد.
+#
+# حالا فقط وقتی جلو می‌رود که:
+#   - تگِ `v<appVersion>` وجود داشته باشد و HEAD **دقیقاً** همان کامیت
+#     باشد — همان کامیتی که `release.yml` از آن APK و MSI می‌سازد؛
+#   - درخت تمیز باشد: نه تغییرِ ثبت‌نشده، نه فایلِ تازهٔ بیرون از
+#     `.gitignore`. یک فایلِ `.kt`ِ ثبت‌نشده هم در بسته کامپایل می‌شود.
+#
+# همین دو شرط است که `BuildInfo.CHANNEL` را «release» می‌کند، پس برنامهٔ
+# امضاشده در «دربارهٔ خیاط‌یار» «ساختِ رسمی» می‌گوید. راهِ دورزدن عمداً
+# نیست: ساختِ آزمایشی نباید مهرِ اپل بخورد.
+# ---------------------------------------------------------------------
+if ! git -C "$REPO" rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+  echo "✗ تگِ $TAG نیست." >&2
+  echo >&2
+  echo "امضا فقط از روی تگِ نسخه است. اول کامیتِ ادغام‌شده را تگ بزنید:" >&2
+  echo "    git tag $TAG <کامیت> && git push origin $TAG" >&2
+  echo "و بعد همان را بگیرید: git checkout $TAG" >&2
+  exit 3
+fi
+HEAD_SHA=$(git -C "$REPO" rev-parse HEAD)
+TAG_SHA=$(git -C "$REPO" rev-parse "$TAG^{commit}")
+if [ "$HEAD_SHA" != "$TAG_SHA" ]; then
+  echo "✗ HEAD روی تگِ $TAG نیست." >&2
+  echo "    HEAD: $(git -C "$REPO" log -1 --format='%h %s' HEAD)" >&2
+  echo "    $TAG: $(git -C "$REPO" log -1 --format='%h %s' "$TAG")" >&2
+  echo >&2
+  echo "همان کامیتی امضا می‌شود که release.yml از آن ساخته: git checkout $TAG" >&2
+  exit 3
+fi
+# `--untracked-files=normal` عمدی است: اگر در تنظیمِ گیت
+# `status.showUntrackedFiles=no` باشد، `git status` بی این گزینه فایلِ
+# تازه را نشان نمی‌دهد و درخت تمیز دیده می‌شود.
+DIRTY=$(git -C "$REPO" status --porcelain --untracked-files=normal)
+if [ -n "$DIRTY" ]; then
+  echo "✗ درخت تمیز نیست — این‌ها در تگِ $TAG نیستند:" >&2
+  printf '%s\n' "$DIRTY" | head -20 >&2
+  echo >&2
+  echo "کنارشان بگذارید (git stash -u) یا در کامیتِ بعدی بیاورید." >&2
+  exit 3
+fi
+# فایلی که با `git update-index --skip-worktree` یا `--assume-unchanged`
+# علامت خورده، تغییرش در بسته می‌رود ولی `git status` نشانش نمی‌دهد.
+HIDDEN=$(git -C "$REPO" ls-files -v | grep '^[a-zS] ' || true)
+if [ -n "$HIDDEN" ]; then
+  echo "✗ این فایل‌ها از git status پنهان شده‌اند (skip-worktree یا assume-unchanged):" >&2
+  printf '%s\n' "$HIDDEN" | head -20 >&2
+  echo >&2
+  echo "علامت را بردارید: git update-index --no-skip-worktree --no-assume-unchanged <فایل>" >&2
+  exit 3
+fi
+echo "✓ HEAD روی $TAG است ($(git -C "$REPO" rev-parse --short=7 HEAD)) و درخت تمیز."
 
 # بی‌آرگومان هم کار می‌کند: گواهی از جاکلیدی خوانده می‌شود. دلیلش
 # محرمانگی نیست — نامِ گواهی در امضای هر برنامه‌ای هست — بلکه این است
@@ -75,11 +150,8 @@ if [ -z "$IDENTITY" ]; then
   echo "گواهی از جاکلیدی: $IDENTITY"
 fi
 
-cd "$(dirname "$0")/../.."
-REPO="$PWD"
-
 # ---------------------------------------------------------------------
-# ۰. پیش‌وارسیِ دو پیش‌نیاز — **پیش از هر کارِ سنگین.**
+# ۰ب. پیش‌وارسیِ دو پیش‌نیاز — **پیش از هر کارِ سنگین.**
 #
 # این بند بعد از اولین اجرای واقعی روی مک اضافه شد. بی آن، نبودنِ نمایهٔ
 # جاکلیدی تازه در بندِ ۵ معلوم می‌شد: یعنی بعد از ساختِ بسته، امضای ۴۶
@@ -130,9 +202,21 @@ if [ -z "$APP" ]; then
 fi
 echo "    $APP"
 
-VERSION=$(sed -n 's/^appVersion=//p' "$REPO/gradle.properties" | tr -d '[:space:]')
-if [ -z "$VERSION" ]; then
-  echo "✗ appVersion در gradle.properties نبود." >&2
+# ---------------------------------------------------------------------
+# ۱ب. بسته واقعاً همان تگ است؟
+#
+# بندِ ۰ درخت را سنجید؛ این بند خودِ بسته را. `BuildInfo` در jarِ `:core`
+# کامپایل شده و کامیت و کانالش رشته‌های ثابتِ همان کلاس‌اند
+# (`tools/release/verify-build.py`، همان که `release.yml` می‌زند). اگر Gradle
+# بسته‌ای کهنه از ساختِ قبلی را دست‌نخورده گذاشته باشد، یا ساخت گیت را
+# ندیده باشد، همین‌جا معلوم می‌شود — نه وقتی کارگاه «آزمایشی» را در
+# «دربارهٔ خیاط‌یار» می‌بیند.
+# ---------------------------------------------------------------------
+SHORT=$(git -C "$REPO" rev-parse --short=7 HEAD)
+if ! python3 "$REPO/tools/release/verify-build.py" \
+      --commit "$SHORT" --channel release --jars "$APP/Contents"; then
+  echo >&2
+  echo "✗ بسته همان تگ نیست. یک بار ./gradlew clean بزنید و دوباره اجرا کنید." >&2
   exit 1
 fi
 

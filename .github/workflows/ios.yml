@@ -26,6 +26,8 @@ on:
       # `windows.yml`: ویرایشِ خودِ بررسی‌ها باید روی همین رانر سنجیده
       # شود.
       - "tools/checks/**"
+      # نسخهٔ آیفون از این اسکریپت می‌آید (`ios-version.sh`).
+      - "tools/release/**"
   workflow_dispatch:
 
 jobs:
@@ -136,6 +138,12 @@ jobs:
       - name: نصبِ xcodegen
         run: brew install xcodegen
 
+      # نسخه و کدِ آیفون از `gradle.properties` — همان منبعِ اندروید و مک و
+      # ویندوز. `project.yml` از این فایل می‌خوانَد و بی آن xcodegen
+      # نمی‌سازد.
+      - name: نسخهٔ آیفون از gradle.properties
+        run: tools/release/ios-version.sh
+
       - name: ساختِ پروژهٔ Xcode
         working-directory: iosApp
         run: xcodegen generate
@@ -195,6 +203,18 @@ jobs:
             exit 1
           fi
           echo "✓ هر سه قلم در بسته هست."
+
+          # ۳. **نسخه.** تا ۱.۹.۰ آیفون نسخه‌ای نداشت و xcodegen «۱.۰»
+          #    می‌گذاشت؛ حالا باید همان gradle.properties باشد.
+          want_v=$(sed -n 's/^appVersion=//p' gradle.properties | tr -d '[:space:]')
+          want_c=$(sed -n 's/^appVersionCode=//p' gradle.properties | tr -d '[:space:]')
+          got_v=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Info.plist")
+          got_c=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app/Info.plist")
+          echo "Info.plist: $got_v ($got_c) — gradle.properties: $want_v ($want_c)"
+          if [ "$got_v" != "$want_v" ] || [ "$got_c" != "$want_c" ]; then
+            echo "✗ نسخهٔ آیفون همان gradle.properties نیست."
+            exit 1
+          fi
 
           arch=$(lipo -archs "$app/KhayatYar")
           echo "معماریِ باینری: $arch"

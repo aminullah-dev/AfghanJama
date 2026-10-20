@@ -1,6 +1,7 @@
 package com.afghanjama.ios
 
 import com.afghanjama.licence.Licensing
+import com.afghanjama.ui.components.AppVersionCard
 import com.afghanjama.ui.components.LicenceHeartbeat
 import com.afghanjama.ui.components.LicenceRefusalDialog
 import com.afghanjama.ui.screens.LicenceScreen
@@ -721,6 +722,10 @@ private fun IosSettings(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+
+        // دربارهٔ خیاط‌یار — همان کارتِ اندروید و کامپیوتر. ساختِ آیفون
+        // تا ۱.۹.۱ نمی‌گفت از کدام کامیت است، و از بقیه کهنه‌تر بود.
+        AppVersionCard()
 
         TextButton(onClick = onLogout, modifier = Modifier.fillMaxWidth()) {
             Text("خروج از حساب")

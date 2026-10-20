@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.afghanjama.AppVersion
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.desktop.data.DesktopLanHost
 import com.afghanjama.ui.components.WorkStage
@@ -202,7 +203,11 @@ internal enum class Section(val title: String) {
     Backup("پشتیبان و بازیابی"),
     Licence("لایسنس"),
     QuoteCalc("قیمت‌دهی"),
-    Guide("راهنما")
+    Guide("راهنما"),
+
+    // نسخه، کامیت و اینکه این ساخت رسمی است یا آزمایشی. پایینِ نوارِ کنار
+    // هم کوتاهش هست؛ این بخش سطرِ کاملِ پشتیبانی را دارد.
+    About("دربارهٔ خیاط‌یار")
 }
 
 /**
@@ -339,7 +344,8 @@ internal fun Section.allowedFor(access: Access): Boolean {
     if (access.isManager) return true
     val need: Feature = when (this) {
         Section.Overview, Section.OrderSearch, Section.MyWork,
-        Section.WorkshopLink, Section.QuoteCalc, Section.Guide, Section.Licence -> return true
+        Section.WorkshopLink, Section.QuoteCalc, Section.Guide, Section.Licence,
+        Section.About -> return true
         Section.ActionCenter, Section.Audit -> Feature.AUDIT
         Section.Board, Section.WorkshopLoad -> Feature.BOARD
         Section.Inventory, Section.ProductionOrder -> Feature.ORDERS
@@ -742,6 +748,7 @@ internal fun SectionContent(
 
         Section.QuoteCalc -> QuoteCalculatorScreen(onBack = back)
         Section.Guide -> GuideScreen(onBack = back)
+        Section.About -> AboutSection(onBack = back)
     }
 }
 
@@ -809,6 +816,18 @@ private fun Sidebar(current: Section, access: Access, pendingRequests: Int, onPi
             style = MaterialTheme.typography.labelSmall,
             color = Muted,
             modifier = Modifier.padding(top = 18.dp, start = 8.dp, end = 8.dp)
+        )
+
+        // نسخه و کامیتِ همین ساخت، همیشه دیده — کلیک به «دربارهٔ خیاط‌یار».
+        // ساختِ آزمایشی به رنگِ خطا، تا با نسخهٔ رسمی اشتباه نشود.
+        Text(
+            AppVersion.short(),
+            style = MaterialTheme.typography.labelSmall,
+            color = if (AppVersion.isRelease) Muted else MaterialTheme.colorScheme.error,
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .clickable { onPick(Section.About) }
+                .padding(horizontal = 8.dp, vertical = 4.dp)
         )
     }
 }

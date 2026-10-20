@@ -1,0 +1,260 @@
+name: انتشار از یک تگ
+
+# **یک تگ، یک کامیت، همهٔ بسته‌ها.**
+#
+# تا ۱.۹.۰ هر بسته از جای خودش می‌آمد: APK از Android Studio روی هر شاخه‌ای
+# که باز بود، MSI از آخرین اجرای سبزِ `windows.yml`، DMG از مکِ کارفرما.
+# هر سه خودشان را «۱.۹.۰» می‌نامیدند و از سه کامیتِ متفاوت بودند — DMGِ
+# ۱۵ اکتبر همه‌چیز را داشت، APKِ ۱۳ اکتبر اسکنِ محصول را نداشت، آیفونِ
+# ۹ اکتبر کهنه‌تر بود — و هیچ‌کدام نمی‌گفت.
+#
+# این کار با تگِ `v*` راه می‌افتد و:
+#
+#   ۱. رد می‌کند اگر تگ `v<appVersion>` نباشد، یا نسخه و کدش از ریلیزِ
+#      قبلی بالاتر نباشند (`tools/release/gate.py`).
+#   ۲. APK، DMG و MSI را **از همان یک کامیت** می‌سازد و هر کدام را
+#      می‌سنجد که همان نسخه، کامیت و کانالِ «release» را بگوید
+#      (`tools/release/verify-build.py`).
+#   ۳. هر سه را با `SHA256SUMS` در یک آرتیفکت می‌گذارد.
+#
+# **آنچه عمداً نمی‌کند:**
+#
+#   - **امضا.** کلیدِ اندروید و گواهیِ Developer ID روی کمپیوترِ کارفرما
+#     می‌مانند، نه در Secrets (`.gitignore` دلیلش را دارد). پس APK و DMG
+#     اینجا «unsigned» نام می‌گیرند. DMGِ امضاشده را
+#     `tools/macos-signing/sign-and-notarize.sh` روی مک و از روی **همین
+#     تگ** می‌سازد؛ آن اسکریپت جای دیگری امضا نمی‌کند.
+#   - **آیفون.** CI فقط برای شبیه‌ساز و بی‌امضا می‌سازد (`ios.yml`)؛
+#     آرشیوِ آیفون کارِ Xcode روی همان مک است. نسخه‌اش از همان
+#     `gradle.properties` می‌آید (`tools/release/ios-version.sh`).
+#   - **ساختنِ ریلیز.** آرتیفکت فقط برای واردشده‌ها و ۳۰ روز است؛ ریلیزِ
+#     عمومی را کارفرما با فایل‌های امضاشده می‌سازد (`DELIVERY.md`، گامِ ۴).
+#     پس این کار فقط خواندن لازم دارد.
+#
+# `workflow_dispatch` یک اجرای آزمایشی است: همان دروازه (بی تگ) و همان
+# ساخت‌ها روی شاخهٔ انتخاب‌شده — برای اینکه پیش از تگ زدن معلوم شود سبز
+# است. کانالش «test build» است مگر HEAD خودش روی تگ باشد.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.gate.outputs.version }}
+      code: ${{ steps.gate.outputs.code }}
+      commit: ${{ steps.gate.outputs.commit }}
+      channel: ${{ steps.gate.outputs.channel }}
+    steps:
+      # همهٔ تاریخچه و همهٔ تگ‌ها: دروازه `gradle.properties`ِ ریلیزِ قبلی را
+      # از خودِ تگش می‌خوانَد.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: دروازه — تگ همان نسخه است و از ریلیزِ قبلی بالاتر
+        id: gate
+        shell: bash
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            python3 tools/release/gate.py --tag "${GITHUB_REF_NAME}"
+          else
+            python3 tools/release/gate.py
+          fi
+
+      # برای انتشار، بررسی‌های ساختاری نرم نیستند: قرمزشان کار را می‌ایستاند.
+      - name: بررسی‌های ساختاری
+        run: python3 tools/checks/run_all.py
+
+  android:
+    needs: gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: کشِ Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: برداشتنِ local.properties
+        run: rm -f local.properties
+
+      - name: آزمون‌ها و APKِ release (بی‌امضا)
+        run: ./gradlew --no-daemon testDebugUnitTest :app:assembleRelease
+
+      - name: مطمئن شو همان نسخه و کامیت است
+        run: |
+          python3 tools/release/verify-build.py \
+            --commit "${{ needs.gate.outputs.commit }}" \
+            --channel "${{ needs.gate.outputs.channel }}"
+
+          apk=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          aapt2=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)aapt2
+          badge=$("$aapt2" dump badging "$apk" | head -1)
+          echo "$badge"
+          echo "$badge" | grep -q "versionCode='${{ needs.gate.outputs.code }}'" \
+            || { echo "::error::versionCode در APK همان appVersionCode نیست"; exit 1; }
+          echo "$badge" | grep -q "versionName='${{ needs.gate.outputs.version }}'" \
+            || { echo "::error::versionName در APK همان appVersion نیست"; exit 1; }
+
+          mkdir -p dist
+          cp "$apk" "dist/KhayatYar-${{ needs.gate.outputs.version }}-unsigned.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-android
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+
+  macos:
+    needs: gate
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: کشِ Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: برداشتنِ local.properties
+        run: rm -f local.properties
+
+      - name: ساختِ .app و DMG (بی‌امضا)
+        run: ./gradlew --no-daemon :desktop:createDistributable :desktop:packageDmg
+
+      - name: مطمئن شو همان نسخه و کامیت است
+        run: |
+          python3 tools/release/verify-build.py \
+            --commit "${{ needs.gate.outputs.commit }}" \
+            --channel "${{ needs.gate.outputs.channel }}" \
+            --jars desktop/build/compose/binaries/main/app
+
+          plist=$(find desktop/build/compose/binaries/main/app -maxdepth 3 -path '*KhayatYar.app/Contents/Info.plist' | head -1)
+          short=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$plist")
+          echo "CFBundleShortVersionString=$short"
+          [ "$short" = "${{ needs.gate.outputs.version }}" ] \
+            || { echo "::error::نسخهٔ بستهٔ مک همان appVersion نیست"; exit 1; }
+
+          dmg=$(ls desktop/build/compose/binaries/main/dmg/*.dmg | head -1)
+          mkdir -p dist
+          cp "$dmg" "dist/KhayatYar-${{ needs.gate.outputs.version }}-unsigned.dmg"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-macos
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+
+  windows:
+    needs: gate
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: کشِ Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: برداشتنِ local.properties
+        shell: bash
+        run: rm -f local.properties
+
+      # اینجا برخلافِ `windows.yml` نبودنِ MSI کار را قرمز می‌کند: نصب‌کننده
+      # همان چیزی است که به کارگاه می‌رود.
+      - name: ساختِ پوشهٔ اجرایی و MSI
+        shell: bash
+        run: ./gradlew --no-daemon :desktop:createDistributable :desktop:packageMsi
+
+      - name: مطمئن شو همان نسخه و کامیت است
+        shell: bash
+        run: |
+          python tools/release/verify-build.py \
+            --commit "${{ needs.gate.outputs.commit }}" \
+            --channel "${{ needs.gate.outputs.channel }}" \
+            --jars desktop/build/compose/binaries/main/app
+
+          msi=$(ls desktop/build/compose/binaries/main/msi/*.msi | head -1)
+          case "$msi" in
+            *"-${{ needs.gate.outputs.version }}.msi") ;;
+            *) echo "::error::نامِ MSI نسخهٔ ${{ needs.gate.outputs.version }} را ندارد: $msi"; exit 1 ;;
+          esac
+          mkdir -p dist
+          cp "$msi" "dist/KhayatYar-${{ needs.gate.outputs.version }}.msi"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-windows
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+
+  collect:
+    needs: [gate, android, macos, windows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+
+      - name: SHA256SUMS
+        working-directory: dist
+        run: |
+          sha256sum * | tee SHA256SUMS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KhayatYar-${{ needs.gate.outputs.version }}-${{ needs.gate.outputs.commit }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: خلاصه
+        run: |
+          {
+            echo "## خیاط‌یار ${{ needs.gate.outputs.version }} (${{ needs.gate.outputs.code }}) — کامیتِ ${{ needs.gate.outputs.commit }}، کانالِ ${{ needs.gate.outputs.channel }}"
+            echo
+            echo '```'
+            cat dist/SHA256SUMS
+            echo '```'
+            echo
+            echo "گام‌های بعد روی کمپیوترِ کارفرما و از روی همین تگ: APK را با کلیدِ اندروید امضا کنید، DMG را با tools/macos-signing/sign-and-notarize.sh بسازید، و ریلیز را با MSIِ همین‌جا منتشر کنید (DELIVERY.md، گامِ ۴)."
+          } >> "$GITHUB_STEP_SUMMARY"

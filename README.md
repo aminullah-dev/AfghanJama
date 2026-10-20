@@ -76,6 +76,14 @@ DMG، پس کشیدنِ برنامه روی `/Applications` مهرش را از �
 
 راهنمای کارِ روزمره: [`RAHNAMA.md`](RAHNAMA.md)
 
+**نسخهٔ بعد: ۱.۹.۱ (شمارهٔ ساخت ۱۵) — هنوز منتشر نشده.** چهار PR:
+#27 درست‌کاریِ اشتراکِ کارگاه، #28 امنیتِ آن (یک دیتابیس، روشن‌شدنِ خودکار
+فقط در شبکهٔ کارگاه، سقفِ رمز، نقش)، #29 پیدا شدنش روی مک و ویندوز، و #30
+یک نسخه برای همهٔ سکوها: هر سه بسته از یک تگ و یک کامیت، و نسخه و کامیت در
+«دربارهٔ خیاط‌یار» خودِ برنامه. **هر گوشیِ اندرویدیِ کارگر باید ۱.۹.۱ را
+نصب کند**؛ گوشیِ ۱.۹.۰ به هیچ دستگاهِ اصلی‌ای وصل نمی‌شود. متنِ کامل:
+[`docs/RELEASE-1.9.1.md`](docs/RELEASE-1.9.1.md).
+
 **لایسنس (از نسخهٔ ۱.۹.۰).** هر کارگاه یک لایسنس می‌خواهد که لینومیک
 بی‌اینترنت فعال می‌کند و به دستگاهِ اصلی (یا تنها) بسته است؛ گوشی‌های
 کارگر زیرِ همان‌اند. بی‌لایسنس، ۱۴ روز و ۲۰ سفارش کامل کار می‌کند و بعد
@@ -105,9 +113,17 @@ gradlew.bat :desktop:packageMsi
 # آزمون‌های ریاضیِ پول
 ./gradlew testDebugUnitTest
 
-# ۵۴ بررسیِ ساختاری — چند ثانیه، بی‌نیاز به Gradle
+# ۵۸ بررسیِ ساختاری — چند ثانیه، بی‌نیاز به Gradle
 python3 tools/checks/run_all.py
+
+# پیش از تگ زدن: نسخه از ریلیزِ قبلی بالاتر است؟
+python3 tools/release/gate.py
 ```
+
+**انتشار فقط از یک تگ.** تگِ `v<appVersion>` روی کامیتِ ادغام‌شده
+`release.yml` را راه می‌اندازد: APK، DMG و MSI از همان یک کامیت. امضای
+مک فقط روی همان تگ و با درختِ تمیز انجام می‌شود. هر ساختِ دیگری در
+«دربارهٔ خیاط‌یار» «آزمایشی» می‌گوید.
 
 مراحلِ کاملِ انتشار: [`DELIVERY.md`](DELIVERY.md)
 
@@ -126,7 +142,7 @@ app/       نسخهٔ اندروید — Activity، ناوبری، مهاجرت�
 core/      مشترکِ هر سه سکو — صفحه‌ها، ViewModelها، Room، منطقِ پول
 desktop/   نسخهٔ ویندوز و مک — پنجره، فهرستِ کنار، MSI و DMG
 iosApp/    پوستهٔ SwiftUI که همان :core را سوار می‌کند
-tools/     ۵۴ بررسیِ ساختاری، ناشرِ وردپرس، اسکریپت‌های امضای ویندوز و مک
+tools/     ۵۸ بررسیِ ساختاری، دروازهٔ انتشار، ناشرِ وردپرس، امضای ویندوز و مک
 docs/      معماری، راهنمای ویندوز، مسئله‌های شناخته‌شده
 ```
 
@@ -135,7 +151,7 @@ docs/      معماری، راهنمای ویندوز، مسئله‌های شن
 
 ### بررسی‌های ساختاری
 
-`tools/checks/` پنجاه‌وچهار بررسیِ پایتونی دارد که در چند ثانیه می‌دوند و
+`tools/checks/` پنجاه‌وهشت بررسیِ پایتونی دارد که در چند ثانیه می‌دوند و
 چیزهایی را می‌گیرند که کامپایلر نمی‌گیرد: ایمپورتِ جاافتاده، مهاجرتِ
 گم‌شده، عملیاتِ غیراتمیک، صفحهٔ بی‌مسیر، فاصله‌های خارج از شبکهٔ ۴dp،
 و منطقِ پول که با شبیه‌سازیِ مستقل سنجیده می‌شود.
@@ -173,11 +189,19 @@ comes from a single formula, so the quote calculator and the ledger can
 never disagree. *One definition, every platform*: a schema migration is
 written once and reaches Android, Windows, macOS and iOS alike.
 
-Alongside the code, `tools/checks/` holds 54 Python checks that run in
+Alongside the code, `tools/checks/` holds 58 Python checks that run in
 seconds and catch what the compiler cannot — missing imports, absent
 migrations, non-atomic operations, unreachable screens, and money logic
 verified against an independent simulation. Every check must be proven
 to fail on deliberately broken code before it is accepted.
+
+Next release: **1.9.1 (build 15)**, not yet published — #27 workshop-link
+correctness, #28 its security, #29 finding it on Mac and Windows, and #30 one
+version for every platform: every package is built from one tag and one
+commit, and the app shows its version, commit and whether it is a release or
+a test build under "About". Every Android worker phone must install 1.9.1; a
+1.9.0 worker phone cannot reach any main device. Notes (Dari):
+[`docs/RELEASE-1.9.1.md`](docs/RELEASE-1.9.1.md).
 
 From 1.9.0 every workshop needs an offline, device-bound licence issued by
 Linumic (14-day / 20-order trial, then read-only; worker phones are covered

@@ -72,6 +72,9 @@ wp-credentials.json
 iosApp/KhayatYar.xcodeproj/
 iosApp/build/
 iosApp/KhayatYar/Info.plist
+# نسخهٔ آیفون — `tools/release/ios-version.sh` از `gradle.properties`
+# می‌سازدش. در گیت بنشیند، جای دومی برای نسخه می‌شود.
+iosApp/Version.xcconfig
 
 # ---- زباله‌های سیستم‌عامل ----
 # فایندر اینها را خودش می‌سازد و هیچ ربطی به پروژه ندارند. تا امروز
@@ -95,3 +98,10 @@ Thumbs.db
 *.aab
 *.msi
 *.dmg
+
+# خروجیِ «Generate Signed APK»ِ Android Studio (`DELIVERY.md`، گامِ ۲).
+# کنارِ APK یک `output-metadata.json` هم می‌گذارد که `*.apk` نمی‌گیردش، و
+# از آن پس درخت «تمیز» نیست: ساختِ بعدی روی همان تگ در «دربارهٔ خیاط‌یار»
+# «آزمایشی» می‌گفت و امضای مک رد می‌کرد.
+/app/release/
+/app/debug/
