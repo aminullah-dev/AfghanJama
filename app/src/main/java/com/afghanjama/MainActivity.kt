@@ -14,8 +14,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import com.afghanjama.data.buildAppDatabase
+import com.afghanjama.data.AppDb
 import com.afghanjama.data.repo.Repo
+import com.afghanjama.lan.LanHub
 import com.afghanjama.licence.AndroidMachineId
 import com.afghanjama.licence.Licensing
 import com.afghanjama.ui.components.LicenceHeartbeat
@@ -76,13 +77,24 @@ class MainActivity : FragmentActivity() {
         // شناسهٔ دستگاه برای کدِ لایسنس (`ANDROID_ID`) از همین Context خوانده می‌شود.
         AndroidMachineId.init(applicationContext)
 
-        val db = buildAppDatabase(applicationContext)
+        // دفترِ مشترکِ پروسه — همان نمونه‌ای که سرورِ اشتراکِ کارگاه و
+        // کارهای پس‌زمینه می‌گیرند (`AppDb`). با چرخاندنِ گوشی `onCreate`
+        // دوباره اجرا می‌شود و دیگر هر بار یک اتصالِ تازه باز نمی‌ماند.
+        val db = AppDb.get(applicationContext)
         val repo = Repo(db)
 
         // تنظیمات یک بار ساخته می‌شود و از اینجا به کلِ درخت می‌رود.
         // صفحه‌هایی که به `:core` رفته‌اند به‌جای `LocalContext` این را
         // می‌گیرند — همان یک خط بود که نگهشان می‌داشت در `:app`.
         val settings = AndroidSettings(applicationContext)
+
+        // اشتراکِ کارگاه. `App.onCreate` همین را صدا زده و این‌جا معمولاً
+        // هیچ نمی‌کند (یک بار در هر پروسه؛ چرخاندنِ گوشی «خاموش»ِ کارفرما
+        // را پس نمی‌گیرد). فقط پس از بازیابیِ پشتیبان کاری می‌کند: آنجا
+        // پروسه زنده می‌ماند و `App.onCreate` دیگر اجرا نمی‌شود
+        // (`LanHub.stopForRestore`).
+        LanHub.shared.autoStart(settings, AndroidLanHost(applicationContext))
+
         val system = AndroidSystemActions(applicationContext)
         val docs = AndroidDocs(applicationContext)
         // پوستهٔ نازکی روی `PhotoStore` — رفتارِ گوشی همان است که بود.

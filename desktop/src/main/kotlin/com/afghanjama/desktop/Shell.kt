@@ -69,6 +69,9 @@ import com.afghanjama.ui.screens.ActionCenterScreen
 import com.afghanjama.ui.screens.DailyTradeScreen
 import com.afghanjama.ui.screens.WorkshopLoadScreen
 import com.afghanjama.ui.vm.ActionCenterViewModel
+import com.afghanjama.ui.vm.WorkshopLinkAccess
+import com.afghanjama.ui.format.fa
+import kotlinx.coroutines.flow.flowOf
 import com.afghanjama.ui.screens.DocumentsScreen
 import com.afghanjama.ui.vm.AttendanceViewModel
 import com.afghanjama.ui.vm.BreakTimeViewModel
@@ -234,8 +237,15 @@ fun Shell(
     }
 
     Row(Modifier.fillMaxSize().background(Bg)) {
+        // شمارِ درخواست‌های گوشیِ کارگران، کنارِ «اشتراکِ کارگاه» — فقط برای
+        // کسی که می‌تواند تأییدشان کند ([WorkshopLinkAccess.seesRequests]).
+        // بقیه نه شمار را می‌بینند و نه این جریان برایشان باز می‌شود.
+        val pendingRequests by remember(repo, access) {
+            if (WorkshopLinkAccess.seesRequests(access)) repo.observePendingRequestCount() else flowOf(0)
+        }.collectAsState(0)
+
         // در چیدمانِ راست‌به‌چپ، اولین عضوِ Row سمتِ راست می‌نشیند.
-        Sidebar(section, access) {
+        Sidebar(section, access, pendingRequests) {
             section = it
             openCustomer = null
             openOrder = null
@@ -292,6 +302,7 @@ fun Shell(
                         section = section,
                         repo = repo,
                         role = role,
+                        access = access,
                         go = { section = it },
                         onOpenCustomer = { openCustomer = it },
                         onOpenOrder = { openOrder = it }
@@ -402,7 +413,9 @@ internal fun SectionContent(
     role: UserRole,
     go: (Section) -> Unit,
     onOpenCustomer: (Long) -> Unit,
-    onOpenOrder: (String) -> Unit = {}
+    onOpenOrder: (String) -> Unit = {},
+    /** تیک‌های این نفر — «اشتراکِ کارگاه» دکمه‌هایش را از همین می‌خوانَد. */
+    access: Access = Access.forRole(role)
 ) {
 
     val back = { go(Section.Overview) }
@@ -694,7 +707,7 @@ internal fun SectionContent(
             }
             WorkshopLinkScreen(
                 vm,
-                isManager = role == UserRole.MANAGER,
+                access = access,
                 onBack = back
             )
         }
@@ -721,7 +734,7 @@ internal fun SectionContent(
 }
 
 @Composable
-private fun Sidebar(current: Section, access: Access, onPick: (Section) -> Unit) {
+private fun Sidebar(current: Section, access: Access, pendingRequests: Int, onPick: (Section) -> Unit) {
     Column(
         Modifier
             .width(210.dp)
@@ -755,12 +768,27 @@ private fun Sidebar(current: Section, access: Access, onPick: (Section) -> Unit)
                     .clickable { onPick(s) }
                     .padding(horizontal = 12.dp, vertical = 10.dp)
             ) {
-                Text(
-                    s.title,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                    color = if (selected) Brand else Ink
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        s.title,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (selected) Brand else Ink,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (s == Section.WorkshopLink && pendingRequests > 0) {
+                        Text(
+                            pendingRequests.fa(),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Brand)
+                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                        )
+                    }
+                }
             }
         }
 

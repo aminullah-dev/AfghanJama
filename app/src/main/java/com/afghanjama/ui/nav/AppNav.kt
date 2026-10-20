@@ -531,7 +531,7 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                 val linkVm = viewModel<WorkshopLinkViewModel>(vmOwner, factory = factory)
                 WorkshopLinkScreen(
                     vm = linkVm,
-                    isManager = authUi.role == UserRole.MANAGER,
+                    access = authUi.access,
                     onBack = { navController.popBackStack() }
                 )
             }

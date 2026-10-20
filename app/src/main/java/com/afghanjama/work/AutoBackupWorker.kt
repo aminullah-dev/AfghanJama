@@ -6,7 +6,7 @@ import androidx.work.WorkerParameters
 import com.afghanjama.prefs.BackupPrefs
 import com.afghanjama.prefs.settings
 import com.afghanjama.AppInfo
-import com.afghanjama.data.buildAppDatabase
+import com.afghanjama.data.AppDb
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.util.DownloadsWriter
 import java.text.SimpleDateFormat
@@ -30,26 +30,24 @@ class AutoBackupWorker(
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        val db = buildAppDatabase(applicationContext)
-        try {
-            // هرسِ رویدادهای کهنه **پیش از** checkpoint.
-            //
-            // ترتیبش عمدی است: اگر بعد از checkpoint هرس شود، حذف در
-            // WAL می‌ماند و فایلی که همین حالا کپی می‌شود هنوز همهٔ
-            // سطرهای کهنه را دارد. این‌طور هم دیتابیسِ زنده کوچک
-            // می‌شود هم خودِ پشتیبان.
-            //
-            // شکستنش نباید جلوی پشتیبان‌گیری را بگیرد؛ پشتیبان مهم‌تر
-            // از خانه‌تکانی است.
-            runCatching { Repo(db).pruneEvents() }
+        // همان دفترِ مشترکِ پروسه (`AppDb`) — و بسته نمی‌شود؛ اگر برنامه
+        // باز باشد، صفحه‌ها همین نمونه را می‌خوانند.
+        val db = AppDb.get(applicationContext)
+        // هرسِ رویدادهای کهنه **پیش از** checkpoint.
+        //
+        // ترتیبش عمدی است: اگر بعد از checkpoint هرس شود، حذف در
+        // WAL می‌ماند و فایلی که همین حالا کپی می‌شود هنوز همهٔ
+        // سطرهای کهنه را دارد. این‌طور هم دیتابیسِ زنده کوچک
+        // می‌شود هم خودِ پشتیبان.
+        //
+        // شکستنش نباید جلوی پشتیبان‌گیری را بگیرد؛ پشتیبان مهم‌تر
+        // از خانه‌تکانی است.
+        runCatching { Repo(db).pruneEvents() }
 
-            // WAL را یکپارچه کن تا فایل اصلی دیتابیس کامل باشد
-            db.openHelper.writableDatabase
-                .query("PRAGMA wal_checkpoint(FULL)")
-                .use { it.moveToFirst() }
-        } finally {
-            db.close()
-        }
+        // WAL را یکپارچه کن تا فایل اصلی دیتابیس کامل باشد
+        db.openHelper.writableDatabase
+            .query("PRAGMA wal_checkpoint(FULL)")
+            .use { it.moveToFirst() }
 
         val dbFile = applicationContext.getDatabasePath(DB_NAME)
         if (!dbFile.exists()) return Result.success()

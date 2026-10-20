@@ -279,10 +279,15 @@ val ALL_MIGRATIONS = arrayOf(
  */
 
 /**
- * ساخت متمرکز دیتابیس. همهٔ نقاط (اپ و Workerها) باید از این استفاده
- * کنند تا لیست Migration هرگز ناقص نماند (جلوگیری از پاک‌شدن ناخواستهٔ داده).
+ * ساخت متمرکز دیتابیس، تا لیست Migration هرگز ناقص نماند (جلوگیری از
+ * پاک‌شدن ناخواستهٔ داده).
+ *
+ * **فقط [AppDb] این را صدا می‌زند.** اپ، سرورِ اشتراکِ کارگاه و
+ * Workerها همه `AppDb.get(context)` را می‌گیرند تا یک نمونه در پروسه
+ * باشد؛ نمونهٔ دوم تغییرهای اولی را به `Flow`هایش نمی‌رساند
+ * (`tools/checks/onedb.py`).
  */
-fun buildAppDatabase(context: Context): AppDatabase =
+internal fun buildAppDatabase(context: Context): AppDatabase =
     Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, DB_NAME)
         /*
          * `ALL_MIGRATIONS` همان ۴۲ مهاجرتِ تاریخی است (۱۹ تا ۶۱) و

@@ -4,8 +4,10 @@ import android.app.Application
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
-import com.afghanjama.data.buildAppDatabase
+import com.afghanjama.data.AppDb
 import com.afghanjama.data.repo.Repo
+import com.afghanjama.lan.AndroidLanHost
+import com.afghanjama.lan.LanHub
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.prefs.SalePrefs
 import com.afghanjama.prefs.settings
@@ -70,28 +72,33 @@ class App : Application() {
         // Context دسترسی ندارد و از نسخهٔ حافظه‌ایِ همین می‌خواند.
         SalePrefs.allowNegativeStock(settings)
 
+        // اشتراکِ کارگاه — **یک بار در هر پروسه**، نه هر بار که اکتیویتی
+        // ساخته می‌شود. اگر این گوشیِ اصلی است، همین که لایسنس خوانده شد
+        // (`LicenceHeartbeat`ِ `MainActivity`) و گوشی روی شبکهٔ کارگاه بود،
+        // خودش روشن می‌شود؛ پیش از آن «نوشتن مجاز است» پیش‌فرض است و نباید
+        // درخواستی بنشیند. پروسه‌ای که فقط برای یک کارِ پس‌زمینه بالا آمده
+        // و اکتیویتی ندارد، لایسنس نمی‌خوانَد و سرور هم روشن نمی‌کند.
+        LanHub.shared.autoStart(settings, AndroidLanHost(this))
+
         CoroutineScope(Dispatchers.IO).launch {
             runCatching { BreakReminderWorker.rescheduleAll(this@App) }
             // عکس‌های بی‌صاحب را جارو می‌کنیم: سفارشِ حذف‌شده، عکسِ نیمه‌کاره،
             // یا بازیابیِ پشتیبانی که سطرش را نداشته. یک جا برای همهٔ حالت‌ها.
             runCatching {
-                val db = buildAppDatabase(this@App)
-                try {
-                    val repo = Repo(db)
-                    PhotoStore.sweep(this@App, keptPhotoNames(repo))
+                // همان دفترِ مشترکِ پروسه، نه یک نمونهٔ جدا: نوشتنِ تعمیرِ
+                // پایین باید صفحه‌های بازِ همین پروسه را هم تازه کند.
+                val repo = Repo(AppDb.get(this@App))
+                PhotoStore.sweep(this@App, keptPhotoNames(repo))
 
-                    // تعمیرِ یک‌بارهٔ طبقه‌بندیِ نقدِ دستی.
-                    //
-                    // بی پرچم و بی شرط صدا زده می‌شود چون خودش
-                    // بی‌خطر در برابرِ اجرای دوباره است: بعد از یک
-                    // بار هیچ سطری برای جابه‌جایی نمی‌ماند و دو
-                    // پرس‌وجوی شمارش هزینه‌ای ندارد. پرچمی که
-                    // بتواند از دفتر جدا بیفتد، خودش یک اشکالِ تازه
-                    // است.
-                    repo.repairManualCashClassification()
-                } finally {
-                    db.close()
-                }
+                // تعمیرِ یک‌بارهٔ طبقه‌بندیِ نقدِ دستی.
+                //
+                // بی پرچم و بی شرط صدا زده می‌شود چون خودش
+                // بی‌خطر در برابرِ اجرای دوباره است: بعد از یک
+                // بار هیچ سطری برای جابه‌جایی نمی‌ماند و دو
+                // پرس‌وجوی شمارش هزینه‌ای ندارد. پرچمی که
+                // بتواند از دفتر جدا بیفتد، خودش یک اشکالِ تازه
+                // است.
+                repo.repairManualCashClassification()
             }
         }
     }

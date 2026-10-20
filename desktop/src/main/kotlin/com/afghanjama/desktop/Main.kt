@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.ApplicationScope
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.material3.Button
@@ -43,6 +44,7 @@ import com.afghanjama.selftest.CheckStatus
 import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.desktop.data.LedgerStatus
 import com.afghanjama.desktop.data.LedgerStatusViewModel
+import com.afghanjama.desktop.data.DesktopLanHost
 import com.afghanjama.desktop.data.DesktopLedger
 import com.afghanjama.desktop.data.desktopSettings
 import com.afghanjama.desktop.platform.DesktopDocsBridge
@@ -53,7 +55,9 @@ import com.afghanjama.platform.LocalFileExport
 import com.afghanjama.platform.LocalPhotos
 import com.afghanjama.desktop.platform.DesktopPhotos
 import com.afghanjama.platform.LocalSystemActions
+import com.afghanjama.lan.LanHub
 import com.afghanjama.prefs.LocalSettings
+import com.afghanjama.prefs.Settings
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.theme.LightColors
 import com.afghanjama.ui.screens.LoginScreen
@@ -98,7 +102,23 @@ private val platformName: String = run {
     }
 }
 
-fun main() = application {
+fun main() {
+    // **یک** نمونه از تنظیمات برای کلِ برنامه. `FileSettings` هر فایل را در
+    // حافظهٔ خودش نگه می‌دارد؛ اگر صفحه‌ها و اشتراکِ کارگاه هر کدام نمونهٔ
+    // خودشان را داشتند، شبکهٔ کارگاهی که یکی به یاد می‌سپرد دیگری نمی‌دید.
+    val settings = desktopSettings()
+
+    // اشتراکِ کارگاه — اگر این کامپیوتر دستگاهِ اصلی است، همین که لایسنس
+    // خوانده شد و کامپیوتر روی شبکهٔ کارگاه بود، خودش روشن می‌شود؛ پیش از
+    // ورودِ کسی و بی باز کردنِ صفحهٔ «اشتراکِ کارگاه». تا ۱.۹.۱ سرور فقط
+    // از همان صفحه روشن می‌شد.
+    LanHub.shared.autoStart(settings, DesktopLanHost())
+
+    application { MainWindow(settings) }
+}
+
+@Composable
+private fun ApplicationScope.MainWindow(settings: Settings) {
     Window(
         onCloseRequest = ::exitApplication,
         title = "${AppInfo.NAME} — $platformName"
@@ -114,7 +134,6 @@ fun main() = application {
         ) {
             // کلِ برنامه راست‌به‌چپ، مستقلِ از زبانِ ویندوز — همان
             // کاری که KhayatYarTheme روی اندروید می‌کند.
-            val settings = desktopSettings()
             CompositionLocalProvider(
                 LocalLayoutDirection provides LayoutDirection.Rtl,
                 LocalViewModelStoreOwner provides DesktopViewModelStoreOwner,

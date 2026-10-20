@@ -12,7 +12,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
-import com.afghanjama.data.buildAppDatabase
+import com.afghanjama.data.AppDb
 import java.util.concurrent.TimeUnit
 
 /**
@@ -37,17 +37,13 @@ class BreakReminderWorker(
         val id = inputData.getLong(KEY_ID, -1L)
         if (id < 0) return Result.success()
 
-        val db = buildAppDatabase(applicationContext)
-        try {
-            val row = db.breakTimeDao().getById(id) ?: return Result.success()
-            if (!row.enabled) return Result.success()
-            val inside = runCatching { db.breakTimeDao().insideCount() }.getOrDefault(0)
-            notify(row.id, row.title, row.clock, inside)
-            // فردا هم همین ساعت
-            schedule(applicationContext, row.id, row.hour, row.minute)
-        } finally {
-            db.close()
-        }
+        val db = AppDb.get(applicationContext)
+        val row = db.breakTimeDao().getById(id) ?: return Result.success()
+        if (!row.enabled) return Result.success()
+        val inside = runCatching { db.breakTimeDao().insideCount() }.getOrDefault(0)
+        notify(row.id, row.title, row.clock, inside)
+        // فردا هم همین ساعت
+        schedule(applicationContext, row.id, row.hour, row.minute)
         return Result.success()
     }
 
@@ -124,13 +120,9 @@ class BreakReminderWorker(
          * می‌شود تا خاموش‌بودنِ گوشی یا ری‌استارت چیزی را از بین نبرد.
          */
         suspend fun rescheduleAll(context: Context) {
-            val db = buildAppDatabase(context)
-            try {
-                db.breakTimeDao().listEnabled().forEach {
-                    schedule(context, it.id, it.hour, it.minute)
-                }
-            } finally {
-                db.close()
+            val db = AppDb.get(context)
+            db.breakTimeDao().listEnabled().forEach {
+                schedule(context, it.id, it.hour, it.minute)
             }
         }
     }

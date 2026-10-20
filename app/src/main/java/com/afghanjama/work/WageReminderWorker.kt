@@ -8,7 +8,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.afghanjama.data.buildAppDatabase
+import com.afghanjama.data.AppDb
 
 /**
  * یادآوری هفتگی تسویه کارمزد خیاط‌ها.
@@ -20,16 +20,12 @@ class WageReminderWorker(
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        val db = buildAppDatabase(applicationContext)
+        val db = AppDb.get(applicationContext)
 
-        try {
-            val pending = db.tailorWageDao().pendingList()
-            if (pending.isNotEmpty()) {
-                val total = pending.sumOf { it.amount }
-                showNotification(pending.size, total)
-            }
-        } finally {
-            db.close()
+        val pending = db.tailorWageDao().pendingList()
+        if (pending.isNotEmpty()) {
+            val total = pending.sumOf { it.amount }
+            showNotification(pending.size, total)
         }
         return Result.success()
     }

@@ -3,6 +3,7 @@ package com.afghanjama.desktop.data
 import com.afghanjama.data.DB_NAME
 import com.afghanjama.data.DB_VERSION
 import com.afghanjama.data.DESKTOP_BASELINE
+import com.afghanjama.lan.LanHub
 import com.afghanjama.util.BackupArchive
 import com.afghanjama.util.BackupArchiveIo
 import java.io.File
@@ -82,6 +83,9 @@ object DesktopBackup {
         val db = databaseFile()
         val staged = stageAndValidate(source, db.parentFile)
 
+        // سرورِ اشتراکِ کارگاه همین دفتر را می‌نویسد؛ پیش از بستنِ دفتر
+        // خاموش می‌شود تا درخواستِ گوشیِ کارگری وسطِ جایگزینی ننشیند.
+        LanHub.shared.stop()
         val repo = DesktopLedger.repo().getOrThrow()
         repo.checkpoint()
         repo.closeDatabase()

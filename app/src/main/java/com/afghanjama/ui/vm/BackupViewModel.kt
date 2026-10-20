@@ -6,9 +6,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.afghanjama.prefs.BackupPrefs
 import com.afghanjama.AppInfo
+import com.afghanjama.data.AppDb
 import com.afghanjama.data.DB_NAME
 import com.afghanjama.data.DB_VERSION
 import com.afghanjama.data.repo.Repo
+import com.afghanjama.lan.LanHub
 import com.afghanjama.prefs.settings
 import com.afghanjama.prefs.CompanyPrefs
 import com.afghanjama.util.BackupArchive
@@ -166,10 +168,19 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
                 )
             }
 
+            // سرورِ اشتراکِ کارگاه همین دفتر را می‌نویسد؛ پیش از بستنِ دفتر
+            // خاموش می‌شود تا درخواستِ کارگری وسطِ جایگزینی ننشیند. «برای
+            // بازیابی»: پروسه پس از «بستنِ اپ» اغلب زنده می‌ماند، و بازِ بعدیِ
+            // برنامه (`MainActivity`) باید اشتراک را دوباره خودش روشن کند.
+            LanHub.shared.stopForRestore()
             repo.checkpoint()
             // اتصالِ باز باید قبل از بازنویسیِ فایل بسته شود؛ وگرنه صفحه‌های
             // کش‌شدهٔ آن اتصال روی دیتابیسِ تازه می‌نشیند و خرابش می‌کند.
             repo.closeDatabase()
+            // نمونهٔ بسته‌شده دیگر به کسی داده نمی‌شود. اگر پروسه پس از
+            // «بستنِ اپ» زنده بماند، بازِ بعدی فایلِ بازیابی‌شده را با
+            // نمونهٔ تازه باز می‌کند.
+            AppDb.forget()
             // فایل‌های WAL/SHM قدیمی نباید با دیتابیس بازیابی‌شده قاطی شوند
             java.io.File(dbFile.path + "-wal").delete()
             java.io.File(dbFile.path + "-shm").delete()
