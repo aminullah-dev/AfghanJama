@@ -32,7 +32,14 @@ import java.util.Locale
  *   `quick_check`)؛ کپیِ دفترِ زنده می‌تواند وسطِ یک نوشتن بریده شود و
  *   پشتیبانِ خراب بدتر از نبودنش است — آدم به آن تکیه می‌کند.
  * - [KEEP] تای آخر می‌مانند؛ فقط فایل‌های خودکارِ خودش پاک می‌شوند، نه
- *   پشتیبانِ دستی یا «پیش از پاک‌کردن».
+ *   پشتیبانِ دستی یا «پیش از پاک‌کردن»، و نه هر فایلِ دیگری در پوشه‌ای که
+ *   کارفرما داده (iCloud Drive، OneDrive): نام باید **دقیقاً** شکلِ
+ *   [fileName] باشد و فایل معمولی باشد، نه میان‌بُر.
+ * - **ساعتِ نادرست چیزی را پاک نمی‌کند** ([prune]): پشتیبانی که همین حالا
+ *   نوشته شد هرگز پاک نمی‌شود، اگر ساعت از پشتیبان‌های روی دیسک عقب‌تر
+ *   باشد هیچ چیز پاک نمی‌شود، و پشتیبانی که تاریخش در آینده است دست
+ *   نمی‌خورد. آخرین پشتیبانِ «آینده» هم پشتیبانِ خودکار را نمی‌خواباند
+ *   ([isDue]).
  * - هر بارِ موفق `BackupPrefs.setLastAuto` — همان عددی که هشدار و
  *   «تنظیمات» می‌خوانند.
  */
@@ -49,6 +56,14 @@ object DesktopAutoBackup {
 
     private const val PREFIX = "KhayatYar-auto-"
     private const val EXT = ".ajb"
+    private const val STAMP = "yyyyMMdd-HHmmss"
+
+    /**
+     * فقط همان نامی که [fileName] می‌سازد. «… - Copy.ajb»ِ ویندوز، «… copy.ajb»ِ
+     * مک، `.part` و هر فایلِ دیگری که فقط با همان پیشوند شروع شود، مالِ
+     * کاربر است.
+     */
+    private val AUTO_NAME = Regex("""KhayatYar-auto-\d{8}-\d{6}\.ajb""")
 
     /** نتیجهٔ یک بار. */
     data class Run(
@@ -71,13 +86,27 @@ object DesktopAutoBackup {
     private val _status = MutableStateFlow(Status())
     val status: StateFlow<Status> = _status.asStateFlow()
 
-    fun isAutoFile(f: File): Boolean = f.isFile && f.name.startsWith(PREFIX) && f.name.endsWith(EXT)
+    fun isAutoFile(f: File): Boolean =
+        AUTO_NAME.matches(f.name) && f.isFile && !Files.isSymbolicLink(f.toPath())
 
     fun fileName(at: Long): String =
-        PREFIX + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date(at)) + EXT
+        PREFIX + SimpleDateFormat(STAMP, Locale.US).format(Date(at)) + EXT
 
-    /** وقتش رسیده؟ صفر یعنی هرگز گرفته نشده — وقتش است. */
-    fun isDue(lastAuto: Long, now: Long): Boolean = lastAuto <= 0L || now - lastAuto >= EVERY_MS
+    /** زمانِ پشتیبان از نامش؛ `null` اگر نام تاریخِ درستی نیست. */
+    private fun stampOf(f: File): Long? = runCatching {
+        SimpleDateFormat(STAMP, Locale.US).apply { isLenient = false }
+            .parse(f.name.removePrefix(PREFIX).removeSuffix(EXT))?.time
+    }.getOrNull()
+
+    /**
+     * وقتش رسیده؟ صفر یعنی هرگز گرفته نشده — وقتش است.
+     *
+     * آخرین پشتیبانی که «در آینده» است (ساعتِ کامپیوتر روزی جلو بود و بعد
+     * درست شد) هم یعنی وقتش است؛ وگرنه `now - lastAuto` منفی می‌ماند و
+     * پشتیبانِ خودکار تا آن تاریخ بی‌صدا می‌خوابید.
+     */
+    fun isDue(lastAuto: Long, now: Long): Boolean =
+        lastAuto <= 0L || now - lastAuto >= EVERY_MS || lastAuto - now > CHECK_MS
 
     /** پوشه‌ای که امروز در آن نوشته می‌شود. */
     fun folder(settings: Settings): File =
@@ -87,12 +116,29 @@ object DesktopAutoBackup {
      * فقط [KEEP] تای تازه‌ترِ خودکار می‌مانند. ترتیب از نامِ فایل است (تاریخ
      * در نام)، نه از زمانِ تغییر — کپی کردنِ پوشه زمانِ تغییر را عوض می‌کند.
      *
+     * **ساعتِ نادرست.** ترتیبِ نام فقط وقتی معنا دارد که ساعت درست باشد:
+     * - پشتیبانی که تاریخش بیش از یک روز از [now] جلوتر است (یا تاریخش خوانده
+     *   نمی‌شود) نه شمرده می‌شود نه پاک.
+     * - [newest] (پشتیبانی که همین حالا نوشته شد) هرگز پاک نمی‌شود؛ و اگر در
+     *   ترتیبِ نام تازه‌ترین نباشد، یعنی ساعت از پشتیبان‌های روی دیسک عقب
+     *   رفته — آن‌وقت هیچ چیز پاک نمی‌شود. بی این، کامپیوتری که باتریِ
+     *   ساعتش تمام شده هر روز پشتیبانِ تازه را درست پس از نوشتنش پاک می‌کرد
+     *   و فقط چهارده پشتیبانِ کهنه می‌ماند.
+     *
      * @return شمارِ فایل‌هایی که پاک شدند.
      */
-    fun prune(dir: File, keep: Int = KEEP): Int {
-        val autos = dir.listFiles()?.filter(::isAutoFile)?.sortedByDescending { it.name }.orEmpty()
+    fun prune(
+        dir: File,
+        keep: Int = KEEP,
+        newest: File? = null,
+        now: Long = System.currentTimeMillis(),
+    ): Int {
+        val placed = dir.listFiles()?.filter(::isAutoFile).orEmpty()
+            .filter { f -> stampOf(f)?.let { it <= now + EVERY_MS } ?: false }
+            .sortedByDescending { it.name }
+        if (newest != null && placed.firstOrNull()?.name != newest.name) return 0
         var n = 0
-        autos.drop(keep).forEach { if (it.delete()) n++ }
+        placed.drop(keep.coerceAtLeast(1)).forEach { if (it.name != newest?.name && it.delete()) n++ }
         return n
     }
 
@@ -126,7 +172,7 @@ object DesktopAutoBackup {
                 writeVerified(fallbackDir, now, backup).getOrThrow() to true
             }
             val (file, photos) = written
-            val pruned = prune(file.parentFile)
+            val pruned = prune(file.parentFile, newest = file, now = now)
             BackupPrefs.setLastAuto(settings, now)
             Run(file, photos, now, fellBack, pruned)
         }

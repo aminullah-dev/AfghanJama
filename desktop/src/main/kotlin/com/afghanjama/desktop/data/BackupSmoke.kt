@@ -256,6 +256,83 @@ fun main() {
         need(manual.exists() && safety.exists(), "manual and pre-reset backups are not the auto backup's to delete")
     } && ok
 
+    // ۱۰ب — پوشهٔ کاربر (iCloud، OneDrive) چیزهای دیگری هم دارد: کپیِ ویندوز و
+    // مک، فایلِ نیمه‌نوشته، یادداشت با همان پیشوند، میان‌بُر. هیچ‌کدام مالِ
+    // پشتیبانِ خودکار نیست.
+    ok = check("auto-backup retention never touches copies, .part files, other files or links") {
+        val folder = File(dir, "autos-foreign").apply { mkdirs() }
+        val day = 24L * 60 * 60 * 1000
+        val base = 1_760_000_000_000L
+        val autos = (0 until 3).map { File(folder, DesktopAutoBackup.fileName(base + it * day)).apply { writeText("a") } }
+        val stem = DesktopAutoBackup.fileName(base - 10 * day).removeSuffix(".ajb")
+        val foreign = listOf(
+            "$stem - Copy.ajb", "$stem copy.ajb", "$stem.ajb.part", "KhayatYar-auto-notes.ajb",
+            "KhayatYar-auto-20251301-000000.ajb", "${stem}.AJB", "${stem}.ajb.txt"
+        ).map { File(folder, it).apply { writeText("user") } }
+        val outside = File(dir, "outside-target.ajb").apply { writeText("keep me") }
+        val link = File(folder, DesktopAutoBackup.fileName(base - 20 * day))
+        val linked = runCatching { Files.createSymbolicLink(link.toPath(), outside.toPath()) }.isSuccess
+        val folderLike = File(folder, DesktopAutoBackup.fileName(base - 30 * day)).apply { mkdirs() }
+
+        val pruned = DesktopAutoBackup.prune(folder, keep = 1)
+        need(pruned == 2, "only the two older real auto backups should go, $pruned went")
+        need(autos.last().exists() && !autos[0].exists() && !autos[1].exists(), "the newest real auto backup should stay")
+        foreign.forEach { need(it.exists(), "${it.name} is not an auto backup and must stay") }
+        need(folderLike.isDirectory, "a folder is not an auto backup")
+        need(outside.readText() == "keep me", "a link's target must never be touched")
+        if (linked) need(Files.isSymbolicLink(link.toPath()), "a link named like an auto backup must stay")
+    } && ok
+
+    // ۱۰ج — ساعتِ نادرست. کامپیوتری که باتریِ ساعتش تمام شده به سالِ ۲۰۰۰
+    // برمی‌گردد؛ پشتیبانِ تازه نباید درست پس از نوشتنش پاک شود.
+    ok = check("a wrong clock never deletes the backup just written, nor stalls the next one") {
+        val day = 24L * 60 * 60 * 1000
+        val hour = 60L * 60 * 1000
+        val base = 1_790_000_000_000L
+        val backup = { f: File -> runCatching { DesktopBackup.writeBackup(live, f) } }
+
+        // ساعت به ۲۰۰۰ برگشت.
+        val folderA = File(dir, "skew-back").apply { mkdirs() }
+        val oldOnes = (0 until DesktopAutoBackup.KEEP).map {
+            File(folderA, DesktopAutoBackup.fileName(base + it * day)).apply { writeText("a") }
+        }
+        val settingsA = FileSettings(File(dir, "prefs-skew-a"))
+        BackupPrefs.setLastAuto(settingsA, base + 13 * day)
+        val y2000 = 946_684_800_000L
+        need(DesktopAutoBackup.isDue(BackupPrefs.lastAuto(settingsA), y2000), "a last backup 'in the future' must not stall the next one")
+        val runA = DesktopAutoBackup.runIfDue(settingsA, y2000, fallbackDir = folderA, backup = backup)!!.getOrThrow()
+        need(runA.file.isFile, "the backup just written must not be pruned")
+        need(oldOnes.all { it.exists() }, "backups from before the clock went wrong must stay")
+        need(BackupPrefs.lastAuto(settingsA) == y2000, "lastAuto should follow the clock")
+
+        // ساعت ۱۲ ساعت عقب رفت: تازه‌ترین نامِ روی دیسک از «حالا» جلوتر است.
+        val folderB = File(dir, "skew-12h").apply { mkdirs() }
+        val dayOnes = (0 until DesktopAutoBackup.KEEP).map {
+            File(folderB, DesktopAutoBackup.fileName(base + it * day)).apply { writeText("b") }
+        }
+        val runB = DesktopAutoBackup.runIfDue(
+            FileSettings(File(dir, "prefs-skew-b")), base + 13 * day - 12 * hour,
+            force = true, fallbackDir = folderB, backup = backup
+        )!!.getOrThrow()
+        need(runB.file.isFile && runB.pruned == 0, "nothing may be pruned while the clock is behind the newest backup")
+        need(dayOnes.all { it.exists() }, "no older backup may go while the clock is behind")
+
+        // ساعت روزی جلو بود: پشتیبانِ «۲۰۹۹» نه شمرده می‌شود نه پاک.
+        val folderC = File(dir, "skew-ahead").apply { mkdirs() }
+        val future = File(folderC, DesktopAutoBackup.fileName(4_070_908_800_000L)).apply { writeText("f") }
+        val normal = (0 until 3).map { File(folderC, DesktopAutoBackup.fileName(base + it * day)).apply { writeText("c") } }
+        val runC = DesktopAutoBackup.runIfDue(
+            FileSettings(File(dir, "prefs-skew-c")), base + 5 * day,
+            force = true, fallbackDir = folderC, backup = backup
+        )!!.getOrThrow()
+        need(runC.file.isFile, "today's backup must stay even with a 'future' one on disk")
+        need(future.exists(), "a backup dated in the future is not pruned")
+        need(normal.all { it.exists() }, "under the limit nothing is pruned")
+        need(DesktopAutoBackup.prune(folderC, keep = 1, newest = runC.file, now = base + 5 * day) == 3,
+            "with the future file set aside, normal pruning resumes")
+        need(runC.file.exists() && future.exists(), "the newest and the future one stay")
+    } && ok
+
     // ۱۱ — «وقتش رسیده؟» و نوشتنِ lastAuto — همان عددی که هشدار می‌خوانَد.
     ok = check("auto backup runs only when 24 hours have passed, then records lastAuto") {
         val settings = FileSettings(File(dir, "prefs11"))
