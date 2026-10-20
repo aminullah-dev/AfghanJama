@@ -6,6 +6,7 @@ import com.afghanjama.data.entities.SyncRequest
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.lan.HostAddress
 import com.afghanjama.lan.LanClient
+import com.afghanjama.lan.LanGuard
 import com.afghanjama.lan.LanResult
 import com.afghanjama.lan.LanServer
 import com.afghanjama.lan.LanWire
@@ -21,6 +22,7 @@ import java.net.ServerSocket
 import java.net.Socket
 import java.nio.charset.Charset
 import java.nio.file.Files
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.concurrent.thread
 
 /*
@@ -44,6 +46,8 @@ import kotlin.concurrent.thread
  *    نمی‌دیدند.
  * ۳. `reuseAddress` بعد از bind گذاشته می‌شد و اثری نداشت؛ پس سرور دو
  *    بار پشتِ سرِ هم روی **همان** درگاه روشن می‌شود.
+ * ۴. رمزِ شش‌رقمی سقفِ حدس نداشت؛ حالا ده رمزِ نادرست در دقیقه، بعد پنج
+ *    دقیقه بسته — حتی با رمزِ درست ([LanGuard]).
  *
  * دفتر یک فایلِ موقت است (`openDatabase(tempFile)`)، نه دفترِ کارگاه.
  */
@@ -94,7 +98,9 @@ fun main() {
     val repo = Repo(db)
     val code = "482913"
     val port = freeLoopbackPort()
-    val server = LanServer(db, InetAddress.getLoopbackAddress(), port)
+    // ساعتِ نگهبانِ رمز دستِ آزمون است تا «پنج دقیقه بعد» منتظرِ پنج دقیقه نماند.
+    val guardClock = AtomicLong(System.currentTimeMillis())
+    val server = LanServer(db, InetAddress.getLoopbackAddress(), port, LanGuard(clock = { guardClock.get() }))
     val client = LanClient("127.0.0.1", code, port, allowLoopback = true)
     val ahmad = "[T1] احمد"
 
@@ -126,6 +132,35 @@ fun main() {
         loopCheck("a wrong code is refused") {
             val r = runBlocking { LanClient("127.0.0.1", "000000", port, allowLoopback = true).board() }
             loopNeed(r is LanResult.Err && r.message.contains("رمز"), "got $r")
+        }
+
+        loopCheck("ten wrong codes a minute, then this phone is shut out for five minutes - even with the right code") {
+            val wrong = LanClient("127.0.0.1", "000000", port, allowLoopback = true)
+            // رمزِ درست شمارِ نادرستِ بندِ قبلی را پاک می‌کند؛ از صفر.
+            loopNeed(runBlocking { client.board() } is LanResult.Ok, "the right code was refused before any guessing")
+            repeat(10) { i ->
+                val r = runBlocking { wrong.board() }
+                loopNeed(r is LanResult.Err && r.message == "رمزِ اتصال درست نیست.", "wrong code ${i + 1}: $r")
+            }
+            val head = "GET /board HTTP/1.1\r\nX-Workshop-Code: 000000\r\n\r\n"
+            val status = rawExchange(port, head.toByteArray(Charsets.ISO_8859_1), closeOutput = false)
+            loopNeed(status.startsWith("HTTP/1.1 429"), "the 11th wrong code got «$status»")
+            val right = runBlocking { client.board() }
+            loopNeed(
+                right is LanResult.Err && right.message.contains("۵ دقیقه"),
+                "the right code got through a block (a block that lifts for the right code tells the guesser it was right): $right"
+            )
+            loopNeed(runBlocking { client.ping() } is LanResult.Ok, "ping carries no data and must still answer")
+            guardClock.addAndGet(LanGuard.BLOCK_MS)
+            loopNeed(runBlocking { client.board() } is LanResult.Ok, "still shut out after five minutes")
+        }
+
+        loopCheck("a new code lifts every block at once") {
+            val wrong = LanClient("127.0.0.1", "111111", port, allowLoopback = true)
+            repeat(10) { runBlocking { wrong.board() } }
+            loopNeed(runBlocking { client.board() } is LanResult.Err, "ten wrong codes did not shut this phone out")
+            loopNeed(server.changeCode(code), "changeCode refused")
+            loopNeed(runBlocking { client.board() } is LanResult.Ok, "the block survived a new code")
         }
 
         val text = "خیاط احمد کارِ سفارشِ ۱۲ را تمام کرد؛ آستین‌ها را دوباره دوخت. ".repeat(10).take(300)

@@ -26,7 +26,6 @@ import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.URLDecoder
-import java.security.MessageDigest
 
 /**
  * سرورِ گوشیِ اصلی روی وای‌فای کارگاه.
@@ -55,6 +54,12 @@ class LanServer(
     private val bindAddress: InetAddress? = null,
     /** درگاه؛ برنامه همیشه [Lan.PORT]. آزمون درگاهِ خودش را می‌دهد. */
     private val port: Int = Lan.PORT,
+    /**
+     * سقفِ رمزِ نادرست برای هر نشانی ([LanGuard]). با خودِ سرور می‌ماند،
+     * پس خاموش و روشن کردن بستنِ یک نشانی را پاک نمی‌کند؛ فقط «رمز تازه»
+     * ([changeCode]). آزمونِ دودی ساعتِ خودش را به آن می‌دهد.
+     */
+    private val guard: LanGuard = LanGuard(),
 ) {
 
     private var socket: ServerSocket? = null
@@ -109,6 +114,19 @@ class LanServer(
         }
     }
 
+    /**
+     * رمزِ تازه، بی بستن و باز کردنِ درگاه. هر چه با رمزِ قبلی حدس زده شده
+     * بود دیگر به چیزی نزدیک نمی‌کند، پس نشانی‌های بسته هم باز می‌شوند —
+     * کارگری که با رمزِ کهنه بسته شده بود با رمزِ تازه فوراً وصل می‌شود.
+     */
+    fun changeCode(newCode: String): Boolean {
+        val c = newCode.trim()
+        if (c.isBlank()) return false
+        code = c
+        guard.reset()
+        return true
+    }
+
     fun stop() {
         running = false
         runCatching { socket?.close() }
@@ -158,14 +176,28 @@ class LanServer(
             return
         }
 
-        // مقایسه با زمانِ ثابت: `!=` در اولین حرفِ ناجور برمی‌گشت و زمانِ
-        // جواب نشان می‌داد چند رقمِ اولِ رمز درست بوده.
-        if (!MessageDigest.isEqual(givenCode.toByteArray(Charsets.UTF_8), code.toByteArray(Charsets.UTF_8))) {
+        // سقفِ رمزِ نادرست برای هر نشانی (داستانش در [LanGuard]). نشانیِ
+        // بسته حتی با رمزِ درست هم پذیرفته نمی‌شود؛ وگرنه همین که بسته
+        // نمی‌ماند می‌گفت کدام حدس درست بوده.
+        val peer = client.inetAddress?.hostAddress.orEmpty()
+        val wait = guard.blockedFor(peer)
+        if (wait > 0) {
+            respond(client, 429, JSONObject().apply {
+                put("ok", false); put("error", LanGuard.blockedMessage(wait))
+            })
+            return
+        }
+
+        // مقایسه با زمانِ ثابت ([LanGuard.sameCode]): `!=` در اولین حرفِ
+        // ناجور برمی‌گشت و زمانِ جواب نشان می‌داد چند رقمِ اولِ رمز درست بوده.
+        if (!LanGuard.sameCode(givenCode, code)) {
+            guard.failed(peer)
             respond(client, 401, JSONObject().apply {
                 put("ok", false); put("error", "رمزِ اتصال درست نیست.")
             })
             return
         }
+        guard.succeeded(peer)
 
         when {
             method == "GET" && path == Lan.PATH_MY_WORK -> serveMyWork(client, param(query, "worker"))
