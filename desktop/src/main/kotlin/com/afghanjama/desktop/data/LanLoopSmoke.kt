@@ -59,6 +59,8 @@ import kotlin.concurrent.thread
  *    دقیقه بسته — حتی با رمزِ درست ([LanGuard]).
  * ۵. سرور فقط از صفحه روشن می‌شد. حالا [LanHub] سرِ باز شدنِ برنامه
  *    روشنش می‌کند — پس از خوانده شدنِ لایسنس، و فقط روی شبکهٔ کارگاه.
+ * ۶. کارفرما روی کامپیوتر نمی‌دید گوشیِ کارگر اصلاً رسیده یا نه؛ حالا هاب
+ *    گوشی‌هایی را که رسیده‌اند می‌شمارد ([LanPeers]) — رمزِ نادرست نه.
  *
  * دفتر یک فایلِ موقت است (`openDatabase(tempFile)`)، نه دفترِ کارگاه.
  */
@@ -502,6 +504,26 @@ fun main() {
         loopCheck("a second auto-start in the same process changes nothing (a phone rotation must not undo the owner)") {
             hub.autoStart(hubSettings, host)
             loopNeed(hub.state.value.serving, "a second autoStart disturbed a serving hub: ${hub.state.value}")
+        }
+
+        loopCheck("the hub counts a phone that reached it once, a ping counts, a wrong code does not") {
+            // شمارِ کاشیِ صفحهٔ اول («امروز چند گوشی رسید») از همین می‌آید.
+            // loopback یک نشانی است: درخواستِ رمزدارِ بندِ اول همان یک گوشی است.
+            val seen = hub.seen.value
+            loopNeed(seen.lastOk.keys == setOf("127.0.0.1"), "after one right-code request the hub saw ${seen.lastOk.keys}")
+            val first = seen.lastAt ?: 0L
+            Thread.sleep(5)
+            val wrong = runBlocking { LanClient("127.0.0.1", "000000", hubPort, allowLoopback = true).board() }
+            loopNeed(wrong is LanResult.Err, "a wrong code was answered: $wrong")
+            loopNeed(hub.seen.value.lastAt == first, "a wrong code was counted as a phone")
+            Thread.sleep(5)
+            // اسکنِ QR روی گوشیِ کارگر فقط `/ping` می‌فرستد؛ همان باید دیده شود.
+            loopNeed(runBlocking { hubClient.ping() } is LanResult.Ok, "ping failed")
+            val after = hub.seen.value
+            loopNeed(
+                after.lastOk.size == 1 && (after.lastAt ?: 0L) > first,
+                "a ping was not counted, or one phone became two: ${after.lastOk}"
+            )
         }
 
         loopCheck("at a cafe with the same router model the hub shuts, and opens again back at the workshop") {
