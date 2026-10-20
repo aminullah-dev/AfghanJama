@@ -26,6 +26,7 @@ import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.URLDecoder
+import java.security.MessageDigest
 
 /**
  * سرورِ گوشیِ اصلی روی وای‌فای کارگاه.
@@ -157,7 +158,9 @@ class LanServer(
             return
         }
 
-        if (givenCode != code) {
+        // مقایسه با زمانِ ثابت: `!=` در اولین حرفِ ناجور برمی‌گشت و زمانِ
+        // جواب نشان می‌داد چند رقمِ اولِ رمز درست بوده.
+        if (!MessageDigest.isEqual(givenCode.toByteArray(Charsets.UTF_8), code.toByteArray(Charsets.UTF_8))) {
             respond(client, 401, JSONObject().apply {
                 put("ok", false); put("error", "رمزِ اتصال درست نیست.")
             })
@@ -292,8 +295,10 @@ class LanServer(
 
         // «تمام شد» فقط برای کارِ خودِ همین کارگر. همین قاعده سرِ تأیید هم
         // سنجیده می‌شود؛ اینجا فقط زودتر به خودِ کارگر گفته می‌شود.
+        var assignmentQty = 0
         if (type == "SEWING_DONE") {
             val a = db.sewingAssignmentDao().getById(refId)
+            assignmentQty = a?.qty ?: 0
             val refusal = when {
                 a == null -> "این کار پیدا نشد؛ «تازه‌سازی کارها» را بزنید."
                 !ownsAssignment(a, worker) -> "این کار به نامِ شما نیست."
@@ -310,7 +315,7 @@ class LanServer(
 
         val (id, repeated) = inbox.withLock {
             val last = db.syncRequestDao().observeAll().first().firstOrNull { it.worker == worker }
-            if (isRepeatOf(last, worker, type, refId, amount, note, nowMillis())) {
+            if (isRepeatOf(last, worker, type, refId, amount, note, nowMillis(), assignmentQty)) {
                 // همان فشارِ دکمه، دوباره رسیده — همان ردیف را برمی‌گردانیم.
                 last!!.id to true
             } else {

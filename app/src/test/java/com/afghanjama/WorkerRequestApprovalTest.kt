@@ -310,4 +310,18 @@ class WorkerRequestApprovalTest {
         assertFalse("کهنه", isRepeatOf(last, ahmad, "ATTENDANCE_IN", 0, 0, "", last.createdAt + REQUEST_REPEAT_WINDOW_MS + 1))
         assertFalse("هیچ", isRepeatOf(null, ahmad, "ATTENDANCE_IN", 0, 0, "", now))
     }
+
+    @Test
+    fun `a second partial delivery is never merged into the first`() {
+        val now = day0 + 8 * hour
+        val first = SyncRequest(
+            id = 7, deviceName = "گوشی", worker = ahmad, type = "SEWING_DONE", summary = "",
+            refId = 42, amount = 5, createdAt = now - 60_000
+        )
+        // ۵ از ۱۰، دوباره ۵ از ۱۰: شاید واقعاً ۵ تای دیگر دوخته شده.
+        assertFalse(isRepeatOf(first, ahmad, "SEWING_DONE", 42, 5, "", now, assignmentQty = 10))
+        // تحویلِ کامل که دوباره رسیده همان فشارِ دکمه است.
+        val full = first.copy(amount = 10)
+        assertTrue(isRepeatOf(full, ahmad, "SEWING_DONE", 42, 10, "", now, assignmentQty = 10))
+    }
 }
