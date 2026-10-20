@@ -526,6 +526,34 @@ val lanSmoke by tasks.registering(JavaExec::class) {
     }
 }
 
+/*
+ * `lanLoopSmoke` — سرور و مشتریِ اشتراکِ کارگاه واقعاً با هم حرف می‌زنند.
+ *
+ * `lanSmoke` سرور را روشن نمی‌کند؛ این یکی روشنش می‌کند، فقط روی
+ * loopback و سرِ یک دفترِ موقت، و با همان `LanClient`ِ گوشیِ کارگر
+ * درخواستِ دری می‌فرستد.
+ *
+ * **`-Dfile.encoding=Cp1252` عمدی است.** برنامهٔ بسته‌بندی‌شده هیچ
+ * کدگذاری‌ای نمی‌گذارد، پس روی ویندوز کدگذاریِ ANSIِ سیستم را می‌گیرد
+ * (cp1252 روی ویندوزِ انگلیسی، cp1256 روی ویندوزِ فارسی/دری)؛ آزمون‌های
+ * دیگر UTF-8 می‌گذارند و دامِ کدگذاری را هرگز نمی‌دیدند. گزارشِ خودِ
+ * آزمون را `LanLoopSmoke.kt` با یک `PrintStream`ِ UTF-8 می‌نویسد، نه با
+ * `-Dstdout.encoding`: آن پرچم از JDK ۱۹ است و JDK ۱۷ِ CI نادیده‌اش
+ * می‌گیرد.
+ */
+val lanLoopSmoke by tasks.registering(JavaExec::class) {
+    group = "verification"
+    description = "سرور و مشتریِ اشتراکِ کارگاه روی loopback، با بدنهٔ دری و کدگذاریِ غیرِ UTF-8"
+    dependsOn("createDistributable")
+    mainClass.set("com.afghanjama.desktop.data.LanLoopSmokeKt")
+    jvmArgs("-Dfile.encoding=Cp1252")
+    doFirst {
+        val appDir = packagedJarDir()
+        val jars = appDir.listFiles { f: JFile -> f.name.endsWith(".jar") } ?: emptyArray()
+        classpath = files(appDir) + files(*jars)
+    }
+}
+
 val authSmoke by tasks.registering(JavaExec::class) {
     group = "verification"
     description = "ورود، نقش و تغییرِ رمز روی تنظیماتِ موقت"

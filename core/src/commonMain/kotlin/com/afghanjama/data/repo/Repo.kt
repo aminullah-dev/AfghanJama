@@ -10,6 +10,9 @@ import com.afghanjama.data.PersonEdit
 import com.afghanjama.data.EmployeeCard
 import com.afghanjama.data.PartialFlow
 import com.afghanjama.data.entities.AttendanceRecord
+import com.afghanjama.data.entities.ATTENDANCE_REQUEST_TYPES
+import com.afghanjama.data.entities.ownsAssignment
+import com.afghanjama.data.entities.syncRequestLabel
 import com.afghanjama.data.entities.Customer
 import com.afghanjama.data.dao.NamedMeasurement
 import com.afghanjama.data.entities.CustomerMeasurement
@@ -55,6 +58,7 @@ import com.afghanjama.data.StockFolders
 import com.afghanjama.data.SalePolicy
 import com.afghanjama.licence.LicenceGate
 import com.afghanjama.ui.format.bareWorkerName
+import com.afghanjama.ui.format.PersianDate
 import com.afghanjama.util.CurrentUser
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -3947,10 +3951,39 @@ class Repo(private val db: Db) {
     /** ثبت ورود؛ اگر کارمند از قبل «داخل» باشد کاری نمی‌کند. */
     suspend fun checkIn(employee: String) {
         LicenceGate.requireWrite()
+        checkInTx(employee, nowMillis())
+    }
+
+    /**
+     * ورود در لحظهٔ [at] — نه لزوماً همین حالا.
+     *
+     * **چرا [at] آمد:** ورودی که از گوشیِ کارگر می‌رسد ساعتِ **تأییدِ
+     * کارفرما** را می‌گرفت. خیاط ساعتِ هفت دکمه را می‌زد، کارفرما ساعتِ
+     * ده تأیید می‌کرد، و سه ساعت کار از کارکرد و حقوقش می‌افتاد.
+     *
+     * زمانِ گذشته دو خطرِ تازه دارد که «همین حالا» نداشت، و هر دو رد
+     * می‌شوند:
+     *  - ورودِ دوباره روی بازهٔ باز؛
+     *  - ورود **پیش از پایانِ** آخرین بازهٔ بسته. بی این، بازهٔ تازه روی
+     *    بازهٔ دستیِ ثبت‌شده می‌افتاد و همان ساعت‌ها دو بار در کارکرد
+     *    شمرده می‌شد.
+     *
+     * @return `null` اگر ثبت شد؛ وگرنه دلیلِ ثبت‌نشدن به زبانِ کاربر.
+     */
+    private suspend fun checkInTx(employee: String, at: Long): String? {
         val emp = employee.trim()
-        if (emp.isEmpty()) return
-        if (db.attendanceDao().findOpen(emp) != null) return
-        db.attendanceDao().insert(AttendanceRecord(employee = emp, checkIn = nowMillis()))
+        if (emp.isEmpty()) return "نامِ کارمند خالی است."
+        val dao = db.attendanceDao()
+        dao.findOpen(emp)?.let {
+            return "«$emp» از ${PersianDate.shortWithTime(it.checkIn)} داخل است؛ ورودِ دوباره ثبت نشد."
+        }
+        val lastOut = dao.findLast(emp)?.checkOut
+        if (lastOut != null && at < lastOut) {
+            return "ورودِ ${PersianDate.shortWithTime(at)} با حضورِ ثبت‌شدهٔ «$emp» " +
+                "(تا ${PersianDate.shortWithTime(lastOut)}) تداخل دارد؛ ثبت نشد."
+        }
+        dao.insert(AttendanceRecord(employee = emp, checkIn = at))
+        return null
     }
 
     /**
@@ -3975,8 +4008,27 @@ class Repo(private val db: Db) {
     /** ثبت خروج برای بازهٔ بازِ کارمند. */
     suspend fun checkOut(employee: String) {
         LicenceGate.requireWrite()
-        val open = db.attendanceDao().findOpen(employee.trim()) ?: return
-        db.attendanceDao().update(open.copy(checkOut = nowMillis()))
+        checkOutTx(employee, nowMillis())
+    }
+
+    /**
+     * خروج در لحظهٔ [at] برای بازهٔ بازِ کارمند.
+     *
+     * خروجِ پیش از ورود رد می‌شود: بازهٔ وارونه کارکرد را منفی می‌کند و
+     * از آنجا به حقوق می‌رسد — همان قاعدهٔ [editAttendance].
+     *
+     * @return `null` اگر ثبت شد؛ وگرنه دلیلِ ثبت‌نشدن.
+     */
+    private suspend fun checkOutTx(employee: String, at: Long): String? {
+        val emp = employee.trim()
+        val open = db.attendanceDao().findOpen(emp)
+            ?: return "«$emp» ورودِ بازی ندارد؛ خروج ثبت نشد."
+        if (at < open.checkIn) {
+            return "خروجِ ${PersianDate.shortWithTime(at)} پیش از ورودِ " +
+                "${PersianDate.shortWithTime(open.checkIn)} است؛ ثبت نشد."
+        }
+        db.attendanceDao().update(open.copy(checkOut = at))
+        return null
     }
 
     /**
@@ -4042,38 +4094,101 @@ class Repo(private val db: Db) {
      * می‌شود، و از همان توابعِ همیشگی می‌گذرد. هیچ مسیرِ میان‌بری برای
      * دادهٔ شبکه ساخته نشده است.
      *
+     * **همه یا هیچ.** هر چیزی که این تأیید می‌نویسد در یک تراکنش است؛ اگر
+     * گامی ثبت نشود، چیزی نمی‌ماند و درخواست «منتظر» می‌مانَد. تا امروز
+     * خروجی که بازهٔ بازی پیدا نمی‌کرد بی‌صدا هیچ نمی‌کرد و درخواست باز هم
+     * «تأییدشده» می‌شد — یعنی کارفرما فکر می‌کرد ثبت شد و نشده بود.
+     *
      * @return پیغامِ خطا، یا null اگر انجام شد.
      */
     suspend fun approveRequest(id: Long, note: String = ""): String? {
         LicenceGate.requireWrite()
-        val r = db.syncRequestDao().getById(id) ?: return "درخواست پیدا نشد."
-        if (r.status != "PENDING") return "این درخواست قبلاً رسیدگی شده."
+        return try {
+            db.atomic { approveRequestTx(id, note.trim()) }
+            null
+        } catch (e: RequestRefused) {
+            e.reason
+        }
+    }
+
+    private suspend fun approveRequestTx(id: Long, note: String) {
+        val r = db.syncRequestDao().getById(id) ?: throw RequestRefused("درخواست پیدا نشد.")
+        if (r.status != "PENDING") throw RequestRefused("این درخواست قبلاً رسیدگی شده.")
 
         when (r.type) {
             "SEWING_DONE" -> {
                 val a = db.sewingAssignmentDao().getById(r.refId)
-                    ?: return "تحویلِ مرتبط پیدا نشد؛ شاید لغو شده باشد."
-                if (a.status == "DONE") return "این کار قبلاً تحویل شده."
-                completeAssignment(a.id, deliveredQty = r.amount.takeIf { it > 0 })
+                    ?: throw RequestRefused("تحویلِ مرتبط پیدا نشد؛ شاید لغو شده باشد.")
+                // کارِ خیاطِ دیگر با گوشیِ این یکی تمام نمی‌شود؛ وگرنه
+                // کارمزد به حسابِ کسی می‌رفت که آن را ندوخته.
+                if (!ownsAssignment(a, r.worker)) {
+                    throw RequestRefused(
+                        "این کار به نامِ «${a.tailorLabel.trim()}» است، نه «${r.worker}»؛ ثبت نشد."
+                    )
+                }
+                if (a.status == "DONE") throw RequestRefused("این کار قبلاً تحویل شده.")
+                completeAssignmentTx(a.id, quality = "", deliveredQty = r.amount.takeIf { it > 0 })
             }
-            // حضور و غیاب با نامِ خالی کار می‌کند، نه با برچسبِ «[T10] احمد».
-            // برچسب برای کارمزد و تحویلِ دوخت کلیدِ درست است و دست نمی‌خورد؛
-            // فقط همین دو شاخه نامِ خالی می‌خواهند.
-            "ATTENDANCE_IN" -> checkIn(r.worker.bareWorkerName())
-            "ATTENDANCE_OUT" -> checkOut(r.worker.bareWorkerName())
+            in ATTENDANCE_REQUEST_TYPES -> {
+                // حضورِ هر کارگر به ترتیبِ زدنِ دکمه ثبت می‌شود، نه به
+                // ترتیبِ تأیید. اگر کارفرما «خروج» را پیش از «ورود»ِ همان
+                // صبح تأیید کند، خروج بازه‌ای پیدا نمی‌کرد و بازهٔ آن روز گم
+                // می‌شد؛ پس درخواست‌های حضورِ منتظرِ قبلیِ همان کارگر، از
+                // قدیمی به تازه، اول ثبت می‌شوند.
+                val earlier = db.syncRequestDao().observePending().first()
+                    .filter {
+                        it.id != r.id && it.worker == r.worker &&
+                            it.type in ATTENDANCE_REQUEST_TYPES &&
+                            (it.createdAt < r.createdAt || (it.createdAt == r.createdAt && it.id < r.id))
+                    }
+                    .sortedWith(compareBy({ it.createdAt }, { it.id }))
+                for (e in earlier) {
+                    applyAttendance(e, blocking = true)
+                    markApproved(e, "به ترتیبِ زمان، همراهِ درخواستِ بعدیِ همین کارگر تأیید شد.")
+                }
+                applyAttendance(r, blocking = false)
+            }
             "NOTE" -> Unit  // پیام فقط خوانده می‌شود
-            else -> return "نوعِ درخواست شناخته نشد."
+            else -> throw RequestRefused("نوعِ درخواست شناخته نشد.")
         }
+        markApproved(r, note)
+    }
 
+    /**
+     * ثبتِ یک درخواستِ حضور با **زمانِ زدنِ دکمه**.
+     *
+     * `createdAt`ِ درخواست لحظه‌ای است که دستگاهِ اصلی آن را گرفت، با
+     * ساعتِ همان دستگاه. گوشیِ کارگر در قراردادِ ۱ درخواست را همان لحظهٔ
+     * زدن می‌فرستد و صفِ آفلاین ندارد، پس این همان زمانِ زدنِ دکمه است —
+     * و ساعتِ گوشیِ کارگر، که ممکن است غلط باشد، اصلاً به کار نمی‌آید.
+     *
+     * حضور و غیاب با نامِ خالی کار می‌کند، نه با برچسبِ «[T10] احمد».
+     * برچسب برای کارمزد و تحویلِ دوخت کلیدِ درست است و دست نمی‌خورد؛ فقط
+     * همین شاخه نامِ خالی می‌خواهد.
+     */
+    private suspend fun applyAttendance(r: com.afghanjama.data.entities.SyncRequest, blocking: Boolean) {
+        val name = r.worker.bareWorkerName()
+        val why = if (r.type == "ATTENDANCE_IN") checkInTx(name, r.createdAt)
+        else checkOutTx(name, r.createdAt)
+        if (why != null) {
+            throw RequestRefused(
+                if (!blocking) why
+                else "درخواستِ پیشینِ «${syncRequestLabel(r.type)}» " +
+                    "(${PersianDate.shortWithTime(r.createdAt)}) ثبت‌شدنی نیست: $why " +
+                    "اول آن را رد کنید."
+            )
+        }
+    }
+
+    private suspend fun markApproved(r: com.afghanjama.data.entities.SyncRequest, note: String) {
         db.syncRequestDao().update(
             r.copy(
                 status = "APPROVED",
                 decidedAt = nowMillis(),
-                decidedNote = note.trim()
+                decidedNote = note
             )
         )
         audit("تأیید درخواست کارگر", "${r.worker} — ${r.summary}")
-        return null
     }
 
     suspend fun rejectRequest(id: Long, note: String = "") {
@@ -4367,3 +4482,13 @@ class Repo(private val db: Db) {
     suspend fun deleteWorkCostById(id: Long) =
         writes { db.catalogDao().deleteWorkCostById(id) }
 }
+
+/**
+ * دلیلِ رسیدگی‌نشدنِ یک درخواستِ کارگر.
+ *
+ * داخلِ تراکنش پرتاب می‌شود تا هرچه تا آن لحظه نوشته شده برگردد، و بیرونِ
+ * آن به همان پیامِ خطای همیشگیِ [Repo.approveRequest] تبدیل می‌شود.
+ * `RuntimeException` است تا هیچ لایه‌ای در راه (مثلاً پیاده‌سازیِ جاواییِ
+ * تراکنش) آن را در استثنای دیگری نپیچد و پیام گم نشود.
+ */
+private class RequestRefused(val reason: String) : RuntimeException(reason)

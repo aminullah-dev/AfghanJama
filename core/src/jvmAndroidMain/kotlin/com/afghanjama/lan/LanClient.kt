@@ -17,22 +17,52 @@ import java.net.URL
  */
 class LanClient(
     private val host: String,
-    private val code: String
+    private val code: String,
+    /** درگاهِ سرور. برنامه همیشه [Lan.PORT] است؛ آزمونِ دودی درگاهِ خودش را دارد. */
+    private val port: Int = Lan.PORT,
+    /**
+     * اجازهٔ وصل شدن به `127.x` — **فقط برای آزمونِ دودی** روی همین
+     * ماشین. برنامه هرگز `true` نمی‌دهد؛ loopback شبکهٔ کارگاه نیست.
+     */
+    private val allowLoopback: Boolean = false,
 ) : LanApi {
 
-    private fun url(path: String) = URL("http://$host:${Lan.PORT}$path")
+    private fun url(path: String) = URL("http://$host:$port$path")
 
     private suspend fun call(
         path: String,
         method: String = "GET",
         body: String? = null,
         withCode: Boolean = true
-    ): LanResult<JSONObject> = withContext(Dispatchers.IO) {
-        runCatching {
+    ): LanResult<JSONObject> {
+        // مرزِ متنِ ساده اینجاست، نه در `network_security_config.xml`
+        // (چرایش در [HostAddress.isPrivate]). **پیش از** `runCatching`
+        // سنجیده می‌شود: درونِ آن، پیامِ روشنِ «این نشانی مالِ کارگاه
+        // نیست» زیرِ پیامِ کلیِ «وصل نشد» گم می‌شد.
+        if (!HostAddress.isPrivate(host) && !(allowLoopback && HostAddress.isLoopback(host))) {
+            return LanResult.Err(HostAddress.NOT_WORKSHOP)
+        }
+        return withContext(Dispatchers.IO) { send(path, method, body, withCode) }
+    }
+
+    private fun send(
+        path: String,
+        method: String,
+        body: String?,
+        withCode: Boolean
+    ): LanResult<JSONObject> {
+        return runCatching {
             val conn = (url(path).openConnection() as HttpURLConnection).apply {
                 requestMethod = method
                 connectTimeout = 6_000
                 readTimeout = 8_000
+                // حواله دنبال نمی‌شود. `HttpURLConnection` پیش‌فرض دنبالِ
+                // جوابِ ۳۰۲ از http به http می‌رود و رمزِ کارگاه را هم
+                // همراه می‌بَرد؛ پس هر چیزی که روی یک نشانیِ خصوصی جواب
+                // بدهد می‌توانست گوشی را به هر میزبانِ اینترنتی بفرستد و
+                // مرزِ [HostAddress.isPrivate] بالا بی‌اثر می‌شد. سرورِ
+                // خیاط‌یار هرگز حواله نمی‌دهد.
+                instanceFollowRedirects = false
                 if (withCode) setRequestProperty(Lan.HEADER_CODE, code)
                 if (body != null) {
                     doOutput = true
@@ -41,11 +71,16 @@ class LanClient(
                 }
             }
             val status = conn.responseCode
+            if (status in 300..399) {
+                // جوابِ حواله هر بدنه‌ای داشته باشد خوانده نمی‌شود.
+                conn.disconnect()
+                return LanResult.Err("جوابِ گوشیِ اصلی خوانده نشد.")
+            }
             val text = (if (status in 200..299) conn.inputStream else conn.errorStream)
                 ?.bufferedReader()?.use { it.readText() }.orEmpty()
             conn.disconnect()
             val json = runCatching { JSONObject(text) }.getOrNull()
-                ?: return@withContext LanResult.Err("جوابِ گوشیِ اصلی خوانده نشد.")
+                ?: return LanResult.Err("جوابِ گوشیِ اصلی خوانده نشد.")
             reportLicence(json)
             if (json.optBoolean("ok", false)) LanResult.Ok(json)
             else LanResult.Err(json.optString("error").ifBlank { "درخواست پذیرفته نشد." })

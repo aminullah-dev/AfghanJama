@@ -4,6 +4,7 @@ import com.afghanjama.data.FinancialHealth
 import com.afghanjama.data.FinancialHealth.Kind
 import com.afghanjama.data.FinancialHealth.Level
 import com.afghanjama.data.ProductInsights
+import com.afghanjama.lan.HostAddress
 import com.afghanjama.lan.Lan
 import com.afghanjama.lan.Pairing
 import org.junit.Assert.assertEquals
@@ -205,6 +206,20 @@ class InsightsTest {
         )
     }
 
+    @Test
+    fun `the hub never offers an address the worker phone refuses`() {
+        // نشانیِ عمومی تا ۱.۹.۰ امتیازِ ۲۰ می‌گرفت و در QR می‌نشست؛ گوشیِ
+        // ۱.۹.۱ همان را رد می‌کند. هر دو سو حالا یک قاعده دارند.
+        val picked = Lan.rank(
+            listOf(
+                Lan.Candidate("eth0", "Ethernet", "203.0.113.5"),
+                Lan.Candidate("rmnet_data0", "rmnet_data0", "100.72.10.5"),
+            )
+        )
+        assertEquals(listOf("100.72.10.5"), picked)
+        for (ip in picked) assertTrue(ip, HostAddress.isPrivate(ip))
+    }
+
     // ─────────── QRِ اتصال ───────────
 
     @Test
@@ -216,5 +231,15 @@ class InsightsTest {
         assertNull(Pairing.parse("kylink:192.168.1.7:12"))
         assertNull(Pairing.parse("ky31235"))                    // کارتِ کارمند
         assertNull(Pairing.parse("https://192.168.1.7:8797"))
+    }
+
+    @Test
+    fun `a real pairing qr with a refused address says why, not that it is foreign`() {
+        assertNull(Pairing.parse("kylink:203.0.113.5:482913"))
+        assertEquals(HostAddress.NOT_WORKSHOP, Pairing.refusal("kylink:203.0.113.5:482913"))
+        assertEquals(Pairing.NOT_PAIRING, Pairing.refusal("ky31235"))
+        assertEquals(Pairing.NOT_PAIRING, Pairing.refusal("https://192.168.1.7:8797"))
+        // نشانی درست، رمز نادرست: QR خراب است، نه نشانی.
+        assertEquals(Pairing.NOT_PAIRING, Pairing.refusal("kylink:192.168.1.7:12"))
     }
 }

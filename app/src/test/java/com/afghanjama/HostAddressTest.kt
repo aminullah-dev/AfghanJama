@@ -2,6 +2,7 @@ package com.afghanjama
 
 import com.afghanjama.lan.HostAddress
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -36,8 +37,51 @@ class HostAddressTest {
     fun `a correct address passes`() {
         assertEquals("10.0.0.101", HostAddress.normalize("10.0.0.101"))
         assertEquals("192.168.1.7", HostAddress.normalize("192.168.1.7"))
-        assertEquals("0.0.0.0", HostAddress.normalize("0.0.0.0"))
-        assertEquals("255.255.255.255", HostAddress.normalize("255.255.255.255"))
+        assertEquals("172.16.0.1", HostAddress.normalize("172.16.0.1"))
+        assertEquals("172.31.255.254", HostAddress.normalize("172.31.255.254"))
+        assertEquals("100.64.0.9", HostAddress.normalize("100.64.0.9"))
+    }
+
+    /**
+     * مرزِ متنِ ساده حالا در کد است، نه در `network_security_config.xml`.
+     *
+     * آن فایل متنِ ساده را برای همه باز کرد، چون سه «دامنه»ی IPاش هرگز
+     * با نشانیِ واقعیِ هیچ دستگاهی جور نمی‌شد. پس این وارسی تنها چیزی است
+     * که نمی‌گذارد مشتریِ کارگاه به نشانیِ اینترنتی `http` بزند.
+     * `0.0.0.0` و `255.255.255.255` تا دیروز «درست» بودند؛ هیچ‌کدام نشانیِ
+     * دستگاهِ اصلی نیست.
+     */
+    @Test
+    fun `addresses outside the workshop network are refused`() {
+        for (raw in listOf(
+            "8.8.8.8", "0.0.0.0", "255.255.255.255", "127.0.0.1", "169.254.1.1",
+            "172.15.0.1", "172.32.0.1", "100.63.255.255", "100.128.0.1", "192.169.1.1",
+        )) {
+            assertEquals(raw, HostAddress.NOT_WORKSHOP, bad(raw))
+            assertFalse(raw, HostAddress.isPrivate(raw))
+        }
+    }
+
+    @Test
+    fun `private ranges are exactly the workshop ones`() {
+        for (raw in listOf(
+            "10.0.0.0", "10.255.255.255", "172.16.0.0", "172.31.255.255",
+            "192.168.0.0", "192.168.255.255", "100.64.0.0", "100.127.255.255",
+        )) {
+            assertTrue(raw, HostAddress.isPrivate(raw))
+        }
+        // نه شکلِ نیمه، نه صفرِ ابتدایی، نه نامِ میزبان
+        for (raw in listOf("192.168.1", "192.168.01.7", "kargah.local", "", "10.0.0.256")) {
+            assertFalse(raw, HostAddress.isPrivate(raw))
+        }
+    }
+
+    /** loopback شبکهٔ کارگاه نیست؛ فقط آزمونِ دودی با پرچمِ جدا به آن می‌رسد. */
+    @Test
+    fun `loopback is recognised but never private`() {
+        assertTrue(HostAddress.isLoopback("127.0.0.1"))
+        assertFalse(HostAddress.isPrivate("127.0.0.1"))
+        assertFalse(HostAddress.isLoopback("10.0.0.1"))
     }
 
     /**

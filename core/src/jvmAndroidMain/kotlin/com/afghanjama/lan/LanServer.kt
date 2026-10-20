@@ -3,8 +3,12 @@ package com.afghanjama.lan
 import com.afghanjama.AppInfo
 import com.afghanjama.data.Db
 import com.afghanjama.data.entities.SyncRequest
+import com.afghanjama.data.entities.isRepeatOf
+import com.afghanjama.data.entities.ownsAssignment
+import com.afghanjama.data.entities.requestWorkerLabel
 import com.afghanjama.licence.LicenceGate
 import com.afghanjama.licence.LicenceText
+import com.afghanjama.util.nowMillis
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -12,13 +16,17 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.InputStreamReader
+import java.io.BufferedInputStream
+import java.net.InetAddress
+import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.URLDecoder
+import java.security.MessageDigest
 
 /**
  * سرورِ گوشیِ اصلی روی وای‌فای کارگاه.
@@ -37,12 +45,32 @@ import java.net.URLDecoder
  * با گرفتنِ `Db`، این سرور دیگر نمی‌داند روی چه چیزی اجرا می‌شود: گوشیِ
  * کارفرما یا پی‌سیِ دفتر. همان چیزی که فاز ۶ می‌خواست.
  */
-class LanServer(private val db: Db) {
+class LanServer(
+    private val db: Db,
+    /**
+     * نشانی‌ای که سرور روی آن گوش می‌دهد. `null` یعنی همهٔ کارت‌های شبکه
+     * — همان چیزی که دستگاهِ اصلی لازم دارد. آزمونِ دودی فقط loopback را
+     * می‌گیرد تا روی ماشینِ CI درگاهی رو به شبکه باز نکند.
+     */
+    private val bindAddress: InetAddress? = null,
+    /** درگاه؛ برنامه همیشه [Lan.PORT]. آزمون درگاهِ خودش را می‌دهد. */
+    private val port: Int = Lan.PORT,
+) {
 
     private var socket: ServerSocket? = null
     private var scope: CoroutineScope? = null
 
+    /**
+     * فقط یک درخواست در هر لحظه در صندوق می‌نشیند. بی این، دو تلاشِ
+     * هم‌زمانِ یک کارگر هر دو «تکراری نیست» می‌دیدند و هر دو ثبت می‌شدند.
+     */
+    private val inbox = Mutex()
+
     @Volatile var running: Boolean = false
+        private set
+
+    /** درگاهی که واقعاً گرفته شد؛ صفر وقتی خاموش است. */
+    @Volatile var boundPort: Int = 0
         private set
 
     /** رمزِ اتصال؛ روی گوشیِ اصلی نمایش داده می‌شود و کارگر واردش می‌کند. */
@@ -52,17 +80,31 @@ class LanServer(private val db: Db) {
         if (running) return true
         code = pairCode.trim()
         if (code.isBlank()) return false
+        var opened: ServerSocket? = null
         return runCatching {
-            val s = ServerSocket(Lan.PORT)
-            s.reuseAddress = true
+            val s = ServerSocket().also { opened = it }
+            // **`reuseAddress` پیش از `bind`.** تا دیروز بعد از ساختنِ
+            // `ServerSocket(port)` گذاشته می‌شد — یعنی بعد از bind، جایی که
+            // دیگر هیچ اثری ندارد. پس روشن کردنِ دوبارهٔ اشتراک چند ثانیه
+            // بعد از خاموش کردنش (وقتی اتصال‌های قبلی هنوز در TIME_WAIT
+            // بودند) با «پورت باز نشد» رد می‌شد.
+            //
+            // روی ویندوز گذاشته نمی‌شود: آنجا همین پرچم یعنی برنامهٔ دیگری
+            // هم می‌تواند همین درگاه را بگیرد، و ویندوز TIME_WAIT را مانعِ
+            // گوش دادن نمی‌داند.
+            if (!onWindows) s.reuseAddress = true
+            s.bind(InetSocketAddress(bindAddress, port))
             socket = s
+            boundPort = s.localPort
             val sc = CoroutineScope(SupervisorJob() + Dispatchers.IO)
             scope = sc
             running = true
             sc.launch { acceptLoop(s, sc) }
             true
         }.getOrElse {
+            runCatching { opened?.close() }
             running = false
+            boundPort = 0
             false
         }
     }
@@ -71,6 +113,7 @@ class LanServer(private val db: Db) {
         running = false
         runCatching { socket?.close() }
         socket = null
+        boundPort = 0
         scope?.cancel()
         scope = null
     }
@@ -84,39 +127,21 @@ class LanServer(private val db: Db) {
 
     private suspend fun handle(client: Socket) {
         client.soTimeout = 10_000
-        val reader = BufferedReader(InputStreamReader(client.getInputStream()))
-        val requestLine = reader.readLine() ?: return
-        val parts = requestLine.split(" ")
-        if (parts.size < 2) return
-        val method = parts[0]
-        val target = parts[1]
-
-        // هدرها
-        var contentLength = 0
-        var givenCode = ""
-        while (true) {
-            val line = reader.readLine() ?: break
-            if (line.isBlank()) break
-            val i = line.indexOf(':')
-            if (i <= 0) continue
-            val key = line.substring(0, i).trim()
-            val value = line.substring(i + 1).trim()
-            when {
-                key.equals("Content-Length", true) -> contentLength = value.toIntOrNull() ?: 0
-                key.equals(Lan.HEADER_CODE, true) -> givenCode = value
+        // خواندنِ بایتی و UTF-8ِ صریح — داستانش در [LanWire].
+        val request = when (val r = LanWire.readRequest(BufferedInputStream(client.getInputStream()))) {
+            is LanWire.Read.Ok -> r.request
+            is LanWire.Read.Bad -> {
+                respond(client, r.status, JSONObject().apply {
+                    put("ok", false); put("error", r.message)
+                })
+                return
             }
+            LanWire.Read.Closed -> return
         }
-
-        val body = if (contentLength > 0) {
-            val buf = CharArray(contentLength)
-            var read = 0
-            while (read < contentLength) {
-                val n = reader.read(buf, read, contentLength - read)
-                if (n <= 0) break
-                read += n
-            }
-            String(buf, 0, read)
-        } else ""
+        val method = request.method
+        val target = request.target
+        val givenCode = request.header(Lan.HEADER_CODE).orEmpty()
+        val body = request.body
 
         val path = target.substringBefore('?')
         val query = target.substringAfter('?', "")
@@ -133,7 +158,9 @@ class LanServer(private val db: Db) {
             return
         }
 
-        if (givenCode != code) {
+        // مقایسه با زمانِ ثابت: `!=` در اولین حرفِ ناجور برمی‌گشت و زمانِ
+        // جواب نشان می‌داد چند رقمِ اولِ رمز درست بوده.
+        if (!MessageDigest.isEqual(givenCode.toByteArray(Charsets.UTF_8), code.toByteArray(Charsets.UTF_8))) {
             respond(client, 401, JSONObject().apply {
                 put("ok", false); put("error", "رمزِ اتصال درست نیست.")
             })
@@ -261,20 +288,57 @@ class LanServer(private val db: Db) {
             })
             return
         }
-        val id = db.syncRequestDao().insert(
-            SyncRequest(
-                deviceName = json.optString("device").take(60).ifBlank { "گوشی کارگر" },
-                worker = json.optString("worker").trim().take(60),
-                type = type,
-                summary = json.optString("summary").take(200),
-                refId = json.optLong("refId", 0L),
-                amount = json.optInt("amount", 0),
-                note = json.optString("note").take(300)
-            )
-        )
+        val worker = requestWorkerLabel(json.optString("worker"))
+        val refId = json.optLong("refId", 0L)
+        val amount = json.optInt("amount", 0)
+        val note = json.optString("note").take(300)
+
+        // «تمام شد» فقط برای کارِ خودِ همین کارگر. همین قاعده سرِ تأیید هم
+        // سنجیده می‌شود؛ اینجا فقط زودتر به خودِ کارگر گفته می‌شود.
+        var assignmentQty = 0
+        if (type == "SEWING_DONE") {
+            val a = db.sewingAssignmentDao().getById(refId)
+            assignmentQty = a?.qty ?: 0
+            val refusal = when {
+                a == null -> "این کار پیدا نشد؛ «تازه‌سازی کارها» را بزنید."
+                !ownsAssignment(a, worker) -> "این کار به نامِ شما نیست."
+                a.status == "DONE" -> "این کار قبلاً تحویل شده."
+                else -> null
+            }
+            if (refusal != null) {
+                respond(client, 409, JSONObject().apply {
+                    put("ok", false); put("error", refusal)
+                })
+                return
+            }
+        }
+
+        val (id, repeated) = inbox.withLock {
+            val last = db.syncRequestDao().observeAll().first().firstOrNull { it.worker == worker }
+            if (isRepeatOf(last, worker, type, refId, amount, note, nowMillis(), assignmentQty)) {
+                // همان فشارِ دکمه، دوباره رسیده — همان ردیف را برمی‌گردانیم.
+                last!!.id to true
+            } else {
+                db.syncRequestDao().insert(
+                    SyncRequest(
+                        deviceName = json.optString("device").take(60).ifBlank { "گوشی کارگر" },
+                        worker = worker,
+                        type = type,
+                        summary = json.optString("summary").take(200),
+                        refId = refId,
+                        amount = amount,
+                        note = note
+                    )
+                ) to false
+            }
+        }
         respond(client, 200, JSONObject().apply {
             put("ok", true); put("id", id)
-            put("message", "درخواست ثبت شد و منتظرِ تأییدِ کارفرماست.")
+            put(
+                "message",
+                if (repeated) "این درخواست پیش‌تر رسیده بود و منتظرِ تأییدِ کارفرماست."
+                else "درخواست ثبت شد و منتظرِ تأییدِ کارفرماست."
+            )
         })
     }
 
@@ -304,5 +368,8 @@ class LanServer(private val db: Db) {
         val ALLOWED_TYPES = setOf(
             "SEWING_DONE", "ATTENDANCE_IN", "ATTENDANCE_OUT", "NOTE"
         )
+
+        private val onWindows: Boolean =
+            System.getProperty("os.name").orEmpty().startsWith("Windows", ignoreCase = true)
     }
 }
