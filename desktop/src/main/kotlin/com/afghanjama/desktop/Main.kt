@@ -35,6 +35,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.afghanjama.AppInfo
 import com.afghanjama.AppVersion
 import com.afghanjama.desktop.data.DeskPrefs
+import com.afghanjama.desktop.data.DesktopAutoBackup
 import com.afghanjama.desktop.data.DesktopLanHost
 import com.afghanjama.desktop.data.DesktopLedger
 import com.afghanjama.desktop.data.desktopSettings
@@ -209,6 +210,23 @@ private fun ApplicationScope.MainWindow(settings: Settings) {
                 // وضعیتِ لایسنس — پیش از ورود، تا درِ نوشتن از همان ثانیهٔ
                 // اول درست بداند.
                 LicenceHeartbeat(remember { Licensing(settings, DesktopLedger.repo().getOrNull()) })
+
+                // پشتیبانِ خودکارِ روزانه — از همان باز شدنِ پنجره، پیش از
+                // ورودِ کسی. شکست یا افتادن به پوشهٔ پیش‌فرض گفته می‌شود؛
+                // بارِ موفقِ عادی بی‌صدا است (هر روز یک بار، خبر نیست).
+                LaunchedEffect(Unit) {
+                    DesktopAutoBackup.loop(settings) { r ->
+                        r.onSuccess { run ->
+                            if (run.usedFallback) {
+                                DeskNotices.show(
+                                    "پوشهٔ پشتیبانِ خودکار در دسترس نبود؛ پشتیبان در پوشهٔ پیش‌فرض نوشته شد."
+                                )
+                            }
+                        }.onFailure {
+                            DeskNotices.show("پشتیبانِ خودکار گرفته نشد: ${it.message}", sticky = true)
+                        }
+                    }
+                }
 
                 // درِ ورود: نقش از `AuthViewModel` می‌آید، نه از فرض.
                 val authVm: AuthViewModel = viewModel { AuthViewModel(settings) }

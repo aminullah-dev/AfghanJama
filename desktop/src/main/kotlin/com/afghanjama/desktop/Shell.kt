@@ -43,6 +43,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.afghanjama.AppInfo
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.desktop.data.DeskPrefs
+import com.afghanjama.desktop.data.DesktopAutoBackup
 import com.afghanjama.desktop.data.DesktopLanHost
 import com.afghanjama.licence.LicenceGate
 import com.afghanjama.licence.Licensing
@@ -718,8 +719,12 @@ private fun Sidebar(repo: Repo, nav: DeskNav, access: Access, auth: AuthViewMode
     if (Section.ActionCenter.allowedFor(access)) {
         val actionVm: ActionCenterViewModel = viewModel { ActionCenterViewModel(repo) }
         // سنِ پشتیبان را صفحه‌ها تزریق می‌کنند؛ نوار هم، تا نشانش از همان
-        // اولِ کار درست باشد.
-        LaunchedEffect(actionVm) { actionVm.setLastBackup(BackupPrefs.lastAuto(settings)) }
+        // اولِ کار درست باشد — و پس از هر پشتیبانِ خودکار دوباره، تا هشدارِ
+        // «بکاپ گرفته نشده» همان لحظه برود.
+        val autoBackup by DesktopAutoBackup.status.collectAsState()
+        LaunchedEffect(actionVm, autoBackup.last) {
+            actionVm.setLastBackup(BackupPrefs.lastAuto(settings))
+        }
         val ui by actionVm.ui.collectAsState()
         alerts = ui.total
         urgentAlerts = ui.urgent > 0
