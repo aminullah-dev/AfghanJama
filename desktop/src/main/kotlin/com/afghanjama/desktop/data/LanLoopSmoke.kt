@@ -13,11 +13,15 @@ import com.afghanjama.util.randomUuid
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import java.io.File
+import java.io.FileDescriptor
+import java.io.FileOutputStream
+import java.io.PrintStream
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.nio.charset.Charset
 import java.nio.file.Files
+import kotlin.concurrent.thread
 
 /*
  * سرور و مشتریِ اشتراکِ کارگاه، روی همین ماشین، سرِ یک دفترِ موقت.
@@ -33,8 +37,11 @@ import java.nio.file.Files
  * ۱. بدنهٔ دری حرف به حرف خوانده می‌شد ولی اندازه‌اش بایت بود؛ درخواست
  *    هشت ثانیه می‌ماند، گوشی «وصل نشد» می‌گفت، و بعد ثبت می‌شد.
  * ۲. کدگذاریِ پیش‌فرضِ سیستم: این آزمون عمداً با `-Dfile.encoding=Cp1252`
- *    اجرا می‌شود — همان چیزی که برنامهٔ بسته‌بندی‌شده روی ویندوز دارد.
- *    باقیِ آزمون‌های دودی UTF-8 می‌گذارند و این دام را هرگز نمی‌دیدند.
+ *    اجرا می‌شود. برنامهٔ بسته‌بندی‌شده روی ویندوز کدگذاریِ ANSIِ خودِ
+ *    ویندوز را می‌گیرد: cp1252 روی ویندوزِ انگلیسی، cp1256 روی ویندوزی
+ *    که زبانش فارسی یا دری است — هیچ‌کدام UTF-8 نیست، و دری در هر دو
+ *    درهم می‌شد. باقیِ آزمون‌های دودی UTF-8 می‌گذارند و این دام را هرگز
+ *    نمی‌دیدند.
  * ۳. `reuseAddress` بعد از bind گذاشته می‌شد و اثری نداشت؛ پس سرور دو
  *    بار پشتِ سرِ هم روی **همان** درگاه روشن می‌شود.
  *
@@ -72,6 +79,12 @@ private fun rawExchange(port: Int, bytes: ByteArray, closeOutput: Boolean): Stri
     }
 
 fun main() {
+    // گزارش با UTF-8، جدا از کدگذاریِ پیش‌فرض. JDK ۱۷ (همانی که CI و
+    // برنامهٔ بسته‌بندی‌شده دارند) `-Dstdout.encoding` را نمی‌شناسد — آن
+    // از JDK ۱۹ است — و `System.out` با همان Cp1252ِ عمدی هر حرفِ دری را
+    // «?» چاپ می‌کرد؛ پیامِ شکستِ دری در لاگِ CI خوانده نمی‌شد.
+    System.setOut(PrintStream(FileOutputStream(FileDescriptor.out), true, "UTF-8"))
+    System.setErr(PrintStream(FileOutputStream(FileDescriptor.err), true, "UTF-8"))
     println("lan loop smoke - KhayatYar desktop")
     println("=".repeat(52))
     println("default charset: ${Charset.defaultCharset()}")
@@ -175,6 +188,22 @@ fun main() {
             }
         }
 
+        loopCheck("a second partial report of the same job is kept, not merged") {
+            runBlocking {
+                val job = db.sewingAssignmentDao().insert(
+                    SewingAssignment(orderId = randomUuid().toString(), orderCode = "AJ-3", tailorLabel = ahmad, qty = 10, unitWage = 10)
+                )
+                // ۵ از ۱۰، و پیش از تأیید باز ۵ از ۱۰ — شاید واقعاً ۵ تای دیگر.
+                repeat(2) {
+                    val r = client.sendRequest("گوشیِ آزمون", ahmad, "SEWING_DONE", "AJ-3", refId = job, amount = 5)
+                    loopNeed(r is LanResult.Ok && !r.value.contains("پیش‌تر"), "report ${it + 1}: $r")
+                }
+                val rows = requests().filter { it.type == "SEWING_DONE" && it.refId == job }
+                loopNeed(rows.size == 2, "expected two rows for two partial reports, got ${rows.size}")
+                rows.forEach { repo.rejectRequest(it.id) }
+            }
+        }
+
         loopCheck("attendance takes the time the button was pressed, not the approval time") {
             runBlocking {
                 val r = client.sendRequest("گوشیِ آزمون", ahmad, "ATTENDANCE_IN", "درخواستِ ثبتِ ورود")
@@ -244,6 +273,53 @@ fun main() {
                 "Content-Length: ${LanWire.MAX_BODY_BYTES + 1}\r\n\r\n"
             val status = rawExchange(port, head.toByteArray(Charsets.ISO_8859_1), closeOutput = false)
             loopNeed(status.startsWith("HTTP/1.1 413"), "got «$status»")
+        }
+
+        loopCheck("a redirect is not followed, so the code never leaves for another host") {
+            // چیزی روی نشانیِ «کارگاه» که هر درخواست را با ۳۰۲ به میزبانِ
+            // دیگری حواله می‌دهد. میزبانِ دوم هم روی loopback است تا آزمون
+            // از این ماشین بیرون نرود؛ loopback هم مثلِ نشانیِ اینترنتی
+            // بیرون از شبکهٔ کارگاه است، و اگر مشتری دنبالِ حواله برود،
+            // رمز را همان‌جا تحویل می‌دهد.
+            val loop = InetAddress.getLoopbackAddress()
+            ServerSocket(0, 5, loop).use { elsewhere ->
+                ServerSocket(0, 5, loop).use { trap ->
+                    val trapThread = thread(isDaemon = true) {
+                        runCatching {
+                            trap.accept().use { s ->
+                                s.soTimeout = 5_000
+                                val reader = s.getInputStream().bufferedReader(Charsets.ISO_8859_1)
+                                while (reader.readLine()?.isNotEmpty() == true) Unit
+                                s.getOutputStream().apply {
+                                    write(
+                                        ("HTTP/1.1 302 Found\r\n" +
+                                            "Location: http://127.0.0.1:${elsewhere.localPort}/board\r\n" +
+                                            "Content-Type: application/json\r\n" +
+                                            "Content-Length: 11\r\nConnection: close\r\n\r\n{\"ok\":true}")
+                                            .toByteArray(Charsets.ISO_8859_1)
+                                    )
+                                    flush()
+                                }
+                            }
+                        }
+                    }
+                    val started = System.nanoTime()
+                    val r = runBlocking { LanClient("127.0.0.1", code, trap.localPort, allowLoopback = true).board() }
+                    val ms = (System.nanoTime() - started) / 1_000_000
+                    trapThread.join(2_000)
+                    // اگر مشتری دنبال رفته بود، اتصالش در صفِ این سوکت منتظر است.
+                    elsewhere.soTimeout = 300
+                    val leaked = runCatching {
+                        elsewhere.accept().use { s ->
+                            s.soTimeout = 1_000
+                            String(s.getInputStream().readNBytes(512), Charsets.ISO_8859_1)
+                        }
+                    }.getOrNull()
+                    loopNeed(leaked == null, "the client followed the redirect and sent: ${leaked?.lineSequence()?.take(4)?.joinToString(" | ")}")
+                    loopNeed(r is LanResult.Err, "a redirect was taken as an answer: $r")
+                    loopNeed(ms < 2_000, "took $ms ms")
+                }
+            }
         }
 
         loopCheck("stop and start twice on the same port") {
