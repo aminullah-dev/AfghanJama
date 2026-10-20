@@ -8,20 +8,31 @@
 ویندوز MSIِ هم‌عدد را بی‌صدا روی نصب‌شده نمی‌نشاند و اندروید APKِ
 هم‌کد را اصلاً نصب نمی‌کند.
 
-این اسکریپت تاریخچه را دارد (گیت) و سه چیز را می‌سنجد:
+این اسکریپت تاریخچه را دارد (گیت) و چهار چیز را می‌سنجد:
 
   ۱. تگ دقیقاً `v<appVersion>` است و روی همین HEAD نشسته.
   ۲. `appVersion` از نسخهٔ بزرگ‌ترین تگِ قبلی بالاتر است.
   ۳. `appVersionCode` از کدِ همان تگ (خوانده از `gradle.properties`ِ
      خودِ آن تگ) بالاتر است.
+  ۴. درخت تمیز است. `release.yml` بعد از دروازه «release» را قول
+     می‌دهد، و `BuildInfo` با یک فایلِ ثبت‌نشده «test build» می‌گوید؛
+     پس دروازه‌ای که روی درختِ ناتمیز سبز شود، قولی می‌دهد که ساخت
+     نگه نمی‌دارد.
 
-بی `--tag` (اجرای دستی یا آزمایشی) بندِ ۱ را نمی‌خواهد ولی ۲ و ۳ را
-می‌سنجد، و اگر `v<appVersion>` روی کامیتِ دیگری از قبل باشد رد می‌کند:
-یعنی این نسخه پیش‌تر از کدِ دیگری منتشر شده.
+بی `--tag` (اجرای دستی یا آزمایشی) بندهای ۱ و ۴ را نمی‌خواهد ولی ۲ و ۳
+را می‌سنجد، و اگر `v<appVersion>` روی کامیتِ دیگری از قبل باشد رد
+می‌کند: یعنی این نسخه پیش‌تر از کدِ دیگری منتشر شده.
+
+تگی که سه بخشِ عددی نیست (مثلِ `v1.9.1-rc1`) ریلیزِ قبلی شمرده نمی‌شود،
+و به‌عنوانِ `--tag` هم رد می‌شود چون `v<appVersion>` نیست.
 
 خروجی برای `release.yml` در `GITHUB_OUTPUT`: `version`، `code`،
-`commit` (هفت حرف)، `channel` (`release` یا `test build`، همان قاعدهٔ
-`BuildInfo`) و `previous`.
+`commit` (`git rev-parse --short=7`، همان فرمانِ `BuildInfo`: هفت حرف یا
+بیشتر، اگر هفت حرف در مخزن یکتا نباشد)، `channel` (`release` یا
+`test build`، همان قاعدهٔ `BuildInfo`) و `previous`.
+
+آزمونش `tools/checks/gaterun.py` است: همین فایل را در مخزن‌های گیتِ
+دورریختنی اجرا می‌کند.
 
 اجرا:
     python3 tools/release/gate.py --tag v1.9.1
@@ -133,9 +144,32 @@ def main():
 
     # همان قاعدهٔ `BuildInfo` در `core/build.gradle.kts`.
     tagged = git("describe", "--exact-match", "--tags", "--match", own_tag, "HEAD") is not None
-    clean = git("--no-optional-locks", "status", "--porcelain", "--untracked-files=normal") == ""
+    status = git("--no-optional-locks", "status", "--porcelain", "--untracked-files=normal")
+    clean = status == ""
     channel = "release" if tagged and clean else "test build"
-    short = head[:7]
+
+    # ---- ۴) انتشار از تگ فقط با درختِ تمیز ----
+    #
+    # تا اینجا دروازه روی درختِ ناتمیز هم سبز می‌شد و فقط می‌نوشت
+    # `channel=test build`. ولی `release.yml` روی تگ «release» قول می‌دهد،
+    # پس آن خروجی یا ساخت را با پیامِ گنگی در `verify-build.py` می‌انداخت،
+    # یا بدتر: بسته‌ای «آزمایشی» از روی تگِ نسخه.
+    if args.tag is not None and not clean:
+        if status is None:
+            problems.append("git status شکست؛ تمیز بودنِ درخت معلوم نیست")
+        else:
+            dirty = status.splitlines()
+            problems.append(
+                f"درخت تمیز نیست ({len(dirty)} فایلِ تغییرکرده یا ثبت‌نشده، مثلِ "
+                f"{dirty[0].strip()})؛ انتشار از تگ فقط با درختِ تمیز"
+            )
+
+    # همان فرمانِ `BuildInfo`، نه `head[:7]`. گیت اگر هفت حرف یکتا نباشد
+    # بیشتر می‌دهد؛ برش به هفت حرف آن وقت با کامیتِ داخلِ بسته جور نمی‌شد و
+    # `verify-build.py` ساختِ درست را رد می‌کرد.
+    short = git("rev-parse", "--short=7", "HEAD") or ""
+    if not re.fullmatch(r"[0-9a-f]{7,}", short):
+        problems.append(f"کامیتِ کوتاهِ '{short}' دستِ‌کم هفت حرفِ هگز نیست")
 
     print(f"  نسخه      {version} ({code})")
     print(f"  کامیت     {short}")
