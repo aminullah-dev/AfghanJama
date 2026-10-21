@@ -1,15 +1,12 @@
 package com.afghanjama.desktop
 
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.ImageComposeScene
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.use
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
@@ -25,7 +22,7 @@ import com.afghanjama.desktop.data.openDatabase
 import com.afghanjama.desktop.platform.DeskReminderLoop
 import com.afghanjama.desktop.platform.DesktopFileExport
 import com.afghanjama.desktop.platform.TelHandler
-import com.afghanjama.ui.theme.LightColors
+import com.afghanjama.ui.theme.AppTheme
 import com.afghanjama.ui.vm.NewSaleViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
@@ -135,9 +132,8 @@ fun main() {
             var seen: NewSaleViewModel? = null
             val app = SmokeStore()
             ImageComposeScene(width = 400, height = 300, density = Density(1f)) {
-                MaterialTheme(colorScheme = LightColors) {
+                AppTheme(fontFamily = Vazirmatn) {
                     CompositionLocalProvider(
-                        LocalLayoutDirection provides LayoutDirection.Rtl,
                         LocalViewModelStoreOwner provides app,
                     ) {
                         SignedInGate(signedIn = signedIn, login = {}) {
@@ -218,10 +214,8 @@ fun main() {
             val n = DeskNotices.items.value.last()
             deskNeed(n.ltr == "+93 (0) 700 123 456" && "+93" !in n.text, "the number must travel apart from the Dari text")
             ImageComposeScene(width = 700, height = 200, density = Density(1f)) {
-                MaterialTheme(colorScheme = LightColors, typography = vazirTypography()) {
-                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                        NoticeHost()
-                    }
+                AppTheme(fontFamily = Vazirmatn) {
+                    NoticeHost()
                 }
             }.use { it.render() }
         } && ok

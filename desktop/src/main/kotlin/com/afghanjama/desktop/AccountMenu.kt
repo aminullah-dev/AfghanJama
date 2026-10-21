@@ -1,5 +1,12 @@
 package com.afghanjama.desktop
 
+import com.afghanjama.ui.components.Pill
+import com.afghanjama.ui.components.PillTone
+import com.afghanjama.ui.components.Space
+import com.afghanjama.ui.components.ChangePinDialog
+import com.afghanjama.ui.components.accountName
+import com.afghanjama.ui.components.accountRole
+import com.afghanjama.ui.theme.PillShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -51,20 +58,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
  */
 
 /**
- * نامی که پایینِ نوار نشان داده می‌شود. صاحبِ دستگاه گاهی نامی ثبت
- * نکرده؛ آن‌وقت «صاحبِ دستگاه»، نه دوباره نامِ نقش که کنارش در قرص هست.
- */
-internal fun accountName(ui: AuthUi): String =
-    ui.userName.trim().ifBlank { if (ui.userId == null) "صاحبِ دستگاه" else ui.role.label }
-
-/** برچسبِ نقش: مدیر، نقشِ دستگاه، یا «کاربر» برای کسی که مدیر ساخته. */
-internal fun accountRole(ui: AuthUi): String = when {
-    ui.access.isManager -> "مدیر"
-    ui.userId != null -> "کاربر"
-    else -> ui.role.label
-}
-
-/**
  * پایینِ نوار: نام و قرصِ نقش، «تغییرِ رمز»، «خروج از حساب»، و نسخه.
  *
  * [auth] `null` یعنی پنجره بی‌ورود رسم شده (آزمونِ صفحه‌ها) — فقط نسخه.
@@ -73,8 +66,8 @@ internal fun accountRole(ui: AuthUi): String = when {
 internal fun AccountFooter(auth: AuthViewModel?, onAbout: () -> Unit) {
     var changing by remember { mutableStateOf(false) }
     Column(
-        Modifier.fillMaxWidth().padding(top = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        Modifier.fillMaxWidth().padding(top = Space.sm),
+        verticalArrangement = Arrangement.spacedBy(Space.sm)
     ) {
         if (auth != null) {
             val ui by auth.ui.collectAsState()
@@ -83,7 +76,7 @@ internal fun AccountFooter(auth: AuthViewModel?, onAbout: () -> Unit) {
                 Modifier.fillMaxWidth()
                     .clip(PillShape)
                     .background(Bg.copy(alpha = 0.7f))
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                    .padding(horizontal = Space.sm, vertical = Space.sm),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -107,17 +100,8 @@ internal fun AccountFooter(auth: AuthViewModel?, onAbout: () -> Unit) {
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
                 )
-                Text(
-                    accountRole(ui),
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Brand,
-                    maxLines = 1,
-                    modifier = Modifier
-                        .clip(PillShape)
-                        .background(BrandSoft)
-                        .padding(horizontal = 10.dp, vertical = 2.dp)
-                )
+                // همان قرصِ نقشِ کاشیِ ورود و کارتِ «حسابِ کاربری».
+                Pill(accountRole(ui), tone = if (ui.access.isManager) PillTone.Coral else PillTone.Brand)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 TextButton(onClick = { changing = true }) {
@@ -125,7 +109,7 @@ internal fun AccountFooter(auth: AuthViewModel?, onAbout: () -> Unit) {
                     Text(
                         "تغییرِ رمز",
                         style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.padding(start = 6.dp)
+                        modifier = Modifier.padding(start = Space.sm)
                     )
                 }
                 TextButton(onClick = { auth.logout() }) {
@@ -139,7 +123,7 @@ internal fun AccountFooter(auth: AuthViewModel?, onAbout: () -> Unit) {
                         "خروج از حساب",
                         style = MaterialTheme.typography.labelMedium,
                         color = Bad,
-                        modifier = Modifier.padding(start = 6.dp)
+                        modifier = Modifier.padding(start = Space.sm)
                     )
                 }
             }
@@ -158,65 +142,6 @@ internal fun AccountFooter(auth: AuthViewModel?, onAbout: () -> Unit) {
                 .padding(horizontal = 8.dp, vertical = 4.dp)
         )
     }
-}
-
-/**
- * عوض کردنِ رمزِ همین نفر — همان `changePin`ِ گوشی: رمزِ فعلی سنجیده
- * می‌شود، رمزِ تازه دستِ‌کم چهار رقم است و مالِ کسِ دیگری نیست.
- */
-@Composable
-internal fun ChangePinDialog(auth: AuthViewModel, onDismiss: () -> Unit) {
-    val ui by auth.ui.collectAsState()
-    var oldPin by remember { mutableStateOf("") }
-    var newPin by remember { mutableStateOf("") }
-    val close = {
-        auth.clearMessage()
-        onDismiss()
-    }
-    AppAlertDialog(
-        onDismissRequest = close,
-        title = { Text("تغییرِ رمز") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    value = oldPin,
-                    onValueChange = { oldPin = it.digitsOnly().take(8) },
-                    label = { Text("رمزِ فعلی") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = newPin,
-                    onValueChange = { newPin = it.digitsOnly().take(8) },
-                    label = { Text("رمزِ تازه (دستِ‌کم ۴ رقم)") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                ui.message?.let { msg ->
-                    Text(
-                        msg,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (ui.isError) Bad else Brand
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = oldPin.isNotBlank() && newPin.length >= 4,
-                onClick = {
-                    auth.changePin(oldPin, newPin)
-                    oldPin = ""
-                    newPin = ""
-                }
-            ) { Text("ثبتِ رمزِ تازه") }
-        },
-        dismissButton = { TextButton(onClick = close) { Text("بستن") } }
-    )
 }
 
 /**

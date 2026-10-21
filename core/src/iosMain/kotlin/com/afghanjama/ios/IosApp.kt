@@ -1,6 +1,7 @@
 package com.afghanjama.ios
 
-import androidx.compose.material3.MaterialTheme
+import com.afghanjama.ui.theme.AppTheme
+import platform.UIKit.UIAccessibilityIsReduceMotionEnabled
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,8 +14,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.platform.Font
-import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.window.ComposeUIViewController
 import com.afghanjama.platform.LocalDocs
 import com.afghanjama.platform.LocalFileExport
@@ -23,8 +22,6 @@ import com.afghanjama.platform.LocalSystemActions
 import com.afghanjama.prefs.IosSettings
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.ui.platform.LocalWidgets
-import com.afghanjama.ui.theme.LightColors
-import com.afghanjama.ui.theme.appTypography
 import com.afghanjama.ui.vm.AuthViewModel
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
@@ -71,13 +68,19 @@ private fun bundledFont(name: String): ByteArray? {
  * و بایت‌هایش خوانده می‌شود.
  *
  * مثلِ نسخهٔ رومیزی، نبودنِ فونت برنامه را نمی‌اندازد: فارسیِ بدشکل بهتر
- * از پنجرهٔ بازنشده است — و آن‌وقت دستِ‌کم معلوم می‌شود مشکل از فونت
+ * از پنجرهٔ بازنشده است — و آن‌وقت دست‌کم معلوم می‌شود مشکل از فونت
  * است نه از کدِ صفحه.
  */
 private val Vazirmatn: FontFamily = run {
     val faces = listOfNotNull(
         bundledFont("vazirmatn_regular")?.let {
             Font("vazirmatn_regular", it, FontWeight.Normal)
+        },
+        // مقیاسِ مشترک برای عنوان‌ها و برچسب‌ها `Medium` می‌خواهد. تا ۱.۱۱
+        // آیفون این وزن را نداشت و از Regular می‌ساختش — همان کمبودی که
+        // کامپیوتر در ۱.۱۰ داشت.
+        bundledFont("vazirmatn_medium")?.let {
+            Font("vazirmatn_medium", it, FontWeight.Medium)
         },
         bundledFont("vazirmatn_semibold")?.let {
             Font("vazirmatn_semibold", it, FontWeight.SemiBold)
@@ -104,15 +107,13 @@ fun openHubLink(raw: String) = com.afghanjama.ui.vm.HubDeepLink.offer(raw)
 
 fun MainViewController(): UIViewController = ComposeUIViewController {
     val settings = IosSettings()
-    MaterialTheme(
-        // همان پالت و همان مقیاسِ قلمِ گوشی و پی‌سی، از `:core`.
-        colorScheme = LightColors,
-        typography = appTypography(Vazirmatn),
+    // همان تمِ گوشی و کامپیوتر ([AppTheme]): پالت، قلم، گوشه‌ها و راست‌به‌چپ.
+    // «کاهشِ حرکت»ِ آیفون هم خوانده می‌شود — تا ۱.۱۱ فقط اندروید می‌خواند.
+    AppTheme(
+        fontFamily = Vazirmatn,
+        reducedMotion = UIAccessibilityIsReduceMotionEnabled(),
     ) {
         CompositionLocalProvider(
-            // کلِ برنامه راست‌به‌چپ، مستقلِ از زبانِ آیفون — همان کاری که
-            // اندروید و ویندوز می‌کنند.
-            LocalLayoutDirection provides LayoutDirection.Rtl,
             LocalSettings provides settings,
             LocalWidgets provides IosWidgets,
             // بی این، هر صفحه‌ای که `LocalSystemActions` می‌خوانَد سرِ باز

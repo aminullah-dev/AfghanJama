@@ -15,7 +15,7 @@ import com.afghanjama.ui.vm.BoardRow
  * نمی‌آید. پیامِ صریح بدترین خبر است ولی درست‌ترینش.
  */
 private const val NOT_YET =
-    "اشتراکِ کارگاه در نسخهٔ آیفون هنوز نیست — فعلاً از گوشیِ اندرویدی یا کامپیوتر استفاده کنید."
+    "کارگاهِ وصل در نسخهٔ آیفون هنوز نیست — فعلاً از گوشیِ اندرویدی یا کامپیوتر استفاده کنید."
 
 private object IosLanApi : LanApi {
     override suspend fun ping(): LanResult<Unit> = LanResult.Err(NOT_YET)

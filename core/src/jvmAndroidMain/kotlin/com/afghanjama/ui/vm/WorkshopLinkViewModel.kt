@@ -175,7 +175,7 @@ class WorkshopLinkViewModel(
                 code = LanPrefs.code(settings),
                 ip = lan.localIp(),
                 alternatives = otherAddresses(),
-                message = if (ok) "اشتراکِ کارگاه روشن شد. از این پس هر بار که برنامه روی همین شبکه باز شود، خودش روشن می‌شود."
+                message = if (ok) "کارگاهِ وصل روشن شد. از این پس هر بار که برنامه روی همین شبکه باز شود، خودش روشن می‌شود."
                 else hubOffText(hub.state.value.off) ?: "اشتراک روشن نشد.",
                 isError = !ok
             )
@@ -194,7 +194,7 @@ class WorkshopLinkViewModel(
 
     private fun stopHub() {
         hub.stop()
-        _ui.update { it.copy(message = "اشتراکِ کارگاه خاموش شد.", isError = false) }
+        _ui.update { it.copy(message = "کارگاهِ وصل خاموش شد.", isError = false) }
     }
 
     /**

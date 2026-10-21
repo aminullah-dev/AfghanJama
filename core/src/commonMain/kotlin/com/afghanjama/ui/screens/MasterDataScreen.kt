@@ -118,7 +118,7 @@ fun MasterDataScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("مدیریت اطلاعات پایه") },
+                title = { Text("اطلاعات پایه") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "برگشت")
@@ -1138,7 +1138,7 @@ private fun DesignEditor(
                 }) { Text("ذخیره") }
             },
             dismissButton = {
-                TextButton(onClick = { editing = null }) { Text("انصراف") }
+                TextButton(onClick = { editing = null }) { Text("لغو") }
             }
         )
     }
@@ -1270,7 +1270,7 @@ private fun DesignEditor(
  *
  * پیامِ پایین عمداً هست: این کار **یک بار** انجام می‌شود و اگر دو بار
  * ثبت شود مانده دو برابر می‌گیرد. اپ نمی‌تواند بفهمد کدام درست است،
- * پس دستِ‌کم باید بگوید.
+ * پس دست‌کم باید بگوید.
  */
 @Composable
 internal fun OpeningBalanceDialog(

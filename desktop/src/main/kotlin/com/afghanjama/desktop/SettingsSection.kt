@@ -1,5 +1,7 @@
 package com.afghanjama.desktop
 
+import com.afghanjama.ui.components.AccountCard
+import com.afghanjama.ui.theme.PillShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -165,7 +167,7 @@ private fun SalePolicyCard() {
                 "فروشِ بیشتر از موجودی رد می‌شود. امن‌تر است، ولی اگر جنسی " +
                     "پیش از ثبتِ ورودش فروخته شود، فروشنده گیر می‌کند."
         )
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Switch(
                 checked = allow,
                 onCheckedChange = {
@@ -199,7 +201,7 @@ private fun ExportCard(repo: Repo) {
             "فایل در پوشهٔ «اسناد» کنارِ دفتر ذخیره می‌شود و خودش باز می‌شود. " +
                 "تاریخ‌ها هجری شمسی‌اند و ستون‌ها همان ستون‌های خروجیِ گوشی."
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedButton(
                 // نتیجه خودش دیده می‌شود: فایل پس از ذخیره باز می‌شود.
                 onClick = { saveOrders("orders-${stamp()}.csv") },
@@ -274,41 +276,13 @@ private fun ManageLinksCard(access: Access, go: (Section) -> Unit) {
                         .border(1.dp, Hairline, PillShape)
                         .background(Bg, PillShape)
                         .clickable { go(s) }
-                        .padding(horizontal = 14.dp, vertical = 7.dp)
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
                 )
             }
         }
     }
 }
 
-/** حسابِ همین نفر: نام و نقش، تغییرِ رمز، خروج. */
-@Composable
-private fun AccountCard(auth: AuthViewModel) {
-    val ui by auth.ui.collectAsState()
-    var changing by remember { mutableStateOf(false) }
-    AppCard {
-        CardTitle("حسابِ کاربری")
-        CardHint("${accountName(ui)} — ${accountRole(ui)}")
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            OutlinedButton(onClick = { changing = true }, shape = PillShape, modifier = Modifier.weight(1f)) {
-                Icon(Icons.Default.Key, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("تغییرِ رمز")
-            }
-            Button(
-                onClick = { auth.logout() },
-                shape = PillShape,
-                colors = ButtonDefaults.buttonColors(containerColor = BadSoft, contentColor = MaterialTheme.colorScheme.onErrorContainer),
-                modifier = Modifier.weight(1f)
-            ) {
-                Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("خروج از حساب")
-            }
-        }
-    }
-    if (changing) ChangePinDialog(auth, onDismiss = { changing = false })
-}
 
 /**
  * قفلِ خودکار — پس از چند دقیقه بی‌کاری، برنامه به درِ ورود برمی‌گردد.
@@ -340,7 +314,7 @@ private fun IdleLockCard() {
                             DeskPrefs.setIdleLockMinutes(settings, m)
                             DeskIdle.minutes.value = m
                         }
-                        .padding(horizontal = 14.dp, vertical = 7.dp)
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
                 )
             }
         }
@@ -358,7 +332,7 @@ private fun SupportCard() {
         CardHint("برای گزارشِ مشکل، پیشنهاد یا سؤال با ما در تماس شوید.")
         Text(AppInfo.SUPPORT_EMAIL, style = MaterialTheme.typography.bodyMedium, color = Brand)
         Text(AppVersion.supportLine(), style = MaterialTheme.typography.labelSmall, color = Muted)
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedButton(
                 onClick = {
                     if (!openSupportMail()) {
@@ -465,7 +439,7 @@ private fun ResetCard(repo: Repo, role: UserRole) {
             onDismissRequest = { if (!working) asking = false },
             title = { Text("پاک‌کردنِ کارها و حساب‌ها") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("این کار برگشت ندارد.", fontWeight = FontWeight.SemiBold, color = Bad)
                     Text(
                         "پیش از پاک‌کردن، یک پشتیبانِ کاملِ خودکار در پوشهٔ «backups» کنارِ " +

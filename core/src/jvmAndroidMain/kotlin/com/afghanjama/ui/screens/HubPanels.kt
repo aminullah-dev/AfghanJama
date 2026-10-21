@@ -1,5 +1,9 @@
 package com.afghanjama.ui.screens
 
+import com.afghanjama.ui.components.GlassCard
+import com.afghanjama.ui.theme.PillShape
+import com.afghanjama.ui.components.Pill
+import com.afghanjama.ui.components.PillTone
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -60,42 +64,22 @@ import com.afghanjama.ui.vm.WorkshopLinkAccess
  * برند از پالتِ مشترک، و هیچ رنگِ دستی (`palette`).
  */
 
-/** کارتِ شیشه‌ایِ مشترکِ این صفحه‌ها. */
+/** کارتِ شیشه‌ایِ این صفحه‌ها — همان [GlassCard]ِ مشترک، تمام‌پهنا. */
 @Composable
-fun HubGlass(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.86f)),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-    ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
-    }
-}
+fun HubGlass(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) =
+    GlassCard(modifier.fillMaxWidth(), content = content)
 
+/** قرصِ این صفحه‌ها — همان [Pill]ِ مشترک. */
 @Composable
-fun HubPill(text: String, strong: Boolean = false, warn: Boolean = false) {
-    Surface(
-        shape = RoundedCornerShape(50),
-        color = when {
-            warn -> MaterialTheme.colorScheme.secondaryContainer
-            strong -> MaterialTheme.colorScheme.primary
-            else -> MaterialTheme.colorScheme.primaryContainer
+fun HubPill(text: String, strong: Boolean = false, warn: Boolean = false) =
+    Pill(
+        text,
+        tone = when {
+            warn -> PillTone.Coral
+            strong -> PillTone.Strong
+            else -> PillTone.Brand
         },
-    ) {
-        Text(
-            text,
-            Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-            style = MaterialTheme.typography.labelMedium,
-            color = when {
-                warn -> MaterialTheme.colorScheme.onSecondaryContainer
-                strong -> MaterialTheme.colorScheme.onPrimary
-                else -> MaterialTheme.colorScheme.onPrimaryContainer
-            },
-        )
-    }
-}
+    )
 
 @Composable
 private fun Dot(on: Boolean) {
@@ -251,7 +235,7 @@ private fun ApproveBox(
     if (role == HubRole.WORKER) {
         Text("این گوشی دستِ کیست؟", style = MaterialTheme.typography.labelMedium)
         if (people.isEmpty()) {
-            Text("هنوز خیاط، ناظر یا کارمندی در اطلاعاتِ پایه نیست.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            Text("هنوز خیاط، ناظر یا کارمندی در «اطلاعات پایه» ثبت نشده.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             for (p in people) FilterChip(selected = person == p, onClick = { person = p }, label = { Text(p) }, shape = RoundedCornerShape(50))
@@ -332,7 +316,7 @@ fun HubDevicesPanel(vm: HubAdminViewModel, access: Access) {
             title = { Text("دسترسیِ «${d.name}» برداشته شود؟") },
             text = { Text("کلیدش همین حالا پاک می‌شود و همگام‌سازیِ بعدی‌اش رد می‌شود. برای وصل شدنِ دوباره باید از نو جفت شود.") },
             confirmButton = { TextButton(onClick = { vm.revoke(d); revoke = null }) { Text("قطعِ دسترسی") } },
-            dismissButton = { TextButton(onClick = { revoke = null }) { Text("نه") } },
+            dismissButton = { TextButton(onClick = { revoke = null }) { Text("لغو") } },
         )
     }
     edit?.let { d ->
@@ -349,12 +333,12 @@ fun HubDevicesPanel(vm: HubAdminViewModel, access: Access) {
                         }
                     }
                     if (role == HubRole.WORKER) {
-                        for (p in people) TextButton(onClick = { person = p }) { Text(if (person == p) "● $p" else p) }
+                        for (p in people) FilterChip(selected = person == p, onClick = { person = p }, label = { Text(p) }, shape = PillShape)
                     }
                 }
             },
             confirmButton = { TextButton(onClick = { vm.changeRole(d, role, person); edit = null }) { Text("ثبت") } },
-            dismissButton = { TextButton(onClick = { edit = null }) { Text("نه") } },
+            dismissButton = { TextButton(onClick = { edit = null }) { Text("لغو") } },
         )
     }
 }
@@ -408,7 +392,7 @@ fun HubInboxPanel(vm: HubAdminViewModel, access: Access) {
                 )
             },
             confirmButton = { TextButton(onClick = { vm.approveAllAttendance(worker); confirmAll = false }) { Text("تأییدِ همه") } },
-            dismissButton = { TextButton(onClick = { confirmAll = false }) { Text("نه") } },
+            dismissButton = { TextButton(onClick = { confirmAll = false }) { Text("لغو") } },
         )
     }
 }

@@ -150,7 +150,9 @@ fun CustomersScreen(
             if (filtered.isEmpty()) {
                 item {
                     Text(
-                        "مشتری‌ای ثبت نشده. با دکمهٔ + یک مشتری اضافه کنید.",
+                        // جست‌وجوی بی‌نتیجه «مشتری‌ای ثبت نشده» نیست.
+                        if (query.isNotBlank()) "مشتری‌ای با این نام یا شماره پیدا نشد."
+                        else "هنوز مشتری‌ای ثبت نشده. با دکمهٔ «+» یک مشتری اضافه کنید.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 16.dp)
                     )

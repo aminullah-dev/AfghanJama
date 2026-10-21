@@ -83,7 +83,7 @@ fun main() {
     } && ok
 
     // این بند ثابت می‌کند اشکال **واقعی** بود، نه نظری: رفتارِ قدیمی
-    // روی دستِ‌کم یکی از همین سطرها جهتِ دیگری می‌داد.
+    // روی دست‌کم یکی از همین سطرها جهتِ دیگری می‌داد.
     ok = pdfCheck("the old string-constructor really did guess a different direction") {
         val differing = mixed.filter { guessedIsLtr(it, font) != renderedIsLtr(it, font) }
         pdfNeed(

@@ -1,5 +1,8 @@
 package com.afghanjama.desktop
 
+import com.afghanjama.ui.theme.Radius
+import com.afghanjama.ui.theme.PillShape
+import com.afghanjama.ui.components.CountPill
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -215,7 +218,7 @@ internal fun Shell(
             Column(
                 Modifier
                     .fillMaxSize()
-                    .glass(contentShape, elevation = 6.dp)
+                    .deskGlass(contentShape, elevation = 6.dp)
                     .background(Bg)
             ) {
                 // بنرِ لایسنس بالای هر بخش — روزهای مانده و فقط‌خواندنی
@@ -750,16 +753,16 @@ private fun Sidebar(repo: Repo, nav: DeskNav, access: Access, auth: AuthViewMode
         Modifier
             .width(SidebarWidth)
             .fillMaxHeight()
-            .glass(RoundedCornerShape(24.dp))
-            .padding(horizontal = 12.dp, vertical = 14.dp)
+            .deskGlass(RoundedCornerShape(24.dp))
+            .padding(horizontal = 12.dp, vertical = 16.dp)
     ) {
         Row(
-            Modifier.padding(start = 6.dp, end = 6.dp, bottom = 12.dp),
+            Modifier.padding(start = 8.dp, end = 8.dp, bottom = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Box(
-                Modifier.size(34.dp).clip(RoundedCornerShape(11.dp)).background(Brand),
+                Modifier.size(34.dp).clip(RoundedCornerShape(Radius.md)).background(Brand),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -820,7 +823,7 @@ private fun Sidebar(repo: Repo, nav: DeskNav, access: Access, auth: AuthViewMode
         }
 
         Box(
-            Modifier.fillMaxWidth().padding(vertical = 6.dp).height(1.dp).background(Hairline)
+            Modifier.fillMaxWidth().padding(vertical = 8.dp).height(1.dp).background(Hairline)
         )
         AccountFooter(auth, onAbout = { nav.go(Section.About) })
     }
@@ -838,10 +841,10 @@ private fun GroupHeader(
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(top = 10.dp, bottom = 2.dp)
+            .padding(top = 12.dp, bottom = 2.dp)
             .clip(PillShape)
             .then(if (canToggle) Modifier.clickable(onClick = onToggle) else Modifier)
-            .padding(horizontal = 10.dp, vertical = 4.dp),
+            .padding(horizontal = 12.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -852,7 +855,7 @@ private fun GroupHeader(
             modifier = Modifier.weight(1f)
         )
         if (hiddenCount > 0) {
-            CountPill(hiddenCount, urgent = hiddenUrgent, modifier = Modifier.padding(end = 6.dp))
+            CountPill(hiddenCount, urgent = hiddenUrgent, modifier = Modifier.padding(end = 8.dp))
         }
         if (canToggle) {
             Icon(
@@ -884,7 +887,7 @@ private fun SidebarItem(
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Icon(
             section.icon,

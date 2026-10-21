@@ -152,7 +152,7 @@ fun PayrollScreen(
                 }) { Text("ذخیره") }
             },
             dismissButton = {
-                TextButton(onClick = { addOpen = false; editing = null }) { Text("انصراف") }
+                TextButton(onClick = { addOpen = false; editing = null }) { Text("لغو") }
             }
         )
     }
@@ -167,7 +167,7 @@ fun PayrollScreen(
                     Text("حذف", color = MaterialTheme.colorScheme.error)
                 }
             },
-            dismissButton = { TextButton(onClick = { deleting = null }) { Text("انصراف") } }
+            dismissButton = { TextButton(onClick = { deleting = null }) { Text("لغو") } }
         )
     }
 
@@ -252,7 +252,7 @@ fun PayrollScreen(
                     paying = null
                 }) { Text("پرداخت") }
             },
-            dismissButton = { TextButton(onClick = { paying = null }) { Text("انصراف") } }
+            dismissButton = { TextButton(onClick = { paying = null }) { Text("لغو") } }
         )
     }
 
@@ -357,7 +357,7 @@ fun PayrollScreen(
                     EmptyState(
                         icon = Icons.Default.Groups,
                         title = "هنوز کارمندی ثبت نشده",
-                        hint = "با دکمهٔ ➕ بالای صفحه کارمند اضافه کنید و حقوقِ " +
+                        hint = "با دکمهٔ «+» بالای صفحه کارمند اضافه کنید و حقوقِ " +
                             "ماهانه‌اش را بنویسید تا یادآورِ پرداخت فعال شود."
                     )
                 }

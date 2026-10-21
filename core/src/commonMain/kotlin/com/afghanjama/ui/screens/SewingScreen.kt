@@ -117,8 +117,8 @@ fun SewingScreen(
 
     var tab by rememberSaveable { mutableStateOf(0) }
     // ترتیبِ تب‌ها همان مسیرِ واقعیِ کار است:
-    // تحویل به خیاط ← در حال دوخت ← دوخته شده ← (نظارت)
-    val tabs = listOf("تحویل به خیاط", "در حال دوخت", "دوخته شده")
+    // تحویل به خیاط ← در حالِ دوخت ← دوخته شده ← (نظارت)
+    val tabs = listOf("تحویل به خیاط", "در حالِ دوخت", "دوخته شده")
 
     Scaffold(
         topBar = {
@@ -199,7 +199,7 @@ fun SewingScreen(
                     Spacer(Modifier.height(8.dp))
                 }
                 if (inProgress.isEmpty()) {
-                    EmptyCard("موردی در حال دوخت نیست.", "پس از تحویل به خیاط، اینجا نمایش داده می‌شود.")
+                    EmptyCard("موردی در حالِ دوخت نیست.", "پس از تحویل به خیاط، اینجا نمایش داده می‌شود.")
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -236,7 +236,7 @@ fun SewingScreen(
                 }
             } else {
                 // ---------- دوخته شده ----------
-                // کارِ تمام‌شدهٔ خیاط تا امروز از «در حال دوخت» ناپدید
+                // کارِ تمام‌شدهٔ خیاط تا امروز از «در حالِ دوخت» ناپدید
                 // می‌شد و هیچ‌جا دیده نمی‌شد. اینجا معلوم است کدام خیاط
                 // چند عدد تحویل داده، و همان‌ها — نه کلِ سفارش — به
                 // نظارت می‌روند.
@@ -412,7 +412,7 @@ private fun HandoutCard(
                     )
                 }
                 Text(
-                    "باقی: ${handout.remaining}",
+                    "باقی: ${handout.remaining.fa()}",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = if (handout.remaining > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
@@ -444,7 +444,7 @@ private fun HandoutCard(
                     ) {
                         Column(Modifier.weight(1f)) {
                             Text(
-                                "${a.tailorLabel} — ${a.qty} عدد" + if (done) " ✔" else "",
+                                "${a.tailorLabel} — ${a.qty.fa()} عدد" + if (done) " (دوخته شد)" else "",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Medium,
                                 color = if (done) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
@@ -472,7 +472,7 @@ private fun HandoutCard(
                     if (tailorLabels.isEmpty()) {
                         // پیام است نه فرمان: زدنی نیست، پس خاموش.
                         AppDropdownMenuItem(
-                            text = { Text("هیچ خیاطی ثبت نشده (اطلاعات پایه)") },
+                            text = { Text("هنوز خیاطی در «اطلاعات پایه» ثبت نشده.") },
                             onClick = { menuOpen = false },
                             enabled = false
                         )
@@ -499,7 +499,7 @@ private fun HandoutCard(
                     OutlinedTextField(
                         value = qtyText,
                         onValueChange = { qtyText = it.digitsOnly() },
-                        label = { Text("تعداد (حداکثر ${handout.remaining})") },
+                        label = { Text("تعداد (حداکثر ${handout.remaining.fa()})") },
                         singleLine = true,
                         modifier = Modifier.weight(1f)
                     )
@@ -567,7 +567,7 @@ private fun InProgressCard(
             title = { Text("تحویل دوختِ ${assignment.tailorLabel}") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("از ${assignment.qty} عدد، چند عدد دوخته و تحویل شد؟ (باقی‌مانده در حال دوخت می‌ماند)")
+                    Text("از ${assignment.qty.fa()} عدد، چند عدد دوخته و تحویل شد؟ (باقی‌مانده در حالِ دوخت می‌ماند)")
                     OutlinedTextField(
                         value = deliveredText,
                         onValueChange = { deliveredText = it.digitsOnly() },
@@ -617,7 +617,7 @@ private fun InProgressCard(
             }
 
             Text(
-                "کارمزد: ${assignment.unitWage.afn()} فی‌عدد × ${assignment.qty}",
+                "کارمزد: ${assignment.unitWage.afn()} فی‌عدد × ${assignment.qty.fa()}",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -679,21 +679,21 @@ private fun handoverReceipt(
     val inHand = mine.filter { it.status == "SEWING" && it.id != a.id }
     val lastDone = mine.filter { it.status == "DONE" }.maxByOrNull { it.doneAt ?: 0L }
 
-    appendLine("🧵 رسید تحویل کار — $shop")
+    appendLine("رسید تحویل کار — $shop")
     appendLine("خیاط: ${a.tailorLabel}")
     appendLine("تاریخ: ${PersianDate.short(nowMillis())}")
     if (ratedCount > 0) appendLine("امتیاز کیفیت در کارگاه: $stars (از ${ratedCount.fa()} کار)")
     appendLine("──────────────")
-    appendLine("✅ این کار به شما تحویل شد:")
+    appendLine("این کار به شما تحویل شد:")
     val tag = if (designCode.isNotBlank()) "$designCode (${a.orderCode})" else a.orderCode
     appendLine("• $tag — ${a.qty.fa()} عدد • کارمزد فی‌عدد ${a.unitWage.afn()} • جمع ${a.totalWage.afn()}")
     if (measurements.isNotEmpty()) {
-        appendLine("📏 اندازه‌ها:")
+        appendLine("اندازه‌ها:")
         measurements.forEach { (label, value) -> appendLine("   • $label: $value") }
     }
     if (inHand.isNotEmpty()) {
         appendLine("──────────────")
-        appendLine("🧷 کارهای دیگرِ زیرِ دست شما:")
+        appendLine("کارهای دیگرِ زیرِ دست شما:")
         inHand.forEach {
             appendLine("• ${it.orderCode} — ${it.qty.fa()} عدد (از ${PersianDate.short(it.createdAt)})")
         }
@@ -706,7 +706,7 @@ private fun handoverReceipt(
         )
     }
     appendLine("──────────────")
-    appendLine("💰 حساب کارمزد: طلبِ تسویه‌نشده تاکنون ${pendingWageTotal.afn()}")
+    appendLine("حساب کارمزد: طلبِ تسویه‌نشده تاکنون ${pendingWageTotal.afn()}")
     appendLine("──────────────")
     appendLine("⏰ یادآوری: هر کاری که تمام شد، همان لحظه بخش نظارت را در جریان بگذارید.")
 }

@@ -2,6 +2,9 @@
 
 package com.afghanjama.ui.screens
 
+import com.afghanjama.ui.theme.Radius
+import com.afghanjama.ui.components.AccountCard
+import com.afghanjama.ui.components.AppCard
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -173,8 +176,6 @@ fun SettingsScreen(
         )
     }
 
-    var oldPin by remember { mutableStateOf("") }
-    var newPin by remember { mutableStateOf("") }
 
     // ---------- ریست داده ----------
     val resetWorking by backupVm.working.collectAsState()
@@ -184,7 +185,7 @@ fun SettingsScreen(
         val phrase = backupVm.resetPhrase
         AlertDialog(
             onDismissRequest = { if (!resetWorking) showResetDialog = false },
-            title = { Text("پاک‌کردن کارها و حساب‌ها") },
+            title = { Text("پاک‌کردنِ کارها و حساب‌ها") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
@@ -229,7 +230,7 @@ fun SettingsScreen(
                     }
                 ) {
                     Text(
-                        if (resetWorking) "در حال پاک‌کردن…" else "پاک کن",
+                        if (resetWorking) "در حالِ پاک‌کردن…" else "پاک کن",
                         color = MaterialTheme.colorScheme.error
                     )
                 }
@@ -270,12 +271,7 @@ fun SettingsScreen(
             // لایسنس — اولِ تنظیمات، چون «چرا ثبت نمی‌شود» را اینجا می‌جویند.
             // برای همه، نه فقط مدیر: کدِ دستگاه و وضعیت را هر کسی باید ببیند.
             val licence by LicenceGate.status.collectAsState()
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-            ) {
+            AppCard(contentPadding = 0.dp) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
                         "لایسنس",
@@ -296,12 +292,7 @@ fun SettingsScreen(
 
             // اطلاعات پایه — فقط مدیر
             if (canManageMaster) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                ) {
+                AppCard(contentPadding = 0.dp) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
                             "اطلاعات پایه",
@@ -334,12 +325,7 @@ fun SettingsScreen(
                 var coAddr by remember { mutableStateOf(CompanyPrefs.address(settings)) }
                 var coLogo by remember { mutableStateOf(CompanyPrefs.logo(settings)) }
                 var coSaved by remember { mutableStateOf(false) }
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                ) {
+                AppCard(contentPadding = 0.dp) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(
                             "پروفایل کارگاه",
@@ -401,7 +387,7 @@ fun SettingsScreen(
                                     contentScale = ContentScale.Crop,
                                     modifier = Modifier
                                         .size(56.dp)
-                                        .clip(RoundedCornerShape(10.dp))
+                                        .clip(RoundedCornerShape(Radius.md))
                                         .background(MaterialTheme.colorScheme.surfaceVariant)
                                 )
                             }
@@ -492,12 +478,7 @@ fun SettingsScreen(
 
             // قفل اپ با رمز عددی
             // ---------- سیاستِ فروش ----------
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-            ) {
+            AppCard(contentPadding = 0.dp) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
                         "فروشِ بیشتر از موجودی (کسری)",
@@ -507,7 +488,7 @@ fun SettingsScreen(
                     Text(
                         if (allowShortage)
                             "فروش و تحویل حتی وقتی انبار خالی است انجام می‌شود و کمبود " +
-                                "به‌عنوان «کسری» با رنگِ قرمز نشان داده می‌شود. بهای " +
+                                "به‌عنوان «کسری» با رنگِ سرخ نشان داده می‌شود. بهای " +
                                 "تمام‌شده با آخرین میانگین برآورد می‌شود و با ورودِ بعدیِ " +
                                 "همان کالا خودش اصلاح می‌گردد."
                         else
@@ -532,12 +513,7 @@ fun SettingsScreen(
                 }
             }
 
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-            ) {
+            AppCard(contentPadding = 0.dp) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("قفل اپ", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Text(
@@ -560,73 +536,10 @@ fun SettingsScreen(
                 }
             }
 
-            // تغییر رمز
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-            ) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        "تغییر رمز",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-
-                    OutlinedTextField(
-                        value = oldPin,
-                        onValueChange = { oldPin = it.digitsOnly().take(8) },
-                        label = { Text("رمز فعلی") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                        visualTransformation = PasswordVisualTransformation()
-                    )
-
-                    OutlinedTextField(
-                        value = newPin,
-                        onValueChange = { newPin = it.digitsOnly().take(8) },
-                        label = { Text("رمز جدید (حداقل ۴ رقم)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                        visualTransformation = PasswordVisualTransformation()
-                    )
-
-                    Button(
-                        onClick = {
-                            authVm.changePin(oldPin, newPin)
-                            oldPin = ""
-                            newPin = ""
-                        },
-                        enabled = oldPin.isNotBlank() && newPin.isNotBlank(),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.Lock, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("ثبت رمز جدید")
-                    }
-
-                    ui.message?.let { msg ->
-                        Text(
-                            msg,
-                            color = if (ui.isError) MaterialTheme.colorScheme.error
-                            else MaterialTheme.colorScheme.primary,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
-            }
 
             // پشتیبان‌گیری و خروجی داده‌ها — فقط مدیر
             if (canBackup) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                ) {
+                AppCard(contentPadding = 0.dp) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(
                             "پشتیبان‌گیری و خروجی داده‌ها",
@@ -643,15 +556,15 @@ fun SettingsScreen(
                         val lastAuto = backupVm.lastAutoBackupTime(context)
                         Text(
                             if (lastAuto > 0)
-                                "بکاپ خودکار روزانه فعال است — آخرین بکاپ: ${PersianDate.shortWithTime(lastAuto)} (پوشه Downloads/${AppInfo.NAME_LATIN})"
+                                "پشتیبانِ خودکارِ روزانه روشن است — آخرین پشتیبان: ${PersianDate.shortWithTime(lastAuto)} (پوشهٔ Downloads/${AppInfo.NAME_LATIN})"
                             else
-                                "بکاپ خودکار روزانه فعال است — اولین بکاپ به‌زودی در Downloads/${AppInfo.NAME_LATIN} ذخیره می‌شود.",
+                                "پشتیبانِ خودکارِ روزانه روشن است — نخستین پشتیبان به‌زودی در Downloads/${AppInfo.NAME_LATIN} ذخیره می‌شود.",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            "بکاپ خودکار فقط دیتابیس است و روی همین گوشی می‌ماند (۷ نسخهٔ آخر). " +
-                                "بکاپی که خودتان می‌گیرید یا می‌فرستید، عکس‌ها را هم دارد — " +
+                            "پشتیبانِ خودکار فقط دفتر است و روی همین گوشی می‌ماند (۷ نسخهٔ آخر). " +
+                                "پشتیبانِ دستی، که خودتان می‌گیرید یا می‌فرستید، عکس‌ها را هم دارد — " +
                                 "همان است که اگر گوشی گم شود به کارتان می‌آید.",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -663,7 +576,7 @@ fun SettingsScreen(
                         ) {
                             Icon(Icons.Default.Share, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
-                            Text("ارسال بکاپ کامل به Drive / واتساپ")
+                            Text("فرستادنِ پشتیبانِ کامل (گوگل‌درایو، واتساپ)")
                         }
 
                         OutlinedButton(
@@ -716,12 +629,7 @@ fun SettingsScreen(
             }
 
             // 📞 پشتیبانی — برای همه نقش‌ها
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-            ) {
+            AppCard(contentPadding = 0.dp) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
                         "پشتیبانی",
@@ -769,12 +677,7 @@ fun SettingsScreen(
             // کاربران و دسترسی‌ها — فقط مدیر. هر نفر رمزِ خودش و تیک‌های
             // خودش را دارد؛ در صفحهٔ ورود رمز می‌گوید کیست.
             if (canResetData) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                ) {
+                AppCard(contentPadding = 0.dp) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
                             "کاربران و دسترسی‌ها",
@@ -796,12 +699,7 @@ fun SettingsScreen(
 
             // کنارِ پشتیبان و ریست است، نه روی میزِ کار.
             if (canResetData) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                ) {
+                AppCard(contentPadding = 0.dp) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
                             "خودآزمایی و سلامتِ داده",
@@ -836,59 +734,29 @@ fun SettingsScreen(
                 }
             }
 
-            // خروج از حساب
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-            ) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        "حساب کاربری",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Button(
-                        onClick = {
-                            authVm.logout()
-                            onLoggedOut()
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                            contentColor = MaterialTheme.colorScheme.onErrorContainer
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("خروج از حساب")
-                    }
-                }
-            }
+            // حسابِ کاربری: نام و نقش، تغییرِ رمز، خروج — همان کارتِ کامپیوتر و آیفون.
+            AccountCard(authVm, onLoggedOut = onLoggedOut)
 
             // ---------- ریست داده — آخرین کارت، چون برگشت ندارد ----------
             if (canResetData) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
-                    ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+                // همان کارتِ خطرِ کامپیوتر: زمینهٔ سرخِ کم‌رنگ، بی خط.
+                AppCard(
+                    container = MaterialTheme.colorScheme.errorContainer,
+                    bordered = false,
+                    contentPadding = 0.dp,
                 ) {
                     Column(
                         Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            "ریست داده",
+                            "پاک‌کردنِ کارها و حساب‌ها",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onErrorContainer
                         )
                         Text(
-                            "برای وقتی که تست تمام شده و می‌خواهید با دفترِ تمیز شروع " +
+                            "برای وقتی که آزمایش تمام شده و می‌خواهید با دفترِ تمیز شروع " +
                                 "کنید. سفارش‌ها، فروش‌ها، خریدها، دفتر کل، اسناد، انبار، " +
                                 "حضور و غیاب و عکس‌ها پاک می‌شوند.",
                             style = MaterialTheme.typography.bodySmall,
@@ -907,7 +775,7 @@ fun SettingsScreen(
                         ) {
                             Icon(Icons.Default.DeleteForever, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
-                            Text("پاک‌کردن کارها و حساب‌ها")
+                            Text("پاک‌کردنِ کارها و حساب‌ها")
                         }
                     }
                 }

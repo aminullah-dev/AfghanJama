@@ -21,7 +21,7 @@ import kotlinx.coroutines.flow.stateIn
 /** آمار زنده کارگاه برای داشبورد گزارش‌ها. */
 data class DashboardStats(
     val inStock: Int = 0,
-    val cutting: Int = 0,        // در حال برش + برش تمام
+    val cutting: Int = 0,        // در حالِ برش + برش تمام
     val sewing: Int = 0,
     val review: Int = 0,
     /** عددِ آمادهٔ فروش در انبار محصول (نه تعدادِ سفارش). */

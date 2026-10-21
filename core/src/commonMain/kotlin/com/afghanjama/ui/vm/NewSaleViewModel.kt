@@ -201,7 +201,7 @@ class NewSaleViewModel(private val repo: Repo) : ViewModel() {
 
     fun removeLine(key: Long) = _ui.update { u ->
         val left = u.lines.filterNot { it.key == key }
-        // همیشه دستِ‌کم یک ردیف بماند تا صفحه خالی و بی‌معنا نشود
+        // همیشه دست‌کم یک ردیف بماند تا صفحه خالی و بی‌معنا نشود
         u.copy(lines = left.ifEmpty { listOf(DraftLine(key = nextKey++)) })
     }
 
@@ -243,7 +243,7 @@ class NewSaleViewModel(private val repo: Repo) : ViewModel() {
         val u = _ui.value
         val ready = u.lines.filter { it.ready }
         if (ready.isEmpty()) {
-            _ui.update { it.copy(message = "دستِ‌کم یک ردیفِ کامل لازم است.", isError = true) }
+            _ui.update { it.copy(message = "دست‌کم یک ردیفِ کامل لازم است.", isError = true) }
             return
         }
         val incomplete = u.lines.size - ready.size

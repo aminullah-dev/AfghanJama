@@ -15,7 +15,7 @@ object PayrollPrefs {
     private const val FILE = "payroll_prefs"
     private const val KEY_WORKING_DAYS = "working_days"
 
-    /** روزهای کاریِ ماه؛ همیشه دستِ‌کم ۱ تا تقسیم بر صفر پیش نیاید. */
+    /** روزهای کاریِ ماه؛ همیشه دست‌کم ۱ تا تقسیم بر صفر پیش نیاید. */
     fun workingDays(s: Settings): Int =
         s.getLong(FILE, KEY_WORKING_DAYS, PayrollSmart.DEFAULT_WORKING_DAYS.toLong())
             .toInt().coerceIn(1, 31)

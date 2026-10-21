@@ -26,7 +26,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Sell
@@ -728,7 +728,7 @@ fun FinishedWarehouseScreen(
                         onClick = onOpenInvoice,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Icon(Icons.Default.ReceiptLong, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
                         Text(
                             if (invoiceCount > 0)

@@ -1,5 +1,6 @@
 package com.afghanjama.desktop
 
+import com.afghanjama.ui.theme.PillShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -92,11 +93,11 @@ internal fun NoticeHost(modifier: Modifier = Modifier) {
             Row(
                 Modifier
                     .widthIn(max = 560.dp)
-                    .glass(PillShape, elevation = 10.dp)
+                    .deskGlass(PillShape, elevation = 10.dp)
                     .clickable { DeskNotices.dismiss(n.id) }
-                    .padding(horizontal = 20.dp, vertical = 10.dp),
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
                     n.text,

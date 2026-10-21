@@ -243,7 +243,7 @@ fun HomeDashboardScreen(
         // آیفون این دکمه به بن‌بستِ «روی آیفون نیست» می‌رسید، پس نمایش
         // داده نمی‌شود.
         if (workshopSharingAvailable()) {
-            add(HomeAction("اشتراک کارگاه", Icons.Default.Wifi, onGoWorkshopLink))
+            add(HomeAction("کارگاهِ وصل", Icons.Default.Wifi, onGoWorkshopLink))
         }
     }
 

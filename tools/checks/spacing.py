@@ -55,10 +55,11 @@ if "object Space" not in space_src:
 fail = []
 checked = 0
 
-# `:desktop` عمداً بیرون است: آن ماژول را جریانِ دیگری پیش می‌برد و
-# این بررسی نباید ساختِ آن‌ها را سرِ قاعده‌ای که با آن‌ها توافق نشده
-# قرمز کند. صفحه‌های مشترک در `:core` هستند و پوشش می‌گیرند.
-for path in sorted(_src.CORE.rglob("*.kt")) + sorted(_src.APP.rglob("*.kt")):
+# `:desktop` از ۱.۱۲ هم هست. تا آن روز عمداً بیرون مانده بود («جریانِ
+# دیگری پیشش می‌برد») و در همین فاصله ۳۵ فاصلهٔ ۶ و ۱۰ و ۱۴ در نوارِ کنار،
+# تنظیمات و خودآزمایی جمع شد — همان ریتمِ شکسته‌ای که این بررسی برای
+# گوشی بسته بود، حالا روی صفحهٔ بزرگ‌تر.
+for path in sorted(_src.CORE.rglob("*.kt")) + sorted(_src.APP.rglob("*.kt")) + sorted(_src.DESKTOP.rglob("*.kt")):
     for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
         stripped = line.lstrip()
         if stripped.startswith(("//", "*", "/*")):

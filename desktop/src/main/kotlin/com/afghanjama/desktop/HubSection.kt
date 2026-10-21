@@ -354,7 +354,7 @@ private fun MoveLedgerPanel(repo: Repo, access: Access) {
                     }
                 }) { Text("انتقال") }
             },
-            dismissButton = { TextButton(onClick = { ask = null }) { Text("نه") } },
+            dismissButton = { TextButton(onClick = { ask = null }) { Text("لغو") } },
         )
     }
 }

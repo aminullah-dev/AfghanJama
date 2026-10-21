@@ -5,6 +5,7 @@ import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
 import com.afghanjama.data.DB_VERSION
 import com.afghanjama.data.DESKTOP_BASELINE
+import com.afghanjama.ui.format.fa
 import com.afghanjama.data.SchemaStep
 import com.afghanjama.data.schemaChain
 import kotlinx.coroutines.Dispatchers
@@ -113,8 +114,8 @@ fun main() {
         val err = runCatching { openDatabase(old) }.exceptionOrNull()
         require(err != null, "opening a v$belowBaseline file should have failed")
         val m = err!!.message.orEmpty()
-        require(m.contains("$belowBaseline"), "message should name the file version: $m")
-        require(m.contains("$DESKTOP_BASELINE"), "message should name the baseline: $m")
+        require(m.contains(belowBaseline.fa()), "message should name the file version (Persian digits): $m")
+        require(m.contains(DESKTOP_BASELINE.fa()), "message should name the baseline (Persian digits): $m")
         require(old.length() == before, "the file was modified - data must not be touched")
         require(
             ledgerFileVersion(old) == belowBaseline,

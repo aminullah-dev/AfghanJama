@@ -32,7 +32,7 @@ object HubViews {
 
     private const val DAY = 86_400_000L
 
-    /** همان «در حال دوخت»ِ قراردادِ ۱ (`/board`)، یک جا برای هر دو. */
+    /** همان «در حالِ دوخت»ِ قراردادِ ۱ (`/board`)، یک جا برای هر دو. */
     suspend fun board(db: Db, now: Long): List<BoardRow> {
         val assignments = db.sewingAssignmentDao().observeInProgress().first()
         val byCode = db.orderDao().observeAll().first().associateBy { it.orderCode }

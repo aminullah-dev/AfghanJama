@@ -1,5 +1,6 @@
 package com.afghanjama.desktop.data
 
+import com.afghanjama.ui.format.fa
 import androidx.room.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.afghanjama.data.DB_NAME
@@ -137,10 +138,10 @@ fun openDatabase(file: File = databaseFile()): DesktopDatabase {
     val existing = ledgerFileVersion(file)
     if (existing != null && existing in 1 until DESKTOP_BASELINE) {
         throw IllegalStateException(
-            "این فایلِ دفتر نسخهٔ $existing است و نسخهٔ ویندوز از " +
-                "$DESKTOP_BASELINE به بعد را باز می‌کند.\n" +
+            "این فایلِ دفتر نسخهٔ ${existing.fa()} است و برنامهٔ کامپیوتر از " +
+                "${DESKTOP_BASELINE.fa()} به بعد را باز می‌کند.\n" +
                 "اول اپِ گوشی را به‌روز کنید تا خودش دفتر را بالا ببرد، " +
-                "بعد پشتیبان را به پی‌سی بیاورید.\n" +
+                "بعد پشتیبان را به کامپیوتر بیاورید.\n" +
                 "هیچ داده‌ای دست نخورد."
         )
     }

@@ -118,7 +118,7 @@ fun OrderSearchScreen(
 
                 else -> {
                     Text(
-                        "${results.size} سفارش پیدا شد",
+                        "${results.size.fa()} سفارش پیدا شد",
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -142,12 +142,12 @@ fun OrderSearchScreen(
 }
 
 private fun receiptText(shop: String, order: Order, stageLabel: String): String = buildString {
-    appendLine("🧵 رسید سفارش — $shop")
+    appendLine("رسید سفارش — $shop")
     appendLine("──────────────")
     appendLine("کد سفارش: ${order.orderCode}")
     appendLine("کد کوتاه: ${order.shortCode}")
     appendLine("طرح: ${order.designTitle}")
-    appendLine("تعداد: ${order.qty}")
+    appendLine("تعداد: ${order.qty.fa()}")
     appendLine("پارچه: ${order.fabricType} • ${order.fabricColor} • ${order.fabricAmount}")
     if (order.customerName.isNotBlank()) appendLine("مشتری: ${order.customerName}")
     if (order.customerPhone.isNotBlank()) appendLine("تلفن: ${order.customerPhone}")
@@ -236,7 +236,7 @@ private fun SearchResultCard(order: Order, designCode: String, onClick: () -> Un
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    "${stageIndex + 1} از ${stageOrder.size}",
+                    "${(stageIndex + 1).fa()} از ${stageOrder.size.fa()}",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

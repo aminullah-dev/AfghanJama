@@ -139,7 +139,7 @@ class MainActivity : FragmentActivity() {
                  * ۳۸ ViewModelِ پایین‌تر هم تا وقتی این صفحه سرِ پاست
                  * ساخته نمی‌شوند، چون `return@KhayatYarTheme` جلوی
                  * رسیدن به آن‌ها را می‌گیرد. یعنی اپی که سرِ باز شدن
-                 * می‌ترکید، دستِ‌کم یک بار باز می‌شود و می‌گوید چرا.
+                 * می‌ترکید، دست‌کم یک بار باز می‌شود و می‌گوید چرا.
                  */
                 var crash by remember { mutableStateOf(CrashLog.pending(applicationContext)) }
                 val report = crash

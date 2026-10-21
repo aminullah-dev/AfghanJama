@@ -93,13 +93,21 @@ check(
 # مسیرها از `_src` می‌آیند، نه دستی — `purecheck` همین را می‌خواهد و
 # بارِ اول همین‌جا مرا گرفت: مسیرِ ماژول را در بررسی سفت کرده بودم،
 # یعنی ماژولِ تازه از دیدش می‌افتاد.
-for rel in ("ui/theme/Theme.kt", "desktop/Theme.kt"):
+#
+# از ۱.۱۲ هر سه سکو از یک تم می‌گذرند (`AppTheme`)، و خودِ آن مقیاسِ مشترک
+# را می‌سازد. پس هر سکو باید `AppTheme(` را صدا بزند، و `AppTheme` باید
+# `appTypography(` را — وگرنه یک سکو دوباره پیش‌فرضِ متریال می‌گیرد.
+try:
+    check("appTypography(" in _src.read("ui/theme/AppTheme.kt"), "AppTheme از مقیاسِ مشترک نمی‌خواند")
+except FileNotFoundError:
+    fails.append("ui/theme/AppTheme.kt پیدا نشد")
+for rel in ("ui/theme/Theme.kt", "desktop/Main.kt", "ios/IosApp.kt"):
     try:
         t = _src.read(rel)
     except FileNotFoundError:
         fails.append(f"{rel} پیدا نشد")
         continue
-    check("appTypography(" in t, f"{rel} از مقیاسِ مشترک نمی‌خواند")
+    check("AppTheme(" in t, f"{rel} از تمِ مشترک (AppTheme) نمی‌گذرد")
 
 # ── ۴) ارتفاعِ خط برای فارسی ─────────────────────────────────────
 #
@@ -126,6 +134,6 @@ if fails:
     sys.exit(1)
 
 print(
-    f"✓ مقیاسِ قلم: هر {len(ROLES)} نقش در :core، هر دو تم از همان می‌خوانند، "
+    f"✓ مقیاسِ قلم: هر {len(ROLES)} نقش در :core، هر سه سکو از AppTheme می‌گذرند، "
     "و ارتفاعِ خطِ متن برای فارسی کافی است"
 )

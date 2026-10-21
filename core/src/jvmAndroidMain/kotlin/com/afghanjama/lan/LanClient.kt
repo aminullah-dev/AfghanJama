@@ -91,7 +91,7 @@ class LanClient(
             LanResult.Err(
                 "به دستگاهِ اصلیِ کارگاه وصل نشد. مطمئن شوید این گوشی و دستگاهِ اصلی " +
                     "(گوشی یا کامپیوتر) روی یک وای‌فایِ کارگاه‌اند و روی دستگاهِ اصلی " +
-                    "«اشتراکِ کارگاه» روشن است."
+                    "«کارگاهِ وصل» روشن است."
             )
         }
     }
@@ -139,7 +139,7 @@ class LanClient(
         }
     }
 
-    /** سطرهای تابلوی «در حال دوخت» از گوشیِ اصلی. */
+    /** سطرهای تابلوی «در حالِ دوخت» از گوشیِ اصلی. */
     override suspend fun board(): LanResult<List<com.afghanjama.ui.vm.BoardRow>> =
         when (val r = call(Lan.PATH_BOARD)) {
             is LanResult.Err -> r

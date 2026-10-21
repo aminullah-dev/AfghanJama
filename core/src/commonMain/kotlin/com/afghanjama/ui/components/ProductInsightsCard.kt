@@ -46,7 +46,7 @@ fun deadLine(r: ProductInsights.Row): String =
 
 /** متنِ فهرستِ دوخت برای فرستادن به سرخیاط. */
 fun restockShareText(s: ProductInsights.Summary, shopName: String): String = buildString {
-    appendLine("🧵 پیشنهادِ دوخت — $shopName")
+    appendLine("پیشنهادِ دوخت — $shopName")
     appendLine("از روی فروشِ ۳۰ روزِ اخیر:")
     s.restock.forEach { appendLine("• " + restockLine(it)) }
 }.trimEnd()

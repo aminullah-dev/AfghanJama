@@ -66,11 +66,11 @@ class SewingViewModel(
             }.filter { it.remaining > 0 || it.order.status == OrderStatus.CUT_DONE.name }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    /** تحویل‌های در حال دوخت (تب «در حال دوخت»). */
+    /** تحویل‌های در حالِ دوخت (تب «در حالِ دوخت»). */
     /**
      * کارِ دوخته‌شده‌ای که هنوز به نظارت نرفته — تبِ «دوخته شده».
      *
-     * تا امروز کارِ تمام‌شدهٔ خیاط از «در حال دوخت» ناپدید می‌شد و
+     * تا امروز کارِ تمام‌شدهٔ خیاط از «در حالِ دوخت» ناپدید می‌شد و
      * هیچ‌جا دیده نمی‌شد؛ فقط عددی پشتِ صحنه بود. کارگاه باید ببیند کدام
      * خیاط چند عدد تحویل داده و همان‌ها را — نه کلِ سفارش — به نظارت
      * بفرستد.
@@ -148,7 +148,7 @@ class SewingViewModel(
 
     /**
      * دوخت یک تحویل تمام شد. [deliveredQty] = هر مقدار که دوخته شده (تحویل
-     * جزئی)؛ باقی‌مانده «در حال دوخت» می‌ماند. null یعنی کل تحویل.
+     * جزئی)؛ باقی‌مانده «در حالِ دوخت» می‌ماند. null یعنی کل تحویل.
      */
     fun completeAssignment(assignmentId: Long, quality: String = "", deliveredQty: Int? = null) =
         viewModelScope.launch {

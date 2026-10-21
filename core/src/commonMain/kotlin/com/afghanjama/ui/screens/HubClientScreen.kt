@@ -1,5 +1,8 @@
 package com.afghanjama.ui.screens
 
+import com.afghanjama.ui.theme.Radius
+import com.afghanjama.ui.components.GlassCard
+import com.afghanjama.ui.components.Pill
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -462,26 +465,10 @@ private fun boardItems(scope: androidx.compose.foundation.lazy.LazyListScope, ui
 
 // ================================================================ تکه‌ها
 
+/** کارتِ شیشه‌ایِ تمام‌پهنا — همان [GlassCard]ِ مشترکِ کامپیوتر و مرکز. */
 @Composable
-private fun Glass(content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-    ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
-    }
-}
-
-@Composable
-private fun Pill(text: String) {
-    if (text.isBlank()) return
-    Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.primaryContainer) {
-        Text(text, Modifier.padding(horizontal = 12.dp, vertical = 4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
-    }
-}
+private fun Glass(content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) =
+    GlassCard(Modifier.fillMaxWidth(), content = content)
 
 @Composable
 private fun Title(text: String) = Text(text, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -501,7 +488,7 @@ private fun Line(title: String, sub: String, warn: Boolean = false) {
 private fun MessageCard(text: String, error: Boolean, onDismiss: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(Radius.xl),
         colors = CardDefaults.cardColors(
             containerColor = if (error) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer
         ),
@@ -549,7 +536,7 @@ private fun ForgetButton(pending: Int, onForget: () -> Unit) {
                 )
             },
             confirmButton = { TextButton(onClick = { ask = false; onForget() }) { Text("جدا کن") } },
-            dismissButton = { TextButton(onClick = { ask = false }) { Text("نه") } },
+            dismissButton = { TextButton(onClick = { ask = false }) { Text("لغو") } },
         )
     }
 }
