@@ -232,6 +232,43 @@ class LanCryptoTest {
         assertFalse(LanCrypto.pairKey(shared, byteArrayOf(1, 2), "t").contentEquals(LanCrypto.pairKey(shared, byteArrayOf(1, 2, 0), "t")))
     }
 
+    // ------------------------------------------------------------ PBKDF2 (RFC 7914 §11)
+
+    @Test
+    fun `PBKDF2-HMAC-SHA256 matches RFC 7914 - one round and two blocks`() {
+        assertEquals(
+            "55ac046e56e3089fec1691c22544b605f94185216dde0465e68b9d57c20dacbc" +
+                "49ca9cccf179b645991664b39d77ef317c71b845b1e30bd509112041d3a19783",
+            LanPrims.pbkdf2Sha256("passwd".encodeToByteArray(), "salt".encodeToByteArray(), 1, 64).hex(),
+        )
+    }
+
+    @Test
+    fun `PBKDF2-HMAC-SHA256 matches RFC 7914 - eighty thousand rounds`() {
+        assertEquals(
+            "4ddcd8f60b98be21830cee5ef22701f9641a4418d04c0414aeff08876b34ab56" +
+                "a1d425a1225833549adb841b51c9b3176a272bdebba1d078478f62b397f33c8d",
+            LanPrims.pbkdf2Sha256("Password".encodeToByteArray(), "NaCl".encodeToByteArray(), 80_000, 64).hex(),
+        )
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `PBKDF2 refuses a password CommonCrypto would cut at a zero byte`() {
+        LanPrims.pbkdf2Sha256(byteArrayOf(0x31, 0, 0x32), "salt".encodeToByteArray(), 1, 32)
+    }
+
+    @Test
+    fun `the manual code is stretched with 2^17 rounds, salted by its window`() {
+        val code = "482913572046".encodeToByteArray()
+        // همان عدد از hashlib.pbkdf2_hmac('sha256', code, b'ky2/manual-code|PAIRING0001', 131072, 32)
+        assertEquals(
+            "d5077352754adb587c67f395bb34634a28731382367dc394580bfbd34e4c77b7",
+            LanCrypto.codeSecret(code, "PAIRING0001").hex(),
+        )
+        assertEquals(131_072, LanCrypto.MANUAL_CODE_ROUNDS)
+        assertFalse(LanCrypto.codeSecret(code, "PAIRING0001").contentEquals(LanCrypto.codeSecret(code, "PAIRING0002")))
+    }
+
     // ------------------------------------------------------------ ابزار
 
     @Test

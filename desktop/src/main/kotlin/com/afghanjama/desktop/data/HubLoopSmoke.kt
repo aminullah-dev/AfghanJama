@@ -42,6 +42,7 @@ import com.afghanjama.prefs.DeviceMode
 import com.afghanjama.prefs.LanPrefs
 import com.afghanjama.util.randomUuid
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -234,20 +235,31 @@ fun runHubLoop(dir: File): Int {
             hubNeed(!row.toString().contains(row.keyB64), "a device row printed its key")
         }
 
-        hubCheck("ten wrong pairing codes close the window and block this address; five minutes later it opens again") {
-            val view = hub.openPairing()!!
-            val hello = phone.hello("127.0.0.1", port).ok("hello")
-            repeat(HubProtocol.PAIR_MAX_FAILURES) { i ->
-                val draft = HubEnvelope.pairRequest(hello, PairVia.CODE, "000000000000".encodeToByteArray(), info("x", HubRole.WORKER))
-                val (s, b) = raw(port, "POST", HubProtocol.PATH_PAIR, emptyMap(), draft.body)
-                hubNeed(s == 401 || s == 429, "wrong code ${i + 1}: $s $b")
+        hubCheck("ten wrong pairing codes shut only the code and block this address; the window and its QR stay open") {
+            coroutineScope {
+                val view = hub.openPairing()!!
+                val hello = phone.hello("127.0.0.1", port).ok("hello")
+                repeat(HubProtocol.PAIR_MAX_FAILURES) { i ->
+                    val draft = HubEnvelope.pairRequest(hello, PairVia.CODE, "000000000000".encodeToByteArray(), info("x", HubRole.WORKER))
+                    val (s, b) = raw(port, "POST", HubProtocol.PATH_PAIR, emptyMap(), draft.body)
+                    hubNeed(s == 401 || s == 429, "wrong code ${i + 1}: $s $b")
+                }
+                val v = hub.pairing.value
+                hubNeed(v.open && !v.allowCode && v.codeNote == HubPairing.TOO_MANY, "window $v / code ${v.allowCode}")
+                hubNeed(view.code.isNotEmpty(), "no code")
+                val blocked = raw(port, "POST", HubProtocol.PATH_HELLO, emptyMap(), "{}")
+                hubNeed(blocked.first == 429, "this address was not blocked: ${blocked.first}")
+                clock.addAndGet(LanGuard.BLOCK_MS + 1)
+                // همان پنجره هنوز باز است (پنج از ده دقیقه) و QRِ آن جفت می‌کند.
+                hubNeed(raw(port, "POST", HubProtocol.PATH_HELLO, emptyMap(), "{}").first == 200, "the window did not survive the guesses")
+                val link = PairingV2.parse(view.qrText)!!
+                val pending = phone.requestPair("127.0.0.1", port, PairVia.QR, link.secret, info("تابلوی انبار", HubRole.WALL), link)
+                    .ok("QR after the code was shut")
+                val poll = async { phone.pollPair(pending) }
+                delay(150)
+                hub.approvePairing(HubRole.WALL, "")?.let { error("approve refused: $it") }
+                hubNeed(poll.await().ok("poll").state == PairState.APPROVED, "the QR did not pair")
             }
-            hubNeed(!hub.pairing.value.open && hub.pairing.value.closedReason == HubPairing.TOO_MANY, "window ${hub.pairing.value}")
-            hubNeed(view.code.isNotEmpty(), "no code")
-            val blocked = raw(port, "POST", HubProtocol.PATH_HELLO, emptyMap(), "{}")
-            hubNeed(blocked.first == 429, "this address was not blocked: ${blocked.first}")
-            clock.addAndGet(LanGuard.BLOCK_MS + 1)
-            hubNeed(raw(port, "POST", HubProtocol.PATH_HELLO, emptyMap(), "{}").first == 404, "still blocked after five minutes")
         }
 
         hubCheck("the manual code pairs a wall display; the owner role is never granted through the code") {
@@ -388,6 +400,138 @@ fun runHubLoop(dir: File): Int {
         hubCheck("a worker's phone cannot send the owner's commands") {
             val a = ok(sync(worker, listOf(item("APPROVE_REQUEST", mapOf("requestId" to 1L))))).reply.acks.single()
             hubNeed(a.status == AckStatus.REJECTED, "a worker approved: $a")
+        }
+
+        // ------------------------------------------------ حمله‌های بازبینیِ فازِ B
+
+        fun sealAsk(cred: DeviceCred, items: List<OutboxWire>, off: Long, claims: Map<String, Any?> = emptyMap()) =
+            HubEnvelope.sealRequest(
+                cred.deviceId, cred.key, HubProtocol.PATH_SYNC, System.currentTimeMillis() + off,
+                SyncAsk(System.currentTimeMillis(), "", items, "1.11.0", "android").toJson() + claims,
+            )
+
+        fun opened(cred: DeviceCred, s: HubEnvelope.Sealed, body: String): com.afghanjama.lan.SyncReply =
+            HubEnvelope.openResponse(cred.deviceId, cred.key, HubProtocol.PATH_SYNC, s.nonce, body)
+                ?.let { com.afghanjama.lan.SyncReply.parse(it) } ?: error("the reply did not open")
+
+        hubCheck("a hub restart forgets every nonce, yet a replayed job, approval or follow-up changes nothing") {
+            val off = offset()
+            val text = "پیش از خاموش شدنِ کامپیوتر"
+            val note = sealAsk(worker, listOf(item("NOTE", mapOf("text" to text))), off)
+            hubNeed(raw(port, "POST", HubProtocol.PATH_SYNC, note.headers, note.body).first == 200, "note refused")
+            val req = db.syncRequestDao().observePending().first().last { it.deviceId == worker.deviceId && it.note == text }
+            val approve = sealAsk(owner, listOf(item("APPROVE_REQUEST", mapOf("requestId" to req.id))), off)
+            val firstApprove = raw(port, "POST", HubProtocol.PATH_SYNC, approve.headers, approve.body)
+            hubNeed(firstApprove.first == 200, "approve refused")
+            val approveAck = opened(owner, approve, firstApprove.second).acks.single()
+            hubNeed(approveAck.status == AckStatus.APPLIED, "approve $approveAck")
+            val debt = sealAsk(owner, listOf(item("DEBT_FOLLOW_UP", mapOf("customer" to "ناصر", "outcome" to "PROMISED", "untilDays" to 2L))), off)
+            hubNeed(raw(port, "POST", HubProtocol.PATH_SYNC, debt.headers, debt.body).first == 200, "follow-up refused")
+
+            suspend fun state() = listOf(
+                db.syncRequestDao().recentFor(ahmad, 200).size,
+                db.auditDao().observeRecent().first().size,
+                db.domainEventDao().observeFor("customer", "ناصر").first().size,
+            )
+            val before = state()
+            hubNeed(before[2] == 1, "follow-ups ${before[2]}")
+            hubNeed(db.syncRequestDao().getById(req.id)!!.status == "APPROVED", "not approved")
+
+            // «روشن شدنِ دوباره»: پروسهٔ تازه روی همان دفتر، با حافظهٔ nonceِ خالی.
+            val p2 = freePort()
+            val reborn = LanHub(
+                InetAddress.getLoopbackAddress(), p2, guardClock = { clock.get() }, licenceLoaded = {},
+                offIntervalMs = 100, onIntervalMs = 100, machine = { "machine-A" }, pairLongPollMs = 1_500,
+                findTwin = { _, _, _ -> null },
+            )
+            extra += reborn
+            try {
+                reborn.start(settings, host)
+                var ready = false
+                repeat(100) { if (!ready) { ready = reborn.state.value.serving && reborn.hubService()?.ready == true; if (!ready) delay(30) } }
+                hubNeed(ready, "the restarted hub is not serving: ${reborn.state.value}")
+                // همان بایت‌ها: نگهبانِ تکرار تازه است و آن‌ها را می‌پذیرد (۲۰۰)…
+                val r1 = raw(p2, "POST", HubProtocol.PATH_SYNC, note.headers, note.body)
+                val r2 = raw(p2, "POST", HubProtocol.PATH_SYNC, approve.headers, approve.body)
+                val r3 = raw(p2, "POST", HubProtocol.PATH_SYNC, debt.headers, debt.body)
+                hubNeed(listOf(r1.first, r2.first, r3.first) == listOf(200, 200, 200), "replays after restart: ${r1.first} ${r2.first} ${r3.first}")
+                // …ولی کلیدِ تکرارنشدنیِ هر کار در دفتر است: هیچ چیز دوباره اجرا نمی‌شود.
+                hubNeed(opened(worker, note, r1.second).acks.single().status == AckStatus.DUPLICATE, "the note was queued again")
+                hubNeed(opened(owner, approve, r2.second).acks.single() == approveAck, "the approval answered differently")
+                hubNeed(state() == before, "a replay after restart changed the ledger: $before -> ${state()}")
+                // و همان پروسه بارِ دوم را می‌شناسد.
+                hubNeed(raw(p2, "POST", HubProtocol.PATH_SYNC, note.headers, note.body).first == 401, "a second replay passed")
+            } finally {
+                reborn.stop()
+            }
+        }
+
+        hubCheck("no owner command, owner view or role can come from a worker's phone, whatever its message claims") {
+            ok(sync(worker, listOf(item("NOTE", mapOf("text" to "برای آزمونِ نقش")))))
+            val target = db.syncRequestDao().observePending().first().last { it.deviceId == worker.deviceId }
+            val follows = db.domainEventDao().observeFor("customer", "حمید").first().size
+            val cmds = listOf(
+                item("APPROVE_REQUEST", mapOf("requestId" to target.id)),
+                item("REJECT_REQUEST", mapOf("requestId" to target.id)),
+                item("DEBT_FOLLOW_UP", mapOf("customer" to "حمید", "outcome" to "PROMISED", "untilDays" to 1L)),
+            )
+            // پیام خودش را «صاحب‌کار» می‌خوانَد؛ هویت از جفت شدن است نه از پیام.
+            val s = sealAsk(worker, cmds, offset(), mapOf("role" to "owner", "person" to "", "deviceId" to owner.deviceId))
+            val (status, body) = raw(port, "POST", HubProtocol.PATH_SYNC, s.headers, s.body)
+            hubNeed(status == 200, "status $status")
+            val reply = opened(worker, s, body)
+            hubNeed(reply.acks.size == 3 && reply.acks.all { it.status == AckStatus.REJECTED }, "acks ${reply.acks}")
+            hubNeed(reply.role == HubRole.WORKER && reply.snapshot?.owner == null, "role ${reply.role}, owner view ${reply.snapshot?.owner != null}")
+            hubNeed(db.syncRequestDao().getById(target.id)!!.status == "PENDING", "the worker decided its own request")
+            hubNeed(db.domainEventDao().observeFor("customer", "حمید").first().size == follows, "a worker wrote a follow-up")
+            hubNeed(repo.lanDevice(worker.deviceId)!!.role == "worker", "the worker's role changed")
+            repo.rejectRequest(target.id)
+        }
+
+        lateinit var flooder: DeviceCred
+
+        hubCheck("a flooding phone stops at its cap of waiting requests, and the owner's phone still syncs") {
+            flooder = pair("گوشیِ محمود", HubRole.WORKER, "[T2] محمود")
+            val long = "این پیام برای پر کردنِ صندوق است. ".repeat(12).take(300)
+            var queued = 0
+            var refused = 0
+            repeat(6) {
+                val r = ok(sync(flooder, List(HubProtocol.MAX_OUTBOX_PER_SYNC) { item("NOTE", mapOf("text" to long)) }))
+                queued += r.reply.acks.count { it.status == AckStatus.QUEUED }
+                refused += r.reply.acks.count { it.status == AckStatus.REJECTED }
+            }
+            hubNeed(queued == HubProtocol.MAX_PENDING_PER_DEVICE && refused == 300 - queued, "queued $queued, refused $refused")
+            val o = sync(owner)
+            hubNeed(o is SyncResult.Ok, "the owner's phone no longer syncs after the flood: $o")
+            val view = (o as SyncResult.Ok).reply.snapshot!!.owner!!
+            hubNeed(view.pending.size <= HubProtocol.SNAPSHOT_PENDING_LINES, "owner view carries ${view.pending.size} requests")
+            for (r in db.syncRequestDao().observePending().first().filter { it.deviceId == flooder.deviceId }) repo.rejectRequest(r.id)
+        }
+
+        hubCheck("revoke waits for a sync in flight; nothing from that phone lands after it returns") {
+            coroutineScope {
+                val off = offset()
+                val calls = List(20) { n ->
+                    async {
+                        runCatching {
+                            phone.sync(
+                                flooder, "127.0.0.1", port,
+                                SyncAsk(System.currentTimeMillis(), "", List(5) { item("NOTE", mapOf("text" to "هم‌زمان $n-$it")) }, "1.11.0", "android"),
+                                off,
+                            )
+                        }
+                    }
+                }
+                delay(20)
+                hubNeed(hub.revokeDevice(flooder.deviceId), "revoke refused")
+                suspend fun landed() = db.syncRequestDao().observePending().first().count { it.deviceId == flooder.deviceId }
+                val atRevoke = landed()
+                calls.awaitAll()
+                hubNeed(landed() == atRevoke, "work landed after the revoke returned: $atRevoke -> ${landed()}")
+                for (r in db.syncRequestDao().observePending().first().filter { it.deviceId == flooder.deviceId }) repo.rejectRequest(r.id)
+            }
+            // تلاش‌های ردشده این نشانی را بسته‌اند؛ پنج دقیقه بعد.
+            clock.addAndGet(LanGuard.BLOCK_MS + 1)
         }
 
         hubCheck("a captured request replayed byte for byte is refused and changes nothing") {

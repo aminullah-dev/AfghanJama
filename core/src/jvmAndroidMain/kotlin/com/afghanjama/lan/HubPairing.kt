@@ -14,10 +14,13 @@ import kotlinx.coroutines.withTimeoutOrNull
  *   پنجره همه فراموش می‌شوند.
  * - **بیرون از پنجره هیچ** (طرح، B.4): «سلام»، درخواست و پرسشِ «اجازه»
  *   همه ۴۰۴ می‌گیرند.
- * - **ده درخواستِ نادرست و پنجره بسته** ([HubProtocol.PAIR_MAX_FAILURES]).
- *   حدسِ رمزِ دستیِ ۴۰ بیتی با ده تلاش ناشدنی است؛ کسی که پنجره را با
- *   درخواستِ نادرست ببندد، فقط کارفرما را وادار می‌کند دوباره باز کند — و
- *   صفحه می‌گوید چرا بسته شد.
+ * - **ده رمزِ دستیِ نادرست و رمزِ دستی خاموش** ([HubProtocol.PAIR_MAX_FAILURES]).
+ *   حدسِ رمزِ دستیِ ۴۰ بیتی با ده تلاش ناشدنی است. **پنجره باز می‌ماند و QR
+ *   کار می‌کند:** تا بازبینیِ فازِ B ده بستهٔ نادرست کلِ پنجره را می‌بست، و
+ *   کسی روی همان وای‌فای (که `/ping` به او می‌گفت پنجره باز است) می‌توانست
+ *   هر پنجره را همان لحظه ببندد — یعنی هیچ گوشی‌ای، حتی گوشیِ صاحب‌کار با QR،
+ *   جفت نمی‌شد. QR رازِ ۱۲۸ بیتی دارد و حدس‌زدنی نیست؛ تلاشِ نادرستش فقط در
+ *   نگهبانِ هر نشانی ([LanGuard]) شمرده می‌شود.
  * - **یک گوشی در هر پنجره:** تا وقتی یکی منتظرِ «اجازه» است، دومی
  *   «گوشیِ دیگری منتظر است» می‌گیرد. پس از «اجازه» پنجره درِ تازه را
  *   می‌بندد ولی جوابِ همان گوشی را تا پایانِ ده دقیقه نگه می‌دارد (اگر
@@ -51,9 +54,12 @@ class HubPairing(private val clock: () -> Long = { System.currentTimeMillis() })
         val hubPair: EcKeyPair,
         val qrText: String,
         val expiresAt: Long,
-        val allowCode: Boolean,
+        allowCode: Boolean,
     ) {
-        var failures = 0
+        /** رمزِ دستی هنوز پذیرفته می‌شود؟ پس از ده رمزِ نادرست خاموش. */
+        var allowCode = allowCode
+        var codeFailures = 0
+        var codeNote = ""
         var pending: Pending? = null
         var outcome: Outcome? = null
     }
@@ -73,6 +79,8 @@ class HubPairing(private val clock: () -> Long = { System.currentTimeMillis() })
         val approvedName: String = "",
         /** چرا بسته شد — برای صفحه. */
         val closedReason: String = "",
+        /** چرا رمزِ دستیِ همین پنجره خاموش شد (پنجره و QR باز می‌مانند). */
+        val codeNote: String = "",
     ) {
         override fun toString(): String =
             "View(open=$open, expiresAt=$expiresAt, waiting=$waiting, approved=$approvedName, closed=$closedReason)"
@@ -134,6 +142,7 @@ class HubPairing(private val clock: () -> Long = { System.currentTimeMillis() })
             code = w.code,
             expiresAt = w.expiresAt,
             allowCode = w.allowCode,
+            codeNote = w.codeNote,
             waiting = p?.info?.takeIf { w.outcome == null },
             waitingVia = p?.via?.takeIf { w.outcome == null },
             waitingIp = p?.ip?.takeIf { w.outcome == null }.orEmpty(),
@@ -156,8 +165,8 @@ class HubPairing(private val clock: () -> Long = { System.currentTimeMillis() })
         data object Closed : Submit
         data object Busy : Submit
         data object OwnerNeedsQr : Submit
-        /** راز نادرست بود؛ [closed] یعنی همین یکی پنجره را بست. */
-        data class Wrong(val closed: Boolean) : Submit
+        /** راز نادرست بود؛ [codeShut] یعنی همین یکی رمزِ دستیِ پنجره را خاموش کرد. */
+        data class Wrong(val codeShut: Boolean) : Submit
     }
 
     @Synchronized
@@ -172,14 +181,19 @@ class HubPairing(private val clock: () -> Long = { System.currentTimeMillis() })
             }
         }
         if (opened == null) {
-            w.failures++
-            if (w.failures >= HubProtocol.PAIR_MAX_FAILURES) {
-                window = null
-                _view.value = View(closedReason = TOO_MANY)
-                tick.value++
-                return Submit.Wrong(closed = true)
+            // فقط رمزِ دستی حدس‌زدنی است. ده نادرست آن را برای همین پنجره خاموش
+            // می‌کند — نه کلِ پنجره را، تا کسی روی وای‌فای با ده بستهٔ بی‌معنا جفت
+            // شدن را (و QRِ صاحب‌کار را) نبندد.
+            if (HubEnvelope.pairVia(body) == PairVia.CODE && w.allowCode) {
+                w.codeFailures++
+                if (w.codeFailures >= HubProtocol.PAIR_MAX_FAILURES) {
+                    w.allowCode = false
+                    w.codeNote = TOO_MANY
+                    publish()
+                    return Submit.Wrong(codeShut = true)
+                }
             }
-            return Submit.Wrong(closed = false)
+            return Submit.Wrong(codeShut = false)
         }
         if (opened.via == PairVia.CODE && opened.info.wantRole == HubRole.OWNER) return Submit.OwnerNeedsQr
         val p = Pending(LanCrypto.randomId(10), opened.key, opened.via, opened.info, ip, clock())
@@ -247,7 +261,7 @@ class HubPairing(private val clock: () -> Long = { System.currentTimeMillis() })
     companion object {
         const val EXPIRED = "ده دقیقه گذشت و پنجرهٔ «افزودنِ گوشی» بسته شد."
         const val TOO_MANY =
-            "چند رمزِ نادرست پشتِ سرِ هم آمد و پنجرهٔ «افزودنِ گوشی» برای امنیت بسته شد. اگر خودتان نبودید، " +
-                "کسی روی همین وای‌فای حدس می‌زد؛ دوباره باز کنید."
+            "چند رمزِ دستیِ نادرست پشتِ سرِ هم آمد و رمزِ دستیِ این پنجره برای امنیت خاموش شد. اگر خودتان نبودید، " +
+                "کسی روی همین وای‌فای حدس می‌زد. QR هنوز کار می‌کند؛ برای رمزِ تازه پنجره را دوباره باز کنید."
     }
 }

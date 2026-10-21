@@ -75,14 +75,32 @@ class HubPairingTest {
     }
 
     @Test
-    fun `ten wrong secrets close the window`() {
+    fun `ten wrong codes switch the manual code off, but the window and its QR stay`() {
         open()
         repeat(HubProtocol.PAIR_MAX_FAILURES - 1) {
-            assertEquals(HubPairing.Submit.Wrong(closed = false), pairing.submit(request(PairVia.CODE, secret = "000000000000".encodeToByteArray()), "192.168.1.20"))
+            assertEquals(HubPairing.Submit.Wrong(codeShut = false), pairing.submit(request(PairVia.CODE, secret = "000000000000".encodeToByteArray()), "192.168.1.20"))
         }
-        assertEquals(HubPairing.Submit.Wrong(closed = true), pairing.submit(request(PairVia.CODE, secret = "000000000000".encodeToByteArray()), "192.168.1.20"))
-        assertFalse(pairing.isOpen())
-        assertEquals(HubPairing.TOO_MANY, pairing.view.value.closedReason)
+        assertEquals(HubPairing.Submit.Wrong(codeShut = true), pairing.submit(request(PairVia.CODE, secret = "000000000000".encodeToByteArray()), "192.168.1.20"))
+        // پنجره باز است و صفحه می‌گوید چرا رمزِ دستی خاموش شد.
+        assertTrue(pairing.isOpen())
+        assertFalse(pairing.view.value.allowCode)
+        assertEquals(HubPairing.TOO_MANY, pairing.view.value.codeNote)
+        // حتی رمزِ درست دیگر نمی‌گذرد — حدسِ یازدهم هیچ نمی‌سنجد.
+        assertEquals(HubPairing.Submit.Wrong(codeShut = false), pairing.submit(request(PairVia.CODE), "192.168.1.20"))
+        // ولی QR هنوز جفت می‌کند.
+        assertTrue(pairing.submit(request(PairVia.QR), "192.168.1.21") is HubPairing.Submit.Ok)
+    }
+
+    @Test
+    fun `nobody on the Wi-Fi can shut the window with wrong packets`() {
+        open()
+        repeat(10 * HubProtocol.PAIR_MAX_FAILURES) {
+            assertEquals(HubPairing.Submit.Wrong(codeShut = false), pairing.submit(request(PairVia.QR, secret = LanPrims.random(16)), "192.168.1.66"))
+            assertEquals(HubPairing.Submit.Wrong(codeShut = false), pairing.submit(mapOf("pairingId" to "junk", "via" to "qr"), "192.168.1.66"))
+        }
+        assertTrue(pairing.isOpen())
+        assertTrue("the code survives QR noise", pairing.view.value.allowCode)
+        assertTrue(pairing.submit(request(PairVia.CODE), "192.168.1.20") is HubPairing.Submit.Ok)
     }
 
     @Test

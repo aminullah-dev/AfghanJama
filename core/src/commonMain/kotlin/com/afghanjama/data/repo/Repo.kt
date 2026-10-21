@@ -18,6 +18,7 @@ import com.afghanjama.data.entities.LanHubRow
 import com.afghanjama.lan.Ack
 import com.afghanjama.lan.AckStatus
 import com.afghanjama.lan.HubCommand
+import com.afghanjama.lan.HubProtocol
 import com.afghanjama.lan.HubRole
 import com.afghanjama.lan.OutboxWire
 import com.afghanjama.licence.LicenceRefused
@@ -4375,6 +4376,13 @@ class Repo(private val db: Db) {
             return if (prev.deviceId == device.deviceId) {
                 Ack(wire.key, AckStatus.DUPLICATE, "", prev.id)
             } else no("کلیدِ این کار تکراری است.")
+        }
+        // سقفِ کارِ منتظرِ هر گوشی. بی آن یک گوشیِ کارگر (یا کسی که کلیدش را دارد)
+        // با پیام‌های پیاپی صندوق را بی‌اندازه پر می‌کرد و تصویرِ گوشیِ صاحب‌کار از
+        // سقفِ جوابِ گوشی بزرگ‌تر می‌شد — یعنی گوشیِ صاحب‌کار دیگر همگام نمی‌شد.
+        val waiting = db.syncRequestDao().observePending().first().count { it.deviceId == device.deviceId }
+        if (waiting >= HubProtocol.MAX_PENDING_PER_DEVICE) {
+            return no("${waiting.fa()} درخواستِ این گوشی هنوز منتظرِ کارفرماست؛ تا او تصمیم نگرفته، تازه‌ای پذیرفته نمی‌شود.")
         }
 
         var refId = 0L

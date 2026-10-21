@@ -31,6 +31,21 @@ class IosLanCryptoTest {
     }
 
     @Test
+    fun pbkdf2MatchesRfc7914OnCommonCrypto() {
+        // همان بردارها و همان رمزِ کُندشده‌ای که `LanCryptoTest`ِ JVM می‌سنجد:
+        // گوشیِ آیفون و کامپیوتر باید بایت‌به‌بایت یک کلید بسازند.
+        assertEquals(
+            "55ac046e56e3089fec1691c22544b605f94185216dde0465e68b9d57c20dacbc" +
+                "49ca9cccf179b645991664b39d77ef317c71b845b1e30bd509112041d3a19783",
+            LanPrims.pbkdf2Sha256("passwd".encodeToByteArray(), "salt".encodeToByteArray(), 1, 64).hex(),
+        )
+        assertEquals(
+            "d5077352754adb587c67f395bb34634a28731382367dc394580bfbd34e4c77b7",
+            LanCrypto.codeSecret("482913572046".encodeToByteArray(), "PAIRING0001").hex(),
+        )
+    }
+
+    @Test
     fun sha256AndHmacOfEmptyInput() {
         assertEquals("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", LanPrims.sha256(ByteArray(0)).hex())
         // RFC 4231 مورد ۲
