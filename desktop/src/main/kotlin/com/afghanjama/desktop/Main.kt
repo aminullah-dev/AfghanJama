@@ -3,6 +3,11 @@ package com.afghanjama.desktop
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.Wifi
+import com.afghanjama.desktop.platform.DesktopHubSystem
+import com.afghanjama.desktop.platform.HubDeskPrefs
+import com.afghanjama.prefs.DeviceMode
+import com.afghanjama.prefs.LanPrefs
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.window.Notification
@@ -183,9 +188,39 @@ private fun onSomeScreen(x: Int, y: Int, w: Int, h: Int): Boolean = runCatching 
 @Composable
 private fun ApplicationScope.MainWindow(settings: Settings) {
     val windowState = remember { initialWindowState(settings) }
+    // «کارگاهِ وصل»: پنجره می‌تواند پنهان شود و کارگاه در سینی روشن بماند.
+    var visible by remember { mutableStateOf(true) }
+    var askClose by remember { mutableStateOf(false) }
+    val hub by LanHub.shared.state.collectAsState()
     ReminderTray(windowState)
+    HubTray(
+        hidden = !visible,
+        serving = hub.serving,
+        onOpen = {
+            visible = true
+            windowState.isMinimized = false
+        },
+        onQuit = {
+            LanHub.shared.stop()
+            exitApplication()
+        },
+    )
+    // کارگاه در پنهانی خاموش شد (شبکهٔ دیگر، دفترِ تازه): پنجره دوباره پیدا شود.
+    LaunchedEffect(hub.serving) {
+        if (!hub.serving && !visible) visible = true
+        DesktopHubSystem.keepAwake(hub.serving && HubDeskPrefs.keepAwake(settings))
+    }
     Window(
-        onCloseRequest = ::exitApplication,
+        onCloseRequest = {
+            val hosting = LanPrefs.mode(settings) == DeviceMode.MAIN && LanHub.shared.state.value.serving
+            when {
+                !hosting -> exitApplication()
+                HubDeskPrefs.closeChoice(settings) == HubDeskPrefs.KEEP && isTraySupported -> visible = false
+                HubDeskPrefs.closeChoice(settings) == HubDeskPrefs.QUIT -> exitApplication()
+                else -> askClose = true
+            }
+        },
+        visible = visible,
         state = windowState,
         // نسخه و کامیت روی نوارِ پنجره — همان چیزی که پشتیبانی اول می‌پرسد.
         title = "${AppInfo.NAME} — ${AppVersion.short()} — $platformName",
@@ -226,6 +261,21 @@ private fun ApplicationScope.MainWindow(settings: Settings) {
                 // وضعیتِ لایسنس — پیش از ورود، تا درِ نوشتن از همان ثانیهٔ
                 // اول درست بداند.
                 LicenceHeartbeat(remember { Licensing(settings, DesktopLedger.repo().getOrNull()) })
+
+                if (askClose) {
+                    CloseWhileHosting(
+                        settings,
+                        onKeep = {
+                            askClose = false
+                            if (isTraySupported) visible = false else windowState.isMinimized = true
+                        },
+                        onQuit = {
+                            askClose = false
+                            exitApplication()
+                        },
+                        onCancel = { askClose = false },
+                    )
+                }
 
                 // پشتیبانِ خودکارِ روزانه — از همان باز شدنِ پنجره، پیش از
                 // ورودِ کسی. شکست یا افتادن به پوشهٔ پیش‌فرض گفته می‌شود؛
@@ -435,4 +485,58 @@ private fun ApplicationScope.ReminderTray(windowState: WindowState) {
             }
         )
     }
+}
+
+/**
+ * «بسته شود یا کارگاه روشن بماند؟» — بارِ اولی که پنجرهٔ مرکزِ روشن بسته
+ * می‌شود (طرح، B.9؛ سؤالِ ۱۰). پیشنهاد «روشن بماند» است: گوشی‌ها به این
+ * کامپیوتر وصل‌اند و با بسته شدنش کارشان در صفِ گوشی می‌ماند.
+ */
+@Composable
+private fun CloseWhileHosting(settings: Settings, onKeep: () -> Unit, onQuit: () -> Unit, onCancel: () -> Unit) {
+    var remember by remember { mutableStateOf(false) }
+    com.afghanjama.ui.platform.AppAlertDialog(
+        onDismissRequest = onCancel,
+        title = { androidx.compose.material3.Text("بسته شود یا کارگاه روشن بماند؟") },
+        text = {
+            androidx.compose.foundation.layout.Column {
+                androidx.compose.material3.Text(
+                    "گوشی‌های کارگاه به این کامپیوتر وصل‌اند. اگر برنامه بسته شود، تا دوباره باز نشود کارهای گوشی‌ها در صفِ " +
+                        "خودشان می‌ماند. «روشن بماند» پنجره را می‌بندد و کارگاه را در " +
+                        (if (isMac) "نوارِ منو" else "سینیِ نوارِ وظیفه") + " روشن نگه می‌دارد."
+                )
+                androidx.compose.foundation.layout.Row(verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.material3.Checkbox(checked = remember, onCheckedChange = { remember = it })
+                    androidx.compose.material3.Text("دیگر نپرس")
+                }
+            }
+        },
+        confirmButton = {
+            androidx.compose.material3.TextButton(onClick = {
+                if (remember) HubDeskPrefs.setCloseChoice(settings, HubDeskPrefs.KEEP)
+                onKeep()
+            }) { androidx.compose.material3.Text("کارگاه روشن بماند") }
+        },
+        dismissButton = {
+            androidx.compose.material3.TextButton(onClick = {
+                if (remember) HubDeskPrefs.setCloseChoice(settings, HubDeskPrefs.QUIT)
+                onQuit()
+            }) { androidx.compose.material3.Text("بسته شود") }
+        },
+    )
+}
+
+/** نشانِ «کارگاهِ وصل» در سینی/نوارِ منو — فقط وقتی پنجره پنهان است و کارگاه روشن. */
+@Composable
+private fun ApplicationScope.HubTray(hidden: Boolean, serving: Boolean, onOpen: () -> Unit, onQuit: () -> Unit) {
+    if (!isTraySupported || !hidden || !serving) return
+    Tray(
+        icon = rememberVectorPainter(Icons.Default.Wifi),
+        tooltip = "${AppInfo.NAME} — کارگاهِ وصل روشن است",
+        onAction = onOpen,
+        menu = {
+            Item("باز کردنِ ${AppInfo.NAME}", onClick = onOpen)
+            Item("خاموش کردنِ کارگاه و بستن", onClick = onQuit)
+        },
+    )
 }

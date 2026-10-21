@@ -24,6 +24,7 @@ fun WorkshopLinkRoute(
     hubVm: HubClientViewModel?,
     access: Access,
     onBack: () -> Unit,
+    hubAdmin: com.afghanjama.ui.vm.HubAdminViewModel? = null,
 ) {
     var wantV2 by remember { mutableStateOf(false) }
     val deep by HubDeepLink.pending.collectAsState()
@@ -43,6 +44,7 @@ fun WorkshopLinkRoute(
                 raw?.let { HubDeepLink.offer(it) }
                 wantV2 = true
             },
+            hubAdmin = hubAdmin,
         )
     }
 }
