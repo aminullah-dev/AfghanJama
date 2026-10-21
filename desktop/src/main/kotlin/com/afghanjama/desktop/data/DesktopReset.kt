@@ -97,17 +97,16 @@ object DesktopReset {
     }
 
     /**
-     * پشتیبانِ ایمنی باز می‌شود؟ همان سنجشِ بازیابی (قالب و نسخه)،
-     * `quick_check` روی دفترِ داخلش، و خواندنِ کاملِ هر عکس تا CRCِ zip
-     * سنجیده شود.
+     * پشتیبانِ ایمنی باز می‌شود؟ همان سنجشِ بازیابی — قالب، نسخه و
+     * `quick_check` روی دفترِ داخلش ([DesktopBackup.stageAndValidate]) —
+     * و خواندنِ کاملِ هر عکس تا CRCِ zip سنجیده شود.
      *
      * @return نامِ عکس‌هایی که سالم در پشتیبان هستند — فقط این‌ها جارو می‌شوند.
      */
     internal fun verify(archive: File): Result<Set<String>> = runCatching {
         val scratch = Files.createTempDirectory("ky-reset-verify").toFile()
         try {
-            val staged = DesktopBackup.stageAndValidate(archive, scratch)
-            if (!ledgerFileHealthy(staged)) error("دفترِ داخلِ پشتیبان سالم نیست")
+            DesktopBackup.stageAndValidate(archive, scratch)
         } finally {
             scratch.deleteRecursively()
         }

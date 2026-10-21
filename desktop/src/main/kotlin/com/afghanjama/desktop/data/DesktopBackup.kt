@@ -4,9 +4,13 @@ import com.afghanjama.data.DB_NAME
 import com.afghanjama.data.DB_VERSION
 import com.afghanjama.data.DESKTOP_BASELINE
 import com.afghanjama.lan.LanHub
+import com.afghanjama.ui.format.fa
 import com.afghanjama.util.BackupArchive
 import com.afghanjama.util.BackupArchiveIo
 import java.io.File
+import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 
 /**
  * پشتیبان‌گیری و بازیابیِ دفتر روی ویندوز.
@@ -95,60 +99,205 @@ object DesktopBackup {
      *    کار قطع شود، دادهٔ سالم دست‌نخورده می‌ماند.
      * 2. **قالب از چند بایتِ اول** تشخیص داده می‌شود نه از پسوند —
      *    کاربر ممکن است نامِ فایل را عوض کرده باشد.
-     * 3. **نسخه پیش از دست زدن به دفترِ زنده سنجیده می‌شود.** پشتیبانِ
-     *    جلوتر از این نسخه رد می‌شود؛ اگر رد نشود Room بعداً نمی‌تواند
-     *    بازش کند.
-     * 4. اتصالِ باز بسته می‌شود و `-wal`/`-shm`ِ قدیمی پاک — وگرنه
+     * 3. **نسخه و سلامت پیش از دست زدن به دفترِ زنده سنجیده می‌شوند**
+     *    ([stageAndValidate]). پشتیبانِ جلوتر از این نسخه رد می‌شود، و
+     *    پشتیبانی که نسخه دارد ولی صفحه‌هایش خراب است (`quick_check`) هم.
+     * 4. **عکس‌ها پیش از دفتر می‌نشینند، و هر کدام راهِ برگشت دارد**
+     *    ([placePhotos]). اگر یکی ننشیند، عکس‌های قبلی برمی‌گردند و دفتر
+     *    اصلاً دست نمی‌خورد. تا ۱.۱۰ عکس‌ها پس از جایگزینیِ دفتر کپی
+     *    می‌شدند؛ اگر آنجا می‌شکست، پیام «بازیابی نشد» می‌گفت در حالی که دفتر
+     *    عوض شده بود.
+     * 5. اتصالِ باز بسته می‌شود و `-wal`/`-shm`ِ قدیمی پاک — وگرنه
      *    صفحه‌های کش‌شدهٔ اتصالِ قبلی روی دیتابیسِ تازه می‌نشیند و خرابش
      *    می‌کند.
-     * 5. نسخهٔ قبلی کنار گذاشته می‌شود (`.prev`) و فقط پس از موفقیت پاک
-     *    — اگر کپی بشکند (دیسکِ پر)، دفتر برمی‌گردد.
+     * 6. دفتر با یک جابه‌جاییِ اتمی عوض می‌شود ([swapIn]) — قطعِ برق نیمه‌ای
+     *    از آن جا نمی‌گذارد. اگر سیستم نپذیرد، نسخهٔ قبلی کنار می‌رود
+     *    (`.prev`) و اگر کپی بشکند (دیسکِ پر)، دفتر برمی‌گردد، و عکس‌ها هم.
      *
-     * پس از موفقیت باید برنامه بسته و باز شود: `DesktopLedger` دفتر را
-     * یک بار باز می‌کند و همان را نگه می‌دارد.
+     * یعنی بازیابی یا کامل است یا هیچ. پس از موفقیت باید برنامه بسته و باز
+     * شود: `DesktopLedger` دفتر را یک بار باز می‌کند و همان را نگه می‌دارد.
      */
     fun restoreFrom(source: File): Result<Int> = runCatching {
         val db = databaseFile()
+        restoreInto(source, db, photosDir(), closeLedger = {
+            // سرورِ اشتراکِ کارگاه همین دفتر را می‌نویسد؛ پیش از بستنِ دفتر
+            // خاموش می‌شود تا درخواستِ گوشیِ کارگری وسطِ جایگزینی ننشیند.
+            LanHub.shared.stop()
+            val repo = DesktopLedger.repo().getOrThrow()
+            repo.checkpoint()
+            repo.closeDatabase()
+            ledgerClosed = true
+            File(db.path + "-wal").delete()
+            File(db.path + "-shm").delete()
+        })
+    }
+
+    /**
+     * کارِ [restoreFrom] روی فایل‌هایی که به آن داده می‌شود — جدا تا
+     * آزمودنی باشد، همان دلیلِ [writeBackup].
+     *
+     * [closeLedger] فقط وقتی صدا زده می‌شود که پشتیبان سنجیده و عکس‌هایش
+     * نشسته باشند؛ هر شکستِ پیش از آن دفترِ باز را دست نمی‌زند.
+     *
+     * @return شمارِ عکس‌هایی که برگشتند.
+     */
+    internal fun restoreInto(
+        source: File,
+        db: File,
+        photoDir: File,
+        closeLedger: () -> Unit,
+        swap: (staged: File, db: File) -> Unit = { s, d -> swapIn(s, d) },
+    ): Int {
         val dir = db.parentFile
         val staged = stageAndValidate(source, dir)
 
-        // سرورِ اشتراکِ کارگاه همین دفتر را می‌نویسد؛ پیش از بستنِ دفتر
-        // خاموش می‌شود تا درخواستِ گوشیِ کارگری وسطِ جایگزینی ننشیند.
-        LanHub.shared.stop()
-        val repo = DesktopLedger.repo().getOrThrow()
-        repo.checkpoint()
-        repo.closeDatabase()
-        ledgerClosed = true
-        File(db.path + "-wal").delete()
-        File(db.path + "-shm").delete()
+        // نامِ تازه برای هر بار: اگر بازیابیِ پیشینی عکسی را برنگردانده بود،
+        // تنها نسخهٔ آن عکس در پوشهٔ برگشتِ همان بار است و نباید پاک شود.
+        val undo = File(dir, "$UNDO_DIR-${System.currentTimeMillis()}")
+        val photos = try {
+            placePhotos(stagedPhotos(dir), photoDir, undo)
+        } catch (e: PhotosNotPlaced) {
+            staged.delete()
+            throw IllegalStateException(
+                "عکس‌های پشتیبان سرِ جایشان ننشستند (${e.message}). " +
+                    if (e.notBack == 0) {
+                        "دفتر و عکس‌های این کامپیوتر دست نخوردند."
+                    } else {
+                        "دفتر دست نخورد، ولی ${e.notBack.fa()} عکسِ این کامپیوتر به حالِ قبل " +
+                            "برنگشت؛ نسخهٔ قبلی‌شان در پوشهٔ «${undo.name}» کنارِ دفتر است."
+                    },
+                e
+            )
+        }
 
-        swapIn(staged, db)
-        // عکس‌ها فقط پس از نشستنِ دفتر، و روی هم — عکسِ هم‌نامِ کامپیوتر
-        // جایش را به عکسِ پشتیبان می‌دهد، بقیه می‌مانند (همان کارِ گوشی).
-        adoptPhotos(stagedPhotos(dir), photosDir())
+        try {
+            closeLedger()
+            swap(staged, db)
+        } catch (t: Throwable) {
+            staged.delete()
+            val notBack = photos.rollback()
+            val ledger = if (t is LedgerNotRestored) {
+                "دفتر جایگزین نشد (${t.message}) و دفترِ قبلی هم برنگشت؛ نسخهٔ قبلی‌اش " +
+                    "«${t.previous.name}» کنارِ دفتر است. پیش از هر کاری با پشتیبانی تماس بگیرید"
+            } else {
+                "دفتر جایگزین نشد (${t.message}) و دفترِ قبلی سرِ جایش ماند"
+            }
+            val pictures = when {
+                photos.count == 0 -> "."
+                notBack == 0 -> "؛ عکس‌ها هم به حالِ قبل برگشتند."
+                else -> "؛ ولی ${notBack.fa()} عکس به حالِ قبل برنگشت و نسخهٔ قبلی‌شان در " +
+                    "پوشهٔ «${undo.name}» کنارِ دفتر است."
+            }
+            throw IllegalStateException(ledger + pictures, t)
+        }
+        photos.commit()
+        return photos.count
     }
 
     /** پوشه‌ای که عکس‌های پشتیبان پیش از سنجش در آن باز می‌شوند. */
     internal fun stagedPhotos(dir: File): File = File(dir, "restore-photos")
 
+    /** پیشوندِ پوشهٔ عکس‌های قبلیِ هم‌نام، تا بازیابی تمام شود — راهِ برگشتِ [placePhotos]. */
+    internal const val UNDO_DIR = "restore-photos-undo"
+
     /**
-     * عکس‌های بازشده را سرِ جایشان می‌گذارد و پوشهٔ موقت را پاک می‌کند.
+     * عکس‌هایی که [placePhotos] نشاند، با راهِ برگشت.
      *
-     * @return شمارِ عکس‌هایی که نشستند.
+     * عکسِ هم‌نامِ کامپیوتر جایش را به عکسِ پشتیبان می‌دهد و بقیه می‌مانند
+     * (همان کارِ گوشی)؛ ولی عکسِ قبلی تا پایانِ بازیابی در [undo] می‌ماند.
      */
-    internal fun adoptPhotos(from: File, to: File): Int {
-        var n = 0
+    internal class PlacedPhotos(private val to: File, private val undo: File) {
+        /** نام‌هایی که در [to] نوشته شد (یا نوشتنش شروع شد). */
+        private val written = mutableListOf<String>()
+
+        /** از [written]، آن‌هایی که نسخهٔ قبلی‌شان در [undo] است. */
+        private val saved = mutableSetOf<String>()
+
+        val count: Int get() = written.size
+
+        /** نسخهٔ قبلیِ عکسِ هم‌نام به [undo] می‌رود — جابه‌جا، نه کپی، تا جای دیسک دو برابر نشود. */
+        fun keepOld(name: String) {
+            val target = File(to, name)
+            if (!target.exists()) return
+            if (!undo.isDirectory && !undo.mkdirs()) error("پوشهٔ برگشتِ عکس‌ها ساخته نشد")
+            val keep = File(undo, name)
+            if (!target.renameTo(keep)) {
+                target.copyTo(keep, overwrite = true)
+            }
+            saved += name
+        }
+
+        fun markWritten(name: String) {
+            written += name
+        }
+
+        /** همه چیز به حالِ پیش از [placePhotos]. @return شمارِ عکس‌هایی که برنگشتند. */
+        fun rollback(): Int {
+            var failed = 0
+            written.forEach { name ->
+                val target = File(to, name)
+                val back = runCatching {
+                    if (name in saved) {
+                        val keep = File(undo, name)
+                        target.delete()
+                        if (!keep.renameTo(target)) {
+                            keep.copyTo(target, overwrite = true)
+                            keep.delete()
+                        }
+                    } else if (target.exists() && !target.delete()) {
+                        error("پاک نشد")
+                    }
+                }.isSuccess
+                if (!back) failed++
+            }
+            // اگر چیزی برنگشت، پوشهٔ برگشت می‌ماند — تنها نسخهٔ آن عکس‌ها.
+            if (failed == 0) undo.deleteRecursively()
+            return failed
+        }
+
+        /** بازیابی تمام شد؛ نسخه‌های قبلی دیگر لازم نیستند. */
+        fun commit() {
+            undo.deleteRecursively()
+        }
+    }
+
+    /** جایگزینیِ دفتر شکست و دفترِ قبلی هم برنگشت؛ نسخهٔ قبلی در [previous] مانده. */
+    internal class LedgerNotRestored(val previous: File, cause: Throwable) : Exception(cause.message, cause)
+
+    /** عکس‌ها ننشستند. [notBack] شمارِ عکس‌های قبلی که به جایشان برنگشتند. */
+    internal class PhotosNotPlaced(val notBack: Int, cause: Throwable) : Exception(cause.message, cause)
+
+    /**
+     * عکس‌های بازشده را سرِ جایشان می‌گذارد و پوشهٔ موقت را پاک می‌کند —
+     * **پیش از** جایگزینیِ دفتر. اگر یکی ننشیند، همه برمی‌گردند و
+     * [PhotosNotPlaced] بالا می‌رود.
+     *
+     * [copy] فقط برای آزمون عوض می‌شود — تا شکستِ وسطِ کار (دیسکِ پر پس از
+     * چند عکس) سنجیدنی باشد.
+     */
+    internal fun placePhotos(
+        from: File,
+        to: File,
+        undo: File,
+        copy: (src: File, dst: File) -> Unit = { src, dst -> src.copyTo(dst, overwrite = true) },
+    ): PlacedPhotos {
+        val placed = PlacedPhotos(to, undo)
         try {
             val files = from.listFiles()?.filter { it.isFile && it.length() > 0 }.orEmpty()
-            if (files.isNotEmpty()) to.mkdirs()
-            files.forEach { f ->
-                f.copyTo(File(to, f.name), overwrite = true)
-                n++
+            if (files.isNotEmpty() && !to.isDirectory && !to.mkdirs()) {
+                error("پوشهٔ عکس‌ها ساخته نشد: ${to.absolutePath}")
             }
+            files.forEach { f ->
+                placed.keepOld(f.name)
+                placed.markWritten(f.name)
+                copy(f, File(to, f.name))
+            }
+        } catch (t: Throwable) {
+            throw PhotosNotPlaced(placed.rollback(), t)
         } finally {
             from.deleteRecursively()
         }
-        return n
+        return placed
     }
 
     /**
@@ -198,11 +347,21 @@ object DesktopBackup {
         return staged
     }
 
-    /** نسخهٔ فایلِ بازشده — پیش از هر دست‌زدنی به دفترِ زنده. */
+    /**
+     * نسخه و سلامتِ فایلِ بازشده — پیش از هر دست‌زدنی به دفترِ زنده.
+     *
+     * **سلامت هم، نه فقط نسخه.** تا ۱.۱۰ فقط `user_version` خوانده می‌شد،
+     * که در سرِ فایل است. پشتیبانی که سرش سالم و صفحه‌هایش خراب بود (کپیِ
+     * بریده، دیسکِ خراب) پذیرفته می‌شد و جای دفترِ سالم را می‌گرفت. حالا
+     * همان `quick_check`ی اینجاست که پشتیبانِ ایمنیِ «پاک‌کردن» و پشتیبانِ
+     * خودکار با آن سنجیده می‌شدند ([ledgerFileHealthy])؛ هر سه از همین
+     * یک در می‌گذرند. CRCِ هر ورودیِ zip را خودِ بازکردن
+     * (`BackupArchiveIo.extract`) می‌سنجد.
+     */
     private fun validateStaged(staged: File) {
         val version = ledgerFileVersion(staged)
         when {
-            version == null || version <= 0 -> {
+            version == null || version <= 0 || !ledgerFileHealthy(staged) -> {
                 staged.delete()
                 error(
                     BackupArchive.verdictMessage(
@@ -234,12 +393,30 @@ object DesktopBackup {
     }
 
     /**
-     * جایگزینیِ دفتر با فایلِ سنجیده‌شده — با نسخهٔ برگشت.
+     * جایگزینیِ دفتر با فایلِ سنجیده‌شده.
      *
-     * اگر کپی وسطِ کار بشکند (دیسکِ پر)، دفترِ قبلی برمی‌گردد. بی این،
-     * نه فایلِ سالم می‌ماند و نه بازیابی تمام می‌شود.
+     * **اول یک جابه‌جاییِ اتمی** ([replaceAtomically]): فایلِ سنجیده در یک گام
+     * جای دفتر می‌نشیند. اگر برق وسطِ کار برود یا برنامه کشته شود، یا دفترِ
+     * قبلی سرِ جایش است یا دفترِ تازه، هرگز نیمه‌ای از آن. تا اینجا دفتر در
+     * جای خودش بازنویسی می‌شد و قطعِ وسطِ کپی دفترِ بریده‌ای جا می‌گذاشت که
+     * برنامه بازش نمی‌کرد؛ نسخهٔ سالم در `.prev` می‌ماند و راهی در برنامه به
+     * آن نبود.
+     *
+     * اگر سیستم آن جابه‌جایی را نپذیرد (فایلی که برنامهٔ دیگری روی ویندوز باز
+     * نگه داشته)، دفتر دست نخورده و راهِ قبلی می‌ماند: نسخهٔ قبلی کنار
+     * (`.prev`)، کپی، و اگر کپی بشکند (دیسکِ پر)، دفترِ قبلی برمی‌گردد.
+     *
+     * [move] و [copy] فقط برای آزمون عوض می‌شوند.
      */
-    internal fun swapIn(staged: File, db: File) {
+    internal fun swapIn(
+        staged: File,
+        db: File,
+        move: (from: File, to: File) -> Boolean = ::replaceAtomically,
+        copy: (from: File, to: File) -> Unit = { from, to ->
+            from.inputStream().use { input -> to.outputStream().use { input.copyTo(it) } }
+        },
+    ) {
+        if (move(staged, db)) return
         val dir = db.parentFile
         val previous = File(dir, "$DB_NAME.prev")
         previous.delete()
@@ -247,19 +424,37 @@ object DesktopBackup {
             db.inputStream().use { input -> previous.outputStream().use { input.copyTo(it) } }
         }
         try {
-            staged.inputStream().use { input -> db.outputStream().use { input.copyTo(it) } }
+            copy(staged, db)
         } catch (e: Throwable) {
             // دادهٔ سالم برمی‌گردد؛ بازیابی نشد ولی چیزی از دست نرفت.
-            runCatching {
+            val back = runCatching {
                 db.delete()
                 previous.inputStream().use { input ->
                     db.outputStream().use { input.copyTo(it) }
                 }
-            }
+            }.isSuccess
+            // اگر برنگشت، `.prev` پاک نمی‌شود و پیام همین را می‌گوید.
+            if (!back) throw LedgerNotRestored(previous, e)
             throw e
         }
         previous.delete()
         staged.delete()
         Unit
     }
+
+    /**
+     * [from] در یک گام جای [to] می‌نشیند (هر دو در یک پوشه‌اند).
+     *
+     * @return `false` یعنی سیستم نپذیرفت و هیچ‌کدام عوض نشد.
+     */
+    internal fun replaceAtomically(from: File, to: File): Boolean =
+        try {
+            Files.move(
+                from.toPath(), to.toPath(),
+                StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE
+            )
+            true
+        } catch (e: IOException) {
+            false
+        }
 }

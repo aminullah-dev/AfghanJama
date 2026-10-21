@@ -597,6 +597,26 @@ val backupSmoke by tasks.registering(JavaExec::class) {
     }
 }
 
+/*
+ * `deskSmoke` — آنچه پنجره میانِ دو نفر و دو اجرا نگه می‌دارد، و آنچه نه.
+ *
+ * یادآورِ گفته‌شده پس از بستن و باز کردن تکرار نمی‌شود و پشتِ صفحهٔ ورود
+ * گفته نمی‌شود؛ فاکتورِ نیمه‌کاره با «خروج» و قفلِ خودکار می‌رود؛ خروجیِ
+ * اکسل BOM دارد؛ پرسشِ «برنامهٔ تماس» سقفِ زمان دارد. همه روی پوشهٔ موقت.
+ */
+val deskSmoke by tasks.registering(JavaExec::class) {
+    group = "verification"
+    description = "یادآورِ ماندگار، جلسهٔ ورود، BOMِ خروجی و سقفِ زمانِ پرسشِ سیستم"
+    dependsOn("createDistributable")
+    mainClass.set("com.afghanjama.desktop.DeskSmokeKt")
+    jvmArgs("-Dfile.encoding=UTF-8", "-Dstdout.encoding=UTF-8")
+    doFirst {
+        val appDir = packagedJarDir()
+        val jars = appDir.listFiles { f: JFile -> f.name.endsWith(".jar") } ?: emptyArray()
+        classpath = files(appDir) + files(*jars)
+    }
+}
+
 val screenSmoke by tasks.registering(JavaExec::class) {
     group = "verification"
     description = "هر صفحهٔ نوارِ کناری را در بستهٔ ویندوز ترکیب و رسم می‌کند"

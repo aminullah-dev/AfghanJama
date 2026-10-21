@@ -207,14 +207,15 @@ object DesktopAutoBackup {
     }
 
     /**
-     * پشتیبانی که نوشته شد باز می‌شود؟ همان سنجشِ بازیابی (قالب و نسخه)، و
-     * `quick_check` روی دفترِ داخلش. `null` یعنی سالم.
+     * پشتیبانی که نوشته شد باز می‌شود؟ همان سنجشِ بازیابی — قالب، نسخه و
+     * `quick_check` روی دفترِ داخلش ([DesktopBackup.stageAndValidate]).
+     * `null` یعنی سالم.
      */
     fun verify(archive: File): String? {
         val scratch = Files.createTempDirectory("ky-verify").toFile()
         return try {
-            val staged = DesktopBackup.stageAndValidate(archive, scratch)
-            if (!ledgerFileHealthy(staged)) "دفترِ داخلِ پشتیبان سالم نیست" else null
+            DesktopBackup.stageAndValidate(archive, scratch)
+            null
         } catch (t: Throwable) {
             t.message ?: "پشتیبان باز نشد"
         } finally {

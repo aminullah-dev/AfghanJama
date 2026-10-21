@@ -168,7 +168,15 @@ internal fun BackupScreen(onBack: () -> Unit) {
                                             (if (photos > 0) " و ${photos.fa()} عکس هم برگشت" else "") +
                                             ". برنامه را ببندید و دوباره باز کنید."
                                     },
-                                    { "بازیابی نشد: ${it.message}" }
+                                    {
+                                        // پیام خودش می‌گوید چه چیزی دست خورد و چه چیزی نه
+                                        // (`DesktopBackup.restoreInto`). اگر دفتر برای جایگزینی
+                                        // بسته شده بود، تا برنامه دوباره باز نشود باز نمی‌شود.
+                                        "بازیابی نشد: ${it.message}" +
+                                            if (DesktopBackup.ledgerClosed) {
+                                                " برنامه را ببندید و دوباره باز کنید."
+                                            } else ""
+                                    }
                                 )
                             }
                         }
@@ -211,7 +219,7 @@ internal fun lastAutoText(lastAuto: Long): String =
     else "هنوز پشتیبانِ خودکاری گرفته نشده."
 
 /**
- * پشتیبانِ خودکارِ روزانه: کِی بود، کجاست، همین حالا یکی بگیر، و پوشه.
+ * پشتیبانِ خودکارِ روزانه: کِی بود، کجاست، «همین حالا پشتیبان بگیرید»، و پوشه.
  */
 @Composable
 private fun AutoBackupCard() {
@@ -263,7 +271,7 @@ private fun AutoBackupCard() {
             }
         }
         status.error?.let {
-            Text("آخرین تلاش نشد: $it", style = MaterialTheme.typography.bodySmall, color = Bad)
+            Text("آخرین پشتیبانِ خودکار گرفته نشد: $it", style = MaterialTheme.typography.bodySmall, color = Bad)
         }
 
         Text(
@@ -291,7 +299,7 @@ private fun AutoBackupCard() {
                 },
                 modifier = Modifier.weight(1f)
             ) {
-                Text(if (status.running) "در حالِ پشتیبان‌گیری…" else "همین حالا یکی بگیر")
+                Text(if (status.running) "در حالِ پشتیبان‌گیری…" else "همین حالا پشتیبان بگیرید")
             }
             OutlinedButton(
                 shape = PillShape,
