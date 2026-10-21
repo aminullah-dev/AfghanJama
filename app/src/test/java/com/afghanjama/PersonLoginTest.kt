@@ -8,6 +8,10 @@ import com.afghanjama.ui.vm.CurrentAccess
 import com.afghanjama.ui.vm.Feature
 import com.afghanjama.ui.vm.UserRole
 import com.afghanjama.ui.vm.UserStore
+import com.afghanjama.ui.vm.LoginPerson
+import com.afghanjama.ui.vm.PinLockout
+import com.afghanjama.ui.vm.UsersViewModel
+import com.afghanjama.ui.vm.roleLabel
 import com.afghanjama.util.PinHash
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -107,16 +111,264 @@ class PersonLoginTest {
     }
 
     @Test
-    fun `a person changes their own pin, never to someone else's`() {
+    fun `a person changes their own pin, and only their own`() {
         val s = device()
         val vm = AuthViewModel(s)
         vm.login("2222")
-        vm.changePin("2222", "1111")          // رمزِ مدیر
-        assertTrue(vm.ui.value.isError)
         vm.changePin("2222", "3333")
         assertFalse(vm.ui.value.isError)
         assertTrue(PinHash.verify("3333", UserStore.find(s, "u1")!!.pinHash))
         // رمزِ دستگاه دست نخورد
         assertTrue(AuthViewModel.verifyPin(s, "1111"))
+    }
+
+    // ─────────────────────── حمله به سقفِ اشتباه (بازبینیِ فازِ C)
+
+    /**
+     * «تغییرِ رمز» پیش‌گوی رمزِ دیگران نیست. تا پیش از این، کارگرِ واردشده با
+     * زدنِ هر رمزِ تازه می‌فهمید آن رمز «مالِ کسِ دیگری» است یا نه — بی سقف —
+     * و رمزِ مدیر را می‌یافت. پاسخ به رمزِ مدیر و به رمزی تصادفی باید یکی باشد،
+     * و کاشیِ مدیر همچنان فقط با رمزِ مدیر باز شود.
+     */
+    @Test
+    fun `change-pin is not an oracle for other people's pins`() {
+        val s = device()
+        val vm = vmOf(s)
+        vm.loginAs("u1", "2222")
+        vm.changePin("2222", "4444")           // رمزِ کسی نیست
+        val random = vm.ui.value.isError to vm.ui.value.message
+        vm.changePin("4444", "1111")           // رمزِ مدیر
+        assertEquals(random, vm.ui.value.isError to vm.ui.value.message)
+
+        // هم‌رمز بودن با مدیر کسی را مدیر نمی‌کند: کاشی می‌گوید کیست.
+        vm.logout()
+        vm.loginAs("u1", "1111")
+        assertTrue(vm.ui.value.isLoggedIn)
+        assertFalse(vm.ui.value.access.isManager)
+        vm.logout()
+        // راهِ «فقط رمز» رمزِ دوصاحبه را به هیچ‌کس نمی‌دهد.
+        vm.login("1111")
+        assertFalse(vm.ui.value.isLoggedIn)
+    }
+
+    /** کسی که پشتِ جلسهٔ بازِ مدیر نشسته، رمزِ مدیر را از «رمزِ فعلی» حدس نمی‌زند. */
+    @Test
+    fun `guessing the current pin in change-pin is throttled like the tile`() {
+        val s = device()
+        val vm = vmOf(s)
+        vm.loginAs(LoginPerson.OWNER_ID, "1111")
+        repeat(PinLockout.FREE_TRIES) { vm.changePin("9${it}99", "5555") }
+        // حالا حتی رمزِ درست تا پایانِ قفل پذیرفته نمی‌شود…
+        vm.changePin("1111", "5555")
+        assertTrue(vm.ui.value.isError)
+        assertTrue(AuthViewModel.verifyPin(s, "1111"))
+        // …و کاشیِ مدیر هم بسته است.
+        vm.logout()
+        vm.loginAs(LoginPerson.OWNER_ID, "1111")
+        assertFalse(vm.ui.value.isLoggedIn)
+    }
+
+    /**
+     * قفلِ کاشیِ مدیر از راهِ «فقط رمز» دور زده نمی‌شود، و ورودِ درستِ کسِ
+     * دیگر شمارِ کاشیِ مدیر را صفر نمی‌کند.
+     */
+    @Test
+    fun `the pin-only path cannot reopen a locked owner tile or reset its count`() {
+        val s = device()
+        val vm = vmOf(s)
+        repeat(PinLockout.FREE_TRIES) { vm.loginAs(LoginPerson.OWNER_ID, "9999") }
+        vm.login("1111")
+        assertFalse(vm.ui.value.isLoggedIn)
+
+        clock += PinLockout.MAX_LOCK_MS + 1
+        val before = PinLockout.state(s, LoginPerson.OWNER_ID).fails
+        vm.login("2222")                       // سمیع، درست
+        assertTrue(vm.ui.value.isLoggedIn)
+        vm.logout()
+        assertEquals(before, PinLockout.state(s, LoginPerson.OWNER_ID).fails)
+        // و اشتباهِ راهِ «فقط رمز» به کاشیِ مدیر شمرده می‌شود.
+        vm.login("9999")
+        assertTrue(PinLockout.lockedUntil(s, LoginPerson.OWNER_ID, clock) > clock)
+    }
+
+    // ─────────────────────── کاشیِ هر نفر (۱.۱۲)
+
+    /** دفترِ خالی: هر جریانی فهرستِ خالی می‌دهد (برای پیشنهادِ نامِ کاربران). */
+    private fun emptyRepo(): com.afghanjama.data.repo.Repo {
+        val loader = com.afghanjama.data.Db::class.java.classLoader
+        val dao = java.lang.reflect.InvocationHandler { _, m, _ ->
+            if (kotlinx.coroutines.flow.Flow::class.java.isAssignableFrom(m.returnType)) kotlinx.coroutines.flow.flowOf(emptyList<Any>()) else null
+        }
+        val db = java.lang.reflect.Proxy.newProxyInstance(loader, arrayOf(com.afghanjama.data.Db::class.java)) { _, m, _ ->
+            if (m.name.endsWith("Dao")) java.lang.reflect.Proxy.newProxyInstance(loader, arrayOf(m.returnType), dao) else null
+        } as com.afghanjama.data.Db
+        return com.afghanjama.data.repo.Repo(db)
+    }
+
+    /** ساعتِ دستی، تا قفل بی‌انتظارِ واقعی آزموده شود. */
+    private var clock = 1_000_000L
+
+    private fun vmOf(s: Settings) = AuthViewModel(s, clock = { clock })
+
+    @Test
+    fun `the login screen lists the owner first, then each person with their role`() {
+        val s = device().also { it.putString("auth_prefs", "user_name", "کریم") }
+        val people = vmOf(s).ui.value.people
+        assertEquals(listOf(LoginPerson.OWNER_ID, "u1"), people.map { it.id })
+        assertEquals("کریم", people[0].name)
+        assertEquals("مدیر", people[0].role)
+        assertTrue(people[0].isManager)
+        assertEquals("سمیع", people[1].name)
+        assertFalse(people[1].isManager)
+    }
+
+    @Test
+    fun `a tile opens only with that person's own pin`() {
+        val vm = vmOf(device())
+        vm.select("u1")
+        vm.loginAs("u1", "1111")              // رمزِ مدیر روی کاشیِ سمیع
+        assertFalse(vm.ui.value.isLoggedIn)
+        assertTrue(vm.ui.value.isError)
+        vm.loginAs("u1", "2222")
+        assertTrue(vm.ui.value.isLoggedIn)
+        assertEquals("u1", vm.ui.value.userId)
+        assertFalse(vm.ui.value.access.isManager)
+    }
+
+    @Test
+    fun `the owner tile opens with the owner pin and is the manager`() {
+        val vm = vmOf(device())
+        vm.loginAs(LoginPerson.OWNER_ID, "2222") // رمزِ سمیع روی کاشیِ مدیر
+        assertFalse(vm.ui.value.isLoggedIn)
+        vm.loginAs(LoginPerson.OWNER_ID, "1111")
+        assertTrue(vm.ui.value.isLoggedIn)
+        assertTrue(vm.ui.value.access.isManager)
+    }
+
+    @Test
+    fun `five wrong pins lock the tile, the lock survives a restart, and grows`() {
+        val s = device()
+        val vm = vmOf(s)
+        repeat(PinLockout.FREE_TRIES - 1) { vm.loginAs("u1", "9999") }
+        assertEquals(0L, vm.ui.value.lockedUntil)
+        vm.loginAs("u1", "9999")
+        val until = vm.ui.value.lockedUntil
+        assertEquals(clock + PinLockout.FIRST_LOCK_MS, until)
+
+        // بسته و باز کردنِ برنامه قفل را باز نمی‌کند — حتی با رمزِ درست.
+        val again = vmOf(s)
+        again.loginAs("u1", "2222")
+        assertFalse(again.ui.value.isLoggedIn)
+        assertTrue(again.ui.value.isError)
+
+        // پس از قفل، اشتباهِ بعدی دو برابر.
+        clock = until + 1
+        again.loginAs("u1", "9999")
+        assertEquals(clock + 2 * PinLockout.FIRST_LOCK_MS, again.ui.value.lockedUntil)
+        clock += 2 * PinLockout.FIRST_LOCK_MS + 1
+        again.loginAs("u1", "2222")
+        assertTrue(again.ui.value.isLoggedIn)
+        // ورودِ درست شمار را صفر کرد.
+        assertEquals(0, PinLockout.state(s, "u1").fails)
+    }
+
+    @Test
+    fun `one locked tile does not lock the others`() {
+        val vm = vmOf(device())
+        repeat(PinLockout.FREE_TRIES) { vm.loginAs("u1", "9999") }
+        assertTrue(vm.ui.value.lockedUntil > clock)
+        vm.loginAs(LoginPerson.OWNER_ID, "1111")
+        assertTrue(vm.ui.value.isLoggedIn)
+    }
+
+    @Test
+    fun `the lock never exceeds its cap, even when the clock is moved back`() {
+        assertEquals(PinLockout.MAX_LOCK_MS, PinLockout.lockFor(40))
+        val s = device()
+        s.putString("auth_prefs", "fails_u1", "9|${clock + 365L * 86_400_000L}")
+        assertEquals(clock + PinLockout.MAX_LOCK_MS, PinLockout.lockedUntil(s, "u1", clock))
+    }
+
+    @Test
+    fun `the pin-only path is throttled too`() {
+        val vm = vmOf(device())
+        repeat(PinLockout.FREE_TRIES) { vm.login("9999") }
+        vm.login("1111")
+        assertFalse(vm.ui.value.isLoggedIn)
+    }
+
+    @Test
+    fun `logout returns to the list of people`() {
+        val vm = vmOf(device())
+        vm.select("u1")
+        vm.loginAs("u1", "2222")
+        vm.logout()
+        val ui = vm.ui.value
+        assertFalse(ui.isLoggedIn)
+        assertNull(ui.selectedId)
+        assertEquals(2, ui.people.size)
+        assertEquals(Access.NONE, CurrentAccess.value)
+
+        // قفلِ خودکار هم «خروج» است: اگر کسی کاشی‌اش را زده و رفته، نفرِ بعدی
+        // فهرست را می‌بیند، نه صفحهٔ رمزِ او را.
+        vm.select("u1")
+        vm.logout()
+        assertNull(vm.ui.value.selectedId)
+    }
+
+    @Test
+    fun `the first person on a fresh device is the manager, no role is asked`() {
+        val s = MemSettings()
+        // نقشی که صفحهٔ ورودِ ۱.۱۱ پیش از رمز می‌گذاشت، دیگر اثری ندارد.
+        s.putString("auth_prefs", "role", UserRole.SALES.name)
+        val vm = vmOf(s)
+        assertTrue(vm.ui.value.people.isEmpty())
+        vm.setUserName("کریم")
+        vm.setupPin("1379")
+        assertTrue(vm.ui.value.isLoggedIn)
+        assertTrue(vm.ui.value.access.isManager)
+        assertEquals(UserRole.MANAGER, vm.ui.value.role)
+        // و پس از آن، رمزِ دستگاه دوباره «گذاشته» نمی‌شود.
+        vm.logout()
+        vm.setupPin("0000")
+        assertTrue(vm.ui.value.isError)
+        assertTrue(AuthViewModel.verifyPin(s, "1379"))
+    }
+
+    @Test
+    fun `an old device set up with another role keeps it, nobody silently becomes manager`() {
+        val s = device().also { it.putString("auth_prefs", "role", UserRole.SEWING.name) }
+        val vm = vmOf(s)
+        assertEquals("کارگر", vm.ui.value.people.first().role)
+        vm.loginAs(LoginPerson.OWNER_ID, "1111")
+        assertFalse(vm.ui.value.access.isManager)
+    }
+
+    @Test
+    fun `only a manager can change someone's role`() {
+        val s = device()
+        // کسی که مدیر نیست — صفحه را هم نمی‌بیند، ولی قاعده در خودِ مدل است.
+        val notManager = UsersViewModel(s, emptyRepo(), access = { Access(false, setOf(Feature.MASTER)) })
+        assertFalse(notManager.save("u1", "سمیع", "", setOf(Feature.FINANCE)))
+        assertEquals(UsersViewModel.NOT_MANAGER, notManager.message.value)
+        assertEquals(setOf(Feature.CUTTING), UserStore.find(s, "u1")!!.features)
+        notManager.delete("u1")
+        assertTrue(UserStore.find(s, "u1") != null)
+
+        val manager = UsersViewModel(s, emptyRepo(), access = { Access.MANAGER })
+        assertTrue(manager.save("u1", "سمیع", "", Feature.PRESETS.first { it.first == "خیاط" }.second))
+        assertEquals("خیاط", UserStore.find(s, "u1")!!.roleLabel)
+        // و کاشیِ ورود نقشِ تازه را نشان می‌دهد.
+        assertEquals("خیاط", vmOf(s).ui.value.people.first { it.id == "u1" }.role)
+    }
+
+    @Test
+    fun `a person's role follows their ticks`() {
+        fun r(vararg f: Feature) = AppUser("x", "x", "h", f.toSet()).roleLabel
+        assertEquals("فروشنده", r(Feature.SALES, Feature.CUSTOMERS))
+        assertEquals("برشکار", r(Feature.CUTTING, Feature.BOARD))
+        assertEquals("حسابدار", r(Feature.FINANCE, Feature.SALES))
+        assertEquals("کارگر", r(Feature.SEWING, Feature.REVIEW))
+        assertEquals("کارمند", r(Feature.AUDIT))
     }
 }

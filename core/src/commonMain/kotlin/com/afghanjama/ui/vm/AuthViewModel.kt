@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import com.afghanjama.prefs.Settings
 import com.afghanjama.util.CurrentUser
 import com.afghanjama.util.PinHash
+import com.afghanjama.util.nowMillis
+import com.afghanjama.ui.format.fa
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -21,8 +23,18 @@ data class AuthUi(
      */
     val userId: String? = null,
     /** آنچه این نفر اجازه دارد — نوار، خانه و هر صفحه از این می‌خوانند. */
-    val access: Access = Access.NONE
-)
+    val access: Access = Access.NONE,
+    /** کاشی‌های صفحهٔ ورود: صاحبِ دستگاه اول، بعد کسانی که مدیر ساخته. */
+    val people: List<LoginPerson> = emptyList(),
+    /** کاشی‌ای که زده شده و منتظرِ رمز است؛ `null` یعنی فهرست. */
+    val selectedId: String? = null,
+    /** کاشیِ انتخاب‌شده تا این لحظه بسته است (رمزِ اشتباهِ پیاپی)؛ صفر یعنی باز. */
+    val lockedUntil: Long = 0L,
+    /** قرصِ نقشِ کسِ واردشده — همان که روی کاشیِ ورودش بود («مدیر»، «خیاط»…). */
+    val roleLabel: String = "",
+) {
+    val selected: LoginPerson? get() = people.firstOrNull { it.id == selectedId }
+}
 
 /**
  * ورود با رمز و نقشِ کاربر.
@@ -44,7 +56,11 @@ data class AuthUi(
  * `getString` در `Settings` به‌جای `null` رشتهٔ خالی می‌دهد، پس هرجا
  * `isNullOrBlank` بود `isBlank` شد — رفتار یکی است.
  */
-class AuthViewModel(private val settings: Settings) : ViewModel() {
+class AuthViewModel(
+    private val settings: Settings,
+    /** ساعتِ قفلِ رمز ([PinLockout]) — آزمون ساعتِ خودش را می‌دهد. */
+    private val clock: () -> Long = { nowMillis() },
+) : ViewModel() {
 
     private val _ui = MutableStateFlow(AuthUi())
     val ui: StateFlow<AuthUi> = _ui
@@ -87,9 +103,37 @@ class AuthViewModel(private val settings: Settings) : ViewModel() {
                 message = null,
                 isError = false,
                 userId = person?.id,
-                access = access
+                access = access,
+                people = loadPeople(),
+                roleLabel = if (!logged) "" else person?.roleLabel ?: role.personLabel,
             )
         }
+    }
+
+    /**
+     * کاشی‌های صفحهٔ ورود: صاحبِ دستگاه، بعد کاربرانِ مدیر به ترتیبِ نام.
+     *
+     * پیش از تنظیمِ رمزِ اول هیچ کاشی‌ای نیست — آن‌وقت صفحه «نخستین مدیر»
+     * را می‌سازد.
+     */
+    private fun loadPeople(): List<LoginPerson> {
+        if (pin().isBlank()) return emptyList()
+        val role = role()
+        val owner = LoginPerson(
+            id = LoginPerson.OWNER_ID,
+            name = settings.getString(FILE, KEY_USER).trim().ifBlank { "صاحبِ دستگاه" },
+            role = role.personLabel,
+            isManager = role == UserRole.MANAGER,
+        )
+        val users = UserStore.load(settings)
+            .sortedBy { it.name }
+            .map { LoginPerson(it.id, it.name, it.roleLabel, isManager = false) }
+        return listOf(owner) + users
+    }
+
+    /** فهرستِ کاشی‌ها را از نو بخوان — مثلاً پس از اینکه مدیر کسی را ساخت. */
+    fun refreshPeople() {
+        _ui.update { it.copy(people = loadPeople()) }
     }
 
     private fun pin(): String = settings.getString(FILE, KEY_PIN)
@@ -105,19 +149,28 @@ class AuthViewModel(private val settings: Settings) : ViewModel() {
         _ui.update { it.copy(userName = v) }
     }
 
-    fun setRole(role: UserRole) {
-        settings.putString(FILE, KEY_ROLE, role.name)
-        _ui.update { it.copy(role = role) }
-    }
-
+    /**
+     * رمزِ اولِ دستگاه — و این نفر **مدیر** است.
+     *
+     * تا ۱.۱۱ اینجا نقش هم انتخاب می‌شد و پس از آن هیچ‌جا عوض نمی‌شد؛ کسی
+     * که سرِ راه‌اندازی «مدیریتِ دوخت» را برمی‌داشت، دستگاهی بی مدیر می‌ساخت
+     * و دیگر کسی نمی‌توانست کاربر بسازد. حالا نخستین نفر مدیر است و نقشِ
+     * بقیه را او در «کاربران» می‌گذارد. دستگاه‌هایی که پیش‌تر با نقشِ دیگری
+     * راه افتاده‌اند همان نقش را نگه می‌دارند — کسی بی‌صدا مدیر نمی‌شود.
+     */
     fun setupPin(pin: String) {
+        if (pin().isNotBlank()) {
+            // رمزِ دستگاه یک بار گذاشته می‌شود؛ عوض کردنش راهِ خودش را دارد.
+            _ui.update { it.copy(message = "رمزِ این دستگاه گذاشته شده است؛ وارد شوید.", isError = true) }
+            return
+        }
         val p = pin.trim()
         if (p.length < 4) {
-            _ui.update { it.copy(message = "رمز باید حداقل ۴ رقم باشد.", isError = true) }
+            _ui.update { it.copy(message = "رمز باید دست‌کم ۴ رقم باشد.", isError = true) }
             return
         }
 
-        val role = role()
+        val role = UserRole.MANAGER
         // هش، نه خودِ رمز. تا دیروز اینجا `p` نوشته می‌شد و رمزِ کارگاه
         // در فایلِ تنظیمات خواندنی بود.
         settings.putString(FILE, KEY_PIN, PinHash.hash(p))
@@ -137,12 +190,93 @@ class AuthViewModel(private val settings: Settings) : ViewModel() {
                 message = "رمز تنظیم شد.",
                 isError = false,
                 userId = null,
-                access = access
+                access = access,
+                people = loadPeople(),
+                selectedId = null,
+                roleLabel = role.personLabel,
             )
         }
     }
 
+    /** کاشیِ یک نفر زده شد — حالا رمزِ همان نفر. `null` یعنی برگشت به فهرست. */
+    fun select(id: String?) {
+        val until = if (id == null) 0L else PinLockout.lockedUntil(settings, id, clock())
+        _ui.update { it.copy(selectedId = id, lockedUntil = until, message = null, isError = false) }
+    }
+
+    /**
+     * ورودِ [id] با رمزِ **خودش**.
+     *
+     * رمز فقط با همان نفر سنجیده می‌شود، نه با همه: رمزی که مالِ کسِ دیگری
+     * است این کاشی را باز نمی‌کند. اشتباه‌ها شمرده می‌شوند ([PinLockout]).
+     */
+    fun loginAs(id: String, pin: String) {
+        val now = clock()
+        val locked = PinLockout.lockedUntil(settings, id, now)
+        if (locked > 0L) {
+            _ui.update {
+                it.copy(selectedId = id, lockedUntil = locked, message = lockMessage(locked - now), isError = true)
+            }
+            return
+        }
+        if (id == LoginPerson.OWNER_ID) {
+            val saved = pin()
+            if (saved.isNotBlank() && PinHash.verify(pin, saved)) {
+                PinLockout.clear(settings, id)
+                enterOwner(pin, saved)
+                return
+            }
+        } else {
+            val person = UserStore.find(settings, id)
+            if (person != null && PinHash.verify(pin, person.pinHash)) {
+                PinLockout.clear(settings, id)
+                enterPerson(person)
+                return
+            }
+            if (person == null) {
+                // مدیر همین حالا حذفش کرده؛ کاشی‌ها تازه شوند.
+                _ui.update {
+                    it.copy(people = loadPeople(), selectedId = null, message = "این نفر دیگر روی این دستگاه نیست.", isError = true)
+                }
+                return
+            }
+        }
+        val until = PinLockout.fail(settings, id, now)
+        _ui.update {
+            it.copy(
+                selectedId = id,
+                lockedUntil = until,
+                message = if (until > 0L) lockMessage(until - now) else "رمز اشتباه است.",
+                isError = true,
+            )
+        }
+    }
+
+    /**
+     * ورود با رمزِ تنها — رمز خودش می‌گوید کیست.
+     *
+     * صفحهٔ ورود دیگر این راه را ندارد (کاشی، بعد رمز)؛ برای آزمون‌ها و
+     * سازگاری مانده، و **همان سقفِ اشتباه** را دارد تا راهِ دومی برای حدس
+     * زدنِ بی‌شمار نباشد.
+     *
+     * **قفلِ کاشیِ مدیر اینجا هم قفل است.** این راه رمزِ مدیر را هم می‌سنجد،
+     * پس اگر شمارِ جدای خودش را داشت، کسی که کاشیِ مدیر را بسته بود از اینجا
+     * دوباره حدس می‌زد. هر اشتباهِ اینجا به کاشیِ مدیر هم شمرده می‌شود، و
+     * ورودِ درستِ **کسِ دیگری** شمارِ کاشیِ مدیر را صفر نمی‌کند.
+     *
+     * از ۱.۱۲ دو نفر می‌توانند یک رمز داشته باشند (کاشی می‌گوید کیست)؛ رمزی
+     * که مالِ بیش از یک نفر است اینجا کسی را وارد نمی‌کند.
+     */
     fun login(pin: String) {
+        val now = clock()
+        val locked = maxOf(
+            PinLockout.lockedUntil(settings, ANY_ID, now),
+            PinLockout.lockedUntil(settings, LoginPerson.OWNER_ID, now),
+        )
+        if (locked > 0L) {
+            _ui.update { it.copy(lockedUntil = locked, message = lockMessage(locked - now), isError = true) }
+            return
+        }
         val saved = pin()
         if (saved.isBlank()) {
             _ui.update {
@@ -155,32 +289,61 @@ class AuthViewModel(private val settings: Settings) : ViewModel() {
             return
         }
 
-        if (!PinHash.verify(pin, saved)) {
-            // رمزِ صاحبِ دستگاه نبود؛ شاید یکی از کاربرانی که مدیر ساخته.
-            // هر کس رمزِ خودش را دارد، پس رمز خودش می‌گوید کیست.
-            val person = UserStore.load(settings).firstOrNull { PinHash.verify(pin, it.pinHash) }
-            if (person == null) {
-                _ui.update { it.copy(message = "رمز اشتباه است.", isError = true) }
-                return
-            }
-            settings.putBoolean(FILE, KEY_LOGGED_IN, true)
-            settings.putString(FILE, KEY_USER_ID, person.id)
-            CurrentUser.set(person.name, PERSON_ROLE)
-            CurrentAccess.value = person.access
+        val isOwner = PinHash.verify(pin, saved)
+        val persons = UserStore.load(settings).filter { PinHash.verify(pin, it.pinHash) }
+        val matches = (if (isOwner) 1 else 0) + persons.size
+        if (matches == 0) {
+            val until = maxOf(
+                PinLockout.fail(settings, ANY_ID, now),
+                PinLockout.fail(settings, LoginPerson.OWNER_ID, now),
+            )
             _ui.update {
                 it.copy(
-                    isLoggedIn = true,
-                    role = person.legacyRole(),
-                    userName = person.name,
-                    message = null,
-                    isError = false,
-                    isSetupDone = true,
-                    userId = person.id,
-                    access = person.access
+                    lockedUntil = until,
+                    message = if (until > 0L) lockMessage(until - now) else "رمز اشتباه است.",
+                    isError = true,
                 )
             }
             return
         }
+        if (matches > 1) {
+            _ui.update { it.copy(message = "این رمز مالِ بیش از یک نفر است؛ کاشیِ نامِ خود را بزنید.", isError = true) }
+            return
+        }
+        PinLockout.clear(settings, ANY_ID)
+        if (isOwner) {
+            PinLockout.clear(settings, LoginPerson.OWNER_ID)
+            enterOwner(pin, saved)
+        } else {
+            val person = persons.single()
+            PinLockout.clear(settings, person.id)
+            enterPerson(person)
+        }
+    }
+
+    private fun enterPerson(person: AppUser) {
+        settings.putBoolean(FILE, KEY_LOGGED_IN, true)
+        settings.putString(FILE, KEY_USER_ID, person.id)
+        CurrentUser.set(person.name, PERSON_ROLE)
+        CurrentAccess.value = person.access
+        _ui.update {
+            it.copy(
+                isLoggedIn = true,
+                role = person.legacyRole(),
+                userName = person.name,
+                message = null,
+                isError = false,
+                isSetupDone = true,
+                userId = person.id,
+                access = person.access,
+                selectedId = null,
+                lockedUntil = 0L,
+                roleLabel = person.roleLabel,
+            )
+        }
+    }
+
+    private fun enterOwner(pin: String, saved: String) {
         // گوشی‌هایی که رمزشان خام ذخیره شده بود همچنان باز می‌شوند، و
         // همین‌جا بی‌صدا ارتقا می‌گیرند. تنها لحظه‌ای که ممکن است: رمزِ
         // درست دمِ دست است.
@@ -202,53 +365,83 @@ class AuthViewModel(private val settings: Settings) : ViewModel() {
                 isError = false,
                 isSetupDone = true,
                 userId = null,
-                access = access
+                access = access,
+                selectedId = null,
+                lockedUntil = 0L,
+                roleLabel = role.personLabel,
             )
         }
+    }
+
+    private fun lockMessage(leftMs: Long): String {
+        val sec = ((leftMs + 999) / 1000).coerceAtLeast(1)
+        val wait = if (sec >= 60) "${((sec + 59) / 60).fa()} دقیقه" else "${sec.fa()} ثانیه"
+        return "چند بار رمزِ اشتباه زده شد. $wait صبر کنید و دوباره بزنید."
     }
 
     /**
      * تغییر رمز با تأیید رمز فعلی.
      *
-     * کاربرِ شخصی رمزِ **خودش** را عوض می‌کند، نه رمزِ دستگاه را؛ و رمزِ
-     * تازه نباید مالِ کسِ دیگری باشد، چون رمز است که می‌گوید کیست.
+     * کاربرِ شخصی رمزِ **خودش** را عوض می‌کند، نه رمزِ دستگاه را.
+     *
+     * **«رمزِ فعلی» همان سقفِ اشتباهِ کاشی را دارد** ([PinLockout]): کسی که
+     * پشتِ جلسهٔ بازِ دیگری نشسته، نباید از این پنجره رمزِ او را بی‌شمار حدس
+     * بزند و بعداً با آن وارد شود.
      */
     fun changePin(oldPin: String, newPin: String) {
         val personId = _ui.value.userId
+        val tile = personId ?: LoginPerson.OWNER_ID
+        val now = clock()
+        val locked = PinLockout.lockedUntil(settings, tile, now)
+        if (locked > 0L) {
+            _ui.update { it.copy(message = lockMessage(locked - now), isError = true) }
+            return
+        }
         if (personId != null) {
-            changePersonPin(personId, oldPin, newPin)
+            changePersonPin(personId, oldPin, newPin, now)
             return
         }
         val saved = pin()
         if (saved.isBlank() || !PinHash.verify(oldPin, saved)) {
-            _ui.update { it.copy(message = "رمز فعلی اشتباه است.", isError = true) }
+            wrongCurrentPin(tile, now)
             return
         }
+        PinLockout.clear(settings, tile)
         val p = newPin.trim()
         if (p.length < 4) {
-            _ui.update { it.copy(message = "رمز جدید باید حداقل ۴ رقم باشد.", isError = true) }
+            _ui.update { it.copy(message = "رمزِ تازه باید دست‌کم ۴ رقم باشد.", isError = true) }
             return
         }
         settings.putString(FILE, KEY_PIN, PinHash.hash(p))
         _ui.update { it.copy(message = "رمز با موفقیت تغییر کرد.", isError = false) }
     }
 
-    private fun changePersonPin(id: String, oldPin: String, newPin: String) {
+    private fun wrongCurrentPin(tile: String, now: Long) {
+        val until = PinLockout.fail(settings, tile, now)
+        _ui.update {
+            it.copy(message = if (until > 0L) lockMessage(until - now) else "رمز فعلی اشتباه است.", isError = true)
+        }
+    }
+
+    /**
+     * **رمزِ تازه با رمزِ دیگران سنجیده نمی‌شود — عمداً.** تا پیش از این، پیامِ
+     * «این رمز را کسِ دیگری دارد» به هر کارگرِ واردشده می‌گفت کدام رمز مالِ
+     * کسِ دیگری است؛ بی هیچ سقفی، از همین پنجره می‌شد همهٔ ده‌هزار رمز را
+     * آزمود، رمزِ مدیر را یافت و روی کاشیِ مدیر زد — یعنی سقفِ اشتباهِ صفحهٔ
+     * ورود دورزده می‌شد. حالا که کاشی می‌گوید کیست، یکی بودنِ دو رمز زیانی
+     * ندارد: هر کاشی فقط با هشِ همان نفر سنجیده می‌شود ([loginAs]).
+     */
+    private fun changePersonPin(id: String, oldPin: String, newPin: String, now: Long) {
         val users = UserStore.load(settings)
         val me = users.firstOrNull { it.id == id }
         if (me == null || !PinHash.verify(oldPin, me.pinHash)) {
-            _ui.update { it.copy(message = "رمز فعلی اشتباه است.", isError = true) }
+            wrongCurrentPin(id, now)
             return
         }
+        PinLockout.clear(settings, id)
         val p = newPin.trim()
         if (p.length < 4) {
-            _ui.update { it.copy(message = "رمز جدید باید حداقل ۴ رقم باشد.", isError = true) }
-            return
-        }
-        val taken = verifyPin(settings, p) ||
-            users.any { it.id != id && PinHash.verify(p, it.pinHash) }
-        if (taken) {
-            _ui.update { it.copy(message = "این رمز را کسِ دیگری دارد؛ رمزِ دیگری بگذارید.", isError = true) }
+            _ui.update { it.copy(message = "رمزِ تازه باید دست‌کم ۴ رقم باشد.", isError = true) }
             return
         }
         UserStore.save(settings, users.map { if (it.id == id) it.copy(pinHash = PinHash.hash(p)) else it })
@@ -260,8 +453,14 @@ class AuthViewModel(private val settings: Settings) : ViewModel() {
         settings.remove(FILE, KEY_USER_ID)
         CurrentUser.clear()
         CurrentAccess.value = Access.NONE
+        // «خروج» به فهرستِ کاشی‌ها برمی‌گردد، تا نفرِ بعدی روی همین دستگاه
+        // نامِ خودش را بزند. فهرست تازه خوانده می‌شود: شاید مدیر در این
+        // فاصله کسی را ساخته یا نقشش را عوض کرده.
         _ui.update {
-            it.copy(isLoggedIn = false, message = null, isError = false, userId = null, access = Access.NONE)
+            it.copy(
+                isLoggedIn = false, message = null, isError = false, userId = null, access = Access.NONE,
+                people = loadPeople(), selectedId = null, lockedUntil = 0L, roleLabel = "",
+            )
         }
     }
 
@@ -277,6 +476,9 @@ class AuthViewModel(private val settings: Settings) : ViewModel() {
         private const val KEY_ROLE = "role"
         private const val KEY_USER = "user_name"
         private const val KEY_USER_ID = "user_id"
+
+        /** شمارِ اشتباهِ راهِ «فقط رمز» ([login]) — جدا از کاشیِ هر نفر. */
+        private const val ANY_ID = "any"
 
         /** برچسبِ نقش روی رویدادهای کاربرِ شخصی. */
         private const val PERSON_ROLE = "USER"

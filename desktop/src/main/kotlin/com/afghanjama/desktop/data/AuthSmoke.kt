@@ -84,25 +84,29 @@ fun main() {
         authNeed(vm.ui.value.isLoggedIn, "correct PIN should log in")
     } && ok
 
-    ok = authCheck("the role round-trips and drives permissions") {
-        AuthViewModel(settings).setRole(UserRole.SEWING)
+    ok = authCheck("the first PIN makes the manager, and a role is never picked at login") {
         val vm = AuthViewModel(settings)
-        authNeed(
-            vm.ui.value.role == UserRole.SEWING,
-            "role should persist, got ${vm.ui.value.role}"
-        )
+        authNeed(vm.ui.value.role == UserRole.MANAGER, "the first person must be the manager, got ${vm.ui.value.role}")
+        authNeed(vm.ui.value.people.firstOrNull()?.role == "مدیر", "the owner tile must say «مدیر»")
+        // رمزِ دستگاه دوباره «گذاشته» نمی‌شود — نقش و رمز با آن عوض نمی‌شوند.
+        vm.setupPin("5555")
+        authNeed(vm.ui.value.isError, "a second setupPin must be refused")
+    } && ok
+
+    ok = authCheck("an old device set up with another role keeps it and its permissions") {
+        val dir2 = Files.createTempDirectory("khayatyar-auth-old").toFile()
+        val old = FileSettings(dir2)
+        old.putString("auth_prefs", "pin", com.afghanjama.util.PinHash.hash("1379"))
+        old.putString("auth_prefs", "role", UserRole.SEWING.name)
+        val vm = AuthViewModel(old)
+        vm.loginAs(com.afghanjama.ui.vm.LoginPerson.OWNER_ID, "1379")
+        authNeed(vm.ui.value.role == UserRole.SEWING, "role should persist, got ${vm.ui.value.role}")
         // همان قاعده‌ای که پنجره برای «اصلاحِ موجودی» به کار می‌برد.
         authNeed(
             !com.afghanjama.ui.vm.Permissions.canAdjustMaterial(vm.ui.value.role),
             "a SEWING role must not be allowed to adjust stock"
         )
-        AuthViewModel(settings).setRole(UserRole.MANAGER)
-        authNeed(
-            com.afghanjama.ui.vm.Permissions.canAdjustMaterial(
-                AuthViewModel(settings).ui.value.role
-            ),
-            "a MANAGER must be allowed to adjust stock"
-        )
+        dir2.deleteRecursively()
     } && ok
 
     ok = authCheck("changing the PIN requires the current one") {

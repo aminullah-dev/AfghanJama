@@ -5,6 +5,9 @@
 
 package com.afghanjama.ui.screens
 
+import com.afghanjama.ui.components.Pill
+import com.afghanjama.ui.components.Space
+import com.afghanjama.ui.vm.roleLabel
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -131,9 +134,8 @@ fun UsersScreen(vm: UsersViewModel, onBack: () -> Unit) {
         ) {
             item {
                 Text(
-                    "برای هر نفر رمزِ جدا بگذارید و تیک بزنید به کدام بخش‌ها راه دارد. " +
-                        "در صفحهٔ ورود فقط رمزش را می‌زند؛ رمز می‌گوید کیست. رمزِ شما " +
-                        "(مدیر) همه‌چیز را باز می‌کند.",
+                    "برای هر نفر نام و رمزِ جدا بگذارید و تیک بزنید به کدام بخش‌ها راه دارد. " +
+                        "در صفحهٔ ورود کاشیِ نامش را می‌زند و رمزِ خودش را. " + ROLE_NOTE,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -166,7 +168,11 @@ fun UsersScreen(vm: UsersViewModel, onBack: () -> Unit) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(u.name, fontWeight = FontWeight.SemiBold)
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+                                Text(u.name, fontWeight = FontWeight.SemiBold)
+                                // همان قرصی که روی کاشیِ ورودِ این نفر است.
+                                Pill(u.roleLabel)
+                            }
                             Text(
                                 Feature.entries.filter { it in u.features }.joinToString("، ") { it.label },
                                 style = MaterialTheme.typography.labelSmall,
@@ -225,11 +231,19 @@ private fun UserDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Text("پیش‌تنظیم", style = MaterialTheme.typography.labelMedium)
+                Text("نقش (پیش‌تنظیم)", style = MaterialTheme.typography.labelMedium)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Feature.PRESETS.forEach { (label, set) ->
                         AssistChip(onClick = { picked = set }, label = { Text(label) })
                     }
+                }
+
+                if (picked.isNotEmpty()) {
+                    Text(
+                        "روی کاشیِ ورود: «${AppUser("", "", "", picked).roleLabel}»",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
 
                 Feature.GROUPS.forEach { group ->
