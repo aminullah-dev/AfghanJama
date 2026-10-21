@@ -43,6 +43,15 @@ object LanPrefs {
     fun network(s: Settings): String = s.getString(FILE, KEY_NETWORK)
     fun setNetwork(s: Settings, raw: String) = s.putString(FILE, KEY_NETWORK, raw.trim())
 
+    private const val KEY_LEDGER_MOVED = "ledger_moved"
+
+    /**
+     * دفترِ این دستگاه به کامپیوترِ کارگاه برده شده (طرح، B.6 قاعدهٔ ۶)؛ از
+     * آن پس فقط‌خواندنی است (`ReadOnlyReason.LEDGER_MOVED`).
+     */
+    fun ledgerMoved(s: Settings): Boolean = s.getBoolean(FILE, KEY_LEDGER_MOVED, false)
+    fun setLedgerMoved(s: Settings, moved: Boolean) = s.putBoolean(FILE, KEY_LEDGER_MOVED, moved)
+
     /** رمزِ شش‌رقمیِ تازه. عمداً عددی است تا روی کیبوردِ گوشی سریع وارد شود. */
     fun newCode(): String = (100_000..999_999).random().toString()
 }

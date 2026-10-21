@@ -5,6 +5,8 @@ package com.afghanjama.ui.screens
 import com.afghanjama.ui.components.QrImage
 import com.afghanjama.platform.LocalCodeScanner
 import com.afghanjama.lan.Pairing
+import com.afghanjama.lan.PairingV2
+import com.afghanjama.lan.ProtocolChoice
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Button
 import androidx.compose.material.icons.filled.QrCodeScanner
@@ -82,7 +84,13 @@ fun WorkshopLinkScreen(
      * تیکِ همان کار را دارد ([WorkshopLinkAccess]).
      */
     access: Access,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    /**
+     * «کارگاهِ وصل» (قراردادِ ۲): پیوندِ `kylink2:` اگر اسکن شد، یا `null` برای
+     * باز کردنِ صفحهٔ جفت شدن. `null`ِ خودِ این پارامتر یعنی این سکو مشتریِ
+     * قراردادِ ۲ نیست (کامپیوتر).
+     */
+    onUseHub: ((String?) -> Unit)? = null,
 ) {
     val settings = LocalSettings.current
     val canRunHub = WorkshopLinkAccess.canRunHub(access)
@@ -178,7 +186,10 @@ fun WorkshopLinkScreen(
                             )
                         }
                     }
-                    item { WorkerConnectCard(vm, busy, ui.kind) }
+                    onUseHub?.let { use ->
+                        item { HubOfferCard(use) }
+                    }
+                    item { WorkerConnectCard(vm, busy, ui.kind, onUseHub) }
                 }
 
                 DeviceMode.MAIN -> {
@@ -270,6 +281,9 @@ fun WorkshopLinkScreen(
                 }
 
                 DeviceMode.WORKER -> {
+                    if (ui.offerUpgrade && onUseHub != null) {
+                        item { HubOfferCard(onUseHub, upgrade = true) }
+                    }
                     item {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
@@ -587,8 +601,45 @@ private fun ComputerPairing(ip: String?, code: String, showQr: Boolean) {
     }
 }
 
+/**
+ * «اتصال به کامپیوترِ کارگاه» با قراردادِ ۲ — کامپیوترِ ۱.۱۱ و تازه‌تر. برای
+ * گوشیِ رمزِ شش‌رقمی که کامپیوترش به‌روز شده، همان پیامِ «یک بار دوباره وصل
+ * شوید» ([ProtocolChoice.UPGRADE_OFFER]).
+ */
 @Composable
-private fun WorkerConnectCard(vm: WorkshopLinkViewModel, busy: Boolean, kind: DeviceKind) {
+private fun HubOfferCard(onUseHub: (String?) -> Unit, upgrade: Boolean = false) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                if (upgrade) "کامپیوترِ کارگاه نسخهٔ تازه دارد" else "اتصال به کامپیوترِ کارگاه (کارگاهِ وصل)",
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            Text(
+                if (upgrade) ProtocolChoice.UPGRADE_OFFER
+                else "اگر کامپیوترِ کارگاه نسخهٔ ۱.۱۱ یا تازه‌تر دارد، این راهِ امن‌تر است: گوشی یک بار با QR جفت می‌شود، " +
+                    "کارها حتی بی وای‌فای در صف می‌مانند و همه‌چیز روی شبکه رمز شده است.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            Button(onClick = { onUseHub(null) }, modifier = Modifier.fillMaxWidth()) {
+                Text(if (upgrade) "جفت شدنِ دوباره" else "اتصال به کامپیوترِ کارگاه")
+            }
+        }
+    }
+}
+
+@Composable
+private fun WorkerConnectCard(
+    vm: WorkshopLinkViewModel,
+    busy: Boolean,
+    kind: DeviceKind,
+    onUseHub: ((String?) -> Unit)? = null,
+) {
     val settings = LocalSettings.current
     var host by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
@@ -603,6 +654,12 @@ private fun WorkerConnectCard(vm: WorkshopLinkViewModel, busy: Boolean, kind: De
     var scanMsg by remember { mutableStateOf<String?>(null) }
 
     fun onScanned(raw: String) {
+        // QRِ «افزودنِ گوشی»ِ کامپیوترِ ۱.۱۱ — به صفحهٔ «کارگاهِ وصل».
+        if (onUseHub != null && PairingV2.parse(raw) != null) {
+            scanMsg = null
+            onUseHub(raw)
+            return
+        }
         val link = Pairing.parse(raw)
         if (link == null) {
             scanMsg = Pairing.refusal(raw)

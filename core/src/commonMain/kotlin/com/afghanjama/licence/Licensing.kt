@@ -91,6 +91,7 @@ class Licensing(
             mode = mode,
             mainReport = if (mode == DeviceMode.WORKER) storedMain() else null,
             storedKeyRejected = rejected,
+            ledgerMoved = LanPrefs.ledgerMoved(settings),
         )
         LicenceGate.onMainReport = ::rememberMain
         LicenceGate.clock = clock

@@ -74,6 +74,15 @@ jobs:
       - name: ساختِ frameworkِ کاتلین
         run: ./gradlew --no-daemon :core:linkDebugFrameworkIosSimulatorArm64
 
+      # «کارگاهِ وصل» روی آیفون: HKDF و پاکت روی CommonCryptoِ آیفون (کاتلین،
+      # روی شبیه‌ساز) و پلِ CryptoKit (Swift، روی همین مک) — هر دو با همان
+      # بردارهای منتشرشده‌ای که آزمونِ جاوا می‌سنجد (RFC 5869، سندِ GCM،
+      # RFC 5903). کامپایلِ سبز نمی‌گوید آیفون و کامپیوتر یک بایت می‌سازند.
+      - name: رمزنگاریِ کارگاهِ وصل روی آیفون
+        run: |
+          ./gradlew --no-daemon :core:iosSimulatorArm64Test
+          iosApp/CryptoInterop/run.sh
+
       # سبزبودنِ کامپایل کافی نیست: اگر پردازشگرِ Room برای هدفِ iOS
       # اجرا نشود، کامپایل سبز می‌مانَد و دیتابیس تازه سرِ اجرا روی
       # آیفون باز نمی‌شود.

@@ -33,6 +33,12 @@ class App : Application() {
         // اگر بالاتر می‌آمد، خرابیِ خودِ راه‌اندازی از قلم می‌افتاد.
         CrashLog.install(this)
 
+        // «کارگاهِ وصل»: کلیدِ اتصالِ این گوشی فقط در Keystore پیچیده می‌ماند،
+        // و نامی که گوشی سرِ جفت شدن به کامپیوتر می‌گوید.
+        com.afghanjama.lan.HubSecrets.store = com.afghanjama.lan.AndroidKeystoreSecretStore(this)
+        com.afghanjama.lan.PhoneName.current = android.os.Build.MODEL ?: "گوشی"
+        com.afghanjama.lan.PhoneName.platform = "android"
+
         // یادآوری هفتگی تسویه کارمزد خیاط‌ها
         val request = PeriodicWorkRequestBuilder<WageReminderWorker>(7, TimeUnit.DAYS)
             .setInitialDelay(1, TimeUnit.DAYS)
