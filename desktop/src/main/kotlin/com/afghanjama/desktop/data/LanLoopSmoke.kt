@@ -616,6 +616,9 @@ fun main() {
 
         hub.stop()
         extraHubs.forEach { it.stop() }
+
+        // ---------------- قراردادِ ۲: کامپیوترِ کارگاه و گوشی‌ها ----------------
+        loopFailed += runHubLoop(dir)
     } finally {
         server.stop()
         runCatching { db.closeConnection() }

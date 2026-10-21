@@ -31,6 +31,13 @@ enum class ReadOnlyReason {
     EXPIRY_GRACE_OVER,
     /** دستگاهِ کارگر: دستگاهِ اصلیِ کارگاه فقط‌خواندنی است. */
     MAIN_DEVICE,
+
+    /**
+     * دفترِ این گوشی به کامپیوترِ کارگاه برده شده و گوشی حالا گوشیِ
+     * «کارگاهِ وصل» است. دفترِ کهنه فقط برای دیدن می‌ماند تا دو دفتر از هم
+     * جدا نیفتند (نقدِ ۷) — هر لایسنسی که باشد.
+     */
+    LEDGER_MOVED,
 }
 
 /**
@@ -70,6 +77,8 @@ data class LicenceFacts(
     val mainReport: MainLicence? = null,
     /** کلیدی نصب شده بود ولی دیگر نمی‌خوانَد — تا صفحه بگوید. */
     val storedKeyRejected: Boolean = false,
+    /** دفترِ این دستگاه به کامپیوترِ کارگاه برده شده ([ReadOnlyReason.LEDGER_MOVED]). */
+    val ledgerMoved: Boolean = false,
 )
 
 /** نتیجهٔ تصمیم — آنچه صفحه نشان می‌دهد و `Repo` رویش اجازه می‌دهد یا نه. */
@@ -153,6 +162,9 @@ object LicencePolicy {
         tz: TimeZone = TimeZone.currentSystemDefault(),
     ): LicenceStatus {
         val (now, rolledBack) = effectiveNow(atMillis, f.lastSeenMillis)
+
+        // ---- دفترِ برده‌شده: پیش از هر قاعدهٔ دیگری ----
+        if (f.ledgerMoved) return LicenceStatus(LicenceState.READ_ONLY, ReadOnlyReason.LEDGER_MOVED, f.licence)
 
         // ---- دستگاهِ کارگر: پیروِ دستگاهِ اصلی ----
         if (f.mode == DeviceMode.WORKER) {

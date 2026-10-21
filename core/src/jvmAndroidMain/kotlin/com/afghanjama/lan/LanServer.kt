@@ -1,6 +1,7 @@
 package com.afghanjama.lan
 
 import com.afghanjama.AppInfo
+import com.afghanjama.AppVersion
 import com.afghanjama.data.Db
 import com.afghanjama.data.entities.SyncRequest
 import com.afghanjama.data.entities.isRepeatOf
@@ -65,6 +66,12 @@ class LanServer(
      * مثلِ [guard] با [LanHub] می‌ماند، نه با یک سرورِ تنها.
      */
     private val peers: LanPeers = LanPeers(),
+    /**
+     * قراردادِ ۲ («کارگاهِ وصل»): جفت شدن و همگام‌سازی. با [LanHub] می‌ماند تا
+     * پنجرهٔ «افزودنِ گوشی» و حافظهٔ تکرار با خاموش و روشن شدنِ سرور گم نشوند.
+     * `null` یعنی فقط قراردادِ ۱ (آزمونِ قدیمی).
+     */
+    private val hub: HubService? = null,
 ) {
 
     private var socket: ServerSocket? = null
@@ -153,6 +160,9 @@ class LanServer(
         // «هر نشانی» بی‌معنا می‌شد (داستانش در [LanGuard.peerKey]). بی جواب
         // بسته می‌شود؛ هیچ گوشیِ کارگری از این راه نمی‌آید.
         val peer = LanGuard.peerKey(client.inetAddress) ?: return
+        // فقط شبکهٔ کارگاه (طرح، B.4): نشانیِ عمومی بی جواب بسته می‌شود.
+        // loopback فقط وقتی سرور خودش روی loopback است (آزمونِ دودی).
+        if (!HostAddress.isPrivate(peer) && !(HostAddress.isLoopback(peer) && bindAddress?.isLoopbackAddress == true)) return
         client.soTimeout = 10_000
         // خواندنِ بایتی و UTF-8ِ صریح — داستانش در [LanWire].
         val request = when (val r = LanWire.readRequest(BufferedInputStream(client.getInputStream()))) {
@@ -173,6 +183,11 @@ class LanServer(
         val path = target.substringBefore('?')
         val query = target.substringAfter('?', "")
 
+        // چند میلی‌ثانیهٔ اولِ روشن شدن: شناسنامهٔ کارگاه هنوز از دفتر خوانده
+        // نشده. تا آن وقت هیچ جوابی نمی‌رود — نه حتی به قراردادِ ۱ — تا دفترِ
+        // بازیابی‌شده روی دستگاهِ دیگر حتی یک لحظه هم سرور نشود.
+        hub?.awaitPrepared(3_000)
+
         // /ping بدونِ رمز جواب می‌دهد تا کارگر بفهمد نشانی درست است؛
         // ولی هیچ داده‌ای در آن نیست.
         if (path == Lan.PATH_PING) {
@@ -184,6 +199,45 @@ class LanServer(
                 put("app", AppInfo.NAME_LATIN)
                 put("protocol", Lan.PROTOCOL)
                 licence()?.let { put("licence", it) }
+                // قراردادِ ۲: گوشیِ تازه با این‌ها کامپیوتر را می‌شناسد و دوباره
+                // پیدایش می‌کند. هیچ‌کدام دادهٔ دفتر نیست؛ نامِ کارگاه هم اینجا
+                // نیست (فقط پس از جفت شدن، در پاکت).
+                hub?.takeIf { it.ready }?.let { h ->
+                    put("protocolMin", HubProtocol.MIN)
+                    put("protocolMax", HubProtocol.MAX)
+                    put("hubId", h.hubId())
+                    put("serverTime", h.now())
+                    put("pairingOpen", h.pairing.isOpen())
+                    put("appVersion", AppVersion.current)
+                }
+            })
+            return
+        }
+
+        if (path.startsWith("/v2/")) {
+            val h = hub
+            if (h == null) {
+                respond(client, 404, JSONObject().apply { put("ok", false); put("error", "مسیر پیدا نشد.") })
+                return
+            }
+            val r = h.route(method, path, request, peer)
+            if (r.status == 200) peers.accepted(peer)
+            respondRaw(client, r.status, r.body)
+            return
+        }
+
+        // قراردادِ ۱ (رمزِ شش‌رقمی): فقط اگر کارفرما بازش گذاشته یا گوشیِ قدیمی
+        // هنوز می‌آید (LegacyMode). وگرنه گوشیِ ۱.۹ و ۱.۱۰ پیامِ روشنِ «به‌روز
+        // کنید» می‌گیرد — همان متنی که خودش در `error` نشان می‌دهد.
+        if (hub != null && !hub.ready) {
+            respond(client, 503, JSONObject().apply {
+                put("ok", false); put("error", HubService.NOT_READY)
+            })
+            return
+        }
+        if (hub != null && !hub.legacyAllowed()) {
+            respond(client, 403, JSONObject().apply {
+                put("ok", false); put("error", HubService.UPDATE_PHONE)
             })
             return
         }
@@ -209,7 +263,10 @@ class LanServer(
                 })
                 return
             }
-            LanGuard.Verdict.Pass -> peers.accepted(peer)
+            LanGuard.Verdict.Pass -> {
+                peers.accepted(peer)
+                hub?.noteLegacy()
+            }
         }
 
         when {
@@ -269,22 +326,16 @@ class LanServer(
      * حسابِ کسی را لو بدهد.
      */
     private suspend fun serveBoard(client: Socket) {
-        val assignments = db.sewingAssignmentDao().observeInProgress().first()
-        val orders = db.orderDao().observeAll().first()
-        val byCode = orders.associateBy { it.orderCode }
         val now = System.currentTimeMillis()
-
         val arr = JSONArray()
-        assignments.forEach { a ->
-            val o = byCode[a.orderCode]
+        HubViews.board(db, now).forEach { r ->
             arr.put(JSONObject().apply {
-                put("tailor", a.tailorLabel.trim())
-                put("orderCode", a.orderCode)
-                put("design", o?.designTitle.orEmpty())
-                put("qty", a.qty)
-                put("days", ((now - a.createdAt) / 86_400_000L).toInt().coerceAtLeast(0))
-                val due = o?.dueDate ?: 0L
-                if (due > 0) put("dueIn", ((due - now) / 86_400_000L).toInt())
+                put("tailor", r.tailor)
+                put("orderCode", r.orderCode)
+                put("design", r.design)
+                put("qty", r.qty)
+                put("days", r.days)
+                r.dueIn?.let { put("dueIn", it) }
             })
         }
         respond(client, 200, JSONObject().apply {
@@ -387,8 +438,10 @@ class LanServer(
         })
     }
 
-    private fun respond(client: Socket, status: Int, json: JSONObject) {
-        val payload = json.toString().toByteArray(Charsets.UTF_8)
+    private fun respond(client: Socket, status: Int, json: JSONObject) = respondRaw(client, status, json.toString())
+
+    private fun respondRaw(client: Socket, status: Int, body: String) {
+        val payload = body.toByteArray(Charsets.UTF_8)
         val head = buildString {
             append("HTTP/1.1 $status ${if (status == 200) "OK" else "ERROR"}\r\n")
             append("Content-Type: application/json; charset=utf-8\r\n")

@@ -38,6 +38,7 @@ object LicenceText {
 
     /** چرا این حالت — یک جمله. */
     fun reason(s: LicenceStatus): String {
+        if (s.reason == ReadOnlyReason.LEDGER_MOVED) return LEDGER_MOVED
         if (s.coveredByMain) {
             return if (s.state == LicenceState.READ_ONLY)
                 "دستگاهِ اصلیِ کارگاه فقط‌خواندنی است، پس این گوشی هم چیزی ثبت نمی‌کند."
@@ -62,6 +63,7 @@ object LicenceText {
                     "مهلتِ ${LicencePolicy.GRACE_DAYS.fa()} روزهٔ دستگاهِ تازه تمام شده."
                 ReadOnlyReason.EXPIRY_GRACE_OVER ->
                     "تاریخِ لایسنس و مهلتِ ${LicencePolicy.GRACE_DAYS.fa()} روزهٔ پس از آن گذشته."
+                ReadOnlyReason.LEDGER_MOVED -> LEDGER_MOVED
                 ReadOnlyReason.MAIN_DEVICE, null -> "ثبتِ تازه بسته است."
             }
         }
@@ -69,6 +71,9 @@ object LicenceText {
 
     /** چه باید کرد — یا `null` اگر کاری لازم نیست. */
     fun remedy(s: LicenceStatus): String? {
+        if (s.reason == ReadOnlyReason.LEDGER_MOVED) {
+            return "کارِ تازه را از «کارگاهِ وصل» بفرستید. اگر انتقال اشتباه بود، در «کارگاهِ وصل» «جدا کردنِ این گوشی» را بزنید."
+        }
         if (s.coveredByMain) {
             return if (s.state == LicenceState.READ_ONLY)
                 "روی دستگاهِ اصلیِ کارگاه، از تنظیمات ← لایسنس، کلیدِ لایسنس را وارد کنید."
@@ -89,6 +94,7 @@ object LicenceText {
     /** یک سطر برای بنرِ خانه. */
     fun banner(s: LicenceStatus): String {
         val head = when {
+            s.reason == ReadOnlyReason.LEDGER_MOVED -> "دفترِ این گوشی به کامپیوتر برده شده"
             s.coveredByMain && s.state == LicenceState.READ_ONLY -> "دستگاهِ اصلی فقط‌خواندنی است"
             s.state == LicenceState.TRIAL ->
                 "نسخهٔ آزمایشی: ${(s.daysLeft ?: 0).fa()} روز و ${(s.ordersLeft ?: 0).fa()} سفارش مانده"
@@ -117,6 +123,10 @@ object LicenceText {
         append(ALWAYS_WORKS)
         remedy(s)?.let { append("\n\n"); append(it) }
     }
+
+    /** دفترِ این گوشی به کامپیوترِ کارگاه برده شده. */
+    const val LEDGER_MOVED =
+        "دفترِ این گوشی به کامپیوترِ کارگاه برده شده؛ اینجا فقط برای دیدن مانده تا دو دفتر از هم جدا نیفتند."
 
     /** جوابِ دستگاهِ اصلی به درخواستِ گوشیِ کارگر، وقتی خودش فقط‌خواندنی است. */
     const val LAN_REFUSAL =

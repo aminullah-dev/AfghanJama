@@ -6,6 +6,9 @@ import com.afghanjama.data.entities.SyncRequest
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.lan.DeviceKind
 import com.afghanjama.lan.HostAddress
+import com.afghanjama.lan.HubClient
+import com.afghanjama.lan.ProtocolChoice
+import com.afghanjama.lan.hubTransport
 import com.afghanjama.lan.HubOff
 import com.afghanjama.lan.LanClient
 import com.afghanjama.lan.LanResult
@@ -46,7 +49,9 @@ data class WorkshopLinkUi(
     val myWork: List<RemoteWork> = emptyList(),
     val message: String? = null,
     val isError: Boolean = false,
-    val checking: Boolean = false
+    val checking: Boolean = false,
+    /** گوشیِ رمزِ شش‌رقمی، و دستگاهِ اصلی حالا قراردادِ ۲ دارد ([com.afghanjama.lan.ProtocolChoice]). */
+    val offerUpgrade: Boolean = false,
 )
 
 /**
@@ -103,6 +108,15 @@ class WorkshopLinkViewModel(
     val busy = Busy()
 
     fun load(settings: Settings) {
+        if (LanPrefs.mode(settings) == DeviceMode.WORKER && LanPrefs.host(settings).isNotBlank()) {
+            viewModelScope.launch {
+                val ping = HubClient(hubTransport()).ping(LanPrefs.host(settings))
+                val offer = (ping as? LanResult.Ok)?.value?.let {
+                    ProtocolChoice.decide(pairedV2 = false, ping = it) == ProtocolChoice.Use.OFFER_UPGRADE
+                } == true
+                _ui.update { it.copy(offerUpgrade = offer) }
+            }
+        }
         _ui.update {
             it.copy(
                 mode = LanPrefs.mode(settings),
@@ -349,4 +363,10 @@ fun hubOffText(off: HubOff?): String? = when (off) {
     HubOff.NO_LEDGER -> "دفترِ کارگاه باز نشد؛ اشتراک بی دفتر روشن نمی‌شود."
     HubOff.STOPPED ->
         "اشتراک خاموش است. دفعهٔ بعد که برنامه روی شبکهٔ کارگاه باز شود، خودش روشن می‌شود."
+    HubOff.MOVED ->
+        "دفترِ این دستگاه آخرین بار روی دستگاهِ دیگری مرکزِ کارگاه بود (از پشتیبان برگشته). اگر این دستگاه " +
+            "حالا مرکز است، اول دستگاهِ قبلی را خاموش کنید و بعد «مرکز اینجاست» را بزنید."
+    HubOff.DUPLICATE_HUB ->
+        "دستگاهِ دیگری هنوز با همین دفتر روی شبکه جواب می‌دهد. دو مرکز با یک دفتر یعنی دو حسابِ جدا؛ " +
+            "اول آن را خاموش کنید یا از حالتِ «اصلی» بیرون بیاورید."
 }

@@ -228,7 +228,18 @@ fun main() {
         Shell(repo, UserRole.SALES)
     }
 
-    val total = Section.entries.size + 1 + shellSizes.size + 1
+    // «کارگاهِ وصل» در حالِ کار: کامپیوترِ مرکز روی loopback، یک گوشی منتظرِ
+    // «اجازه»، سه دستگاهِ جفت‌شده و درخواست‌های منتظر (یکی با ساعتِ نامعتبر).
+    // گردشِ بالا همین بخش را بی مرکز رسم کرده؛ این آنچه کارفرما هر روز می‌بیند.
+    val hubShots = hubScenario(repo, settings)
+    for ((w, h) in shellSizes) {
+        check("hub-$w", "کارگاهِ وصل در پهنای $w", w, h, frames = 3) {
+            HubSection(repo, com.afghanjama.ui.vm.Access.MANAGER, onBack = {}, hub = hubShots.hub, lan = hubShots.host)
+        }
+    }
+    hubShots.hub.stop()
+
+    val total = Section.entries.size + 1 + shellSizes.size + 1 + shellSizes.size
     println("=".repeat(52))
     val shots = shotDir.listFiles { f: java.io.File -> f.name.endsWith(".png") }?.size ?: 0
     println("screenshots: $shots in ${shotDir.absolutePath}")
@@ -239,3 +250,66 @@ fun main() {
     }
     kotlin.system.exitProcess(if (failed == 0) 0 else 1)
 }
+
+private class ShotHost(private val db: com.afghanjama.data.Db) : com.afghanjama.lan.LanHost {
+    override val kind: com.afghanjama.lan.DeviceKind get() = com.afghanjama.lan.DeviceKind.COMPUTER
+    override val deviceName: String = "کامپیوترِ کارگاه"
+    override fun localIp(): String = "192.168.77.7"
+    override fun localIps(): List<String> = listOf("192.168.77.7", "10.0.0.12")
+    override fun networks(): Map<String, com.afghanjama.lan.LanNetwork> =
+        mapOf("192.168.77.7" to com.afghanjama.lan.LanNetwork("192.168.77.0/24", "192.168.77.1"))
+    override fun ledger(): com.afghanjama.data.Db = db
+}
+
+private class HubShots(val hub: com.afghanjama.lan.LanHub, val host: ShotHost)
+
+/** کامپیوترِ مرکزِ آزمایشی روی loopback، با دستگاه و درخواست و گوشیِ منتظر. */
+private fun hubScenario(repo: com.afghanjama.data.repo.Repo, settings: com.afghanjama.prefs.Settings): HubShots =
+    kotlinx.coroutines.runBlocking {
+        val db = DesktopLedger.db().getOrThrow()
+        val host = ShotHost(db)
+        com.afghanjama.prefs.LanPrefs.setMode(settings, com.afghanjama.prefs.DeviceMode.MAIN)
+        com.afghanjama.prefs.LanPrefs.setCode(settings, "482913")
+        com.afghanjama.prefs.LanPrefs.setNetwork(settings, host.networks().values.first().encode())
+        val port = java.net.ServerSocket(0, 1, java.net.InetAddress.getLoopbackAddress()).use { it.localPort }
+        val hub = com.afghanjama.lan.LanHub(java.net.InetAddress.getLoopbackAddress(), port, licenceLoaded = {}, machine = { "screen" })
+        hub.start(settings, host)
+        repeat(100) { if (hub.hubService()?.ready != true) kotlinx.coroutines.delay(30) }
+        val now = System.currentTimeMillis()
+        fun dev(id: String, name: String, role: com.afghanjama.lan.HubRole, person: String, seen: Long?, ver: String) =
+            com.afghanjama.data.entities.LanDevice(
+                deviceId = id, name = name, platform = "android", role = role.wire, personLabel = person,
+                keyB64 = com.afghanjama.lan.LanCrypto.b64(com.afghanjama.lan.LanPrims.random(32)),
+                createdAt = now - 86_400_000L, lastSeenAt = seen, lastIp = "192.168.77.21", appVersion = ver,
+            )
+        if (repo.lanDevice("shot-owner-0001") == null) {
+            repo.addLanDevice(dev("shot-owner-0001", "گوشیِ صاحب‌کار", com.afghanjama.lan.HubRole.OWNER, "", now - 5_000, com.afghanjama.AppVersion.current))
+            repo.addLanDevice(dev("shot-worker-001", "گوشیِ احمد", com.afghanjama.lan.HubRole.WORKER, "[T1] احمد", now - 40 * 60_000L, "1.10.0"))
+            repo.addLanDevice(dev("shot-wall-00001", "تابلوی سالن", com.afghanjama.lan.HubRole.WALL, "", now - 3_000, com.afghanjama.AppVersion.current))
+            db.syncRequestDao().insert(
+                com.afghanjama.data.entities.SyncRequest(
+                    deviceName = "گوشیِ احمد", worker = "[T1] احمد", type = "ATTENDANCE_IN", summary = "درخواستِ ثبتِ ورود",
+                    createdAt = now - 60_000, receivedAt = now - 60_000, clientAt = now - 3 * 86_400_000L, protocol = 2, clientKey = "shot-k1",
+                )
+            )
+            db.syncRequestDao().insert(
+                com.afghanjama.data.entities.SyncRequest(
+                    deviceName = "گوشیِ احمد", worker = "[T1] احمد", type = "NOTE", summary = "پیام", note = "فردا دیرتر می‌آیم.",
+                    createdAt = now - 30_000, receivedAt = now - 30_000, protocol = 2, clientKey = "shot-k2",
+                )
+            )
+        }
+        // دفترِ موقتِ آزمون از بارِ پیش می‌ماند: «آخرین دیدار» هر بار تازه.
+        repo.touchLanDevice("shot-owner-0001", now - 5_000, "192.168.77.21", com.afghanjama.AppVersion.current)
+        repo.touchLanDevice("shot-wall-00001", now - 3_000, "192.168.77.22", com.afghanjama.AppVersion.current)
+        // یک گوشی همین حالا «افزودنِ گوشی» را اسکن کرده و منتظرِ «اجازه» است.
+        val view = hub.openPairing()
+        if (view != null) {
+            val link = com.afghanjama.lan.PairingV2.parse(view.qrText)!!
+            com.afghanjama.lan.HubClient(com.afghanjama.lan.hubTransport(allowLoopback = true)).requestPair(
+                "127.0.0.1", port, com.afghanjama.lan.PairVia.QR, link.secret,
+                com.afghanjama.lan.PhoneInfo("Galaxy A15", "android", com.afghanjama.AppVersion.current, com.afghanjama.lan.HubRole.WORKER), link,
+            )
+        }
+        HubShots(hub, host)
+    }

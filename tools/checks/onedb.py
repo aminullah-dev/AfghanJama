@@ -55,7 +55,7 @@ def builder_calls(name: str, kt: str) -> list[str]:
     return out
 
 
-SERVER_OWNERS = {"LanHub.kt", "LanLoopSmoke.kt"}
+SERVER_OWNERS = {"LanHub.kt", "LanLoopSmoke.kt", "HubLoopSmoke.kt"}
 
 
 def server_builds(name: str, kt: str) -> list[str]:

@@ -107,6 +107,19 @@ targets:
         # تازه‌سازیِ برنامه را روی ۶۰ هرتز قفل می‌کنند و پیمایشِ فهرستِ
         # سفارش‌ها نصفِ روانیِ خودش را از دست می‌دهد.
         CADisableMinimumFrameDurationOnPhone: true
+        # «کارگاهِ وصل» (۱.۱۱): آیفون به کامپیوترِ کارگاه روی وای‌فای وصل می‌شود.
+        # بی این متن، iOS ۱۴ به بعد اولین اتصال به شبکهٔ محلی را بی‌صدا می‌بندد.
+        NSLocalNetworkUsageDescription: خیاط‌یار برای وصل شدن به کامپیوترِ کارگاه به شبکهٔ محلی دسترسی می‌خواهد.
+        # فقط شبکهٔ محلی بی TLS؛ همهٔ دادهٔ آن با AES-GCMِ خودِ برنامه رمز شده
+        # است (قراردادِ ۲). هیچ نشانیِ اینترنتی باز نمی‌شود.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        # QRِ «افزودنِ گوشی» (`kylink2:`) که دوربینِ خودِ آیفون می‌خوانَد «باز کن
+        # در خیاط‌یار» می‌شود؛ برنامه پیش از هر اتصالی از کاربر می‌پرسد.
+        CFBundleURLTypes:
+          - CFBundleURLName: com.afghanjama.khayatyar.hub
+            CFBundleURLSchemes:
+              - kylink2
         UILaunchStoryboardName: ""
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false

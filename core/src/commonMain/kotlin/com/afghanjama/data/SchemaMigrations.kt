@@ -234,6 +234,80 @@ val SCHEMA_STEPS: List<SchemaStep> = listOf(
         listOf(
             "ALTER TABLE `customers` ADD COLUMN `address` TEXT NOT NULL DEFAULT ''"
         )
+    ),
+
+    /**
+     * ۶۶ → ۶۷ — «کارگاهِ وصل»: قراردادِ ۲.
+     *
+     * سه جدولِ تازه و پنج ستونِ تازه در صندوقِ درخواست‌ها:
+     *
+     * - `lan_devices`: گوشی‌های جفت‌شده و کلیدِ هر کدام — در دفتر، تا
+     *   بازیابی روی کامپیوترِ تازه گوشی‌ها را جفت نگه دارد.
+     * - `lan_commands`: جوابِ هر فرمانِ گوشیِ صاحب‌کار با کلیدِ یکتایش، تا
+     *   فرمانِ تکراری دو بار اجرا نشود (نقدِ ۱۰).
+     * - `lan_hub`: شناسنامهٔ کارگاه (`hubId`) — در دفتر، نه در تنظیمات
+     *   (نقدِ ۶). خالی می‌ماند تا اولین بار که سرور روشن شود.
+     * - `sync_requests`: `clientKey` (یکتا، `NULL` برای ردیف‌های قدیم)،
+     *   `clientAt`، `receivedAt`، `deviceId`، و `protocol` با پیش‌فرضِ ۱ — پس
+     *   هر ردیفِ پیشین «قراردادِ ۱» خوانده می‌شود و رفتارش عوض نمی‌شود.
+     *
+     * **چرا بی‌خطر است:** هیچ ردیفی خوانده یا نوشته نمی‌شود. ستون‌های تازه
+     * یا `NULL` می‌پذیرند یا پیش‌فرض دارند، و ایندکسِ یکتا روی ستونی است که
+     * در همهٔ ردیف‌های موجود `NULL` است، پس ساختنش نمی‌شکند.
+     * `migrationSmoke` همین گام را روی کپیِ یک دفترِ پُر (کارگاهِ نمونه) اجرا
+     * می‌کند و طرحِ هر سه دیتابیس (اندروید، ویندوز، آیفون) را پس از آن با
+     * `67.json`ِ خودشان می‌سنجد — اندروید `fallbackToDestructiveMigration`
+     * دارد و ناجوریِ طرح آنجا یعنی پاک شدنِ دفتر (نقدِ ۱۷).
+     */
+    SchemaStep(
+        66, 67,
+        listOf(
+            """
+            CREATE TABLE IF NOT EXISTS `lan_devices` (
+                `deviceId` TEXT NOT NULL,
+                `name` TEXT NOT NULL,
+                `platform` TEXT NOT NULL DEFAULT '',
+                `role` TEXT NOT NULL,
+                `personLabel` TEXT NOT NULL DEFAULT '',
+                `keyB64` TEXT NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                `lastSeenAt` INTEGER,
+                `lastIp` TEXT NOT NULL DEFAULT '',
+                `appVersion` TEXT NOT NULL DEFAULT '',
+                `revokedAt` INTEGER,
+                PRIMARY KEY(`deviceId`)
+            )
+            """.trimIndent(),
+            """
+            CREATE TABLE IF NOT EXISTS `lan_commands` (
+                `clientKey` TEXT NOT NULL,
+                `deviceId` TEXT NOT NULL,
+                `type` TEXT NOT NULL,
+                `status` TEXT NOT NULL,
+                `result` TEXT NOT NULL DEFAULT '',
+                `at` INTEGER NOT NULL,
+                PRIMARY KEY(`clientKey`)
+            )
+            """.trimIndent(),
+            """
+            CREATE TABLE IF NOT EXISTS `lan_hub` (
+                `id` INTEGER NOT NULL,
+                `hubId` TEXT NOT NULL,
+                `hubName` TEXT NOT NULL DEFAULT '',
+                `machine` TEXT NOT NULL DEFAULT '',
+                `legacyV1` TEXT NOT NULL DEFAULT 'AUTO',
+                `lastV1At` INTEGER,
+                `createdAt` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+            "ALTER TABLE `sync_requests` ADD COLUMN `clientKey` TEXT",
+            "ALTER TABLE `sync_requests` ADD COLUMN `clientAt` INTEGER",
+            "ALTER TABLE `sync_requests` ADD COLUMN `receivedAt` INTEGER",
+            "ALTER TABLE `sync_requests` ADD COLUMN `deviceId` TEXT",
+            "ALTER TABLE `sync_requests` ADD COLUMN `protocol` INTEGER NOT NULL DEFAULT 1",
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_sync_requests_clientKey` ON `sync_requests` (`clientKey`)"
+        )
     )
 )
 

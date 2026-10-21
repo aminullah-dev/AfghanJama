@@ -44,7 +44,6 @@ import com.afghanjama.AppInfo
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.desktop.data.DeskPrefs
 import com.afghanjama.desktop.data.DesktopAutoBackup
-import com.afghanjama.desktop.data.DesktopLanHost
 import com.afghanjama.licence.LicenceGate
 import com.afghanjama.licence.Licensing
 import com.afghanjama.prefs.BackupPrefs
@@ -101,7 +100,6 @@ import com.afghanjama.ui.screens.SewingScreen
 import com.afghanjama.ui.screens.ShopProfileScreen
 import com.afghanjama.ui.screens.StockLedgerScreen
 import com.afghanjama.ui.screens.UsersScreen
-import com.afghanjama.ui.screens.WorkshopLinkScreen
 import com.afghanjama.ui.screens.WorkshopLoadScreen
 import com.afghanjama.ui.vm.Access
 import com.afghanjama.ui.vm.ActionCenterViewModel
@@ -147,7 +145,6 @@ import com.afghanjama.ui.vm.UserRole
 import com.afghanjama.ui.vm.UsersViewModel
 import com.afghanjama.ui.vm.WarehouseViewModel
 import com.afghanjama.ui.vm.WorkshopLinkAccess
-import com.afghanjama.ui.vm.WorkshopLinkViewModel
 import com.afghanjama.ui.vm.WorkshopLoadViewModel
 import kotlinx.coroutines.flow.flowOf
 
@@ -664,16 +661,9 @@ internal fun SectionContent(
         }
 
         // صفحهٔ اشتراک روی کامپیوتر، همان صفحهٔ گوشی.
-        Section.WorkshopLink -> {
-            val vm: WorkshopLinkViewModel = viewModel {
-                WorkshopLinkViewModel(repo, DesktopLanHost())
-            }
-            WorkshopLinkScreen(
-                vm,
-                access = access,
-                onBack = back
-            )
-        }
+        // «کارگاهِ وصل» — کامپیوتر به‌عنوانِ مرکز (قراردادِ ۲)، به‌جای صفحهٔ
+        // گوشی‌محورِ «اشتراکِ کارگاه».
+        Section.WorkshopLink -> HubSection(repo, access, onBack = back)
 
         // ماشینی که دفترِ حساب است باید بتواند پشتیبان بگیرد.
         Section.Backup -> BackupScreen(onBack = back)

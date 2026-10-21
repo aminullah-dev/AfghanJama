@@ -412,6 +412,9 @@ fun main() {
         require(err != null, "a gap should have thrown")
     } && ok
 
+    // ۶ — دفترِ ۶۷ («کارگاهِ وصل»): روی کپیِ یک دفترِ پُر، و طرحِ هر سه دیتابیس.
+    ok = runHubMigration(dir) { name, body -> check(name, body) } && ok
+
     dir.deleteRecursively()
 
     println("=".repeat(52))
