@@ -41,6 +41,7 @@ import com.afghanjama.data.dao.SewingAssignmentDao
 import com.afghanjama.data.dao.StockMovementDao
 import com.afghanjama.data.dao.SupplierDao
 import com.afghanjama.data.dao.SyncRequestDao
+import com.afghanjama.data.dao.LanDao
 import com.afghanjama.data.dao.TailorWageDao
 import com.afghanjama.data.entities.AttendanceRecord
 import com.afghanjama.data.entities.AuditLog
@@ -81,6 +82,9 @@ import com.afghanjama.data.entities.Staff
 import com.afghanjama.data.entities.StockMovement
 import com.afghanjama.data.entities.SupplierLedger
 import com.afghanjama.data.entities.SyncRequest
+import com.afghanjama.data.entities.LanCommand
+import com.afghanjama.data.entities.LanDevice
+import com.afghanjama.data.entities.LanHubRow
 import com.afghanjama.data.entities.Tailor
 import com.afghanjama.data.entities.TailorWage
 import com.afghanjama.data.entities.Transaction
@@ -152,6 +156,9 @@ import kotlinx.coroutines.runBlocking
         SalaryPayment::class,
         BreakTime::class,
         SyncRequest::class,
+        LanDevice::class,
+        LanCommand::class,
+        LanHubRow::class,
         OrderPhoto::class
     ],
     version = DB_VERSION,
@@ -226,6 +233,7 @@ abstract class DesktopDatabase : RoomDatabase(), Db {
     abstract override fun salaryDao(): SalaryDao
     abstract override fun breakTimeDao(): BreakTimeDao
     abstract override fun syncRequestDao(): SyncRequestDao
+    abstract override fun lanDao(): LanDao
     abstract override fun orderPhotoDao(): OrderPhotoDao
 
     // ------------------------------------------------------------

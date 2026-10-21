@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
 import java.net.InetAddress
 
 /**
@@ -58,6 +59,29 @@ class LanHub(
     private val offIntervalMs: Long = 15_000,
     /** و وقتی روشن است. */
     private val onIntervalMs: Long = 60_000,
+    /** کدِ این دستگاه برای شناسنامهٔ کارگاه؛ آزمون کدِ خودش را می‌دهد. */
+    private val machine: (Settings) -> String = { com.afghanjama.licence.MachineIds.resolve(it).code },
+    /** سقفِ انتظارِ پرسشِ «اجازه» ([HubService]). */
+    private val pairLongPollMs: Long = HubProtocol.PAIR_LONG_POLL_MS,
+    /**
+     * دستگاهِ دیگری با همین hubId جواب می‌دهد؟ — پیش از «مرکز اینجاست» پس از
+     * بازیابی. برنامه /۲۴ِ همین دستگاه را می‌گردد ([HubFinder])؛ آزمون جوابِ
+     * خودش را می‌دهد.
+     */
+    private val findTwin: suspend (hubId: String, own: List<String>, port: Int) -> String? = { id, own, p ->
+        val client = HubClient(hubTransport())
+        own.firstNotNullOfOrNull { ip ->
+            HubFinder.subnet24(ip).filter { it !in own }.chunked(HubFinder.PARALLEL).firstNotNullOfOrNull { chunk ->
+                kotlinx.coroutines.coroutineScope {
+                    chunk.map { cand ->
+                        async {
+                            cand.takeIf { (client.ping(it, p, HubFinder.PROBE_CONNECT_MS) as? LanResult.Ok)?.value?.hubId == id }
+                        }
+                    }.map { it.await() }.firstOrNull { it != null }
+                }
+            }
+        }
+    },
 ) {
 
     /** آنچه صفحه نشان می‌دهد. */
@@ -76,6 +100,19 @@ class LanHub(
      */
     private val peers = LanPeers(guardClock)
     val seen: StateFlow<LanPeers.Seen> get() = peers.seen
+
+    /**
+     * پنجرهٔ «افزودنِ گوشی» و حافظهٔ تکرارِ قراردادِ ۲ — با هاب می‌مانند:
+     * خاموش و روشن شدنِ سرور (یا شبکه) پنجرهٔ باز را نمی‌بندد و nonceهای
+     * پذیرفته را فراموش نمی‌کند.
+     */
+    private val pairingWindow = HubPairing(guardClock)
+    private val replay = ReplayGuard(guardClock)
+    val pairing: StateFlow<HubPairing.View> get() = pairingWindow.view
+    private var service: HubService? = null
+
+    /** سرویسِ قراردادِ ۲ِ همین لحظه — برای صفحه و آزمونِ دودی. */
+    fun hubService(): HubService? = synchronized(lock) { service }
 
     private val lock = Any()
     // IO، چون شناختنِ شبکه روی کامپیوتر یک دستورِ سیستم را اجرا می‌کند و منتظرش می‌ماند.
@@ -256,13 +293,87 @@ class LanHub(
         var srv = server
         if (srv == null || serverDb !== db) {
             srv?.stop()
-            srv = LanServer(db, bindAddress, port, LanGuard(guardClock), peers)
+            val guard = LanGuard(guardClock)
+            val hub = HubService(
+                db, guard, guardClock,
+                addresses = { l.localIps() to (server?.boundPort?.takeIf { it > 0 } ?: port) },
+                pairing = pairingWindow,
+                replay = replay,
+                longPollMs = pairLongPollMs,
+            )
+            service = hub
+            srv = LanServer(db, bindAddress, port, guard, peers, hub)
             server = srv
             serverDb = db
+            // شناسنامهٔ کارگاه از دفتر — کند است (پرس‌وجو)، پس بیرون از قفل.
+            val s = settings
+            scope.launch {
+                val here = s?.let { runCatching { machine(it) }.getOrNull() }.orEmpty()
+                val name = s?.let { com.afghanjama.prefs.CompanyPrefs.shopName(it) } ?: l.deviceName
+                val ok = runCatching { hub.prepare(here, name) }.getOrDefault(false)
+                if (!ok) synchronized(lock) {
+                    if (service === hub) {
+                        server?.stop()
+                        _state.value = State(off = HubOff.MOVED)
+                    }
+                }
+            }
+        }
+        if (service?.moved == true) {
+            _state.value = State(off = HubOff.MOVED)
+            return false
         }
         val ok = srv.running || srv.start(code)
         _state.value = if (ok) State(serving = true) else State(off = HubOff.PORT_BUSY)
         return ok
+    }
+
+    // ---------------------------------------------------------------
+    // قراردادِ ۲ — آنچه صفحهٔ «کارگاهِ وصل» صدا می‌زند
+
+    /**
+     * «افزودنِ گوشی»: پنجرهٔ ده‌دقیقه‌ای با QR و رمزِ دستی. فقط وقتی سرور روشن
+     * و آماده است؛ QRی که به سرورِ خاموش اشاره کند کارگر را سرگردان می‌کند.
+     */
+    fun openPairing(allowCode: Boolean = true): HubPairing.View? = synchronized(lock) {
+        val hub = service?.takeIf { it.ready } ?: return null
+        val srv = server?.takeIf { it.running } ?: return null
+        val host = lan?.localIp() ?: return null
+        pairingWindow.open(host, srv.boundPort, hub.hubId(), allowCode)
+    }
+
+    fun closePairing() = pairingWindow.close()
+
+    /** «اجازه»؛ `null` یعنی انجام شد، وگرنه دلیل. */
+    suspend fun approvePairing(role: HubRole, person: String, name: String? = null): String? {
+        val hub = hubService() ?: return "کارگاهِ وصل روشن نیست."
+        return hub.approve(role, person, name)
+    }
+
+    fun rejectPairing(): Boolean = hubService()?.reject() ?: false
+
+    /** «قطعِ دسترسی». */
+    suspend fun revokeDevice(deviceId: String): Boolean = hubService()?.revoke(deviceId) ?: false
+
+    /**
+     * «مرکز اینجاست» — پس از بازیابیِ دفتر روی این دستگاه. پیش از آن
+     * /۲۴ِ همین دستگاه گشته می‌شود: اگر دستگاهِ دیگری هنوز با همین hubId
+     * جواب بدهد، روشن نمی‌شود (نقدِ ۶). دو مرکز با یک دفتر یعنی دو حسابِ جدا.
+     *
+     * @return نشانیِ دستگاهِ دیگر، اگر پیدا شد؛ `null` یعنی روشن شد.
+     */
+    suspend fun confirmHere(): String? {
+        val (hub, s, l) = synchronized(lock) { Triple(service, settings, lan) }
+        if (hub == null || s == null || l == null) return null
+        val id = hub.identityRow()?.hubId ?: return null
+        val twin = findTwin(id, l.localIps(), port)
+        if (twin != null) {
+            _state.value = State(off = HubOff.DUPLICATE_HUB)
+            return twin
+        }
+        hub.confirmHere(runCatching { machine(s) }.getOrDefault(""))
+        start(s, l)
+        return null
     }
 
     companion object {

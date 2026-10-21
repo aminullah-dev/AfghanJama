@@ -30,6 +30,7 @@ import com.afghanjama.data.dao.SewingAssignmentDao
 import com.afghanjama.data.dao.StockMovementDao
 import com.afghanjama.data.dao.SupplierDao
 import com.afghanjama.data.dao.SyncRequestDao
+import com.afghanjama.data.dao.LanDao
 import com.afghanjama.data.dao.TailorWageDao
 
 /**
@@ -88,6 +89,9 @@ interface Db : Tx {
     fun salaryDao(): SalaryDao
     fun breakTimeDao(): BreakTimeDao
     fun syncRequestDao(): SyncRequestDao
+
+    /** «کارگاهِ وصل»: گوشی‌های جفت‌شده، فرمان‌ها و شناسنامهٔ کارگاه (دفترِ ۶۷). */
+    fun lanDao(): LanDao
     fun orderPhotoDao(): OrderPhotoDao
 
     // ------------------------------------------------------------

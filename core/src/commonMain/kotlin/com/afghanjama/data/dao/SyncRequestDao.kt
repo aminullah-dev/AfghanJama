@@ -25,6 +25,14 @@ interface SyncRequestDao {
     @Insert
     suspend fun insert(row: SyncRequest): Long
 
+    /** همان کارِ گوشی، اگر پیش‌تر رسیده (قراردادِ ۲). */
+    @Query("SELECT * FROM sync_requests WHERE clientKey = :key")
+    suspend fun getByClientKey(key: String): SyncRequest?
+
+    /** درخواست‌های یک کارگر، تازه‌ترین اول — برای تصویرِ گوشیِ خودش. */
+    @Query("SELECT * FROM sync_requests WHERE worker = :worker ORDER BY createdAt DESC LIMIT :limit")
+    suspend fun recentFor(worker: String, limit: Int): List<SyncRequest>
+
     @Update
     suspend fun update(row: SyncRequest)
 }
