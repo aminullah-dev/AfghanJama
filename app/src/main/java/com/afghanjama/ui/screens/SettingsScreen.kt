@@ -143,11 +143,12 @@ fun SettingsScreen(
         var newLockPin by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { showAppLockDialog = false },
-            title = { Text(if (appLockSet) "تغییر رمز قفل اپ" else "تنظیم رمز قفل اپ") },
+            title = { Text(if (appLockSet) "تغییرِ رمزِ قفلِ برنامه" else "گذاشتنِ رمزِ قفلِ برنامه") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        "با تنظیم رمز، هر بار باز کردن اپ رمز عددی خواسته می‌شود.",
+                        "با این رمز، هر بار که برنامه باز می‌شود رمزِ عددی خواسته می‌شود. " +
+                            "این رمز جدا از رمزِ ورودِ هر نفر است.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -515,22 +516,25 @@ fun SettingsScreen(
 
             AppCard(contentPadding = 0.dp) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("قفل اپ", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    // «قفلِ برنامه» و نه «قفل اپ»، و دکمه‌اش «…رمزِ قفل» و نه «تغییر رمز»:
+                    // پایینِ همین صفحه کارتِ «حسابِ کاربری» هم دکمهٔ «تغییرِ رمزِ ورود» دارد،
+                    // و تا ۱.۱۲.۰ هر دو فقط «تغییر رمز» می‌گفتند.
+                    Text("قفلِ برنامه", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Text(
-                        if (appLockSet) "قفل فعال است؛ هنگام باز کردن اپ رمز خواسته می‌شود."
-                        else "با تنظیم رمز عددی، اپ هنگام باز شدن قفل می‌شود.",
+                        if (appLockSet) "قفل روشن است؛ هر بار که برنامه باز می‌شود رمزِ قفل خواسته می‌شود."
+                        else "با گذاشتنِ رمزِ عددی، برنامه هنگامِ باز شدن قفل می‌شود. این رمز جدا از رمزِ ورودِ هر نفر است.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = { showAppLockDialog = true }, modifier = Modifier.weight(1f)) {
-                            Text(if (appLockSet) "تغییر رمز" else "تنظیم رمز")
+                            Text(if (appLockSet) "تغییرِ رمزِ قفل" else "گذاشتنِ رمزِ قفل")
                         }
                         if (appLockSet) {
                             OutlinedButton(
                                 onClick = { AppLock.clearPin(context); appLockSet = false },
                                 modifier = Modifier.weight(1f)
-                            ) { Text("حذف قفل") }
+                            ) { Text("برداشتنِ قفل") }
                         }
                     }
                 }

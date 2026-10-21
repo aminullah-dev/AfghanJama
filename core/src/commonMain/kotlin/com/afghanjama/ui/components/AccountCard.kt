@@ -1,6 +1,7 @@
 package com.afghanjama.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,9 +28,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.ui.platform.AppAlertDialog
@@ -60,7 +63,13 @@ fun accountRole(ui: AuthUi): String = ui.roleLabel.ifBlank {
 }
 
 /**
- * «حسابِ کاربری» — نام و نقش، «تغییرِ رمز»، «خروج از حساب».
+ * پهنایی که زیرِ آن دو دکمهٔ کارتِ حساب زیرِ هم می‌آیند: هر دکمه با آیکن، فاصله و
+ * حاشیهٔ دکمه حدودِ ۱۸۰ پهنا می‌خواهد، پس دو تا با فاصلهٔ میان‌شان ۳۸۰.
+ */
+private val ACCOUNT_ROW_MIN: Dp = 380.dp
+
+/**
+ * «حسابِ کاربری» — نام و نقش، «تغییرِ رمزِ ورود»، «خروج از حساب».
  *
  * **چرا مشترک شد.** تا ۱.۱۱ سه نسخه بود: گوشی دو کارتِ جدا داشت (فرمِ
  * تغییرِ رمز در خودِ صفحه، با «رمز جدید (حداقل ۴ رقم)»، و کارتِ «حساب
@@ -87,30 +96,54 @@ fun AccountCard(auth: AuthViewModel, onLoggedOut: () -> Unit = {}) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.md)) {
-            OutlinedButton(onClick = { changing = true }, modifier = Modifier.weight(1f)) {
-                Icon(Icons.Default.Password, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(Space.sm))
-                Text("تغییرِ رمز")
+        // **گوشیِ کوچک: دو دکمه زیرِ هم.** کنارِ هم، روی صفحهٔ ۳۶۰ (حدودِ ۲۹۰ پهنا
+        // در کارت) «تغییرِ رمزِ ورود» و «خروج از حساب» هر دو می‌شکستند یا آیکن را
+        // تنگ می‌کردند. زیرِ [ACCOUNT_ROW_MIN] هر دکمه پهنای کامل می‌گیرد.
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val logout = {
+                auth.logout()
+                onLoggedOut()
             }
-            Button(
-                onClick = {
-                    auth.logout()
-                    onLoggedOut()
-                },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                ),
-                modifier = Modifier.weight(1f),
-            ) {
-                Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(Space.sm))
-                Text("خروج از حساب")
+            // قلمِ درشت‌ترِ سیستم دکمه‌ها را پهن‌تر می‌کند؛ آستانه هم با آن بزرگ می‌شود.
+            if (maxWidth < ACCOUNT_ROW_MIN * LocalDensity.current.fontScale) {
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Space.sm)) {
+                    ChangePinButton(onClick = { changing = true }, modifier = Modifier.fillMaxWidth())
+                    LogoutButton(onClick = logout, modifier = Modifier.fillMaxWidth())
+                }
+            } else {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.md)) {
+                    ChangePinButton(onClick = { changing = true }, modifier = Modifier.weight(1f))
+                    LogoutButton(onClick = logout, modifier = Modifier.weight(1f))
+                }
             }
         }
     }
     if (changing) ChangePinDialog(auth, onDismiss = { changing = false })
+}
+
+@Composable
+private fun ChangePinButton(onClick: () -> Unit, modifier: Modifier) {
+    OutlinedButton(onClick = onClick, modifier = modifier) {
+        Icon(Icons.Default.Password, contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(Space.sm))
+        Text("تغییرِ رمزِ ورود")
+    }
+}
+
+@Composable
+private fun LogoutButton(onClick: () -> Unit, modifier: Modifier) {
+    Button(
+        onClick = onClick,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer,
+            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+        ),
+        modifier = modifier,
+    ) {
+        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(Space.sm))
+        Text("خروج از حساب")
+    }
 }
 
 /**
@@ -128,7 +161,7 @@ fun ChangePinDialog(auth: AuthViewModel, onDismiss: () -> Unit) {
     }
     AppAlertDialog(
         onDismissRequest = close,
-        title = { Text("تغییرِ رمز") },
+        title = { Text("تغییرِ رمزِ ورود") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Space.md)) {
                 OutlinedTextField(

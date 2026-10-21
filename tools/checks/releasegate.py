@@ -27,6 +27,12 @@
 
 ترتیب مهم است، نه فقط بودن: نگهبانی که بعد از امضا بیاید فقط دیر خبر
 می‌دهد.
+
+از پسِ ۱.۱۲.۰ دو چیزِ دیگر هم: هر متغیری که `trap ... EXIT` می‌خوانَد پیش
+از خودِ `trap` مقدار گرفته باشد (با `set -u` شکستِ واقعی زیرِ «STAGE:
+unbound variable» دفن می‌شد)، و قفلِ یک‌اجرایی — اتمی، با سنجشِ شناسهٔ
+فرایند برای قفلِ کهنه، پیش از جاکلیدی و ساخت، و آزاد در پاک‌سازی — چون دو
+اجرای هم‌زمان بستهٔ همدیگر را وسطِ مهر از نو ساختند.
 """
 import re
 import sys
@@ -119,6 +125,67 @@ if None not in (verify, build, codesign):
             "sign-and-notarize.sh — verify-build.py باید بعد از ساخت و پیش از "
             "اولین codesign بیاید"
         )
+
+# ---- ۱ب) پاک‌سازیِ پایانی و قفلِ یک‌اجرایی ----
+#
+# **هر متغیری که `trap ... EXIT` می‌خوانَد پیش از خودِ `trap` مقدار گرفته
+# باشد.** تا ۱.۱۲.۰ آخرین `trap` `$STAGE` را پاک می‌کرد که هشتاد خط پایین‌تر
+# ساخته می‌شد؛ با `set -u` هر شکستی در این فاصله پیامِ واقعی را زیرِ
+# «STAGE: unbound variable» دفن می‌کرد. فقط مقداردهیِ سطحِ بالا (اولِ خط)
+# حساب است — مقداری که درونِ یک تابع داده شود، پیش از صدا زدنِ تابع نیست.
+def trap_body(handler):
+    """متنِ یک trap؛ اگر نامِ تابع است، بدنهٔ همان تابع (`None` اگر تعریف نشده)."""
+    fn = re.fullmatch(r"\s*([A-Za-z_]\w*)\s*", handler)
+    if not fn:
+        return handler
+    m = re.search(rf"^{fn.group(1)}\(\)\s*\{{\n(.*?)^\}}", sign, re.M | re.S)
+    return m.group(1) if m else None
+
+
+exit_traps = list(re.finditer(r"""^\s*trap\s+(?:'([^']*)'|"([^"]*)"|(\S+))\s+(?:[A-Z]+\s+)*EXIT\b""", sign, re.M))
+if not exit_traps:
+    problems.append("sign-and-notarize.sh — trap ... EXIT نیست؛ پوشه‌های موقت و قفل پشتِ سر می‌مانند")
+for t in exit_traps:
+    handler = next(g for g in t.groups() if g is not None)
+    body = trap_body(handler)
+    if body is None:
+        problems.append(f"sign-and-notarize.sh — تابعِ «{handler.strip()}» که trap صدا می‌زند تعریف نشده")
+        continue
+    for name in sorted(set(re.findall(r"\$\{?([A-Za-z_]\w*)", body))):
+        a = re.search(rf"^{name}=", sign, re.M)
+        if a is None or a.start() > t.start():
+            problems.append(
+                f"sign-and-notarize.sh — trap EXIT «${name}» را می‌خوانَد ولی {name} پیش از "
+                f"trap مقدار نگرفته؛ با set -u شکست در «{name}: unbound variable» دفن می‌شود"
+            )
+
+# **قفلِ یک‌اجرایی.** دو اجرای هم‌زمان: دومی بسته را از نو ساخت و امضا کرد
+# وقتی اولی مهر می‌چسباند، و اولی با «Record not found» افتاد. قفل باید:
+# اتمی گرفته شود (`mkdir` یا `shlock`)، قفلِ کهنهٔ اجرای کشته‌شده را از روی
+# شناسهٔ فرایند بشناسد (`kill -0`)، پیش از جاکلیدی و ساخت گرفته شود، و در
+# پاک‌سازیِ پایانی آزاد شود.
+lock_take = first(r'\bmkdir "\$LOCK"|\bshlock\b')
+lock_call_m = re.search(r"^take_lock\s*$", sign, re.M)
+lock_call = lock_call_m.start() if lock_call_m else None
+if lock_take is None:
+    problems.append("sign-and-notarize.sh — قفلِ یک‌اجرایی (mkdir \"$LOCK\" یا shlock) نیست")
+if "shlock" not in sign and not re.search(r'kill -0 "\$\w+"', sign):
+    problems.append(
+        "sign-and-notarize.sh — قفل شناسهٔ فرایندِ صاحبش را نمی‌سنجد (kill -0)؛ "
+        "قفلِ اجرای کشته‌شده برای همیشه راه را می‌بندد"
+    )
+if lock_call is None:
+    problems.append("sign-and-notarize.sh — take_lock در سطحِ بالا صدا زده نمی‌شود")
+elif None not in (keychain, build) and lock_call > min(keychain, build):
+    problems.append("sign-and-notarize.sh — قفل باید پیش از جاکلیدی و ساختِ بسته گرفته شود")
+if exit_traps and lock_call is not None and lock_call < exit_traps[0].start():
+    problems.append("sign-and-notarize.sh — قفل پیش از trap EXIT گرفته می‌شود؛ شکستِ میانه آزادش نمی‌کند")
+release_ok = any(
+    re.search(r'rm -[rf]+ "\$LOCK"', trap_body(next(g for g in t.groups() if g is not None)) or "")
+    for t in exit_traps
+)
+if not release_ok:
+    problems.append("sign-and-notarize.sh — پاک‌سازیِ پایانی قفل را آزاد نمی‌کند")
 
 # راهِ دورزدن: متغیری که وارسی را خاموش کند.
 if re.search(r"\b(SKIP|FORCE|ALLOW)_[A-Z_]*\b", sign):
