@@ -2,10 +2,13 @@ package com.afghanjama.desktop.platform
 
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.desktop.DeskNotices
+import com.afghanjama.desktop.data.DeskPrefs
 import com.afghanjama.platform.Reminders
+import com.afghanjama.prefs.Settings
 import com.afghanjama.work.ReminderPlan
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
@@ -39,7 +42,17 @@ class DesktopReminders : Reminders {
     override fun cancelBreak(id: Long) = DeskReminderLoop.poke()
 }
 
-/** حلقهٔ یادآور؛ یکی برای کلِ برنامه. */
+/**
+ * حلقهٔ یادآور؛ یکی برای کلِ برنامه.
+ *
+ * **یک بار، حتی پس از بستن و باز کردن.** یادآورهای گفته‌شده روی دیسک‌اند
+ * ([DeskPrefs.shownReminders])، نه فقط در حافظه — تا ۱.۱۰ هر بار که
+ * برنامه دوباره باز می‌شد، یادآورِ شیفت و استراحت دوباره می‌آمد.
+ *
+ * **فقط وقتی کسی وارد شده ([signedIn]).** یادآور نامِ کارکنان را دارد؛ پشتِ
+ * صفحهٔ ورود (یا پس از قفلِ خودکار) نه از دفتر پرسیده می‌شود، نه پیامِ
+ * سینی می‌آید. یادآوری که در این فاصله وقتش شد، با ورودِ بعدی گفته می‌شود.
+ */
 object DeskReminderLoop {
 
     private const val EVERY_MS = 30_000L
@@ -48,36 +61,57 @@ object DeskReminderLoop {
     private const val LOOKBACK_MS = 24L * 60 * 60 * 1000
 
     private val pokes = Channel<Unit>(Channel.CONFLATED)
-    private val done = mutableSetOf<String>()
 
     private val _fired = MutableSharedFlow<ReminderPlan.Due>(extraBufferCapacity = 16)
 
     /** هر یادآوری که گفته شد — پنجره با آن پیامِ سینی می‌فرستد. */
     val fired: SharedFlow<ReminderPlan.Due> = _fired.asSharedFlow()
 
+    /**
+     * کسی وارد شده؟ — جلسهٔ ورود (`DeskSession`) روشن و خاموشش می‌کند؛ پیش‌فرض
+     * خاموش، تا صفحهٔ ورودِ اول هم بی‌یادآور باشد.
+     */
+    val signedIn = MutableStateFlow(false)
+
     fun poke() {
         pokes.trySend(Unit)
     }
 
-    suspend fun run(repo: Repo) {
+    suspend fun run(repo: Repo, settings: Settings) {
         while (true) {
-            runCatching { check(repo) }
+            // پشتِ صفحهٔ ورود همین‌جا می‌ایستد؛ با ورود فوراً ادامه می‌دهد.
+            signedIn.first { it }
+            runCatching { check(repo, settings) }
             withTimeoutOrNull(EVERY_MS) { pokes.receive() }
         }
     }
 
-    private suspend fun check(repo: Repo) {
-        val now = System.currentTimeMillis()
+    /**
+     * یک نگاه: یادآورهایی که همین حالا وقتشان است و هنوز گفته نشده‌اند،
+     * گفته و روی دیسک نوشته می‌شوند. جدا و با ساعتِ دادنی، تا `deskSmoke`
+     * بسنجدش.
+     */
+    internal suspend fun check(
+        repo: Repo,
+        settings: Settings,
+        now: Long = System.currentTimeMillis(),
+        local: LocalDateTime = LocalDateTime.now(),
+    ): List<ReminderPlan.Due> {
+        if (!signedIn.value) return emptyList()
+        val shown = DeskPrefs.shownReminders(settings, now).keys
         val open = repo.observeAttendanceSince(now - LOOKBACK_MS).first().filter { it.checkOut == null }
         val breaks = repo.observeBreakTimes().first()
-        val local = LocalDateTime.now()
         val inside = if (breaks.any { it.enabled }) repo.insideCount() else 0
-        val due = ReminderPlan.shifts(open, now, done) +
-            ReminderPlan.breaks(breaks, local.hour * 60 + local.minute, local.toLocalDate().toEpochDay(), inside, done)
+        val due = ReminderPlan.shifts(open, now, shown) +
+            ReminderPlan.breaks(breaks, local.hour * 60 + local.minute, local.toLocalDate().toEpochDay(), inside, shown)
+        if (due.isEmpty()) return due
+        // اول روی دیسک، بعد گفتن: اگر برنامه همین لحظه بسته شود، یادآور
+        // دوباره نمی‌آید. یک یادآورِ گم‌شده از ده یادآورِ تکراری کم‌آزارتر است.
+        DeskPrefs.markRemindersShown(settings, due.map { it.key }, now)
         due.forEach { d ->
-            done += d.key
             DeskNotices.show("${d.title}: ${d.text}", sticky = true)
             _fired.tryEmit(d)
         }
+        return due
     }
 }

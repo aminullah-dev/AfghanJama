@@ -15,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,17 +34,24 @@ import java.util.concurrent.atomic.AtomicLong
  *
  * خبرِ عادی چند ثانیه می‌ماند و خودش می‌رود؛ [Notice.sticky] تا کاربر
  * رویش بزند می‌ماند (یادآورها).
+ *
+ * **شماره و مسیر جدا، و چپ‌به‌راست ([Notice.ltr]).** «+۹۳ ۷۰۰ …» یا
+ * «C:\Users\…» وسطِ جملهٔ دری با الگوریتمِ دوسویه جابه‌جا می‌شود: «+»
+ * به آن سرِ شماره می‌رود و تکه‌های مسیر برعکس چیده می‌شوند. پس همان کاری
+ * که صفحه‌ها با مسیر می‌کنند (متنِ جدا با `TextDirection.Ltr`) اینجا هم
+ * هست.
  */
 internal object DeskNotices {
 
-    data class Notice(val id: Long, val text: String, val sticky: Boolean)
+    data class Notice(val id: Long, val text: String, val sticky: Boolean, val ltr: String? = null)
 
     private val ids = AtomicLong()
     private val _items = MutableStateFlow<List<Notice>>(emptyList())
     val items: StateFlow<List<Notice>> = _items.asStateFlow()
 
-    fun show(text: String, sticky: Boolean = false) {
-        val n = Notice(ids.incrementAndGet(), text, sticky)
+    /** [ltr] — شماره یا مسیری که پس از [text] و چپ‌به‌راست نشان داده می‌شود. */
+    fun show(text: String, sticky: Boolean = false, ltr: String? = null) {
+        val n = Notice(ids.incrementAndGet(), text, sticky, ltr?.takeIf { it.isNotBlank() })
         // بیش از سه خبر با هم خوانده نمی‌شود. اول قدیمی‌ترینِ گذرا می‌رود؛
         // یادآورِ ماندگار فقط وقتی کنار می‌رود که همه ماندگار باشند.
         _items.update { list ->
@@ -87,14 +95,24 @@ internal fun NoticeHost(modifier: Modifier = Modifier) {
                     .glass(PillShape, elevation = 10.dp)
                     .clickable { DeskNotices.dismiss(n.id) }
                     .padding(horizontal = 20.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Text(
                     n.text,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = if (n.sticky) FontWeight.SemiBold else FontWeight.Normal,
-                    color = Ink
+                    color = Ink,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
+                n.ltr?.let { tail ->
+                    Text(
+                        tail,
+                        style = MaterialTheme.typography.bodyMedium.copy(textDirection = TextDirection.Ltr),
+                        color = Ink,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                }
             }
         }
     }

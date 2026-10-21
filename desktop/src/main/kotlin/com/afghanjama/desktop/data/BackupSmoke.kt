@@ -58,6 +58,56 @@ private fun makeLedger(f: File) {
     db.close()
 }
 
+/** یک جدولِ نشانه، تا بشود دید کدام دفتر جای کدام نشست. */
+private fun addProbe(f: File) {
+    val c = BundledSQLiteDriver().open(f.absolutePath)
+    try {
+        c.execSQL("CREATE TABLE IF NOT EXISTS `_swap_probe` (`x` INTEGER NOT NULL)")
+    } finally {
+        c.close()
+    }
+}
+
+private fun hasProbe(f: File): Boolean {
+    val c = BundledSQLiteDriver().open(f.absolutePath)
+    return try {
+        val st = c.prepare("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='_swap_probe'")
+        try {
+            st.step() && st.getLong(0) > 0
+        } finally {
+            st.close()
+        }
+    } finally {
+        c.close()
+    }
+}
+
+/**
+ * صفحهٔ ریشهٔ یک جدولِ داده را خراب می‌کند و سرِ فایل (صفحهٔ ۱، با
+ * `user_version` و طرح) را سالم می‌گذارد — همان کپیِ «سرِ سالم، تنِ خراب».
+ */
+private fun damageTablePage(f: File) {
+    val c = BundledSQLiteDriver().open(f.absolutePath)
+    val (pageSize, root) = try {
+        val ps = c.prepare("PRAGMA page_size").let { st ->
+            try { st.step(); st.getLong(0) } finally { st.close() }
+        }
+        val rp = c.prepare(
+            "SELECT MAX(rootpage) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+        ).let { st ->
+            try { st.step(); st.getLong(0) } finally { st.close() }
+        }
+        ps to rp
+    } finally {
+        c.close()
+    }
+    need(root > 1, "setup: no table page to damage")
+    java.io.RandomAccessFile(f, "rw").use { raf ->
+        raf.seek((root - 1) * pageSize)
+        raf.write(ByteArray(pageSize.toInt()) { 0x5A })
+    }
+}
+
 private fun forceVersion(f: File, v: Int) {
     val c = BundledSQLiteDriver().open(f.absolutePath)
     try {
@@ -218,11 +268,14 @@ fun main() {
 
         val target = File(dir, "photos-dst").apply { mkdirs() }
         val keep = File(target, "already-here.jpg").apply { writeBytes(byteArrayOf(1, 2, 3)) }
-        val adopted = DesktopBackup.adoptPhotos(staged, target)
-        need(adopted == 2, "two photos should be adopted, got $adopted")
+        val undo = File(stageDir, DesktopBackup.UNDO_DIR)
+        val placed = DesktopBackup.placePhotos(staged, target, undo)
+        placed.commit()
+        need(placed.count == 2, "two photos should be placed, got ${placed.count}")
         need(File(target, b.name).readBytes().contentEquals(b.readBytes()), "logo bytes changed")
         need(keep.exists(), "a photo the computer already had must stay")
         need(!staged.exists(), "the photo staging folder should be removed")
+        need(!undo.exists(), "the undo folder should be removed once the restore is done")
     } && ok
 
     // ۹ — پشتیبانِ ردشده عکس‌هایش را هم پشتِ سر نمی‌گذارد.
@@ -238,6 +291,143 @@ fun main() {
         val e = runCatching { DesktopBackup.stageAndValidate(arc, stageDir) }.exceptionOrNull()
         need(e != null, "a newer backup should have been refused")
         need(!DesktopBackup.stagedPhotos(stageDir).exists(), "staged photos must be cleaned up on rejection")
+    } && ok
+
+    // ۹ب — پشتیبانی که نسخه دارد ولی صفحه‌هایش خراب است رد می‌شود (از ۱.۱۰.۰).
+    //
+    // تا اینجا فقط `user_version` خوانده می‌شد، که در سرِ فایل است. کپیِ
+    // بریده یا دیسکِ خراب سرِ سالم و تنِ خراب دارد؛ پذیرفته می‌شد و جای دفترِ
+    // سالم را می‌گرفت.
+    ok = check("a backup with a valid version but damaged pages is refused before anything is touched") {
+        val broken = File(dir, "damaged.db")
+        makeLedger(broken)
+        damageTablePage(broken)
+        need(ledgerFileVersion(broken) == DB_VERSION, "setup: the header must still read as version $DB_VERSION")
+        need(!ledgerFileHealthy(broken), "setup: quick_check must see the damage")
+        val arc = File(dir, "damaged.ajb")
+        DesktopBackup.writeBackup(broken, arc)
+
+        val stageDir = File(dir, "s9b").apply { mkdirs() }
+        val e = runCatching { DesktopBackup.stageAndValidate(arc, stageDir) }.exceptionOrNull()
+        need(e != null, "a damaged backup must be refused")
+        need(!File(stageDir, "$DB_NAME.restore").exists(), "the staged file must be cleaned up on rejection")
+
+        // و از راهِ کاملِ بازیابی: دفترِ زنده دست نمی‌خورد و بسته هم نمی‌شود.
+        val home = File(dir, "restore-damaged").apply { mkdirs() }
+        val db = File(home, DB_NAME)
+        makeLedger(db)
+        val before = db.readBytes()
+        var closed = false
+        val r = runCatching { DesktopBackup.restoreInto(arc, db, File(home, "photos"), closeLedger = { closed = true }) }
+        need(r.isFailure, "restoring a damaged backup must fail")
+        need(!closed, "the open ledger must not even be closed for a damaged backup")
+        need(db.readBytes().contentEquals(before), "the live ledger must not be touched")
+    } && ok
+
+    // ۹ج — بازیابی یا کامل است یا هیچ: عکس‌ها پیش از دفتر می‌نشینند و اگر
+    // ننشینند، دفتر دست نمی‌خورد (از ۱.۱۰.۰). تا اینجا عکس‌ها پس از جایگزینیِ
+    // دفتر کپی می‌شدند و شکستشان «بازیابی نشد» می‌گفت با دفترِ عوض‌شده.
+    val photoArc = File(dir, "probe-with-photos.ajb")
+    val incomingPhoto = ByteArray(1500) { (it % 199).toByte() }
+    run {
+        val probe = File(dir, "probe.db")
+        makeLedger(probe)
+        addProbe(probe)
+        val src = File(dir, "photos-probe").apply { mkdirs() }
+        File(src, "p_same.jpg").writeBytes(incomingPhoto)
+        File(src, "p_new.jpg").writeBytes(ByteArray(700) { 5 })
+        DesktopBackup.writeBackup(probe, photoArc, src)
+    }
+    /** یک پوشهٔ دفترِ تازه با یک عکسِ هم‌نام، برای هر بند. */
+    fun home(name: String): Triple<File, File, File> {
+        val h = File(dir, name).apply { mkdirs() }
+        val db = File(h, DB_NAME).also { makeLedger(it) }
+        val photos = File(h, "order_photos").apply { mkdirs() }
+        File(photos, "p_same.jpg").writeBytes(byteArrayOf(9, 9, 9))
+        return Triple(h, db, photos)
+    }
+    fun noLitter(h: File, why: String) {
+        listOf("$DB_NAME.restore", "$DB_NAME.prev", "restore-photos").forEach {
+            need(!File(h, it).exists(), "$why: «$it» must not be left behind")
+        }
+        val undo = h.listFiles().orEmpty().filter { it.name.startsWith(DesktopBackup.UNDO_DIR) }
+        need(undo.isEmpty(), "$why: the undo folder must not be left behind: ${undo.map { it.name }}")
+    }
+
+    ok = check("restore puts the ledger and photos in place together, and leaves no litter") {
+        val (h, db, photos) = home("restore-ok")
+        var closed = false
+        val n = DesktopBackup.restoreInto(photoArc, db, photos, closeLedger = { closed = true })
+        need(closed, "the ledger must be closed before it is replaced")
+        need(hasProbe(db), "the backup's ledger should now be the live one")
+        need(n == 2, "two photos should come back, got $n")
+        need(File(photos, "p_same.jpg").readBytes().contentEquals(incomingPhoto), "a same-name photo takes the backup's version")
+        need(File(photos, "p_new.jpg").isFile, "the backup's new photo should be there")
+        noLitter(h, "after a good restore")
+    } && ok
+
+    // پوشهٔ برگشتی که بازیابیِ ناکامِ پیشین جا گذاشته، تنها نسخهٔ عکس‌هایی است
+    // که برنگشتند؛ بازیابیِ بعدی نباید پاکش کند.
+    ok = check("an undo folder left by an earlier failed restore is never deleted") {
+        val (h, db, photos) = home("restore-old-undo")
+        val old = File(h, "${DesktopBackup.UNDO_DIR}-1700000000000").apply { mkdirs() }
+        val only = File(old, "p_only_copy.jpg").apply { writeBytes(byteArrayOf(4, 4, 4)) }
+        DesktopBackup.restoreInto(photoArc, db, photos, closeLedger = {})
+        need(only.isFile && only.readBytes().contentEquals(byteArrayOf(4, 4, 4)), "the earlier undo folder must stay as it was")
+        val fresh = h.listFiles().orEmpty().filter { it.name.startsWith(DesktopBackup.UNDO_DIR) && it != old }
+        need(fresh.isEmpty(), "this restore's own undo folder should be gone: ${fresh.map { it.name }}")
+    } && ok
+
+    ok = check("restore whose photos cannot be placed leaves the ledger untouched and says so") {
+        val (h, db, _) = home("restore-photo-blocked")
+        val blocked = File(h, "photos-is-a-file").apply { writeText("not a folder") }
+        val before = db.readBytes()
+        var closed = false
+        val e = runCatching {
+            DesktopBackup.restoreInto(photoArc, db, blocked, closeLedger = { closed = true })
+        }.exceptionOrNull()
+        need(e != null, "the restore must fail when the photos have nowhere to go")
+        need(!closed, "the open ledger must not be closed when the photos failed first")
+        need(db.readBytes().contentEquals(before), "the live ledger must not be replaced")
+        need(e!!.message.orEmpty().contains("دست نخوردند"), "the message must say nothing changed: ${e.message}")
+        noLitter(h, "after a photo failure")
+    } && ok
+
+    ok = check("a photo failure half-way puts every earlier photo back") {
+        val (h, _, photos) = home("photo-halfway")
+        val from = File(h, "restore-photos").apply { mkdirs() }
+        File(from, "p_same.jpg").writeBytes(incomingPhoto)
+        File(from, "p_zz_new.jpg").writeBytes(ByteArray(64) { 1 })
+        val undo = File(h, DesktopBackup.UNDO_DIR)
+        var copies = 0
+        val e = runCatching {
+            DesktopBackup.placePhotos(from, photos, undo) { src, dst ->
+                if (++copies == 2) throw java.io.IOException("دیسک پر است")
+                src.copyTo(dst, overwrite = true)
+            }
+        }.exceptionOrNull()
+        need(e is DesktopBackup.PhotosNotPlaced, "the failure should come back as PhotosNotPlaced, got $e")
+        need((e as DesktopBackup.PhotosNotPlaced).notBack == 0, "every photo should have been put back")
+        need(File(photos, "p_same.jpg").readBytes().contentEquals(byteArrayOf(9, 9, 9)), "the computer's own photo must be back")
+        need(photos.listFiles()!!.map { it.name }.sorted() == listOf("p_same.jpg"), "no photo from the backup may stay")
+        noLitter(h, "after a half-way photo failure")
+    } && ok
+
+    ok = check("restore whose ledger swap fails puts the photos back and says the old ledger stayed") {
+        val (h, db, photos) = home("restore-swap-fails")
+        val before = db.readBytes()
+        val e = runCatching {
+            DesktopBackup.restoreInto(
+                photoArc, db, photos, closeLedger = {},
+                swap = { _, _ -> throw java.io.IOException("دیسک پر است") }
+            )
+        }.exceptionOrNull()
+        need(e != null, "the restore must fail when the swap fails")
+        need(db.readBytes().contentEquals(before), "the live ledger must stay")
+        need(File(photos, "p_same.jpg").readBytes().contentEquals(byteArrayOf(9, 9, 9)), "the computer's own photo must be back")
+        need(!File(photos, "p_new.jpg").exists(), "the backup's photo must not stay without its ledger")
+        need(e!!.message.orEmpty().contains("دفترِ قبلی سرِ جایش ماند"), "the message must say the old ledger stayed: ${e.message}")
+        noLitter(h, "after a failed swap")
     } && ok
 
     // ۱۰ — پشتیبانِ خودکار فقط ۱۴ تای آخرِ خودش را نگه می‌دارد.

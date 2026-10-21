@@ -42,6 +42,43 @@ class PhoneNumberTest {
         assertEquals("+989121234567", PhoneNumber.international("+98 912 123 4567"))
     }
 
+    /**
+     * «+93 (0) 7…» — شکلِ کارت‌ویزیت. تا ۱.۱۰ صفرِ داخل پرانتز می‌ماند و
+     * «+930700123456»ی نادرست ساخته می‌شد؛ واتساپ چنین شماره‌ای را باز
+     * نمی‌کند یا به آدمِ دیگری می‌رسد.
+     */
+    @Test
+    fun `the (0) trunk prefix after the country code is dropped`() {
+        assertEquals("+93700123456", PhoneNumber.international("+93 (0) 700 123 456"))
+        assertEquals("+93700123456", PhoneNumber.international("+93(0)700123456"))
+        assertEquals("+93700123456", PhoneNumber.international("+93 ( 0 ) 700-123-456"))
+        assertEquals("+93700123456", PhoneNumber.international("0093 (0) 700 123 456"))
+        assertEquals("+93700123456", PhoneNumber.international("93 (0) 700 123 456"))
+        assertEquals("+93700123456", PhoneNumber.international("+۹۳ (۰) ۷۰۰ ۱۲۳ ۴۵۶"))
+        assertEquals("+442079460958", PhoneNumber.international("+44 (0) 20 7946 0958"))
+        assertEquals("93700123456", PhoneNumber.forWhatsApp("+93 (0) 700 123 456"))
+    }
+
+    @Test
+    fun `an Afghan trunk zero kept after +93 without brackets is dropped too`() {
+        assertEquals("+93700123456", PhoneNumber.international("+93 0700 123 456"))
+        assertEquals("+93700123456", PhoneNumber.international("0093 0700123456"))
+        assertEquals("+93202101234", PhoneNumber.international("+93 020 210 1234"))
+    }
+
+    @Test
+    fun `brackets that are not a lone trunk zero are not mistaken for one`() {
+        // «(0700)» پیش‌شماره است، نه صفرِ داخلی.
+        assertEquals("+93700123456", PhoneNumber.international("(0700) 123 456"))
+        // «(07)» پس از کدِ کشور: رقم‌ها می‌مانند، و همان قاعدهٔ «+930…» رسیدگی می‌کند.
+        assertEquals("+93700123456", PhoneNumber.international("+93 (07) 00123456"))
+        // «(00)» صفرِ داخلی نیست، و «+93» با ده رقم پس از آن شمارهٔ افغانستان نیست.
+        assertNull(PhoneNumber.international("+93 (00) 700 123 456"))
+        assertNull(PhoneNumber.international("+93 7001234567"))
+        // «(0)» بی کدِ کشور پیش از آن: صفر رقمی از شماره است و شماره همان می‌ماند.
+        assertEquals("+93700123456", PhoneNumber.international("(0) 700 123 456"))
+    }
+
     @Test
     fun `a mobile without its leading zero is still Afghan`() {
         assertEquals("+93700123456", PhoneNumber.international("700123456"))

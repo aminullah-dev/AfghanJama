@@ -78,11 +78,12 @@ import java.awt.GraphicsEnvironment
 import java.awt.Rectangle
 
 /**
- * جایی که ViewModelها زندگی می‌کنند.
+ * جایی که ViewModelهای کلِ برنامه زندگی می‌کنند — فقط «ورود».
  *
  * روی اندروید این را خودِ اندروید می‌دهد (Activity یک
  * `ViewModelStoreOwner` است). روی دسکتاپ چنین چیزی از آسمان نمی‌آید و
- * باید صریح داده شود، وگرنه `viewModel { }` سرِ اجرا می‌ترکد.
+ * باید صریح داده شود، وگرنه `viewModel { }` سرِ اجرا می‌ترکد. صفحه‌های پسِ
+ * ورود صاحبِ جلسهٔ خودشان را دارند (`SignedInGate`).
  */
 private object DesktopViewModelStoreOwner : ViewModelStoreOwner {
     override val viewModelStore = ViewModelStore()
@@ -244,8 +245,9 @@ private fun ApplicationScope.MainWindow(settings: Settings) {
                 }
 
                 // یادآورها از دفتر می‌پرسند چه کسی داخل است؛ بی دفتر کاری ندارند.
+                // پشتِ صفحهٔ ورود می‌ایستند (`SignedInGate`).
                 LaunchedEffect(Unit) {
-                    DesktopLedger.repo().getOrNull()?.let { DeskReminderLoop.run(it) }
+                    DesktopLedger.repo().getOrNull()?.let { DeskReminderLoop.run(it, settings) }
                 }
 
                 // درِ ورود: نقش از `AuthViewModel` می‌آید، نه از فرض.
@@ -281,11 +283,14 @@ private fun ApplicationScope.MainWindow(settings: Settings) {
                             }
                         }
                 ) {
-                    if (!auth.isLoggedIn) {
+                    // هر ورود یک جلسهٔ تازه: فاکتورِ نیمه‌کاره و بقیهٔ حالِ صفحه‌ها
+                    // با «خروج» و قفلِ خودکار می‌رود و به نفرِ بعدی نمی‌رسد.
+                    SignedInGate(
+                        signedIn = auth.isLoggedIn,
                         // `onLoggedIn` لازم نیست کاری کند: حالت خودش عوض
                         // می‌شود و بازترکیب صفحه را رد می‌کند.
-                        LoginScreen(authVm, onLoggedIn = {})
-                    } else {
+                        login = { LoginScreen(authVm, onLoggedIn = {}) },
+                    ) {
                         Shell(DesktopLedger.repo().getOrNull(), auth.role, auth.access, nav, authVm)
                     }
                 }

@@ -2,10 +2,13 @@ package com.afghanjama.desktop.data
 
 import com.afghanjama.prefs.Settings
 import com.afghanjama.ui.nav.DeskGroup
+import java.net.URLDecoder
+import java.net.URLEncoder
 
 /**
  * چیزهایی که کامپیوتر از یک بار باز شدن تا بارِ بعد به یاد می‌سپارد:
- * اندازه و جای پنجره، گروه‌های جمع‌شدهٔ نوارِ کنار، و قفلِ خودکار.
+ * اندازه و جای پنجره، گروه‌های جمع‌شدهٔ نوارِ کنار، قفلِ خودکار، پوشهٔ
+ * پشتیبانِ خودکار، و یادآورهایی که گفته شده‌اند.
  *
  * کنارِ بقیهٔ تنظیمات (`FileSettings`، در پوشهٔ دفتر) و در فایلِ جدای
  * `desk.properties` — هیچ‌کدام مالِ گوشی نیست.
@@ -83,4 +86,47 @@ object DeskPrefs {
     fun backupFolder(s: Settings): String = s.getString(FILE, "backup_folder", "")
 
     fun setBackupFolder(s: Settings, path: String) = s.putString(FILE, "backup_folder", path)
+
+    /**
+     * یادآورهایی که گفته شده‌اند — کلیدِ `ReminderPlan.Due` ← زمانِ گفتن.
+     *
+     * **چرا روی دیسک.** تا ۱.۱۰ این فهرست فقط در حافظه بود؛ پس از هر بستن و
+     * باز کردنِ برنامه (یا به‌روزرسانی، یا رفتنِ برق) یادآورِ پایانِ شیفت و
+     * نان و چای دوباره گفته می‌شد.
+     *
+     * **عمرِ محدود ([REMINDER_SHOWN_TTL_MS]).** هیچ کلیدی پس از این مدت دوباره
+     * وقتش نمی‌شود: شیفتِ کهنه‌تر از ۲۴ ساعت یادآوری نمی‌شود و کلیدِ وقتِ
+     * استراحت روز را در خودش دارد. پس هر کلیدِ کهنه‌تر دور ریخته می‌شود و
+     * فایل بزرگ نمی‌شود. ساعتی که عقب رفته هم کلید را نگه می‌دارد تا به
+     * عمرش برسد (زمانِ «آینده» کهنه شمرده نمی‌شود).
+     */
+    fun shownReminders(s: Settings, now: Long): Map<String, Long> =
+        s.getString(FILE, "reminders_shown", "")
+            .lineSequence()
+            .mapNotNull { line ->
+                val tab = line.indexOf('\t')
+                if (tab <= 0) return@mapNotNull null
+                val at = line.substring(0, tab).toLongOrNull() ?: return@mapNotNull null
+                val key = runCatching { URLDecoder.decode(line.substring(tab + 1), Charsets.UTF_8) }
+                    .getOrNull() ?: return@mapNotNull null
+                key to at
+            }
+            .filter { (_, at) -> now - at < REMINDER_SHOWN_TTL_MS }
+            .toMap()
+
+    /** [keys] همین حالا گفته شدند؛ کلیدهای کهنه همین‌جا دور ریخته می‌شوند. */
+    fun markRemindersShown(s: Settings, keys: Collection<String>, now: Long) {
+        val all = shownReminders(s, now) + keys.associateWith { now }
+        val text = all.entries
+            .sortedByDescending { it.value }
+            .take(REMINDER_SHOWN_MAX)
+            .joinToString("\n") { (key, at) -> "$at\t" + URLEncoder.encode(key, Charsets.UTF_8) }
+        s.putString(FILE, "reminders_shown", text)
+    }
+
+    /** دو روز — بیش از ۲۴ ساعتِ نگاهِ شیفت و یک روزِ کلیدِ استراحت. */
+    const val REMINDER_SHOWN_TTL_MS: Long = 48L * 60 * 60 * 1000
+
+    /** سقفِ کلیدها، اگر روزی کارگاهی صدها شیفت در دو روز داشت. */
+    private const val REMINDER_SHOWN_MAX = 500
 }

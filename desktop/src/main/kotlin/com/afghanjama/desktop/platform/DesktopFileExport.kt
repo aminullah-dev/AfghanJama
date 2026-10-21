@@ -2,6 +2,7 @@ package com.afghanjama.desktop.platform
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
+import com.afghanjama.desktop.DeskNotices
 import com.afghanjama.desktop.pdf.DesktopDocs
 import com.afghanjama.platform.FileExport
 import kotlinx.coroutines.Dispatchers
@@ -18,6 +19,9 @@ import java.io.File
  *
  * `JFileChooser` هم می‌شد ولی یک پنجرهٔ Swing وسطِ برنامهٔ Compose باز
  * می‌کرد که ظاهرش با بقیه یکی نیست.
+ *
+ * **شکست گفته می‌شود.** تا ۱.۱۰ هر خطا (دیسکِ پر، پوشهٔ بی‌اجازه، فایلی که
+ * اکسل قفلش کرده) بی‌صدا خورده می‌شد و دکمه انگار کاری نکرده بود.
  */
 class DesktopFileExport : FileExport {
 
@@ -26,15 +30,19 @@ class DesktopFileExport : FileExport {
         val scope = rememberCoroutineScope()
         return { suggested ->
             scope.launch(Dispatchers.IO) {
-                runCatching {
-                    val target = File(DesktopDocs.outputDir(), safeName(suggested))
-                    // BOM، به همان دلیلِ اندروید: اکسلِ ویندوز بدونش
-                    // فارسی را جویده نشان می‌دهد.
-                    target.outputStream().use { out ->
-                        out.write(byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()))
-                        out.writer(Charsets.UTF_8).use { it.write(text()) }
-                    }
-                    if (Desktop.isDesktopSupported()) Desktop.getDesktop().open(target)
+                val target = runCatching {
+                    val body = text()
+                    File(DesktopDocs.outputDir(), safeName(suggested)).also { writeText(it, body) }
+                }.getOrElse {
+                    DeskNotices.show("خروجی ساخته نشد: ${it.message ?: it::class.simpleName}")
+                    return@launch
+                }
+                val opened = runCatching {
+                    if (!Desktop.isDesktopSupported()) error("no desktop")
+                    Desktop.getDesktop().open(target)
+                }
+                if (opened.isFailure) {
+                    DeskNotices.show("خروجی ساخته شد ولی باز نشد. فایل اینجاست:", ltr = target.absolutePath)
                 }
             }
             Unit
@@ -43,4 +51,20 @@ class DesktopFileExport : FileExport {
 
     private fun safeName(raw: String): String =
         raw.replace(Regex("""[\\/:*?"<>|]"""), "-").ifBlank { "gozaresh.csv" }
+
+    companion object {
+        /** سه بایتِ نشانهٔ UTF-8 (BOM). */
+        internal val UTF8_BOM = byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte())
+
+        /**
+         * متن با BOM، به همان دلیلِ اندروید: اکسلِ ویندوز بدونش فارسی را
+         * جویده نشان می‌دهد. جدا شده تا `deskSmoke` همین را بسنجد.
+         */
+        internal fun writeText(target: File, text: String) {
+            target.outputStream().use { out ->
+                out.write(UTF8_BOM)
+                out.writer(Charsets.UTF_8).use { it.write(text) }
+            }
+        }
+    }
 }

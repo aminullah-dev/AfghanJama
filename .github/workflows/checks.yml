@@ -1,6 +1,6 @@
 name: بررسی
 
-# هر push روی شاخهٔ کاری. **عمداً APK نمی‌سازد.**
+# هر push روی شاخهٔ کاری و روی main، و هر PR به main. **عمداً APK نمی‌سازد.**
 #
 # تا امروز هر push یک ساختِ کاملِ APK + نسخهٔ release + شبیه‌ساز را راه
 # می‌انداخت: حدود دوازده دقیقه. آنچه واقعاً از آن یاد می‌گرفتیم در هفت
@@ -9,14 +9,30 @@ on:
   workflow_dispatch:
   push:
     branches:
+      # خودِ main، پس از هر ادغام: آنچه به main رسید هم سنجیده شود، نه فقط
+      # شاخه‌ای که از آن آمد.
+      - main
       - claude/**
       # شاخه‌های اصلاحیِ نسخه (مثلِ fix/b0-correct). بی این، آزمون‌های
       # اندروید، ساختِ رومیزی و بررسی‌های ساختاری روی آن‌ها هرگز اجرا
       # نمی‌شدند و فقط کارهای iOS، مک و ویندوز سبز می‌شدند.
       - fix/**
+  # هر PR به main، از هر شاخه‌ای. تا ۱.۱۰ شاخه‌های `feat/**` (همهٔ فازِ A)
+  # هیچ‌وقت این کار را نمی‌دیدند: نه push راهش می‌انداخت نه PR.
+  pull_request:
+    branches:
+      - main
 
 jobs:
   check:
+    # **دو بار برای یک کامیت اجرا نمی‌شود.** PRی که از `claude/**` یا `fix/**`
+    # می‌آید با push هم این کار را راه می‌اندازد، و اجرای pushِ همان کامیت در
+    # خودِ PR دیده می‌شود؛ پس اجرای pull_requestِ آن رد می‌شود. PR از هر
+    # شاخهٔ دیگر (`feat/**`) یا از fork فقط همین اجرای pull_request را دارد.
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name != github.repository ||
+      !(startsWith(github.head_ref, 'claude/') || startsWith(github.head_ref, 'fix/'))
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
