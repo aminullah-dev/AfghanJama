@@ -91,6 +91,8 @@ fun WorkshopLinkScreen(
      * قراردادِ ۲ نیست (کامپیوتر).
      */
     onUseHub: ((String?) -> Unit)? = null,
+    /** «کارگاهِ وصل» از چشمِ مرکز (قراردادِ ۲) — وقتی این دستگاه اصلی است. */
+    hubAdmin: com.afghanjama.ui.vm.HubAdminViewModel? = null,
 ) {
     val settings = LocalSettings.current
     val canRunHub = WorkshopLinkAccess.canRunHub(access)
@@ -194,7 +196,16 @@ fun WorkshopLinkScreen(
 
                 DeviceMode.MAIN -> {
                     item { MainCard(vm, ui.kind, ui.serving, ui.hubOff, ui.ip, ui.code, ui.alternatives, canRunHub, seen) }
-                    if (!WorkshopLinkAccess.seesRequests(access)) {
+                    if (hubAdmin != null) {
+                        // قراردادِ ۲: جفت کردنِ گوشی‌ها، فهرستِ دستگاه‌ها و صندوق — همان
+                        // تکه‌هایی که «کارگاهِ وصل»ِ کامپیوتر دارد.
+                        item { HubMessage(hubAdmin) }
+                        item { HubMovedCard(hubAdmin, access) }
+                        item { HubPairPanel(hubAdmin, access, qrSize = 200.dp) }
+                        item { HubInboxPanel(hubAdmin, access) }
+                        item { HubDevicesPanel(hubAdmin, access) }
+                        item { HubLegacyPanel(hubAdmin, access, ui.ip, ui.code) }
+                    } else if (!WorkshopLinkAccess.seesRequests(access)) {
                         // فروشنده یا خیاطی که پشتِ دستگاهِ اصلی نشسته: درخواست‌ها کارِ او نیست.
                         item {
                             Text(

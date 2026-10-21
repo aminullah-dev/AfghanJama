@@ -43,12 +43,14 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.afghanjama.lan.DebtLine
+import com.afghanjama.lan.HUB_UNREACHABLE
 import com.afghanjama.lan.HostAddress
 import com.afghanjama.lan.HubClientState
 import com.afghanjama.lan.HubRole
 import com.afghanjama.lan.Outbox
 import com.afghanjama.lan.OutboxState
 import com.afghanjama.lan.PairingV2
+import com.afghanjama.lan.PhoneName
 import com.afghanjama.lan.RequestLine
 import com.afghanjama.lan.WorkLine
 import com.afghanjama.platform.LocalCodeScanner
@@ -291,7 +293,10 @@ private fun StatusCard(ui: HubClientState, onRefresh: () -> Unit) {
             Pill(ui.role?.label ?: "")
         }
         if (ui.person.isNotBlank()) Text("به نامِ ${ui.person}", style = MaterialTheme.typography.bodySmall)
-        ui.problem?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+        ui.problem?.let {
+            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            LocalNetworkHint(it)
+        }
         if (ui.hubReadOnly) {
             Text("کامپیوترِ کارگاه فقط‌خواندنی است؛ کارِ تازه پذیرفته نمی‌شود.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         }
@@ -502,11 +507,32 @@ private fun MessageCard(text: String, error: Boolean, onDismiss: () -> Unit) {
         ),
     ) {
         Row(Modifier.fillMaxWidth().padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(text, Modifier.weight(1f), color = if (error) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer)
+            Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
+                Text(text, color = if (error) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer)
+                LocalNetworkHint(text)
+            }
             TextButton(onClick = onDismiss) { Text("باشه") }
         }
     }
 }
+
+/**
+ * آیفون: اگر «شبکهٔ محلی» را رد کرده باشند، iOS بی‌صدا هر بسته به کامپیوتر را
+ * می‌بندد و همان «به کامپیوتر نرسید» می‌ماند. جای روشن کردنش را بگو.
+ */
+@Composable
+private fun LocalNetworkHint(text: String) {
+    if (text != HUB_UNREACHABLE || PhoneName.platform != "ios") return
+    Text(
+        LOCAL_NETWORK_HINT,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+/** راهِ روشن کردنِ اجازهٔ «شبکهٔ محلی» روی آیفون. */
+const val LOCAL_NETWORK_HINT =
+    "روی آیفون اگر به «شبکهٔ محلی» اجازه نداده‌اید: تنظیمات ← حریمِ خصوصی و امنیت ← شبکهٔ محلی ← خیاط‌یار را روشن کنید."
 
 @Composable
 private fun ForgetButton(pending: Int, onForget: () -> Unit) {

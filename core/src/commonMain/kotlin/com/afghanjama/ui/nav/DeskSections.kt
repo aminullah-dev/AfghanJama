@@ -88,7 +88,7 @@ enum class DeskSection(val title: String, val group: DeskGroup) {
     // امروز
     Home("خانه", DeskGroup.TODAY),
     ActionCenter("مرکزِ هشدار", DeskGroup.TODAY),
-    WorkshopLink("اشتراکِ کارگاه با گوشی‌ها", DeskGroup.TODAY),
+    WorkshopLink("کارگاهِ وصل", DeskGroup.TODAY),
     MyWork("کارِ من", DeskGroup.TODAY),
 
     // کارگاه — از سفارش تا تحویل

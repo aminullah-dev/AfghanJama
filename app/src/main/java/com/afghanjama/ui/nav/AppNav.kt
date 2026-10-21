@@ -109,6 +109,7 @@ import com.afghanjama.ui.vm.AuthViewModel
 import com.afghanjama.ui.vm.BackupViewModel
 import com.afghanjama.ui.vm.BoardViewModel
 import com.afghanjama.ui.vm.HubClientViewModel
+import com.afghanjama.ui.vm.HubAdminViewModel
 import com.afghanjama.ui.vm.BreakTimeViewModel
 import com.afghanjama.ui.vm.CustomerDetailViewModel
 import com.afghanjama.ui.vm.CustomersViewModel
@@ -532,11 +533,13 @@ fun AppNav(factory: ViewModelProvider.Factory) {
                 val linkVm = viewModel<WorkshopLinkViewModel>(vmOwner, factory = factory)
                 // «کارگاهِ وصل» (قراردادِ ۲): همین صفحه، وقتی گوشی با کامپیوتر جفت است.
                 val hubVm = viewModel<HubClientViewModel>(vmOwner, factory = factory)
+                val hubAdminVm = viewModel<HubAdminViewModel>(vmOwner, factory = factory)
                 WorkshopLinkRoute(
                     vm = linkVm,
                     hubVm = hubVm,
                     access = authUi.access,
-                    onBack = { navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    hubAdmin = hubAdminVm,
                 )
             }
 

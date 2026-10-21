@@ -266,6 +266,15 @@ compose.desktop {
                 // برنامه از `AppInfo.NAME` می‌آید.
                 packageName = "KhayatYar"
                 dockName = "KhayatYar"
+                // «کارگاهِ وصل»: گوشی‌های کارگاه به این مک وصل می‌شوند. اگر macOS
+                // برای برنامه‌ای که فقط گوش می‌دهد هم «شبکهٔ محلی» را بپرسد (۱۵ به
+                // بعد؛ روی مکِ واقعی سنجیده شود)، این متن را نشان می‌دهد.
+                infoPlist {
+                    extraKeysRawXml = """
+                        <key>NSLocalNetworkUsageDescription</key>
+                        <string>خیاط‌یار برای وصل شدنِ گوشی‌های کارگاه به شبکهٔ محلی دسترسی می‌خواهد.</string>
+                    """.trimIndent()
+                }
             }
 
             windows {

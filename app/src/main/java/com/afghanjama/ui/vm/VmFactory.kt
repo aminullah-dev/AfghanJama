@@ -74,6 +74,7 @@ class VmFactory(
             NewSaleViewModel::class.java -> NewSaleViewModel(repo)
             BreakTimeViewModel::class.java -> BreakTimeViewModel(repo)
             WorkshopLinkViewModel::class.java -> WorkshopLinkViewModel(repo, lanHost)
+            HubAdminViewModel::class.java -> HubAdminViewModel(repo)
             // «کارگاهِ وصل» (قراردادِ ۲): همان یک جلسهٔ پروسه. اگر این گوشی تا امروز
             // دستگاهِ اصلی بود، با جفت شدن سرورش خاموش می‌شود — دو مرکز با یک دفتر نه.
             com.afghanjama.ui.vm.HubClientViewModel::class.java -> com.afghanjama.ui.vm.HubClientViewModel(

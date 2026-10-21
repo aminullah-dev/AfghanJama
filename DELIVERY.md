@@ -13,10 +13,23 @@ workflow. اگر همیشه خودتان در Android Studio خروجی می‌�
 
 ## طرحِ دیتابیس — انجام شده، ولی بدانید چرا هست
 
-`DB_VERSION` الان **۶۳** است و طرحِ هر سه نسخه در گیت کامیت شده:
+`DB_VERSION` الان **۶۷** است (۱.۱۱: «کارگاهِ وصل» — `lan_devices`،
+`lan_commands`، `lan_hub` و پنج ستونِ تازه در `sync_requests`) و طرحِ هر سه
+نسخه در گیت کامیت شده:
 
-    app/schemas/com.afghanjama.data.AppDatabase/{61,62,63}.json
-    desktop/schemas/com.afghanjama.desktop.data.DesktopDatabase/{61,62,63}.json
+    app/schemas/com.afghanjama.data.AppDatabase/{61..67}.json
+    desktop/schemas/com.afghanjama.desktop.data.DesktopDatabase/{61..67}.json
+    core/schemas/com.afghanjama.ios.data.IosDatabase/{64..67}.json
+
+`migrationSmoke` گامِ ۶۶→۶۷ را روی کپیِ یک دفترِ پُر اجرا می‌کند و طرحِ پس از
+گام را با `67.json`ِ هر سه می‌سنجد.
+
+**کلیدِ گوشی‌ها در دفتر است.** گوشی‌های جفت‌شده (`lan_devices`) با پشتیبان
+می‌روند، تا بازیابی روی کامپیوترِ تازه گوشی‌ها را جفت نگه دارد. پس هر کسی که
+فایلِ پشتیبان را دارد می‌تواند خودش را جای یک گوشیِ جفت‌شده جا بزند — همان
+پشتیبانی که همهٔ حساب‌های کارگاه را هم دارد؛ خطرِ تازه‌ای نیست، ولی فایلِ
+پشتیبان را مثلِ خودِ دفتر نگه دارید. گوشیِ گم‌شده را از «کارگاهِ وصل ←
+دستگاه‌ها ← قطعِ دسترسی» ببندید.
 
 **کارِ شما نیست مگر `DB_VERSION` را بالا ببرید.** ولی اگر روزی بردید،
 Room طرحِ نسخهٔ تازه را فقط **هنگام ساخت** می‌نویسد و آن فایل باید
