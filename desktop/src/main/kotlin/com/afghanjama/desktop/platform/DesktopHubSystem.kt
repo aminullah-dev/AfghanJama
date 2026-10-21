@@ -24,21 +24,37 @@ object DesktopHubSystem {
         ProcessHandle.current().info().command().orElse(null)?.takeIf { it.endsWith(".exe", ignoreCase = true) }
 
     /**
-     * دو قاعدهٔ ورودی در «شبکه‌های خصوصی»: درگاهِ ۸۷۹۷، و خودِ برنامه. دومی
-     * لازم است چون اگر کسی پرسشِ اولِ ویندوز را رد کرده باشد، ویندوز برای همین
-     * برنامه قاعدهٔ «بستن» ساخته و قاعدهٔ درگاه به‌تنهایی از آن نمی‌گذرد (نقدِ ۲۳).
+     * **یک** قاعدهٔ ورودی: فقط همین برنامه، فقط TCP روی درگاهِ ۸۷۹۷، فقط در
+     * «شبکه‌های خصوصی».
+     *
+     * تا بازبینیِ فازِ B دو قاعده بود: درگاهِ ۸۷۹۷ برای **هر** برنامه، و همین
+     * برنامه روی **هر** درگاه و پروتکل — هر دو گشادتر از لازم. و قاعدهٔ «اجازه»
+     * از قاعدهٔ «بستن»ی که ویندوز پس از ردِ پرسشِ اولش برای همین برنامه می‌سازد
+     * نمی‌گذرد (در ویندوز «بستن» همیشه مقدم است؛ نقدِ ۲۳)، پس پیش از ساختن، هر
+     * قاعدهٔ ورودیِ **همین برنامه** (و قاعده‌های قبلیِ خیاط‌یار) پاک می‌شود.
      *
      * یک پرسشِ UAC؛ اگر کارفرما «نه» بزند، چیزی عوض نمی‌شود و همین گفته می‌شود.
+     * کدِ خروجِ netsh از پروسهٔ بالابرده برمی‌گردد؛ `Start-Process -Wait` به‌تنهایی
+     * همیشه صفر می‌داد، حتی وقتی قاعده ساخته نشده بود.
      */
     fun allowOnWindowsFirewall(port: Int = HubProtocol.PORT): Result<Unit> = runCatching {
         check(onWindows) { "فقط روی ویندوز" }
-        val rules = buildList {
-            add("netsh advfirewall firewall add rule name=\"KhayatYar LAN\" dir=in action=allow protocol=TCP localport=$port profile=private")
-            exePath()?.let { add("netsh advfirewall firewall add rule name=\"KhayatYar App\" dir=in action=allow program=\"$it\" enable=yes profile=private") }
-        }.joinToString(" & ")
+        require(port in 1..65535)
+        val exe = exePath() ?: error("فقط برنامهٔ نصب‌شده (KhayatYar.exe) قاعده می‌سازد.")
+        // نشانیِ برنامه از خودِ ویندوز است، ولی درونِ خطِ cmd می‌نشیند: «"» در نامِ
+        // پوشهٔ ویندوز ممکن نیست و «%» و «^» را cmd باز می‌کرد، پس هر سه رد.
+        check(exe.none { it == '"' || it == '%' || it == '^' || it == '\n' || it == '\r' }) { "مسیرِ برنامه نویسهٔ ناجور دارد." }
+        val rules = listOf(
+            "netsh advfirewall firewall delete rule name=all dir=in program=\"$exe\"",
+            "netsh advfirewall firewall delete rule name=\"KhayatYar LAN\"",
+            "netsh advfirewall firewall delete rule name=\"KhayatYar App\"",
+            "netsh advfirewall firewall add rule name=\"KhayatYar LAN\" dir=in action=allow program=\"$exe\" " +
+                "protocol=TCP localport=$port profile=private enable=yes",
+        ).joinToString(" & ")
         // PowerShell: نقلِ قولِ تکی، و هر ' درونش دوتایی.
         val quoted = ("/c " + rules).replace(SINGLE, SINGLE + SINGLE)
-        val ps = "Start-Process -FilePath cmd.exe -ArgumentList " + SINGLE + quoted + SINGLE + " -Verb RunAs -Wait -WindowStyle Hidden"
+        val ps = "\$p = Start-Process -FilePath cmd.exe -ArgumentList " + SINGLE + quoted + SINGLE +
+            " -Verb RunAs -Wait -PassThru -WindowStyle Hidden; exit \$p.ExitCode"
         val shell = ProcessBuilder("powershell.exe", "-NoProfile", "-NonInteractive", "-Command", ps)
             .redirectErrorStream(true).start()
         if (!shell.waitFor(120, TimeUnit.SECONDS)) {

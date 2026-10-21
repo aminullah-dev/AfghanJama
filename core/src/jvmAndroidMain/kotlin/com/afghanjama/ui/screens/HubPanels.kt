@@ -189,6 +189,9 @@ fun HubPairPanel(vm: HubAdminViewModel, access: Access, qrSize: Dp = 220.dp) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("روی گوشی «کارگاهِ وصل ← اسکنِ QRِ کامپیوتر» را بزنید.", style = MaterialTheme.typography.bodyMedium)
                     Text("آیفون: دوربینِ خودِ گوشی را رو به QR بگیرید و «باز کن در خیاط‌یار» را بزنید.", style = MaterialTheme.typography.bodySmall)
+                    if (view.codeNote.isNotBlank()) {
+                        Text(view.codeNote, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    }
                     if (view.allowCode) {
                         Text("بی دوربین (فقط کارگر و تابلو):", style = MaterialTheme.typography.labelMedium)
                         val host = PairingV2.parse(view.qrText)?.host.orEmpty()
@@ -232,7 +235,10 @@ private fun ApproveBox(
     onApprove: (HubRole, String) -> Unit,
     onReject: () -> Unit,
 ) {
-    var role by remember(wanted) { mutableStateOf(if (!viaQr && wanted == HubRole.OWNER) HubRole.WORKER else wanted) }
+    // نقشِ پیش‌گزیده هرگز «صاحبِ کار» نیست، حتی اگر گوشی خواسته باشد: گوشیِ کارگری
+    // که QRِ روی صفحه را زودتر از گوشیِ موردِ نظر اسکن کند و «صاحب‌کار» بخواهد، با
+    // یک «اجازه»ی شتاب‌زده صاحب‌کار می‌شد. صاحب‌کار را باید خودِ کارفرما بزند.
+    var role by remember(wanted) { mutableStateOf(if (wanted == HubRole.OWNER) HubRole.WORKER else wanted) }
     var person by remember { mutableStateOf("") }
     Text("نقشِ این گوشی را شما تعیین می‌کنید:", style = MaterialTheme.typography.labelMedium)
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

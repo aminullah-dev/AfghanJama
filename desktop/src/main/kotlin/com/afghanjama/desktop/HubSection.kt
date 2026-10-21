@@ -33,6 +33,7 @@ import com.afghanjama.data.repo.Repo
 import com.afghanjama.desktop.data.DesktopBackup
 import com.afghanjama.desktop.data.DesktopLanHost
 import com.afghanjama.desktop.data.backupsDir
+import com.afghanjama.desktop.data.databaseFile
 import com.afghanjama.desktop.data.dataDir
 import com.afghanjama.desktop.platform.DesktopHubSystem
 import com.afghanjama.desktop.platform.HubDeskPrefs
@@ -358,14 +359,30 @@ private fun MoveLedgerPanel(repo: Repo, access: Access) {
     }
 }
 
-/** خودِ انتقال؛ متنِ نتیجه برای صفحه. */
-private suspend fun moveLedger(repo: Repo, source: File): String {
-    if (runCatching { repo.hasAnyWorkshopData() }.getOrDefault(true)) {
+/**
+ * خودِ انتقال؛ متنِ نتیجه برای صفحه.
+ *
+ * **پشتیبانِ ایمنی همیشه، و سنجیده.** تا بازبینیِ فازِ B فقط وقتی گرفته می‌شد که
+ * `hasAnyWorkshopData` بله می‌گفت — که گوشی‌های جفت‌شده، شناسنامهٔ کارگاه،
+ * حسابرسی و هر جدولِ بیرون از آن پرس‌وجو را نمی‌دید — و هیچ‌وقت باز نمی‌شد تا
+ * معلوم شود سالم است. حالا هر دفتری که روی دیسک هست اول پشتیبان می‌گیرد و همان
+ * سنجشِ «پاک‌کردن» ([DesktopReset.verify]: قالب، نسخه، `quick_check` و CRCِ هر
+ * عکس) رویش اجرا می‌شود؛ اگر نشد، فایلِ خراب پاک و چیزی جایگزین نمی‌شود.
+ */
+private suspend fun moveLedger(@Suppress("UNUSED_PARAMETER") repo: Repo, source: File): String {
+    val live = databaseFile()
+    if (live.isFile && live.length() > 0L) {
         val dir = backupsDir().apply { mkdirs() }
         val safety = File(dir, "KhayatYar-before-move-${System.currentTimeMillis()}.ajb")
         val saved = DesktopBackup.backupWithPhotos(safety)
         if (saved.isFailure) {
+            safety.delete()
             return "پشتیبانِ دفترِ این کامپیوتر گرفته نشد (${saved.exceptionOrNull()?.message}); چیزی جایگزین نشد."
+        }
+        val checked = com.afghanjama.desktop.data.DesktopReset.verify(safety)
+        if (checked.isFailure) {
+            safety.delete()
+            return "پشتیبانِ دفترِ این کامپیوتر باز و سنجیده نشد (${checked.exceptionOrNull()?.message}); چیزی جایگزین نشد."
         }
     }
     // سرورِ کارگاه همین دفتر را می‌نویسد؛ پیش از جایگزینی خاموش.
