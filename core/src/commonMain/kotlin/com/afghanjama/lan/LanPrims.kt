@@ -27,6 +27,21 @@ object LanPrims {
 
     fun hmacSha256(key: ByteArray, data: ByteArray): ByteArray = primHmacSha256(key, data)
 
+    /**
+     * PBKDF2-HMAC-SHA256 (RFC 8018) — **کُند کردنِ عمدیِ رمزِ دستی.** کامپیوتر و
+     * اندروید با یک `Mac`ِ `javax.crypto` در حلقه، آیفون با
+     * `CCKeyDerivationPBKDF`ِ CommonCrypto. با بردارهای RFC 7914 سنجیده می‌شود.
+     *
+     * [password] فقط ASCIIِ چاپی است: CommonCrypto رمز را رشتهٔ C می‌گیرد و بایتِ
+     * صفر آن را کوتاه می‌کرد. رمزِ دستی همیشه رقم است.
+     */
+    fun pbkdf2Sha256(password: ByteArray, salt: ByteArray, iterations: Int, length: Int): ByteArray {
+        require(password.isNotEmpty() && salt.isNotEmpty()) { "PBKDF2 بی رمز یا نمک" }
+        require(password.all { it in 0x20..0x7e }) { "رمزِ PBKDF2 باید ASCIIِ چاپی باشد" }
+        require(iterations >= 1 && length in 1..255 * 32) { "PBKDF2 بیرون از بازه" }
+        return primPbkdf2Sha256(password, salt, iterations, length)
+    }
+
     /** AES-256-GCM؛ خروجی: متنِ رمز ‖ برچسبِ ۱۶ بایتی. */
     fun gcmSeal(key: ByteArray, nonce: ByteArray, plain: ByteArray, aad: ByteArray): ByteArray =
         primGcmSeal(key, nonce, plain, aad)
@@ -49,6 +64,7 @@ object LanPrims {
 internal expect fun primRandom(n: Int): ByteArray
 internal expect fun primSha256(data: ByteArray): ByteArray
 internal expect fun primHmacSha256(key: ByteArray, data: ByteArray): ByteArray
+internal expect fun primPbkdf2Sha256(password: ByteArray, salt: ByteArray, iterations: Int, length: Int): ByteArray
 internal expect fun primGcmSeal(key: ByteArray, nonce: ByteArray, plain: ByteArray, aad: ByteArray): ByteArray
 internal expect fun primGcmOpen(key: ByteArray, nonce: ByteArray, sealed: ByteArray, aad: ByteArray): ByteArray?
 internal expect fun primP256KeyPair(): EcKeyPair

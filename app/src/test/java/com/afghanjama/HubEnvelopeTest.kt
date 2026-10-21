@@ -58,6 +58,37 @@ class HubEnvelopeTest {
     }
 
     @Test
+    fun `a man in the middle who caught a code request cannot test guesses at HKDF speed`() {
+        // میانجی کلیدِ خودش را به گوشی داده و پاکتِ رمزِ دستی را گرفته؛ رازِ ECDH را
+        // دارد. حدسِ خامِ رمز (بی PBKDF2) — حتی رمزِ درست — جعبه را باز نمی‌کند؛
+        // فقط رمزِ کُندشده با همین پنجره باز می‌کند. یعنی هر حدس ۲^۱۷ دور می‌خورد.
+        val mallory = LanPrims.p256KeyPair()
+        val fake = hello.copy(hubPub = mallory.publicX963)
+        val draft = HubEnvelope.pairRequest(fake, PairVia.CODE, code, info)
+        val body = obj(draft.body)
+        val phonePub = LanCrypto.unb64(body.jStr("phonePub"))!!
+        val shared = LanPrims.p256Agree(mallory, phonePub)!!
+        val transcript = HubProtocol.pairTranscript(pairingId, PairVia.CODE, mallory.publicX963, phonePub)
+        val nonce = LanCrypto.unb64(body.jStr("nonce"))!!
+        val box = LanCrypto.unb64(body.jStr("box"))!!
+        val aad = HubProtocol.aadPairRequest(pairingId, PairVia.CODE)
+        val rawGuess = LanCrypto.pairKey(shared, code, transcript)
+        assertNull("raw code guess", LanCrypto.open(rawGuess, nonce, box, aad))
+        val stretched = LanCrypto.pairKey(shared, LanCrypto.codeSecret(code, pairingId), transcript)
+        assertNotNull("stretched code", LanCrypto.open(stretched, nonce, box, aad))
+        // و QR کُند نمی‌شود: رازِ ۱۲۸ بیتی همان‌طور در کلید می‌نشیند.
+        val qr = obj(HubEnvelope.pairRequest(fake, PairVia.QR, qrSecret, info).body)
+        val qrPub = LanCrypto.unb64(qr.jStr("phonePub"))!!
+        val qrKey = LanCrypto.pairKey(
+            LanPrims.p256Agree(mallory, qrPub)!!, qrSecret,
+            HubProtocol.pairTranscript(pairingId, PairVia.QR, mallory.publicX963, qrPub),
+        )
+        assertNotNull(
+            LanCrypto.open(qrKey, LanCrypto.unb64(qr.jStr("nonce"))!!, LanCrypto.unb64(qr.jStr("box"))!!, HubProtocol.aadPairRequest(pairingId, PairVia.QR)),
+        )
+    }
+
+    @Test
     fun `a wrong secret, a wrong window or the other route opens nothing`() {
         val wrong = HubEnvelope.pairRequest(hello, PairVia.QR, LanPrims.random(16), info)
         assertNull("wrong QR secret", HubEnvelope.openPairRequest(obj(wrong.body), pairingId, hubPair, ::secrets))

@@ -6,9 +6,12 @@ import kotlinx.cinterop.convert
 import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.usePinned
 import platform.CoreCrypto.CCHmac
+import platform.CoreCrypto.CCKeyDerivationPBKDF
 import platform.CoreCrypto.CC_SHA256
 import platform.CoreCrypto.CC_SHA256_DIGEST_LENGTH
 import platform.CoreCrypto.kCCHmacAlgSHA256
+import platform.CoreCrypto.kCCPBKDF2
+import platform.CoreCrypto.kCCPRFHmacAlgSHA256
 import platform.Security.SecRandomCopyBytes
 import platform.Security.kSecRandomDefault
 
@@ -50,6 +53,26 @@ internal object PlatformPrims {
         return out
     }
 
+    /** PBKDF2-HMAC-SHA256 از CommonCrypto (`CCKeyDerivationPBKDF`). */
+    fun pbkdf2Sha256(password: ByteArray, salt: ByteArray, iterations: Int, length: Int): ByteArray {
+        val out = ByteArray(length)
+        // CommonCrypto رمز را `const char *` می‌گیرد؛ LanPrims آن را به ASCIIِ چاپی
+        // محدود کرده، پس رشته همان بایت‌هاست.
+        val text = password.decodeToString()
+        val status = salt.usePinned { s ->
+            out.usePinned { o ->
+                CCKeyDerivationPBKDF(
+                    kCCPBKDF2, text, password.size.convert(),
+                    s.addressOf(0).reinterpret(), salt.size.convert(),
+                    kCCPRFHmacAlgSHA256, iterations.convert(),
+                    o.addressOf(0).reinterpret(), length.convert(),
+                )
+            }
+        }
+        check(status == 0) { "PBKDF2 نگرفت: $status" }
+        return out
+    }
+
     fun gcmSeal(key: ByteArray, nonce: ByteArray, plain: ByteArray, aad: ByteArray): ByteArray {
         require(key.size == LanCrypto.KEY_BYTES && nonce.size == LanCrypto.NONCE_BYTES)
         return IosLanBridge.require()
@@ -85,6 +108,8 @@ internal object PlatformPrims {
 internal actual fun primRandom(n: Int): ByteArray = PlatformPrims.random(n)
 internal actual fun primSha256(data: ByteArray): ByteArray = PlatformPrims.sha256(data)
 internal actual fun primHmacSha256(key: ByteArray, data: ByteArray): ByteArray = PlatformPrims.hmacSha256(key, data)
+internal actual fun primPbkdf2Sha256(password: ByteArray, salt: ByteArray, iterations: Int, length: Int): ByteArray =
+    PlatformPrims.pbkdf2Sha256(password, salt, iterations, length)
 internal actual fun primGcmSeal(key: ByteArray, nonce: ByteArray, plain: ByteArray, aad: ByteArray): ByteArray =
     PlatformPrims.gcmSeal(key, nonce, plain, aad)
 internal actual fun primGcmOpen(key: ByteArray, nonce: ByteArray, sealed: ByteArray, aad: ByteArray): ByteArray? =
