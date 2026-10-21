@@ -12,9 +12,30 @@ name: نسخهٔ آیفون
 # می‌تواند فقط سمتِ iOS بشکند — `java.*`ی که اندروید دارد و iOS ندارد،
 # یا `expect`ی که `actual`ش جا مانده. آن شکستن تا روزی که کسی دستی
 # روی مک بسازد دیده نمی‌شد.
+# **کجا اجرا می‌شود (۲۰۲۶-۱۰-۲۱).** تا امروز روی push به **هر** شاخه
+# اجرا می‌شد. هر کامیتِ هر شاخهٔ کاری (ایجنت‌ها روزی ده‌ها کامیت می‌زنند)
+# یک ساختِ مک (دقیقه‌اش ۱۰ برابر حساب می‌شود) یا ویندوز (۲ برابر) راه
+# می‌انداخت و بودجهٔ Actions تمام شد: همهٔ CIِ مخزن‌های خصوصی ایستاد.
+# حالا: روی pull_request (به هر پایه‌ای، پس PRهای پشتِ‌سرِهم هم سنجیده
+# می‌شوند)، روی push به main، و دستی. کامیتِ تازه روی همان PR اجرای
+# قبلی را لغو می‌کند.
 on:
+  pull_request:
+    paths:
+      - "iosApp/**"
+      - "core/**"
+      - "gradle/**"
+      - "*.gradle.kts"
+      - "gradle.properties"
+      - ".github/workflows/ios.yml"
+      # این کار هم بررسی‌های ساختاری را می‌دوانَد — همان قاعدهٔ
+      # `windows.yml`: ویرایشِ خودِ بررسی‌ها باید روی همین رانر سنجیده
+      # شود.
+      - "tools/checks/**"
+      # نسخهٔ آیفون از این اسکریپت می‌آید (`ios-version.sh`).
+      - "tools/release/**"
   push:
-    branches: ["**"]
+    branches: [main]
     paths:
       - "iosApp/**"
       - "core/**"
@@ -29,6 +50,10 @@ on:
       # نسخهٔ آیفون از این اسکریپت می‌آید (`ios-version.sh`).
       - "tools/release/**"
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
