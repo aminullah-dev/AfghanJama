@@ -16,7 +16,7 @@ import java.net.NetworkInterface
  * سرور باشد — و تصمیمِ کارفرما این بود که پی‌سی دفتر شود.
  */
 object Lan {
-    const val PORT = 8797
+    const val PORT = HubProtocol.PORT
 
     // مسیرها
     const val PATH_PING = "/ping"
