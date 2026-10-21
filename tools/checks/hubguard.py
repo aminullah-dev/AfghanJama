@@ -22,6 +22,10 @@
     `printStackTrace`. پیامِ خطا به کاربر از متن‌های ثابت است.
   ۵ **حافظهٔ nonce دست‌کم دو برابرِ بازهٔ زمان است**؛ وگرنه درخواستِ
     ضبط‌شده در دقیقه‌های آخرِ بازه دوباره پذیرفته می‌شود.
+  ۶ **هیچ ثابتِ مشترکی هم‌نامِ ماکروی C نیست.** کدِ `commonMain` در سرآیندِ
+    Objective-Cِ framework آیفون می‌نشیند؛ `const val NAME_MAX` آنجا با ماکروی
+    `NAME_MAX`ِ `<sys/syslimits.h>` باز می‌شد و ساختِ Xcode می‌شکست (CIِ #36)،
+    در حالی که کامپایلِ کاتلین سبز بود.
 """
 import re
 import sys
@@ -139,6 +143,22 @@ def tostring_problems(cls: str, kt: str) -> list[str]:
     return []
 
 
+# ماکروهای شیء‌گونهٔ C که در سرآیندِ هر برنامهٔ iOS هستند.
+C_MACROS = {
+    "NAME_MAX", "PATH_MAX", "LINE_MAX", "OPEN_MAX", "CHILD_MAX", "ARG_MAX", "LINK_MAX", "PIPE_BUF",
+    "INT_MAX", "INT_MIN", "LONG_MAX", "LONG_MIN", "UINT_MAX", "CHAR_MAX", "SHRT_MAX", "SIZE_MAX",
+    "EOF", "NULL", "TRUE", "FALSE", "YES", "NO", "BUFSIZ", "FILENAME_MAX", "TMP_MAX", "RAND_MAX",
+    "HOST_NAME_MAX", "IOV_MAX", "MAXPATHLEN", "MAXHOSTNAMELEN", "NBBY", "NGROUPS", "NZERO", "EPERM",
+    "ENOENT", "EINTR", "EAGAIN", "ETIMEDOUT", "FD_SETSIZE", "INFINITY", "NAN", "M_PI", "CLOCKS_PER_SEC",
+}
+
+
+def macro_problems(kt: str) -> list[str]:
+    src = strip(kt)
+    return [f"`const val {m.group(1)}` هم‌نامِ ماکروی C است و سرآیندِ framework آیفون را می‌شکند."
+            for m in re.finditer(r"\bconst val ([A-Z][A-Z0-9_]*)\b", src) if m.group(1) in C_MACROS]
+
+
 def keep_problems(kt: str) -> list[str]:
     def ms(name):
         m = re.search(r"const val " + name + r"\s*=\s*([0-9_ *L]+)", kt)
@@ -205,6 +225,10 @@ if not tostring_problems("K", "class K(val key: ByteArray) {\n    fun x() = 1\n}
     fail.append("خودآزمایی: کلاسِ بی toString گرفته نشد.")
 if not keep_problems("const val TIME_WINDOW_MS = 10 * 60_000L\nconst val NONCE_KEEP_MS = 15 * 60_000L\n"):
     fail.append("خودآزمایی: حافظهٔ کوتاهِ nonce گرفته نشد.")
+if not macro_problems("object P {\n    const val NAME_MAX = 60\n}\n"):
+    fail.append("خودآزمایی: ثابتِ هم‌نامِ ماکرو گرفته نشد.")
+if macro_problems("object P {\n    const val NAME_LIMIT = 60\n}\n"):
+    fail.append("خودآزمایی: ثابتِ بی‌خطر رد شد.")
 
 # ── خودِ پروژه ────────────────────────────────────────────────────
 files = {}
@@ -222,6 +246,8 @@ if not fail:
         rel = p.relative_to(_src.REPO)
         fail += [f"{rel}: {x}" for x in crypto_problems(name, kt)]
         fail += [f"{rel}: {x}" for x in log_problems(kt)]
+        if "commonMain" in str(p) or "iosMain" in str(p):
+            fail += [f"{rel}: {x}" for x in macro_problems(kt)]
     for t in TRANSPORTS:
         fail += [f"{t}: {x}" for x in transport_problems(files[t].read_text(encoding="utf-8"))]
     for cls, fname in SECRET_HOLDERS.items():
@@ -236,4 +262,4 @@ if fail:
 
 print(f"✓ قراردادِ ۲: رمزنگاری فقط در LanPrims، مشتری‌ها پیش از اتصال نشانی را می‌سنجند و حواله ندارند، "
       f"{len(SECRET_HOLDERS)} نگهدارندهٔ کلید چاپ نمی‌شوند، lan/ گزارش نمی‌دهد "
-      f"({len(BAD_CRYPTO) + len(BAD_LOG) + len(BAD_T) + 3} نمونهٔ خراب گرفته شد)")
+      f"و هیچ ثابتی هم‌نامِ ماکروی C نیست ({len(BAD_CRYPTO) + len(BAD_LOG) + len(BAD_T) + 4} نمونهٔ خراب گرفته شد)")

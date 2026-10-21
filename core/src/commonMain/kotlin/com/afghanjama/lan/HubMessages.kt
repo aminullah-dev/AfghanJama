@@ -78,16 +78,16 @@ data class PhoneInfo(
     val wantRole: HubRole,
 ) {
     fun toJson(): Map<String, Any?> = mapOf(
-        "name" to name.cap(NAME_MAX), "platform" to platform.cap(20),
+        "name" to name.cap(NAME_LIMIT), "platform" to platform.cap(20),
         "appVersion" to appVersion.cap(24), "role" to wantRole.wire,
     )
 
     companion object {
-        const val NAME_MAX = 60
+        const val NAME_LIMIT = 60
 
         fun parse(o: Map<String, Any?>): PhoneInfo? {
             return PhoneInfo(
-                name = o.jStr("name")?.trim()?.cap(NAME_MAX)?.ifBlank { null } ?: "گوشی",
+                name = o.jStr("name")?.trim()?.cap(NAME_LIMIT)?.ifBlank { null } ?: "گوشی",
                 platform = o.jStr("platform").orEmpty().trim().cap(20),
                 appVersion = o.jStr("appVersion").orEmpty().trim().cap(24),
                 wantRole = HubRole.of(o.jStr("role")) ?: return null,
@@ -286,7 +286,7 @@ data class SyncReply(
                 licenceWritable = lic?.jBool("writable") ?: true,
                 role = role,
                 person = device.jStr("person").orEmpty().cap(80),
-                deviceName = device.jStr("name").orEmpty().cap(PhoneInfo.NAME_MAX),
+                deviceName = device.jStr("name").orEmpty().cap(PhoneInfo.NAME_LIMIT),
                 hubId = hub.jStr("id")?.cap(64) ?: return null,
                 hubName = hub.jStr("name").orEmpty().cap(80),
                 hubVersion = hub.jStr("version").orEmpty().cap(24),
@@ -356,7 +356,7 @@ data class RequestLine(
                 type = o.jStr("type").orEmpty().cap(32),
                 summary = o.jStr("summary").orEmpty().cap(200),
                 worker = o.jStr("worker").orEmpty().cap(80),
-                device = o.jStr("device").orEmpty().cap(PhoneInfo.NAME_MAX),
+                device = o.jStr("device").orEmpty().cap(PhoneInfo.NAME_LIMIT),
                 status = o.jStr("status").orEmpty().cap(16),
                 note = o.jStr("note").orEmpty().cap(300),
                 receivedAt = o.jLong("at") ?: 0L,

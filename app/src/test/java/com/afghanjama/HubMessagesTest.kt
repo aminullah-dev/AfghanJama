@@ -101,7 +101,7 @@ class HubMessagesTest {
     @Test
     fun `phone info is trimmed, and an unknown role is refused`() {
         val long = PhoneInfo("گ".repeat(500), "android", "1.11.0", HubRole.WORKER)
-        assertEquals(PhoneInfo.NAME_MAX, PhoneInfo.parse(LanJson.parseObject(LanJson.write(long.toJson()))!!)!!.name.length)
+        assertEquals(PhoneInfo.NAME_LIMIT, PhoneInfo.parse(LanJson.parseObject(LanJson.write(long.toJson()))!!)!!.name.length)
         assertNull(PhoneInfo.parse(mapOf("name" to "x", "role" to "admin")))
     }
 
