@@ -42,6 +42,34 @@ internal object PlatformPrims {
         return mac.doFinal(data)
     }
 
+    /**
+     * PBKDF2-HMAC-SHA256 با **یک** `Mac` برای همهٔ دورها. `SecretKeyFactory`ِ
+     * «PBKDF2WithHmacSHA256» روی اندروید از API ۲۶ است و کفِ برنامه ۲۴؛ این
+     * همان الگوریتمِ RFC 8018 است روی همان HMACِ سکو.
+     */
+    fun pbkdf2Sha256(password: ByteArray, salt: ByteArray, iterations: Int, length: Int): ByteArray {
+        val mac = Mac.getInstance("HmacSHA256")
+        mac.init(SecretKeySpec(password, "HmacSHA256"))
+        val out = ByteArray(length)
+        var pos = 0
+        var block = 1
+        while (pos < length) {
+            mac.update(salt)
+            mac.update(byteArrayOf((block ushr 24).toByte(), (block ushr 16).toByte(), (block ushr 8).toByte(), block.toByte()))
+            var u = mac.doFinal()
+            val t = u.copyOf()
+            for (i in 2..iterations) {
+                u = mac.doFinal(u)
+                for (j in t.indices) t[j] = (t[j].toInt() xor u[j].toInt()).toByte()
+            }
+            val n = minOf(t.size, length - pos)
+            t.copyInto(out, pos, 0, n)
+            pos += n
+            block++
+        }
+        return out
+    }
+
     private fun gcm(mode: Int, key: ByteArray, nonce: ByteArray, aad: ByteArray): Cipher {
         require(key.size == LanCrypto.KEY_BYTES) { "کلیدِ AES باید ۳۲ بایت باشد" }
         require(nonce.size == LanCrypto.NONCE_BYTES) { "nonce باید ۱۲ بایت باشد" }
@@ -129,6 +157,8 @@ internal object PlatformPrims {
 internal actual fun primRandom(n: Int): ByteArray = PlatformPrims.random(n)
 internal actual fun primSha256(data: ByteArray): ByteArray = PlatformPrims.sha256(data)
 internal actual fun primHmacSha256(key: ByteArray, data: ByteArray): ByteArray = PlatformPrims.hmacSha256(key, data)
+internal actual fun primPbkdf2Sha256(password: ByteArray, salt: ByteArray, iterations: Int, length: Int): ByteArray =
+    PlatformPrims.pbkdf2Sha256(password, salt, iterations, length)
 internal actual fun primGcmSeal(key: ByteArray, nonce: ByteArray, plain: ByteArray, aad: ByteArray): ByteArray =
     PlatformPrims.gcmSeal(key, nonce, plain, aad)
 internal actual fun primGcmOpen(key: ByteArray, nonce: ByteArray, sealed: ByteArray, aad: ByteArray): ByteArray? =
