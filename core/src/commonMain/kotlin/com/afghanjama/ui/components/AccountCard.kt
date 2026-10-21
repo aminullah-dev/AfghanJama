@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
-import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Password
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -81,7 +81,7 @@ fun AccountCard(auth: AuthViewModel, onLoggedOut: () -> Unit = {}) {
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.md)) {
             OutlinedButton(onClick = { changing = true }, modifier = Modifier.weight(1f)) {
-                Icon(Icons.Default.Key, contentDescription = null, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.Password, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(Space.sm))
                 Text("تغییرِ رمز")
             }
