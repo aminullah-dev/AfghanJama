@@ -42,7 +42,7 @@ data class ReorderRow(
         get() = if (dailyRate <= 0.0) null
         else (stock / dailyRate).toInt()
 
-    /** مقدارِ پیشنهادیِ خرید: تا پوششِ هدف، و دستِ‌کم تا حدِ هشدار. */
+    /** مقدارِ پیشنهادیِ خرید: تا پوششِ هدف، و دست‌کم تا حدِ هشدار. */
     val suggestedQty: Double
         get() {
             val toTarget = dailyRate * TARGET_COVER_DAYS - stock

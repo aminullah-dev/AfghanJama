@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.afghanjama.ui.theme.Brand
+import com.afghanjama.ui.theme.PillShape
 import com.afghanjama.ui.theme.CoralBrush
 import com.afghanjama.ui.theme.disabledContent
 import com.afghanjama.ui.theme.disabledSurface
@@ -107,8 +108,10 @@ fun BrandButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     busy: Boolean = false,
-    busyText: String = "در حال ثبت…",
-    shape: RoundedCornerShape = RoundedCornerShape(14.dp),
+    busyText: String = "در حالِ ثبت…",
+    // قرص، مثلِ هر دکمهٔ دیگرِ متریال در اپ — تا ۱.۱۱ تنها دکمه‌ای بود که
+    // گوشهٔ ۱۴ داشت و کنارِ دکمه‌های قرصیِ کامپیوتر جدا دیده می‌شد.
+    shape: RoundedCornerShape = PillShape,
     contentPadding: PaddingValues = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
     leading: (@Composable () -> Unit)? = null
 ) {

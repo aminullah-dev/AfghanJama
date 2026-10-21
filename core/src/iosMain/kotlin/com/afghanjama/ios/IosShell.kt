@@ -1,5 +1,6 @@
 package com.afghanjama.ios
 
+import com.afghanjama.ui.components.AccountCard
 import com.afghanjama.licence.Licensing
 import com.afghanjama.ui.components.AppVersionCard
 import com.afghanjama.ui.components.LicenceHeartbeat
@@ -612,7 +613,7 @@ private fun LoggedIn(repo: Repo, role: UserRole, auth: AuthViewModel, access: Ac
                 Routes.SETTINGS -> IosSettings(
                     role = role,
                     onGo = go,
-                    onLogout = { auth.logout() },
+                    auth = auth,
                     onBack = back,
                 )
 
@@ -672,7 +673,7 @@ private fun LoggedIn(repo: Repo, role: UserRole, auth: AuthViewModel, access: Ac
 private fun IosSettings(
     role: UserRole,
     onGo: (String) -> Unit,
-    onLogout: () -> Unit,
+    auth: AuthViewModel,
     onBack: () -> Unit,
 ) = AppScreen(title = "تنظیمات", onBack = onBack) { pad ->
     Column(
@@ -729,7 +730,7 @@ private fun IosSettings(
                 style = MaterialTheme.typography.titleSmall,
             )
             Text(
-                "پشتیبان‌گیری و بازیابی، خروجیِ CSV، تغییرِ رمز، و پاک‌کردنِ " +
+                "پشتیبان‌گیری و بازیابی، خروجیِ CSV، و پاک‌کردنِ " +
                     "کارها و حساب‌ها.\n\nتا آن روز، پشتیبانِ کارگاه را از " +
                     "گوشیِ اندرویدی یا کامپیوتر بگیرید.",
                 style = MaterialTheme.typography.bodyMedium,
@@ -741,9 +742,8 @@ private fun IosSettings(
         // تا ۱.۹.۱ نمی‌گفت از کدام کامیت است، و از بقیه کهنه‌تر بود.
         AppVersionCard()
 
-        TextButton(onClick = onLogout, modifier = Modifier.fillMaxWidth()) {
-            Text("خروج از حساب")
-        }
+        // حسابِ کاربری — همان کارتِ گوشی و کامپیوتر، با «تغییرِ رمز».
+        AccountCard(auth)
     }
 }
 

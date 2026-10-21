@@ -19,7 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReplyAll
 import androidx.compose.material.icons.filled.AddShoppingCart
 import androidx.compose.material.icons.filled.Sell
-import androidx.compose.material.icons.filled.Undo
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -62,7 +62,7 @@ fun DailyTradeScreen(
                     question = "فروش داشتید؟",
                     sub = "فاکتور با هر تعداد طرحِ مختلف",
                     icon = Icons.Default.Sell,
-                    stripe = MoneyIn,
+                    stripe = MaterialTheme.colorScheme.primary,
                     onClick = onGoSale
                 )
             }
@@ -72,7 +72,7 @@ fun DailyTradeScreen(
                     question = "خرید کردید؟",
                     sub = "خریدِ مواد از فروشنده — نقد یا نسیه",
                     icon = Icons.Default.AddShoppingCart,
-                    stripe = MoneyOut,
+                    stripe = MaterialTheme.colorScheme.error,
                     onClick = onGoPurchase
                 )
             }
@@ -92,7 +92,7 @@ fun DailyTradeScreen(
                     question = "کالا برگشت داده شده؟",
                     sub = "پس‌گرفتنِ کالای فروخته‌شده از مشتری",
                     icon = Icons.AutoMirrored.Filled.ReplyAll,
-                    stripe = Neutral,
+                    stripe = MaterialTheme.colorScheme.outline,
                     onClick = onGoSaleReturn
                 )
             }
@@ -101,8 +101,8 @@ fun DailyTradeScreen(
                     title = "برگشت از خرید",
                     question = "کالا برگردانده‌اید؟",
                     sub = "پس‌دادنِ موادِ معیوب یا اضافی به فروشنده",
-                    icon = Icons.Default.Undo,
-                    stripe = Neutral,
+                    icon = Icons.AutoMirrored.Filled.Undo,
+                    stripe = MaterialTheme.colorScheme.outline,
                     onClick = onGoPurchaseReturn
                 )
             }
@@ -123,11 +123,9 @@ fun DailyTradeScreen(
     }
 }
 
-// نوارِ کنارِ کارت‌ها: ورودی / خروجی / خنثی. عمداً ثابت‌اند تا در تمِ
-// روشن و تاریک یک معنا بدهند.
-private val MoneyIn = Color(0xFF2E7D32)
-private val MoneyOut = Color(0xFFC62828)
-private val Neutral = Color(0xFF757575)
+// نوارِ کنارِ کارت‌ها: ورودی (آبیِ برند) / خروجی (سرخِ خطا) / خنثی (خطِ
+// کناره) — از پالت، همان دو رنگی که «گزارش‌ها» برای پولِ ورودی و خروجی
+// دارد. تا ۱.۱۱ اینجا سبز و سرخِ سرخود بود که در هیچ صفحهٔ دیگری نبود.
 
 /** ارتفاعِ نوارِ رنگی — به بلندیِ محتوای کارت. */
 private val StripeHeight = 74.dp

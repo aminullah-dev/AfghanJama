@@ -42,7 +42,7 @@ object PayrollSmart {
     data class Config(val monthlySalary: Long, val workingDays: Int, val shiftHours: Int)
 
     data class Suggestion(
-        /** روزهایی که دستِ‌کم یک ورود داشته‌اند. */
+        /** روزهایی که دست‌کم یک ورود داشته‌اند. */
         val daysPresent: Int,
         val workingDays: Int,
         /** جمعِ ساعت‌های کارکرد از شیفت‌های بسته‌شده. */

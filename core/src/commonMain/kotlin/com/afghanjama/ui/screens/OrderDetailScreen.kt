@@ -745,7 +745,7 @@ fun OrderDetailScreen(
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                     Column(Modifier.weight(1f)) {
                                         Text(
-                                            "${a.tailorLabel} — ${a.qty} عدد" + if (done) " ✔" else " (در حال دوخت)",
+                                            "${a.tailorLabel} — ${a.qty.fa()} عدد" + if (done) " (دوخته شد)" else " (در حالِ دوخت)",
                                             style = MaterialTheme.typography.bodyMedium,
                                             fontWeight = FontWeight.Medium,
                                             color = if (done) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
@@ -1011,7 +1011,7 @@ private fun deliveryReceipt(
     o: com.afghanjama.data.entities.Order,
     paidTotal: Long
 ): String = buildString {
-    appendLine("🧾 رسید تحویل — $shop")
+    appendLine("رسید تحویل — $shop")
     appendLine("تاریخ: ${PersianDate.short(nowMillis())}")
     appendLine("مشتری: ${o.customerName}")
     appendLine("──────────────")
@@ -1022,7 +1022,7 @@ private fun deliveryReceipt(
         appendLine("مبلغ سفارش: ${o.agreedPrice.afn()}")
         appendLine("پرداخت‌شده: ${paidTotal.afn()}")
         val left = (o.agreedPrice - paidTotal).coerceAtLeast(0L)
-        appendLine(if (left > 0) "باقی‌مانده: ${left.afn()}" else "تسویه شد ✅")
+        appendLine(if (left > 0) "باقی‌مانده: ${left.afn()}" else "تسویه شد.")
     }
     appendLine("──────────────")
     appendLine("از اعتماد شما سپاسگزاریم.")

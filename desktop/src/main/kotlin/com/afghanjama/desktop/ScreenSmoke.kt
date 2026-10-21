@@ -1,13 +1,11 @@
 package com.afghanjama.desktop
 
+import kotlinx.coroutines.flow.first
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.ImageComposeScene
 import androidx.compose.ui.use
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.material3.MaterialTheme
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
@@ -28,7 +26,7 @@ import com.afghanjama.desktop.platform.DesktopPhotos
 import com.afghanjama.platform.LocalSystemActions
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.ui.screens.CustomerDetailScreen
-import com.afghanjama.ui.theme.LightColors
+import com.afghanjama.ui.theme.AppTheme
 import com.afghanjama.ui.vm.CustomerDetailViewModel
 import com.afghanjama.ui.vm.AuthViewModel
 import com.afghanjama.ui.vm.UserRole
@@ -108,9 +106,8 @@ private fun renderOnce(
         height = height,
         density = Density(1f)
     ) {
-        MaterialTheme(colorScheme = LightColors, typography = vazirTypography()) {
+        AppTheme(fontFamily = Vazirmatn) {
             CompositionLocalProvider(
-                LocalLayoutDirection provides LayoutDirection.Rtl,
                 // هر صفحه صاحبِ تازه می‌گیرد تا حالتِ یکی به دیگری نشت
                 // نکند و هر شکست به خودِ همان صفحه مربوط باشد.
                 LocalViewModelStoreOwner provides Store(),
@@ -171,6 +168,16 @@ fun main() {
 
     val settings = desktopSettings()
     var failed = 0
+
+    // `KY_SMOKE_SAMPLE=1`: پیش از رسم، کارگاهِ نمونه در همین دفترِ موقت —
+    // تا عکس‌ها داشبورد و خانه را با عدد نشان دهند، نه فقط حالتِ خالی.
+    // فقط روی دفترِ خالی؛ دفترِ آزمونِ قبلی دوباره پر نمی‌شود.
+    if (System.getenv("KY_SMOKE_SAMPLE") == "1") {
+        val made = kotlinx.coroutines.runBlocking {
+            if (repo.observeAllOrders().first().isEmpty()) com.afghanjama.data.SampleWorkshop.create(repo) else null
+        }
+        println("OK    sample workshop ${if (made == null) "already there" else "created: ${made.orders} orders"}")
+    }
 
     fun check(
         id: String,
@@ -239,7 +246,17 @@ fun main() {
     }
     hubShots.hub.stop()
 
-    val total = Section.entries.size + 1 + shellSizes.size + 1 + shellSizes.size
+    // صفحهٔ ورود، با دستگاهی که رمزِ مدیر و سه کاربر دارد — در هر دو پهنا.
+    // تنظیماتِ جدا (پوشهٔ موقت)، تا رمزِ آزمونی به تنظیماتِ صفحه‌های بالا نرسد.
+    val loginSettings = loginScenario()
+    for ((w, h) in shellSizes) {
+        check("login-$w", "ورود در پهنای $w", w, h, frames = 2) {
+            val auth: AuthViewModel = viewModel { AuthViewModel(loginSettings) }
+            com.afghanjama.ui.screens.LoginScreen(auth, onLoggedIn = {})
+        }
+    }
+
+    val total = Section.entries.size + 1 + shellSizes.size + 1 + shellSizes.size + shellSizes.size
     println("=".repeat(52))
     val shots = shotDir.listFiles { f: java.io.File -> f.name.endsWith(".png") }?.size ?: 0
     println("screenshots: $shots in ${shotDir.absolutePath}")
@@ -313,3 +330,27 @@ private fun hubScenario(repo: com.afghanjama.data.repo.Repo, settings: com.afgha
         }
         HubShots(hub, host)
     }
+
+/**
+ * دستگاهی با رمزِ مدیر («کریم») و سه نفر که مدیر ساخته — برای عکسِ صفحهٔ ورود.
+ * پوشهٔ موقت، تا هیچ رمزی به تنظیماتِ واقعی یا صفحه‌های دیگرِ آزمون نرسد.
+ */
+private fun loginScenario(): com.afghanjama.prefs.Settings {
+    val dir = java.nio.file.Files.createTempDirectory("ky-login-shot").toFile()
+    val s = com.afghanjama.desktop.data.FileSettings(dir)
+    s.putString("auth_prefs", "pin", com.afghanjama.util.PinHash.hash("1379"))
+    s.putString("auth_prefs", "role", UserRole.MANAGER.name)
+    s.putString("auth_prefs", "user_name", "کریم")
+    s.putBoolean("auth_prefs", "logged_in", false)
+    fun u(id: String, name: String, vararg f: com.afghanjama.ui.vm.Feature) =
+        com.afghanjama.ui.vm.AppUser(id, name, com.afghanjama.util.PinHash.hash("2$id".takeLast(4).padStart(4, '7')), f.toSet())
+    com.afghanjama.ui.vm.UserStore.save(
+        s,
+        listOf(
+            u("u1", "احمد", com.afghanjama.ui.vm.Feature.SEWING, com.afghanjama.ui.vm.Feature.BOARD),
+            u("u2", "فریده", com.afghanjama.ui.vm.Feature.SALES, com.afghanjama.ui.vm.Feature.CUSTOMERS),
+            u("u3", "سمیع", com.afghanjama.ui.vm.Feature.CUTTING, com.afghanjama.ui.vm.Feature.BOARD),
+        ),
+    )
+    return s
+}

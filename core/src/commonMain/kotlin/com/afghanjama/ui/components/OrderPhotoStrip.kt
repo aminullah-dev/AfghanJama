@@ -150,10 +150,10 @@ fun OrderPhotoStrip(
                                 Icon(
                                     Icons.Default.Close,
                                     contentDescription = "حذف عکس",
-                                    tint = Color.White,
+                                    tint = MaterialTheme.colorScheme.inverseOnSurface,
                                     modifier = Modifier
                                         .size(20.dp)
-                                        .background(Color(0x99000000), CircleShape)
+                                        .background(MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.6f), CircleShape)
                                         .padding(4.dp)
                                 )
                             }

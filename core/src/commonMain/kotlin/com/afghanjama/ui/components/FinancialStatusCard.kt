@@ -57,7 +57,7 @@ fun signalText(s: FinancialHealth.Signal): String = when (s.kind) {
 fun financialStatusText(h: FinancialHealth.Snapshot, shopName: String, date: String): String =
     buildString {
         val f = h.figures
-        appendLine("📊 وضعیت مالی — $shopName")
+        appendLine("وضعیت مالی — $shopName")
         appendLine("تاریخ: $date • وضعیت: ${levelLabel(h.level)}")
         appendLine("──────────────")
         appendLine("نقد (صندوق، بانک، فایده): ${f.cash.afn()}")

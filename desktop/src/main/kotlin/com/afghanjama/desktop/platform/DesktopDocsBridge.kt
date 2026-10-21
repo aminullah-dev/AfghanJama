@@ -135,7 +135,7 @@ class DesktopDocsBridge(private val settings: Settings) : Docs {
 
             SheetAction.IMAGE -> {
                 open()
-                "تبدیل به تصویر روی ویندوز هنوز نیست — PDF باز شد."
+                "تبدیل به تصویر روی کامپیوتر هنوز نیست — PDF باز شد."
             }
         }
     }
@@ -171,7 +171,7 @@ class DesktopDocsBridge(private val settings: Settings) : Docs {
 
             SheetAction.IMAGE -> {
                 open()
-                "تبدیل به تصویر روی ویندوز هنوز نیست — PDF باز شد."
+                "تبدیل به تصویر روی کامپیوتر هنوز نیست — PDF باز شد."
             }
         }
     }

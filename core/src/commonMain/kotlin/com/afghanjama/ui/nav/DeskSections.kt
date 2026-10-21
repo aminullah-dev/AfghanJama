@@ -79,6 +79,10 @@ enum class DeskGroup(val title: String) {
  * آزمون‌های واحدِ `:app` (`SectionGroupTest`) می‌توانند ببینندش — همان
  * کاری که با [RouteAccess] برای گوشی می‌شود.
  *
+ * **نامِ هر بند همان عنوانِ صفحه‌اش است** (و همان نامِ کاشیِ خانهٔ گوشی).
+ * تا ۱.۱۱ یازده بند دو نام داشتند — «خریداران» در نوار و «مشتریان» بالای
+ * صفحه، هر دو هم‌زمان جلوی چشم. `SectionGroupTest` این را نگه می‌دارد.
+ *
  * **ترتیب مهم است:** بندهای هر گروه پشتِ‌سرِ‌هم و گروه‌ها به ترتیبِ
  * [DeskGroup]. آزمون این را نگه می‌دارد، وگرنه یک سرگروه دو بار در نوار
  * می‌آمد. «اشتراکِ کارگاه» در گروهِ «امروز» و میانِ سه بندِ اول می‌ماند
@@ -87,14 +91,14 @@ enum class DeskGroup(val title: String) {
 enum class DeskSection(val title: String, val group: DeskGroup) {
     // امروز
     Home("خانه", DeskGroup.TODAY),
-    ActionCenter("مرکزِ هشدار", DeskGroup.TODAY),
+    ActionCenter("مرکز هشدار", DeskGroup.TODAY),
     WorkshopLink("کارگاهِ وصل", DeskGroup.TODAY),
     MyWork("کارِ من", DeskGroup.TODAY),
 
     // کارگاه — از سفارش تا تحویل
     Board("تختهٔ کار", DeskGroup.WORKSHOP),
-    Inventory("سفارش‌ها", DeskGroup.WORKSHOP),
-    OrderSearch("جست‌وجوی سفارش", DeskGroup.WORKSHOP),
+    Inventory("خط تولید", DeskGroup.WORKSHOP),
+    OrderSearch("پیگیری سفارش", DeskGroup.WORKSHOP),
     ProductionOrder("شروعِ تولید", DeskGroup.WORKSHOP),
     Cutting("برش", DeskGroup.WORKSHOP),
     Sewing("دوخت", DeskGroup.WORKSHOP),
@@ -107,14 +111,14 @@ enum class DeskSection(val title: String, val group: DeskGroup) {
     Warehouse("انبارِ مواد", DeskGroup.STOCK),
     StockLedger("گردشِ انبار", DeskGroup.STOCK),
     FinishedWarehouse("انبارِ محصول", DeskGroup.STOCK),
-    Procurement("خریدِ مواد", DeskGroup.STOCK),
+    Procurement("خرید مواد خام", DeskGroup.STOCK),
     PurchasePlan("برنامهٔ خرید", DeskGroup.STOCK),
-    PurchaseReturn("برگشتِ خرید", DeskGroup.STOCK),
+    PurchaseReturn("برگشت از خرید", DeskGroup.STOCK),
 
     // فروش و پول
     NewSale("فروشِ نو", DeskGroup.SALES),
     DailyTrade("معاملاتِ روزمره", DeskGroup.SALES),
-    Customers("خریداران", DeskGroup.SALES),
+    Customers("مشتریان", DeskGroup.SALES),
     FollowUp("پیگیریِ طلب", DeskGroup.SALES),
     Finance("مالی", DeskGroup.SALES),
     MoneyMove("جابه‌جاییِ پول", DeskGroup.SALES),
@@ -122,15 +126,15 @@ enum class DeskSection(val title: String, val group: DeskGroup) {
 
     // کارکنان
     Attendance("حضور و غیاب", DeskGroup.PEOPLE),
-    Payroll("پرداختِ حقوق", DeskGroup.PEOPLE),
-    Performance("کارکرد", DeskGroup.PEOPLE),
+    Payroll("حقوق کارکنان", DeskGroup.PEOPLE),
+    Performance("کارنامهٔ کارکنان", DeskGroup.PEOPLE),
 
     // گزارش و حساب
-    Ledger("دفترِ حساب", DeskGroup.BOOKS),
+    Ledger("دفتر کل", DeskGroup.BOOKS),
     Journal("دفتر روزنامه", DeskGroup.BOOKS),
     Reports("گزارش‌ها", DeskGroup.BOOKS),
     Documents("اسناد", DeskGroup.BOOKS),
-    Audit("رسیدگی", DeskGroup.BOOKS),
+    Audit("رویدادها", DeskGroup.BOOKS),
 
     // دستگاه‌ها و تنظیمات
     Settings("تنظیمات", DeskGroup.SYSTEM),

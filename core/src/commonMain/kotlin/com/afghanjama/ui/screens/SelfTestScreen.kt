@@ -112,7 +112,7 @@ fun SelfTestScreen(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                                Text("در حال بررسی…", fontWeight = FontWeight.SemiBold)
+                                Text("در حالِ بررسی…", fontWeight = FontWeight.SemiBold)
                             }
                         } else {
                             Text(

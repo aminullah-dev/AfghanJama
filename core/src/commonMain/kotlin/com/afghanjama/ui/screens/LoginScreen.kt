@@ -171,7 +171,7 @@ fun LoginScreen(
                         if (ui.isSetupDone)
                             "نقش و نامتان را انتخاب کنید و رمز را بزنید."
                         else
-                            "برای اولین بار یک رمزِ دستِ‌کم ۴ رقمی تنظیم کنید. " +
+                            "برای اولین بار یک رمزِ دست‌کم ۴ رقمی تنظیم کنید. " +
                                 "این رمز بعداً از تنظیمات قابلِ تغییر است.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant

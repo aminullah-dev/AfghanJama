@@ -225,7 +225,7 @@ jobs:
           du -sh "$app"
 
           missing=0
-          for f in vazirmatn_regular.ttf vazirmatn_semibold.ttf vazirmatn_bold.ttf; do
+          for f in vazirmatn_regular.ttf vazirmatn_medium.ttf vazirmatn_semibold.ttf vazirmatn_bold.ttf; do
             if [ ! -f "$app/$f" ]; then
               echo "✗ قلمِ $f در بسته نیست."
               missing=1

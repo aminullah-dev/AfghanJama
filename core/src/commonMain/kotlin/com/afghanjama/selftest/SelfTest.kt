@@ -420,7 +420,7 @@ fun checkBreakSchedule(delayUntilNext: (Int, Int, Long) -> Long): List<CheckResu
     s.isTrue(
         "هیچ یادآوری فوراً یا در گذشته شلیک نمی‌کند",
         allPositive,
-        "دستِ‌کم یکی از ۱۲۰ حالت فاصلهٔ صفر یا منفی داد"
+        "دست‌کم یکی از ۱۲۰ حالت فاصلهٔ صفر یا منفی داد"
     )
     s.isTrue(
         "هیچ فاصله‌ای بیشتر از یک شبانه‌روز نیست",

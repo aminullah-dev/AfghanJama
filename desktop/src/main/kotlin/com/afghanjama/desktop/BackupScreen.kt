@@ -1,5 +1,6 @@
 package com.afghanjama.desktop
 
+import com.afghanjama.ui.theme.PillShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -319,7 +320,7 @@ private fun AutoBackupCard() {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TextButton(onClick = { openFolder(folder) }) {
                 Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(6.dp))
+                Spacer(Modifier.width(8.dp))
                 Text("باز کردنِ پوشه")
             }
             if (custom) {

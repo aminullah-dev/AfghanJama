@@ -286,7 +286,7 @@ fun CuttingScreen(
             }
 
             Text(
-                text = "سفارش‌های در حال برش",
+                text = "سفارش‌های در حالِ برش",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )

@@ -1,5 +1,8 @@
 package com.afghanjama.desktop
 
+import com.afghanjama.ui.components.AppCard
+import com.afghanjama.ui.components.Pill
+import com.afghanjama.ui.components.PillTone
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -106,30 +109,24 @@ internal fun WorkshopLinkTile(
     }
     val detail = when (mode) {
         DeviceMode.MAIN ->
-            if (state.serving) "اشتراک روشن است؛ گوشیِ کارگران به همین کامپیوتر وصل می‌شوند."
-            else hubOffText(off) ?: "اشتراک خاموش است."
+            if (state.serving) "کارگاهِ وصل روشن است؛ گوشیِ کارگران به همین کامپیوتر وصل می‌شوند."
+            else hubOffText(off) ?: "کارگاهِ وصل خاموش است."
         DeviceMode.WORKER ->
             "نشانیِ دستگاهِ اصلی: ${LanPrefs.host(settings).ifBlank { "—" }.toPersianDigits()}"
         DeviceMode.STANDALONE ->
             "تا دستگاهِ اصلی نشود، گوشیِ کارگران به آن وصل نمی‌شوند. " +
-                if (WorkshopLinkAccess.canRunHub(access)) "در «اشتراکِ کارگاه» راه‌اندازی‌اش کنید."
+                if (WorkshopLinkAccess.canRunHub(access)) "در «کارگاهِ وصل» راه‌اندازی‌اش کنید."
                 else "راه‌اندازی‌اش با مدیر است."
     }
-    val (pill, pillInk, pillBg) = when {
-        main && state.serving -> Triple("روشن", Brand, BrandSoft)
-        problem -> Triple("خاموش", Bad, BadSoft)
-        mode == DeviceMode.WORKER -> Triple("وصل به دستگاهِ اصلی", Brand, BrandSoft)
-        else -> Triple("خاموش", Muted, Bg)
+    // همان قرص و همان لحنِ «کارگاهِ وصل»: روشن آبی، خاموشِ مشکل‌دار مرجانی.
+    val (pill, tone) = when {
+        main && state.serving -> "روشن" to PillTone.Brand
+        problem -> "خاموش" to PillTone.Coral
+        mode == DeviceMode.WORKER -> "وصل به دستگاهِ اصلی" to PillTone.Brand
+        else -> "خاموش" to PillTone.Neutral
     }
 
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(CardBg)
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
+    AppCard {
         Row(verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
@@ -149,16 +146,7 @@ internal fun WorkshopLinkTile(
                     color = if (problem) Bad else Muted
                 )
             }
-            Text(
-                pill,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = pillInk,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(pillBg)
-                    .padding(horizontal = 12.dp, vertical = 4.dp)
-            )
+            Pill(pill, tone = tone)
         }
 
         if (main) {
@@ -192,8 +180,8 @@ internal fun WorkshopLinkTile(
                     main && seesRequests && pending > 0 -> "دیدن و تأییدِ درخواست‌ها"
                     // QRِ سرورِ خاموش را صفحهٔ اشتراک نشان نمی‌دهد؛ دکمه همان را نوید ندهد.
                     main && state.serving -> "QR و رمز برای وصل کردنِ گوشی"
-                    mode == DeviceMode.STANDALONE && WorkshopLinkAccess.canRunHub(access) -> "راه‌اندازیِ اشتراکِ کارگاه"
-                    else -> "باز کردنِ اشتراکِ کارگاه"
+                    mode == DeviceMode.STANDALONE && WorkshopLinkAccess.canRunHub(access) -> "راه‌اندازیِ کارگاهِ وصل"
+                    else -> "باز کردنِ کارگاهِ وصل"
                 }
             )
         }

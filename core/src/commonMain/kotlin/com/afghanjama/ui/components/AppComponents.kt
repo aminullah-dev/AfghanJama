@@ -478,7 +478,7 @@ fun BusyButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     busy: Boolean = false,
-    busyText: String = "در حال ثبت…",
+    busyText: String = "در حالِ ثبت…",
     /** نشانهٔ کوچکِ کنارِ متن — وقتی چند دکمه کنارِ هم‌اند و باید زود از هم جدا شوند. */
     leading: (@Composable () -> Unit)? = null
 ) = BrandButton(

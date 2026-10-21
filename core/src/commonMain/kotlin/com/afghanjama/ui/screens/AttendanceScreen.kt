@@ -360,7 +360,7 @@ fun AttendanceScreen(
             if (employees.isEmpty()) {
                 item {
                     Text(
-                        "کارمندی ثبت نشده. خیاط‌ها، ناظرها و کارکنان را از «اطلاعات پایه» اضافه کنید.",
+                        "هنوز کارمندی ثبت نشده. خیاط‌ها، ناظرها و کارکنان را از «اطلاعات پایه» اضافه کنید.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 12.dp)
                     )
@@ -456,7 +456,7 @@ fun AttendanceScreen(
                         Text("کارکرد ۳۰ روز اخیر", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         IconButton(onClick = {
                             val report = buildString {
-                                appendLine("📋 گزارش کارکرد ۳۰ روز اخیر — ${CompanyPrefs.shopName(settings)}")
+                                appendLine("گزارش کارکرد ۳۰ روز اخیر — ${CompanyPrefs.shopName(settings)}")
                                 appendLine("تاریخ: ${PersianDate.short(nowMillis())}")
                                 appendLine("──────────────")
                                 monthlyWork.forEach { w ->

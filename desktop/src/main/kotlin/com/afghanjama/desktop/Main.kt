@@ -19,7 +19,6 @@ import com.afghanjama.desktop.platform.DesktopReminders
 import com.afghanjama.platform.LocalReminders
 import kotlinx.coroutines.flow.first
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -33,9 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.DpSize
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ApplicationScope
 import androidx.compose.ui.window.FrameWindowScope
@@ -73,7 +70,7 @@ import com.afghanjama.ui.components.LicenceHeartbeat
 import com.afghanjama.ui.nav.allowedFor
 import com.afghanjama.ui.platform.LocalWidgets
 import com.afghanjama.ui.screens.LoginScreen
-import com.afghanjama.ui.theme.LightColors
+import com.afghanjama.ui.theme.AppTheme
 import com.afghanjama.ui.vm.AuthUi
 import com.afghanjama.ui.vm.AuthViewModel
 import kotlinx.coroutines.delay
@@ -176,7 +173,7 @@ private fun initialWindowState(settings: Settings): WindowState {
     return WindowState(placement = placement, position = position, size = size)
 }
 
-/** دستِ‌کم ۱۰۰ نقطه از پنجره روی یکی از صفحه‌ها می‌افتد؟ */
+/** دست‌کم ۱۰۰ نقطه از پنجره روی یکی از صفحه‌ها می‌افتد؟ */
 private fun onSomeScreen(x: Int, y: Int, w: Int, h: Int): Boolean = runCatching {
     val win = Rectangle(x, y, w, h)
     GraphicsEnvironment.getLocalGraphicsEnvironment().screenDevices.any { d ->
@@ -237,15 +234,10 @@ private fun ApplicationScope.MainWindow(settings: Settings) {
         }
         RememberBounds(windowState, settings)
 
-        MaterialTheme(
-            // **همان پالتِ گوشی**، از `:core`.
-            colorScheme = LightColors,
-            // صفحه‌های مشترک قلم را هم از تم می‌گیرند، نه از خودشان.
-            typography = vazirTypography()
-        ) {
-            // کلِ برنامه راست‌به‌چپ، مستقلِ از زبانِ سیستم.
+        // **همان تمِ گوشی و آیفون** ([AppTheme]): پالت، قلم، گوشه‌ها و
+        // راست‌به‌چپ از `:core`. کامپیوتر فعلاً فقط روشن است.
+        AppTheme(fontFamily = Vazirmatn) {
             CompositionLocalProvider(
-                LocalLayoutDirection provides LayoutDirection.Rtl,
                 LocalViewModelStoreOwner provides DesktopViewModelStoreOwner,
                 // صفحه‌های مشترک تنظیمات را از اینجا می‌گیرند، همان‌طور
                 // که روی اندروید از `MainActivity`.

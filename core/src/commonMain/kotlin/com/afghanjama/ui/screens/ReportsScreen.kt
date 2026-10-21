@@ -303,7 +303,7 @@ fun ReportsScreen(
                 ) { Text("اعمال") }
             },
             dismissButton = {
-                TextButton(onClick = { customOpen = false }) { Text("انصراف") }
+                TextButton(onClick = { customOpen = false }) { Text("لغو") }
             }
         )
     }

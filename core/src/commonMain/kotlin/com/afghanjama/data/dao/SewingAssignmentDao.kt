@@ -16,7 +16,7 @@ interface SewingAssignmentDao {
     @Query("SELECT * FROM sewing_assignments WHERE orderId = :orderId")
     suspend fun listForOrder(orderId: String): List<SewingAssignment>
 
-    /** همه تحویل‌های در حال دوخت (برای تب «در حال دوخت»). */
+    /** همه تحویل‌های در حالِ دوخت (برای تب «در حالِ دوخت»). */
     @Query("SELECT * FROM sewing_assignments WHERE status = 'SEWING' ORDER BY createdAt ASC")
     fun observeInProgress(): Flow<List<SewingAssignment>>
 

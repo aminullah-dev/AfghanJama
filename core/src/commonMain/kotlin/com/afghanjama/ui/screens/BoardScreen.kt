@@ -60,7 +60,7 @@ private const val ROWS_PER_PAGE = 7
 private const val PAGE_MS = 9_000L
 
 /**
- * تابلوی «در حال دوخت» — مثلِ تابلوی پروازِ فرودگاه.
+ * تابلوی «در حالِ دوخت» — مثلِ تابلوی پروازِ فرودگاه.
  *
  * برای گوشی یا تبلتی که روی دیوارِ کارگاه می‌ماند: صفحه خاموش نمی‌شود،
  * خودش تازه می‌شود، و اگر کارها از یک صفحه بیشتر باشند خودش ورق می‌زند.
@@ -126,7 +126,7 @@ fun BoardScreen(
         ) {
             Column(Modifier.weight(1f)) {
                 Text(
-                    text = "در حال دوخت",
+                    text = "در حالِ دوخت",
                     color = BoardText,
                     fontSize = 26.sp,
                     fontWeight = FontWeight.Bold

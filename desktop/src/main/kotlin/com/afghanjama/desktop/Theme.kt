@@ -1,7 +1,5 @@
 package com.afghanjama.desktop
 
-import androidx.compose.material3.Typography
-import com.afghanjama.ui.theme.appTypography
 import com.afghanjama.ui.theme.LightColors
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -25,20 +23,6 @@ internal val Coral = LightColors.secondary
 internal val CoralSoft = LightColors.secondaryContainer
 internal val Hairline = LightColors.outlineVariant
 
-/*
- * شیشهٔ نرم — نوارِ کنار و کارت‌های خودِ کامپیوتر.
- *
- * Compose 1.8 تارِ واقعیِ پشتِ لایه را ندارد، پس شیشه شبیه‌سازی می‌شود:
- * سطحِ سفید با کمی شفافیت روی زمینه‌ای که دو لکهٔ بسیار کم‌رنگِ رنگِ
- * برند دارد ([DeskBackdrop]). همه از پالتِ مشترک — هیچ رنگِ تازه‌ای
- * ساخته نمی‌شود (`palette`).
- */
-internal val Glass = LightColors.surface.copy(alpha = 0.80f)
-internal val GlassEdge = LightColors.surface.copy(alpha = 0.60f)
-
-/** قرصِ کامل: برای بندِ انتخاب‌شده، نشان‌ها و برچسبِ نقش. */
-internal val PillShape = androidx.compose.foundation.shape.RoundedCornerShape(50)
-
 /**
  * فونتِ اپ، از همان فایلی که اندروید برمی‌دارد.
  *
@@ -60,23 +44,3 @@ internal val Vazirmatn: FontFamily = runCatching {
     // بازنشده است.
     FontFamily.Default
 }
-
-/**
- * همان سبک‌های Material، فقط با قلمِ فارسی.
- *
- * **چرا لازم شد:** صفحه‌های مشترک قلم را صریح نمی‌دهند و از تم
- * می‌گیرند — روی اندروید `KhayatYarTheme` آن را می‌دهد. تا دیروز پنجرهٔ
- * ویندوز فقط متن‌های خودش را داشت و هر کدام دستی `fontFamily` می‌گرفت،
- * پس این کمبود دیده نمی‌شد. با آمدنِ صفحه‌های واقعی، بدونِ این خط کلِ
- * فاکتور و انبار با قلمِ پیش‌فرضِ ویندوز و حروفِ نچسبیده نوشته می‌شد.
- *
- * **و نیمهٔ دومِ همان اشکال، که تا امروز نمانده بود.** آن اصلاح قلم را
- * درست کرد ولی **اندازه** را نه: اینجا `Typography()`ِ پیش‌فرضِ متریال
- * گرفته می‌شد و فقط `fontFamily`اش عوض. یعنی همان صفحه با همان کد دو
- * مقیاس داشت — `titleLarge` روی گوشی ۲۰ و روی پی‌سی ۲۲، `bodyLarge` با
- * ارتفاعِ خطِ ۲۶ و ۲۴. برای خطِ فارسی که زیر-خط و اعراب دارد، همان دو
- * واحد یعنی سطرهایی که به هم می‌چسبند.
- *
- * حالا هر دو از `appTypography` در `:core` می‌خوانند.
- */
-internal fun vazirTypography(): Typography = appTypography(Vazirmatn)

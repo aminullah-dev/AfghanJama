@@ -373,7 +373,7 @@ fun NewSaleScreen(
                 BusyButton(
                     text = if (ui.canSave)
                         "ثبت فاکتور (${ui.readyLines.fa()} ردیف • ${ui.subtotal.afn()})"
-                    else "دستِ‌کم یک ردیفِ کامل لازم است",
+                    else "دست‌کم یک ردیفِ کامل لازم است",
                     onClick = {
                         val w = vm.guard()
                         if (w.isEmpty()) vm.save() else warnings = w

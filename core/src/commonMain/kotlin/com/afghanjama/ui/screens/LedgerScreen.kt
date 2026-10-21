@@ -343,7 +343,7 @@ fun LedgerScreen(
                     }
 
                     if (rows.isEmpty()) {
-                        Text("سندی ثبت نشده.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("هنوز سندی ثبت نشده.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     } else {
                         LazyColumn(
                             modifier = Modifier.heightIn(max = 360.dp),
@@ -414,7 +414,7 @@ fun LedgerScreen(
                     }
                 ) { Text("ثبت") }
             },
-            dismissButton = { TextButton(onClick = { manualOpen = false }) { Text("انصراف") } },
+            dismissButton = { TextButton(onClick = { manualOpen = false }) { Text("لغو") } },
             title = { Text("ثبت سند دستی") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

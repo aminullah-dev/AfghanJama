@@ -1,5 +1,6 @@
 package com.afghanjama.ui.screens
 
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -70,7 +71,8 @@ fun CrashReportScreen(
                     // معمولی خط‌های پشته به هم می‌ریزند و خواندنش سخت
                     // می‌شود.
                     fontFamily = FontFamily.Monospace,
-                    style = MaterialTheme.typography.bodySmall,
+                    // گزارشِ خطا انگلیسی است؛ چپ‌به‌راست، مثلِ مسیرها روی کامپیوتر.
+                    style = MaterialTheme.typography.bodySmall.copy(textDirection = TextDirection.Ltr),
                     modifier = Modifier
                         .padding(12.dp)
                         .verticalScroll(rememberScrollState())

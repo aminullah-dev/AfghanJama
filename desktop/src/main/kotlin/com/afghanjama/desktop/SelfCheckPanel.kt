@@ -1,5 +1,8 @@
 package com.afghanjama.desktop
 
+import com.afghanjama.ui.theme.Radius
+import com.afghanjama.ui.format.afn
+import com.afghanjama.ui.theme.PillShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -77,7 +80,7 @@ private fun Header() {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
             Modifier.width(52.dp).height(52.dp)
-                .clip(RoundedCornerShape(14.dp))
+                .clip(RoundedCornerShape(Radius.lg))
                 .background(BrandSoft),
             contentAlignment = Alignment.Center
         ) {
@@ -88,7 +91,7 @@ private fun Header() {
                 color = Brand
             )
         }
-        Spacer(Modifier.width(14.dp))
+        Spacer(Modifier.width(16.dp))
         Column {
             Text(
                 AppInfo.NAME,
@@ -117,12 +120,12 @@ internal fun SelfCheckCard(showRows: Boolean = false) {
     val vm: SelfCheckViewModel = viewModel { SelfCheckViewModel() }
     val ui by vm.ui.collectAsState()
     val ok = ui.failed == 0
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
             Modifier.fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
+                .clip(RoundedCornerShape(Radius.lg))
                 .background(if (ok) BrandSoft else BadSoft)
-                .padding(18.dp),
+                .padding(20.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(
@@ -164,7 +167,7 @@ internal fun SelfCheckCard(showRows: Boolean = false) {
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = Ink,
-                    modifier = Modifier.padding(top = 10.dp, bottom = 2.dp)
+                    modifier = Modifier.padding(top = 12.dp, bottom = 2.dp)
                 )
                 rows.forEach { ResultRow(it) }
             }
@@ -177,9 +180,9 @@ private fun ResultRow(r: CheckResult) {
     val bad = r.status == CheckStatus.FAIL
     Row(
         Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(Radius.md))
             .background(CardBg)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -207,10 +210,10 @@ internal fun LedgerCard(s: LedgerStatus) {
     val failed = s.error != null
     Column(
         Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(Radius.lg))
             .background(if (failed) BadSoft else CardBg)
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
             when {
@@ -229,8 +232,8 @@ internal fun LedgerCard(s: LedgerStatus) {
             Text(s.error.orEmpty(), style = MaterialTheme.typography.bodySmall, color = Bad)
         } else if (!s.opening) {
             Text(
-                "مشتری: ${s.customers.fa()}  •  صندوق: ${s.wallet.fa()} ؋  " +
-                    "•  بانک: ${s.bank.fa()} ؋",
+                "مشتری: ${s.customers.fa()}  •  صندوق: ${s.wallet.afn()}  " +
+                    "•  بانک: ${s.bank.afn()}",
                 style = MaterialTheme.typography.bodySmall,
                 color = Muted
             )

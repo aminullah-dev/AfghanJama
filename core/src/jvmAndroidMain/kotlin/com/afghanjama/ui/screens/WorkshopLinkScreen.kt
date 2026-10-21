@@ -105,7 +105,7 @@ fun WorkshopLinkScreen(
 
     LaunchedEffect(Unit) { vm.load(settings) }
 
-    AppScreen(title = "اشتراک کارگاه", onBack = onBack) { pad ->
+    AppScreen(title = "کارگاهِ وصل", onBack = onBack) { pad ->
         LazyColumn(
             modifier = Modifier.padding(pad).fillMaxSize().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -406,7 +406,7 @@ fun WorkshopLinkScreen(
                                         },
                                         enabled = done in 1..w.qty,
                                         busy = busy,
-                                        busyText = "در حال فرستادن…",
+                                        busyText = "در حالِ فرستادن…",
                                         modifier = Modifier.fillMaxWidth()
                                     )
                                     Text(
@@ -683,7 +683,7 @@ private fun WorkerConnectCard(
     }
 
     val startScan = LocalCodeScanner.current?.rememberStart(
-        prompt = "QRِ صفحهٔ «اشتراک کارگاه» روی دستگاهِ اصلی (گوشی یا کامپیوتر) را اسکن کنید",
+        prompt = "QRِ صفحهٔ «کارگاهِ وصل» روی دستگاهِ اصلی (گوشی یا کامپیوتر) را اسکن کنید",
         onCode = { onScanned(it) },
         onFailed = { msg -> scanMsg = msg },
     )
@@ -748,7 +748,7 @@ private fun WorkerConnectCard(
                 onClick = { vm.becomeWorker(settings, host, code) },
                 enabled = hostCheck is HostAddress.Result.Ok && code.length >= 4,
                 busy = busy,
-                busyText = "در حال اتصال…",
+                busyText = "در حالِ اتصال…",
                 modifier = Modifier.fillMaxWidth()
             )
         }

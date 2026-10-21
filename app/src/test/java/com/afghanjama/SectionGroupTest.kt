@@ -129,7 +129,29 @@ class SectionGroupTest {
         assertEquals(titles.size, titles.toSet().size)
     }
 
-    /** همان جایی که کارفرما «اشتراکِ کارگاه» را پیدا می‌کند. */
+    /**
+     * نامِ بند در نوار همان عنوانِ صفحه است (و همان کاشیِ خانهٔ گوشی) — تا
+     * ۱.۱۱ این یازده تا دو نام داشتند و هر دو هم‌زمان دیده می‌شدند.
+     */
+    @Test
+    fun `sidebar titles match the screen titles`() {
+        val screen = mapOf(
+            DeskSection.ActionCenter to "مرکز هشدار",
+            DeskSection.Inventory to "خط تولید",
+            DeskSection.OrderSearch to "پیگیری سفارش",
+            DeskSection.Procurement to "خرید مواد خام",
+            DeskSection.PurchaseReturn to "برگشت از خرید",
+            DeskSection.Customers to "مشتریان",
+            DeskSection.Payroll to "حقوق کارکنان",
+            DeskSection.Performance to "کارنامهٔ کارکنان",
+            DeskSection.Ledger to "دفتر کل",
+            DeskSection.Audit to "رویدادها",
+            DeskSection.MasterData to "اطلاعات پایه",
+        )
+        screen.forEach { (s, title) -> assertEquals(s.name, title, s.title) }
+    }
+
+    /** همان جایی که کارفرما «کارگاهِ وصل» را پیدا می‌کند. */
     @Test
     fun `workshop sharing stays in today, among the first three`() {
         assertEquals(DeskGroup.TODAY, DeskSection.WorkshopLink.group)

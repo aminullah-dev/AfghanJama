@@ -1,5 +1,6 @@
 package com.afghanjama.ui.components
 
+import com.afghanjama.ui.theme.Radius
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -59,7 +60,7 @@ fun SinglePhotoPicker(
     ) {
         if (thumb != null) {
             Box(
-                Modifier.size(72.dp).clip(RoundedCornerShape(10.dp))
+                Modifier.size(72.dp).clip(RoundedCornerShape(Radius.md))
                     .background(MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 Image(

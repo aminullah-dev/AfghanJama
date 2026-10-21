@@ -94,11 +94,11 @@ class BackupViewModel(private val repo: Repo) : ViewModel() {
                 ShareUtil.shareFile(
                     context, file,
                     mime = "application/octet-stream",
-                    chooserTitle = "ارسال بکاپ (Drive، واتساپ، ...)"
+                    chooserTitle = "فرستادنِ پشتیبان (گوگل‌درایو، واتساپ…)"
                 )
             }
         }.onFailure { e ->
-            _ui.update { it.copy(message = "خطا در آماده‌سازی بکاپ: ${e.message}", isError = true) }
+            _ui.update { it.copy(message = "پشتیبان آماده نشد: ${e.message}", isError = true) }
         }
     }
 

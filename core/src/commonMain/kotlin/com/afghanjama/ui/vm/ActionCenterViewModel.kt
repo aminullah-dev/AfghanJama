@@ -20,7 +20,7 @@ import androidx.compose.material.icons.filled.HourglassBottom
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Payments
-import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material.icons.filled.WatchLater
@@ -209,7 +209,7 @@ class ActionCenterViewModel(
                     Alert(
                         id = "payable",
                         severity = AlertSeverity.WARN,
-                        icon = Icons.Default.ReceiptLong,
+                        icon = Icons.AutoMirrored.Filled.ReceiptLong,
                         title = "بدهی به ${payables.size.fa()} تأمین‌کننده",
                         detail = "جمعاً ${total.afn()}",
                         route = Routes.LEDGER
@@ -425,9 +425,9 @@ class ActionCenterViewModel(
                         id = "backup_never",
                         severity = AlertSeverity.WARN,
                         icon = Icons.Default.CloudOff,
-                        title = "هنوز هیچ بکاپی گرفته نشده",
-                        detail = "بکاپِ خودکار روزانه است؛ اگر تا فردا چیزی ثبت نشد، " +
-                            "از تنظیمات یک بکاپِ دستی بگیرید.",
+                        title = "هنوز از دفتر پشتیبان گرفته نشده",
+                        detail = "پشتیبانِ خودکار روزانه است؛ اگر تا فردا چیزی ثبت نشد، " +
+                            "از «پشتیبان و بازیابی» یک پشتیبانِ دستی بگیرید.",
                         route = Routes.SETTINGS
                     )
                 )
@@ -436,9 +436,9 @@ class ActionCenterViewModel(
                         id = "backup_stale",
                         severity = if (days >= 7) AlertSeverity.URGENT else AlertSeverity.WARN,
                         icon = Icons.Default.CloudOff,
-                        title = "بکاپ ${days.fa()} روز است گرفته نشده",
+                        title = "${days.fa()} روز است پشتیبان گرفته نشده",
                         detail = "همهٔ اطلاعاتِ کارگاه روی همین دستگاه است. " +
-                            "از تنظیمات یک بکاپِ دستی بگیرید.",
+                            "از «پشتیبان و بازیابی» یک پشتیبانِ دستی بگیرید.",
                         route = Routes.SETTINGS
                     )
                 )
@@ -697,7 +697,7 @@ class ActionCenterViewModel(
  * نوار بود. ورود و «تمام شد»ِ کارگر تا تأیید نشود ثبت نمی‌شود؛ پس درخواستی
  * که کسی نمی‌بیند یعنی حضور و کارمزدی که گم می‌شود.
  *
- * فقط برای کسی که دستِ‌کم یک نوعِ درخواست را می‌تواند تأیید کند
+ * فقط برای کسی که دست‌کم یک نوعِ درخواست را می‌تواند تأیید کند
  * ([WorkshopLinkAccess.seesRequests]) — همان قاعدهٔ نشانِ نوارِ کنار.
  * بقیه کاری با آن ندارند و هشدارِ بی‌کار فقط یاد می‌دهد مرکزِ هشدار را نخوانند.
  */
@@ -708,7 +708,7 @@ fun pendingRequestsAlert(count: Int, access: Access): Alert? {
         severity = AlertSeverity.WARN,
         icon = Icons.Default.Smartphone,
         title = "${count.fa()} درخواست از گوشیِ کارگران منتظرِ تأیید است",
-        detail = "ورود، خروج و «تمام شد»ِ کارگر تا تأیید نشود ثبت نمی‌شود — در «اشتراکِ کارگاه» تأیید یا رد کنید.",
+        detail = "ورود، خروج و «تمام شد»ِ کارگر تا تأیید نشود ثبت نمی‌شود — در «کارگاهِ وصل» تأیید یا رد کنید.",
         route = Routes.WORKSHOP_LINK
     )
 }

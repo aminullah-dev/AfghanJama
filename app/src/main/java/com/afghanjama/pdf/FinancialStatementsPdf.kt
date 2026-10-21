@@ -120,8 +120,8 @@ object FinancialStatementsPdf {
         newPageIfNeeded(40f)
         y = PdfKit.note(
             c,
-            if (sheet.balanced) "✓ ترازنامه متوازن است — دارایی = بدهی + سرمایه"
-            else "⚠ ترازنامه متوازن نیست — دفترها را بررسی کنید",
+            if (sheet.balanced) "ترازنامه متوازن است — دارایی = بدهی + سرمایه"
+            else "ترازنامه متوازن نیست — دفترها را بررسی کنید",
             y + 4f, f
         )
 

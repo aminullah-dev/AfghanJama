@@ -313,7 +313,7 @@ fun ReviewScreen(
                             ) {
                                 if (inspectors.isEmpty()) {
                                     AppDropdownMenuItem(
-                                        text = { Text("هیچ ناظری ثبت نشده") },
+                                        text = { Text("هنوز ناظری در «اطلاعات پایه» ثبت نشده.") },
                                         onClick = { menuMap[o.id] = false }
                                     )
                                 } else {
@@ -372,7 +372,7 @@ fun ReviewScreen(
  * کدام + یادآوریِ ثبتِ سریعِ نتیجه.
  */
 private fun inspectorBrief(shop: String, orders: List<Order>): String = buildString {
-    appendLine("🛡 رسید ناظر — $shop")
+    appendLine("رسید ناظر — $shop")
     appendLine("تاریخ: ${PersianDate.short(nowMillis())}")
     appendLine("کارهای منتظرِ بررسی: ${orders.size.fa()} مورد")
     appendLine("──────────────")
@@ -382,7 +382,7 @@ private fun inspectorBrief(shop: String, orders: List<Order>): String = buildStr
             "• ${o.designTitle.ifBlank { o.orderCode }} — ${o.reviewQty.fa()} عدد" +
                 (if (o.reviewQty < o.qty) " از ${o.qty.fa()}" else "") +
                 " • ${o.orderCode} • ${days.fa()} روز در انتظار" +
-                (if (days >= STAGE_WARN_DAYS) " ⚠️" else "")
+                (if (days >= STAGE_WARN_DAYS) " (دیر شده)" else "")
         )
     }
     appendLine("──────────────")

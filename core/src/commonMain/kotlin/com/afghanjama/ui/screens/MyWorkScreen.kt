@@ -74,7 +74,7 @@ fun MyWorkScreen(
             title = { Text("شما کدام هستید؟") },
             text = {
                 if (tailorLabels.isEmpty()) {
-                    Text("هنوز خیاطی در اطلاعات پایه ثبت نشده است.")
+                    Text("هنوز خیاطی در «اطلاعات پایه» ثبت نشده.")
                 } else {
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         items(tailorLabels, key = { it }) { label ->
