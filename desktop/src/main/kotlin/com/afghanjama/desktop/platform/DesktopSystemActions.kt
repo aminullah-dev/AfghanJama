@@ -144,14 +144,17 @@ internal object TelHandler {
      *
      * خروجی دور ریخته می‌شود و خوانده نمی‌شود: پروسه‌ای که خروجی‌اش پر شود
      * و کسی نخوانَد گیر می‌کند، و خواندنش تا آخر یعنی منتظر ماندن بی سقف.
+     *
+     * [started] فقط برای آزمون است: همان پروسه را می‌دهد تا دیده شود کشته شد.
      */
-    internal fun exitsOk(cmd: List<String>, timeoutMs: Long): Boolean? {
+    internal fun exitsOk(cmd: List<String>, timeoutMs: Long, started: (Process) -> Unit = {}): Boolean? {
         val p = runCatching {
             ProcessBuilder(cmd)
                 .redirectErrorStream(true)
                 .redirectOutput(ProcessBuilder.Redirect.DISCARD)
                 .start()
         }.getOrNull() ?: return null
+        started(p)
         return try {
             if (p.waitFor(timeoutMs, TimeUnit.MILLISECONDS)) p.exitValue() == 0 else null
         } finally {

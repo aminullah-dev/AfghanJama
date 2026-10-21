@@ -193,12 +193,16 @@ fun main() {
             val win = System.getProperty("os.name").orEmpty().lowercase().contains("win")
             val hang = if (win) listOf("ping", "-n", "30", "127.0.0.1") else listOf("sleep", "30")
             val started = System.nanoTime()
-            val r = TelHandler.exitsOk(hang, 400)
+            var proc: Process? = null
+            val r = TelHandler.exitsOk(hang, 400) { proc = it }
             val tookMs = (System.nanoTime() - started) / 1_000_000
             deskNeed(r == null, "a query past its timeout must report no answer, got $r")
             deskNeed(tookMs < 4_000, "the timeout must hold, took $tookMs ms")
-            val alive = ProcessHandle.current().children().filter { it.isAlive }.count()
-            deskNeed(alive == 0L, "the hung process must be killed, $alive child process(es) still alive")
+            // همان پروسه، نه «هیچ فرزندی»: روی ویندوز JVM خودش یک conhost.exe
+            // به‌عنوانِ فرزند دارد که ربطی به این پرسش ندارد.
+            val p = proc ?: error("the query never started")
+            deskNeed(!p.isAlive, "the hung process (pid ${p.pid()}) must be killed")
+            deskNeed(p.toHandle().descendants().noneMatch { it.isAlive }, "nothing the hung process started may outlive it")
 
             val yes = if (win) listOf("cmd", "/c", "exit", "0") else listOf("true")
             val no = if (win) listOf("cmd", "/c", "exit", "1") else listOf("false")
