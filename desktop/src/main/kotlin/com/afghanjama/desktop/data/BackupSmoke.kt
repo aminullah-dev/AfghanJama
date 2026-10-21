@@ -430,6 +430,77 @@ fun main() {
         noLitter(h, "after a failed swap")
     } && ok
 
+    // ۹د — دفتری که بسته نشد هم همان است: عکس‌ها برمی‌گردند و دفتر دست نمی‌خورد.
+    ok = check("restore whose ledger cannot be closed puts the photos back and leaves the ledger") {
+        val (h, db, photos) = home("restore-close-fails")
+        val before = db.readBytes()
+        var swapped = false
+        val e = runCatching {
+            DesktopBackup.restoreInto(
+                photoArc, db, photos,
+                closeLedger = { throw java.io.IOException("دفتر بسته نشد") },
+                swap = { _, _ -> swapped = true }
+            )
+        }.exceptionOrNull()
+        need(e != null, "the restore must fail when the ledger cannot be closed")
+        need(!swapped, "a ledger that could not be closed must not be replaced")
+        need(db.readBytes().contentEquals(before), "the live ledger must stay")
+        need(File(photos, "p_same.jpg").readBytes().contentEquals(byteArrayOf(9, 9, 9)), "the computer's own photo must be back")
+        need(!File(photos, "p_new.jpg").exists(), "the backup's photo must not stay without its ledger")
+        need(e!!.message.orEmpty().contains("دفترِ قبلی سرِ جایش ماند"), "the message must say the old ledger stayed: ${e.message}")
+        noLitter(h, "after a ledger that would not close")
+    } && ok
+
+    // ۹ه — عکسی که برنگشت: پوشهٔ برگشتِ همین بار تنها نسخهٔ آن است و نباید برود.
+    ok = check("a photo that cannot be put back keeps its only copy in the undo folder") {
+        val (h, _, photos) = home("photo-not-back")
+        val from = File(h, "restore-photos").apply { mkdirs() }
+        File(from, "p_same.jpg").writeBytes(incomingPhoto)
+        val undo = File(h, "${DesktopBackup.UNDO_DIR}-1")
+        val e = runCatching {
+            DesktopBackup.placePhotos(from, photos, undo) { _, dst ->
+                // جای عکس پوشه‌ای پُر می‌ماند: نه پاک می‌شود، نه چیزی رویش می‌نشیند.
+                dst.mkdirs()
+                File(dst, "lock").writeText("x")
+                throw java.io.IOException("دیسک پر است")
+            }
+        }.exceptionOrNull()
+        need(e is DesktopBackup.PhotosNotPlaced, "the failure should come back as PhotosNotPlaced, got $e")
+        need((e as DesktopBackup.PhotosNotPlaced).notBack == 1, "one photo should be reported as not back, got ${e.notBack}")
+        val kept = File(undo, "p_same.jpg")
+        need(
+            kept.isFile && kept.readBytes().contentEquals(byteArrayOf(9, 9, 9)),
+            "the undo folder must keep the only copy of the computer's own photo"
+        )
+    } && ok
+
+    // ۹و — دفتر در یک گام عوض می‌شود. قطعِ برق وسطِ بازنویسیِ درجا دفترِ بریده‌ای
+    // جا می‌گذاشت که برنامه بازش نمی‌کرد.
+    ok = check("the ledger is replaced in one atomic step, never rewritten in place") {
+        val h = File(dir, "swap-atomic").apply { mkdirs() }
+        val db = File(h, DB_NAME).also { makeLedger(it) }
+        val incoming = File(h, "$DB_NAME.restore").also { makeLedger(it); addProbe(it) }
+        DesktopBackup.swapIn(incoming, db, copy = { _, _ -> error("the live ledger was rewritten in place") })
+        need(hasProbe(db), "the incoming ledger did not replace the live one")
+        need(!incoming.exists(), "the staged file should be gone")
+        need(!File(h, "$DB_NAME.prev").exists(), "no rollback copy should be left")
+    } && ok
+
+    ok = check("when the atomic step is refused, a copy that breaks half-way puts the old ledger back whole") {
+        val h = File(dir, "swap-copy-breaks").apply { mkdirs() }
+        val db = File(h, DB_NAME).also { makeLedger(it) }
+        val before = db.readBytes()
+        val incoming = File(h, "$DB_NAME.restore").also { makeLedger(it); addProbe(it) }
+        val e = runCatching {
+            DesktopBackup.swapIn(incoming, db, move = { _, _ -> false }) { from, to ->
+                to.outputStream().use { out -> out.write(from.readBytes(), 0, 1024) }
+                throw java.io.IOException("دیسک پر است")
+            }
+        }.exceptionOrNull()
+        need(e is java.io.IOException, "the copy's own failure should come back, got $e")
+        need(db.readBytes().contentEquals(before), "the old ledger must be back, whole")
+    } && ok
+
     // ۱۰ — پشتیبانِ خودکار فقط ۱۴ تای آخرِ خودش را نگه می‌دارد.
     ok = check("auto-backup retention keeps the newest ${DesktopAutoBackup.KEEP} and nothing else is touched") {
         val folder = File(dir, "autos").apply { mkdirs() }

@@ -8,6 +8,9 @@ import com.afghanjama.ui.format.fa
 import com.afghanjama.util.BackupArchive
 import com.afghanjama.util.BackupArchiveIo
 import java.io.File
+import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 
 /**
  * پشتیبان‌گیری و بازیابیِ دفتر روی ویندوز.
@@ -107,8 +110,9 @@ object DesktopBackup {
      * 5. اتصالِ باز بسته می‌شود و `-wal`/`-shm`ِ قدیمی پاک — وگرنه
      *    صفحه‌های کش‌شدهٔ اتصالِ قبلی روی دیتابیسِ تازه می‌نشیند و خرابش
      *    می‌کند.
-     * 6. نسخهٔ قبلی کنار گذاشته می‌شود (`.prev`) و فقط پس از موفقیت پاک
-     *    — اگر کپی بشکند (دیسکِ پر)، دفتر برمی‌گردد، و عکس‌ها هم.
+     * 6. دفتر با یک جابه‌جاییِ اتمی عوض می‌شود ([swapIn]) — قطعِ برق نیمه‌ای
+     *    از آن جا نمی‌گذارد. اگر سیستم نپذیرد، نسخهٔ قبلی کنار می‌رود
+     *    (`.prev`) و اگر کپی بشکند (دیسکِ پر)، دفتر برمی‌گردد، و عکس‌ها هم.
      *
      * یعنی بازیابی یا کامل است یا هیچ. پس از موفقیت باید برنامه بسته و باز
      * شود: `DesktopLedger` دفتر را یک بار باز می‌کند و همان را نگه می‌دارد.
@@ -142,7 +146,7 @@ object DesktopBackup {
         db: File,
         photoDir: File,
         closeLedger: () -> Unit,
-        swap: (staged: File, db: File) -> Unit = ::swapIn,
+        swap: (staged: File, db: File) -> Unit = { s, d -> swapIn(s, d) },
     ): Int {
         val dir = db.parentFile
         val staged = stageAndValidate(source, dir)
@@ -389,12 +393,30 @@ object DesktopBackup {
     }
 
     /**
-     * جایگزینیِ دفتر با فایلِ سنجیده‌شده — با نسخهٔ برگشت.
+     * جایگزینیِ دفتر با فایلِ سنجیده‌شده.
      *
-     * اگر کپی وسطِ کار بشکند (دیسکِ پر)، دفترِ قبلی برمی‌گردد. بی این،
-     * نه فایلِ سالم می‌ماند و نه بازیابی تمام می‌شود.
+     * **اول یک جابه‌جاییِ اتمی** ([replaceAtomically]): فایلِ سنجیده در یک گام
+     * جای دفتر می‌نشیند. اگر برق وسطِ کار برود یا برنامه کشته شود، یا دفترِ
+     * قبلی سرِ جایش است یا دفترِ تازه، هرگز نیمه‌ای از آن. تا اینجا دفتر در
+     * جای خودش بازنویسی می‌شد و قطعِ وسطِ کپی دفترِ بریده‌ای جا می‌گذاشت که
+     * برنامه بازش نمی‌کرد؛ نسخهٔ سالم در `.prev` می‌ماند و راهی در برنامه به
+     * آن نبود.
+     *
+     * اگر سیستم آن جابه‌جایی را نپذیرد (فایلی که برنامهٔ دیگری روی ویندوز باز
+     * نگه داشته)، دفتر دست نخورده و راهِ قبلی می‌ماند: نسخهٔ قبلی کنار
+     * (`.prev`)، کپی، و اگر کپی بشکند (دیسکِ پر)، دفترِ قبلی برمی‌گردد.
+     *
+     * [move] و [copy] فقط برای آزمون عوض می‌شوند.
      */
-    internal fun swapIn(staged: File, db: File) {
+    internal fun swapIn(
+        staged: File,
+        db: File,
+        move: (from: File, to: File) -> Boolean = ::replaceAtomically,
+        copy: (from: File, to: File) -> Unit = { from, to ->
+            from.inputStream().use { input -> to.outputStream().use { input.copyTo(it) } }
+        },
+    ) {
+        if (move(staged, db)) return
         val dir = db.parentFile
         val previous = File(dir, "$DB_NAME.prev")
         previous.delete()
@@ -402,7 +424,7 @@ object DesktopBackup {
             db.inputStream().use { input -> previous.outputStream().use { input.copyTo(it) } }
         }
         try {
-            staged.inputStream().use { input -> db.outputStream().use { input.copyTo(it) } }
+            copy(staged, db)
         } catch (e: Throwable) {
             // دادهٔ سالم برمی‌گردد؛ بازیابی نشد ولی چیزی از دست نرفت.
             val back = runCatching {
@@ -419,4 +441,20 @@ object DesktopBackup {
         staged.delete()
         Unit
     }
+
+    /**
+     * [from] در یک گام جای [to] می‌نشیند (هر دو در یک پوشه‌اند).
+     *
+     * @return `false` یعنی سیستم نپذیرفت و هیچ‌کدام عوض نشد.
+     */
+    internal fun replaceAtomically(from: File, to: File): Boolean =
+        try {
+            Files.move(
+                from.toPath(), to.toPath(),
+                StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE
+            )
+            true
+        } catch (e: IOException) {
+            false
+        }
 }
