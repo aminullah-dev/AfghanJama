@@ -114,8 +114,8 @@ fun AccountCard(auth: AuthViewModel, onLoggedOut: () -> Unit = {}) {
 }
 
 /**
- * عوض کردنِ رمزِ همین نفر: رمزِ فعلی سنجیده می‌شود، رمزِ تازه دست‌کم
- * چهار رقم است و مالِ کسِ دیگری نیست (`AuthViewModel.changePin`).
+ * عوض کردنِ رمزِ همین نفر: رمزِ فعلی سنجیده می‌شود (با همان سقفِ اشتباهِ
+ * کاشیِ ورود) و رمزِ تازه دست‌کم چهار رقم است (`AuthViewModel.changePin`).
  */
 @Composable
 fun ChangePinDialog(auth: AuthViewModel, onDismiss: () -> Unit) {

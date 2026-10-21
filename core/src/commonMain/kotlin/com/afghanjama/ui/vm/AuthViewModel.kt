@@ -258,10 +258,21 @@ class AuthViewModel(
      * صفحهٔ ورود دیگر این راه را ندارد (کاشی، بعد رمز)؛ برای آزمون‌ها و
      * سازگاری مانده، و **همان سقفِ اشتباه** را دارد تا راهِ دومی برای حدس
      * زدنِ بی‌شمار نباشد.
+     *
+     * **قفلِ کاشیِ مدیر اینجا هم قفل است.** این راه رمزِ مدیر را هم می‌سنجد،
+     * پس اگر شمارِ جدای خودش را داشت، کسی که کاشیِ مدیر را بسته بود از اینجا
+     * دوباره حدس می‌زد. هر اشتباهِ اینجا به کاشیِ مدیر هم شمرده می‌شود، و
+     * ورودِ درستِ **کسِ دیگری** شمارِ کاشیِ مدیر را صفر نمی‌کند.
+     *
+     * از ۱.۱۲ دو نفر می‌توانند یک رمز داشته باشند (کاشی می‌گوید کیست)؛ رمزی
+     * که مالِ بیش از یک نفر است اینجا کسی را وارد نمی‌کند.
      */
     fun login(pin: String) {
         val now = clock()
-        val locked = PinLockout.lockedUntil(settings, ANY_ID, now)
+        val locked = maxOf(
+            PinLockout.lockedUntil(settings, ANY_ID, now),
+            PinLockout.lockedUntil(settings, LoginPerson.OWNER_ID, now),
+        )
         if (locked > 0L) {
             _ui.update { it.copy(lockedUntil = locked, message = lockMessage(locked - now), isError = true) }
             return
@@ -278,27 +289,36 @@ class AuthViewModel(
             return
         }
 
-        if (!PinHash.verify(pin, saved)) {
-            // رمزِ صاحبِ دستگاه نبود؛ شاید یکی از کاربرانی که مدیر ساخته.
-            // هر کس رمزِ خودش را دارد، پس رمز خودش می‌گوید کیست.
-            val person = UserStore.load(settings).firstOrNull { PinHash.verify(pin, it.pinHash) }
-            if (person == null) {
-                val until = PinLockout.fail(settings, ANY_ID, now)
-                _ui.update {
-                    it.copy(
-                        lockedUntil = until,
-                        message = if (until > 0L) lockMessage(until - now) else "رمز اشتباه است.",
-                        isError = true,
-                    )
-                }
-                return
+        val isOwner = PinHash.verify(pin, saved)
+        val persons = UserStore.load(settings).filter { PinHash.verify(pin, it.pinHash) }
+        val matches = (if (isOwner) 1 else 0) + persons.size
+        if (matches == 0) {
+            val until = maxOf(
+                PinLockout.fail(settings, ANY_ID, now),
+                PinLockout.fail(settings, LoginPerson.OWNER_ID, now),
+            )
+            _ui.update {
+                it.copy(
+                    lockedUntil = until,
+                    message = if (until > 0L) lockMessage(until - now) else "رمز اشتباه است.",
+                    isError = true,
+                )
             }
-            PinLockout.clear(settings, ANY_ID)
-            enterPerson(person)
+            return
+        }
+        if (matches > 1) {
+            _ui.update { it.copy(message = "این رمز مالِ بیش از یک نفر است؛ کاشیِ نامِ خود را بزنید.", isError = true) }
             return
         }
         PinLockout.clear(settings, ANY_ID)
-        enterOwner(pin, saved)
+        if (isOwner) {
+            PinLockout.clear(settings, LoginPerson.OWNER_ID)
+            enterOwner(pin, saved)
+        } else {
+            val person = persons.single()
+            PinLockout.clear(settings, person.id)
+            enterPerson(person)
+        }
     }
 
     private fun enterPerson(person: AppUser) {
@@ -362,20 +382,31 @@ class AuthViewModel(
     /**
      * تغییر رمز با تأیید رمز فعلی.
      *
-     * کاربرِ شخصی رمزِ **خودش** را عوض می‌کند، نه رمزِ دستگاه را؛ و رمزِ
-     * تازه نباید مالِ کسِ دیگری باشد، چون رمز است که می‌گوید کیست.
+     * کاربرِ شخصی رمزِ **خودش** را عوض می‌کند، نه رمزِ دستگاه را.
+     *
+     * **«رمزِ فعلی» همان سقفِ اشتباهِ کاشی را دارد** ([PinLockout]): کسی که
+     * پشتِ جلسهٔ بازِ دیگری نشسته، نباید از این پنجره رمزِ او را بی‌شمار حدس
+     * بزند و بعداً با آن وارد شود.
      */
     fun changePin(oldPin: String, newPin: String) {
         val personId = _ui.value.userId
+        val tile = personId ?: LoginPerson.OWNER_ID
+        val now = clock()
+        val locked = PinLockout.lockedUntil(settings, tile, now)
+        if (locked > 0L) {
+            _ui.update { it.copy(message = lockMessage(locked - now), isError = true) }
+            return
+        }
         if (personId != null) {
-            changePersonPin(personId, oldPin, newPin)
+            changePersonPin(personId, oldPin, newPin, now)
             return
         }
         val saved = pin()
         if (saved.isBlank() || !PinHash.verify(oldPin, saved)) {
-            _ui.update { it.copy(message = "رمز فعلی اشتباه است.", isError = true) }
+            wrongCurrentPin(tile, now)
             return
         }
+        PinLockout.clear(settings, tile)
         val p = newPin.trim()
         if (p.length < 4) {
             _ui.update { it.copy(message = "رمزِ تازه باید دست‌کم ۴ رقم باشد.", isError = true) }
@@ -385,22 +416,32 @@ class AuthViewModel(
         _ui.update { it.copy(message = "رمز با موفقیت تغییر کرد.", isError = false) }
     }
 
-    private fun changePersonPin(id: String, oldPin: String, newPin: String) {
+    private fun wrongCurrentPin(tile: String, now: Long) {
+        val until = PinLockout.fail(settings, tile, now)
+        _ui.update {
+            it.copy(message = if (until > 0L) lockMessage(until - now) else "رمز فعلی اشتباه است.", isError = true)
+        }
+    }
+
+    /**
+     * **رمزِ تازه با رمزِ دیگران سنجیده نمی‌شود — عمداً.** تا پیش از این، پیامِ
+     * «این رمز را کسِ دیگری دارد» به هر کارگرِ واردشده می‌گفت کدام رمز مالِ
+     * کسِ دیگری است؛ بی هیچ سقفی، از همین پنجره می‌شد همهٔ ده‌هزار رمز را
+     * آزمود، رمزِ مدیر را یافت و روی کاشیِ مدیر زد — یعنی سقفِ اشتباهِ صفحهٔ
+     * ورود دورزده می‌شد. حالا که کاشی می‌گوید کیست، یکی بودنِ دو رمز زیانی
+     * ندارد: هر کاشی فقط با هشِ همان نفر سنجیده می‌شود ([loginAs]).
+     */
+    private fun changePersonPin(id: String, oldPin: String, newPin: String, now: Long) {
         val users = UserStore.load(settings)
         val me = users.firstOrNull { it.id == id }
         if (me == null || !PinHash.verify(oldPin, me.pinHash)) {
-            _ui.update { it.copy(message = "رمز فعلی اشتباه است.", isError = true) }
+            wrongCurrentPin(id, now)
             return
         }
+        PinLockout.clear(settings, id)
         val p = newPin.trim()
         if (p.length < 4) {
             _ui.update { it.copy(message = "رمزِ تازه باید دست‌کم ۴ رقم باشد.", isError = true) }
-            return
-        }
-        val taken = verifyPin(settings, p) ||
-            users.any { it.id != id && PinHash.verify(p, it.pinHash) }
-        if (taken) {
-            _ui.update { it.copy(message = "این رمز را کسِ دیگری دارد؛ رمزِ دیگری بگذارید.", isError = true) }
             return
         }
         UserStore.save(settings, users.map { if (it.id == id) it.copy(pinHash = PinHash.hash(p)) else it })
