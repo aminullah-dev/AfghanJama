@@ -309,6 +309,15 @@ kotlin {
             api("org.jetbrains.compose.material:material-icons-extended:1.7.3")
         }
 
+        /*
+         * آزمونِ کاتلین روی شبیه‌سازِ آیفون — فقط برای «کارگاهِ وصل»: HKDF و
+         * پاکت روی CommonCryptoِ خودِ آیفون همان بایت‌هایی را بدهند که روی
+         * جاوا (`:core:iosSimulatorArm64Test`).
+         */
+        iosTest.dependencies {
+            implementation(kotlin("test"))
+        }
+
         iosMain.dependencies {
             /*
              * موتورِ Room و درایورِ SQLite — فقط سمتِ iOS.

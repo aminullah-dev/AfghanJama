@@ -98,7 +98,8 @@ class BoardViewModel(private val repo: Repo) : ViewModel() {
 
     /** ساعت و «چند روز» را زنده نگه می‌دارد. */
     fun start(settings: Settings) {
-        _mode.value = LanPrefs.mode(settings)
+        // گوشیِ جفت‌شده با «کارگاهِ وصل» تابلو را از کامپیوتر می‌گیرد، هر حالتی که باشد.
+        _mode.value = if (com.afghanjama.lan.HubLinkPrefs.paired(settings)) DeviceMode.WORKER else LanPrefs.mode(settings)
         viewModelScope.launch {
             while (true) {
                 tick.value = nowMillis()
@@ -109,6 +110,18 @@ class BoardViewModel(private val repo: Repo) : ViewModel() {
     }
 
     private suspend fun pullRemote(settings: Settings) {
+        if (com.afghanjama.lan.HubLinkPrefs.paired(settings)) {
+            val session = com.afghanjama.lan.HubSessions.of(settings, com.afghanjama.lan.PhoneName.platform)
+            val reached = session.sync()
+            val st = session.state.value
+            val snap = st.snapshot
+            _remote.value = if (snap != null) {
+                BoardUi(rows = snap.board, updatedAt = st.lastSyncAt ?: nowMillis(), remote = true, error = if (reached) null else st.problem)
+            } else {
+                _remote.value.copy(error = st.problem ?: "هنوز چیزی از کامپیوترِ کارگاه نرسیده.")
+            }
+            return
+        }
         val host = LanPrefs.host(settings)
         if (host.isBlank()) {
             _remote.value = _remote.value.copy(error = "نشانیِ دستگاهِ اصلی تنظیم نشده.")

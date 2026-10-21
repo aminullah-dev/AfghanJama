@@ -17,6 +17,8 @@ import androidx.compose.runtime.setValue
 import com.afghanjama.data.AppDb
 import com.afghanjama.data.repo.Repo
 import com.afghanjama.lan.LanHub
+import kotlinx.coroutines.launch
+import androidx.lifecycle.lifecycleScope
 import com.afghanjama.licence.AndroidMachineId
 import com.afghanjama.licence.Licensing
 import com.afghanjama.ui.components.LicenceHeartbeat
@@ -94,6 +96,10 @@ class MainActivity : FragmentActivity() {
         // پروسه زنده می‌ماند و `App.onCreate` دیگر اجرا نمی‌شود
         // (`LanHub.stopForRestore`).
         LanHub.shared.autoStart(settings, AndroidLanHost(applicationContext))
+
+        // «کارگاهِ وصل»: هر بار که شبکه برمی‌گردد، کارهای منتظرِ صف همین حالا می‌روند
+        // (طرح، B.6) — نه پس از پانزده ثانیه یا پنج دقیقهٔ فاصلهٔ تلاشِ بعدی.
+        watchNetwork()
 
         val system = AndroidSystemActions(applicationContext)
         val docs = AndroidDocs(applicationContext)
@@ -176,5 +182,34 @@ class MainActivity : FragmentActivity() {
             }
           }
         }
+    }
+
+    private var networkCallback: android.net.ConnectivityManager.NetworkCallback? = null
+
+    private fun watchNetwork() {
+        if (networkCallback != null) return
+        val cm = getSystemService(android.net.ConnectivityManager::class.java) ?: return
+        val cb = object : android.net.ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: android.net.Network) {
+                val session = com.afghanjama.lan.HubSessions.current() ?: return
+                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch { session.retryNow() }
+            }
+        }
+        runCatching { cm.registerDefaultNetworkCallback(cb) }.onSuccess { networkCallback = cb }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // برنامه جلو آمد: صفِ «کارگاهِ وصل» همین حالا.
+        val session = com.afghanjama.lan.HubSessions.current() ?: return
+        lifecycleScope.launch { session.retryNow() }
+    }
+
+    override fun onDestroy() {
+        networkCallback?.let { cb ->
+            runCatching { getSystemService(android.net.ConnectivityManager::class.java)?.unregisterNetworkCallback(cb) }
+        }
+        networkCallback = null
+        super.onDestroy()
     }
 }

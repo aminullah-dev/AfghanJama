@@ -74,6 +74,14 @@ class VmFactory(
             NewSaleViewModel::class.java -> NewSaleViewModel(repo)
             BreakTimeViewModel::class.java -> BreakTimeViewModel(repo)
             WorkshopLinkViewModel::class.java -> WorkshopLinkViewModel(repo, lanHost)
+            // «کارگاهِ وصل» (قراردادِ ۲): همان یک جلسهٔ پروسه. اگر این گوشی تا امروز
+            // دستگاهِ اصلی بود، با جفت شدن سرورش خاموش می‌شود — دو مرکز با یک دفتر نه.
+            com.afghanjama.ui.vm.HubClientViewModel::class.java -> com.afghanjama.ui.vm.HubClientViewModel(
+                com.afghanjama.lan.HubSessions.of(settings, "android"),
+                settings,
+                hasLocalData = { repo.hasAnyWorkshopData() },
+                onPaired = { com.afghanjama.lan.LanHub.shared.stop() },
+            )
             BoardViewModel::class.java -> BoardViewModel(repo)
             SelfTestViewModel::class.java -> SelfTestViewModel(repo)
             PurchasePlanViewModel::class.java -> PurchasePlanViewModel(repo)

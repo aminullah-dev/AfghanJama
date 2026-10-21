@@ -274,6 +274,13 @@ private class Vms(repo: Repo, settings: Settings) {
     val attendance by lazy { AttendanceViewModel(repo) }
     val breakTime by lazy { BreakTimeViewModel(repo) }
     val licence by lazy { LicenceViewModel(Licensing(settings, repo)) }
+    val hub by lazy {
+        com.afghanjama.ui.vm.HubClientViewModel(
+            com.afghanjama.lan.HubSessions.of(settings, "ios"),
+            settings,
+            hasLocalData = { repo.hasAnyWorkshopData() },
+        )
+    }
 }
 
 @Composable
@@ -285,6 +292,12 @@ private fun LoggedIn(repo: Repo, role: UserRole, auth: AuthViewModel, access: Ac
 
     val back = { nav.back() }
     val go = { route: String -> nav.go(route) }
+
+    // QRِ «افزودنِ گوشی» که دوربینِ آیفون باز کرد: یک راست به «کارگاهِ وصل».
+    val hubLink by com.afghanjama.ui.vm.HubDeepLink.pending.collectAsState()
+    LaunchedEffect(hubLink) {
+        if (hubLink != null && nav.current != Routes.WORKSHOP_LINK) go(Routes.WORKSHOP_LINK)
+    }
 
     // لایسنس: سرِ ورود و هر ده دقیقه خوانده می‌شود، و هر ثبتی که رد شود
     // یک بار اینجا گفته می‌شود.
@@ -625,10 +638,11 @@ private fun LoggedIn(repo: Repo, role: UserRole, auth: AuthViewModel, access: Ac
                  * خودِ `LanApi`ِ iOS هم هنوز جواب نمی‌دهد. یعنی این
                  * یکی دو تکه کم دارد، نه یکی.
                  */
-                Routes.WORKSHOP_LINK -> Message(
-                    "اشتراکِ کارگاه روی وای‌فای در نسخهٔ آیفون هنوز نیست.\n" +
-                        "فعلاً از گوشیِ اندرویدی یا کامپیوتر استفاده کنید."
-                )
+                /*
+                 * «کارگاهِ وصل» — آیفون مشتری است (کارگر، صاحب‌کار یا تابلو)،
+                 * نه میزبان؛ همان صفحهٔ مشترکِ اندروید.
+                 */
+                Routes.WORKSHOP_LINK -> com.afghanjama.ui.screens.HubClientScreen(vm = vm.hub, onBack = back)
 
                 else -> Message("این صفحه هنوز در نسخهٔ آیفون نیست: ${nav.current}")
             }

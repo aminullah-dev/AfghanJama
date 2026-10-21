@@ -96,6 +96,12 @@ private val Vazirmatn: FontFamily = run {
  * می‌شود و هیچ آزمونی از سکوهای دیگر پوششش نمی‌دهد؛ پس همه‌چیز باید در
  * `:core` باشد و این فقط سیم‌کشی.
  */
+/**
+ * QRِ «افزودنِ گوشی» که دوربینِ آیفون خواند (`kylink2:`). فقط نگه داشته می‌شود؛
+ * پوسته به «کارگاهِ وصل» می‌رود و آنجا پیش از هر اتصالی از کاربر پرسیده می‌شود.
+ */
+fun openHubLink(raw: String) = com.afghanjama.ui.vm.HubDeepLink.offer(raw)
+
 fun MainViewController(): UIViewController = ComposeUIViewController {
     val settings = IosSettings()
     MaterialTheme(
