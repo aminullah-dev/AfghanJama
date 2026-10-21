@@ -82,13 +82,41 @@ data class ActionCenterUi(
 private const val DELIVERY_WAIT_DAYS = 3
 
 class ActionCenterViewModel(
-    private val repo: Repo,
+    repo: Repo,
     /**
      * دسترسیِ کسی که همین حالا وارد شده — هشدارِ درخواست‌های گوشیِ کارگران
      * فقط برای کسی است که می‌تواند تأییدشان کند ([pendingRequestsAlert]).
      */
-    private val access: () -> Access = { CurrentAccess.value },
+    access: () -> Access = { CurrentAccess.value },
+    now: Flow<Long> = clockTicks(),
 ) : ViewModel() {
+
+    /**
+     * زمانِ آخرین پشتیبانِ خودکار — از تنظیماتِ دستگاه خوانده و از صفحه
+     * تزریق می‌شود (ViewModel به Context دسترسی ندارد). ۰ = هرگز.
+     */
+    private val lastBackup = MutableStateFlow(0L)
+    fun setLastBackup(millis: Long) { lastBackup.value = millis }
+
+    val ui: StateFlow<ActionCenterUi> =
+        ActionAlerts(repo, access, lastBackup, now).ui
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ActionCenterUi())
+}
+
+/**
+ * همهٔ قاعده‌های مرکزِ هشدار، بیرون از ViewModel — تا داشبوردِ کامپیوتر همان
+ * هشدارها را از **همین** حساب بخوانَد، نه نسخهٔ دوم (بازبینی، بندِ ۲۰).
+ *
+ * **«الان» از [now] می‌آید و جلو می‌رود.** تا ۱.۱۱ هر قاعده «الان» را فقط
+ * وقتی حساب می‌کرد که دفتر عوض می‌شد، و پنجرهٔ مصرفِ مواد یک بار سرِ ساختن؛
+ * روی کامپیوتری که روزها باز است «۴ روز معطل» فردا هم ۴ روز می‌ماند (بندِ ۱۸).
+ */
+class ActionAlerts(
+    private val repo: Repo,
+    private val access: () -> Access,
+    lastBackup: Flow<Long>,
+    private val now: Flow<Long>,
+) {
 
     private val activeProduction = setOf(
         OrderStatus.IN_STOCK.name, OrderStatus.CUTTING.name, OrderStatus.CUT_DONE.name,
@@ -106,23 +134,23 @@ class ActionCenterViewModel(
 
     /** هشدارهای تولید، انبار، کارمزد، بدهی، حضور و طلب. */
     private val coreAlerts: Flow<List<Alert>> = combine(
-        repo.observeAllOrders(),
+        repo.observeAllOrders().at(now),
         repo.observePendingWages(),
         repo.observeLedgerBalances(),
         repo.observeMaterialStock(),
         repo.observeAttendance()
-    ) { orders, wages, balances, materials, attendance ->
-        val now = nowMillis()
+    ) { ordersAt, wages, balances, materials, attendance ->
+        val (orders, now) = ordersAt
         val list = buildList {
 
             // ۱) سفارش‌های معطل در تولید
             val stuck = orders.filter {
                 it.status in activeProduction &&
-                    stageDays(it.stageChangedAt, it.createdAt) >= STAGE_WARN_DAYS
+                    stageDays(it.stageChangedAt, it.createdAt, now) >= STAGE_WARN_DAYS
             }
             if (stuck.isNotEmpty()) {
-                val worst = stuck.maxByOrNull { stageDays(it.stageChangedAt, it.createdAt) }!!
-                val worstDays = stageDays(worst.stageChangedAt, worst.createdAt)
+                val worst = stuck.maxByOrNull { stageDays(it.stageChangedAt, it.createdAt, now) }!!
+                val worstDays = stageDays(worst.stageChangedAt, worst.createdAt, now)
                 add(
                     Alert(
                         id = "stuck_orders",
@@ -258,7 +286,7 @@ class ActionCenterViewModel(
      * است، حتی اگر پول هنوز نرسیده.
      */
     private val followUpAlerts: Flow<List<Alert>> =
-        debtPlanFlow(repo).map { plan ->
+        debtPlanFlow(repo, now).map { plan ->
             val pending = plan.today.filterNot { it.contactedToday }
             buildList {
                 if (pending.isNotEmpty()) {
@@ -287,11 +315,12 @@ class ActionCenterViewModel(
      * combine بیش از پنج جریانِ نوع‌دار نمی‌پذیرد.
      */
     private val payrollAlerts: Flow<List<Alert>> = combine(
-        repo.observeStaff(),
+        repo.observeStaff().at(now),
         repo.observeSalaryPayments()
-    ) { staff, payments ->
-        val key = PersianDate.monthKey(nowMillis())
-        val label = PersianDate.monthLabel(nowMillis())
+    ) { staffAt, payments ->
+        val (staff, now) = staffAt
+        val key = PersianDate.monthKey(now)
+        val label = PersianDate.monthLabel(now)
         val salaried = staff.filter { it.monthlySalary > 0 }
         val unpaid = salaried.filter { s ->
             val paid = payments
@@ -327,13 +356,8 @@ class ActionCenterViewModel(
      * چون تند مصرف می‌شود زودتر تمام شود. از همان محاسبهٔ صفحهٔ
      * «پیشنهاد خرید» استفاده می‌کند تا دو عددِ متفاوت ندهند.
      */
-    private val stockAlerts: Flow<List<Alert>> = combine(
-        repo.observeMaterialStock(),
-        repo.observeStockMovementsSince(
-            nowMillis() - BURN_WINDOW_DAYS * 86_400_000L
-        )
-    ) { materials, movements ->
-        val runningOut = buildReorderRows(materials, movements).filter { it.runsOutSoon }
+    private val stockAlerts: Flow<List<Alert>> = reorderRowsFlow(repo, now).map { rows ->
+        val runningOut = rows.filter { it.runsOutSoon }
         buildList {
             if (runningOut.isNotEmpty()) {
                 val soonest = runningOut.minByOrNull { it.daysOfCover ?: Int.MAX_VALUE }!!
@@ -367,10 +391,10 @@ class ActionCenterViewModel(
      * کهنه‌ای که طرف پیگیرش نیست، کارِ امروزِ کارفرما نیست.
      */
     private val staleAlerts: Flow<List<Alert>> = combine(
-        repo.observeLedgerBalances(),
+        repo.observeLedgerBalances().at(now),
         repo.observeAllLedgerEntries()
-    ) { balances, entries ->
-        val now = nowMillis()
+    ) { balancesAt, entries ->
+        val (balances, now) = balancesAt
         val lastAt = entries.groupBy { it.partyType + "|" + it.partyName }
             .mapValues { (_, rows) -> rows.maxOf { it.at } }
 
@@ -402,12 +426,6 @@ class ActionCenterViewModel(
         }
     }
 
-    /**
-     * زمانِ آخرین بکاپِ خودکار — از تنظیماتِ دستگاه خوانده و از صفحه
-     * تزریق می‌شود (ViewModel به Context دسترسی ندارد). ۰ = هرگز.
-     */
-    private val _lastBackup = MutableStateFlow(0L)
-    fun setLastBackup(millis: Long) { _lastBackup.value = millis }
 
     /**
      * بکاپِ خودکار روزانه زمان‌بندی شده، اما می‌تواند بی‌صدا متوقف شود —
@@ -415,8 +433,7 @@ class ActionCenterViewModel(
      * هیچ‌چیز این را نشان نمی‌داد؛ یعنی خرابی دقیقاً وقتی کشف می‌شد که
      * دیگر دیر بود.
      */
-    private val backupAlerts: Flow<List<Alert>> = _lastBackup.map { last ->
-        val now = nowMillis()
+    private val backupAlerts: Flow<List<Alert>> = lastBackup.at(now).map { (last, now) ->
         val days = if (last <= 0L) -1L else (now - last) / 86_400_000L
         buildList {
             when {
@@ -462,17 +479,18 @@ class ActionCenterViewModel(
      * نمی‌پذیرد و آن یکی پنج‌تا دارد.
      */
     private val deliveryAlerts: Flow<List<Alert>> = combine(
-        repo.observeAllOrders(),
+        repo.observeAllOrders().at(now),
         repo.observeCustomerNotified()
-    ) { orders, notified ->
+    ) { ordersAt, notified ->
+        val (orders, now) = ordersAt
         val waiting = orders.filter {
             it.status == OrderStatus.STORED.name && it.customerName.isNotBlank() &&
-                stageDays(it.stageChangedAt, it.createdAt) >= DELIVERY_WAIT_DAYS
+                stageDays(it.stageChangedAt, it.createdAt, now) >= DELIVERY_WAIT_DAYS
         }
         val (told, untold) = waiting.partition { notified.containsKey(it.id.toString()) }
         buildList {
             if (untold.isNotEmpty()) {
-                val worst = untold.maxByOrNull { stageDays(it.stageChangedAt, it.createdAt) }!!
+                val worst = untold.maxByOrNull { stageDays(it.stageChangedAt, it.createdAt, now) }!!
                 add(
                     Alert(
                         id = "awaiting_delivery",
@@ -480,13 +498,13 @@ class ActionCenterViewModel(
                         icon = Icons.Default.LocalShipping,
                         title = "${untold.size.fa()} کارِ آماده و مشتری خبر ندارد",
                         detail = "قدیمی‌ترین: ${worst.customerName} — " +
-                            "${stageDays(worst.stageChangedAt, worst.createdAt).fa()} روز در انبار",
+                            "${stageDays(worst.stageChangedAt, worst.createdAt, now).fa()} روز در انبار",
                         route = Routes.DELIVERY_QUEUE
                     )
                 )
             }
             if (told.isNotEmpty()) {
-                val worst = told.maxByOrNull { stageDays(it.stageChangedAt, it.createdAt) }!!
+                val worst = told.maxByOrNull { stageDays(it.stageChangedAt, it.createdAt, now) }!!
                 add(
                     Alert(
                         id = "awaiting_pickup",
@@ -494,7 +512,7 @@ class ActionCenterViewModel(
                         icon = Icons.Default.LocalShipping,
                         title = "${told.size.fa()} مشتری خبر دارد ولی نیامده",
                         detail = "قدیمی‌ترین: ${worst.customerName} — " +
-                            "${stageDays(worst.stageChangedAt, worst.createdAt).fa()} روز در انبار",
+                            "${stageDays(worst.stageChangedAt, worst.createdAt, now).fa()} روز در انبار",
                         route = Routes.DELIVERY_QUEUE
                     )
                 )
@@ -515,7 +533,7 @@ class ActionCenterViewModel(
      * یادآوریِ ساده.
      */
     private val recurringAlerts: Flow<List<Alert>> =
-        repo.observeRecurringExpenses().map { rows ->
+        repo.observeRecurringExpenses().reemitOn(now).map { rows ->
             val ym = currentYm()
             val due = rows.filter { it.enabled && it.lastPostedYm < ym }
             buildList {
@@ -545,7 +563,7 @@ class ActionCenterViewModel(
      * مالِ جایی است که واقعاً پول نمی‌رسد.
      */
     private val financeAlerts: Flow<List<Alert>> =
-        healthFlow(repo).map { h ->
+        healthFlow(repo, now).map { h ->
             h.signals.mapNotNull { sig ->
                 val (severity, title) = when (sig.kind) {
                     FinancialHealth.Kind.NET_NEGATIVE ->
@@ -582,12 +600,7 @@ class ActionCenterViewModel(
      * است؛ پولِ خوابیده ضرر است ولی فوری نیست.
      */
     private val productAlerts: Flow<List<Alert>> =
-        combine(repo.observeFinishedStock(), repo.observeFinishedSales()) { stock, sales ->
-            val s = ProductInsights.analyze(
-                stock.map { ProductInsights.Stock(it.name, it.size, it.qty, it.totalValue, it.updatedAt) },
-                sales.map { ProductInsights.Sale(it.productName, it.size, it.qty - it.returnedQty, it.createdAt) },
-                nowMillis(),
-            )
+        productInsightsFlow(repo, now).map { s ->
             buildList {
                 s.restock.firstOrNull()?.let { worst ->
                     add(
@@ -627,7 +640,7 @@ class ActionCenterViewModel(
      * `URGENT`: پیش‌بینی است، نه اتفاقِ افتاده.
      */
     private val lateForecastAlerts: Flow<List<Alert>> =
-        forecastFlow(repo).map { f ->
+        forecastFlow(repo, now).map { f ->
             val risk = f.atRisk
             buildList {
                 if (risk.isNotEmpty()) {
@@ -655,7 +668,7 @@ class ActionCenterViewModel(
     private val requestAlerts: Flow<List<Alert>> =
         repo.observePendingRequestCount().map { listOfNotNull(pendingRequestsAlert(it, access())) }
 
-    val ui: StateFlow<ActionCenterUi> =
+    val ui: Flow<ActionCenterUi> =
         combine(
             coreAlerts,
             payrollAlerts,
@@ -673,7 +686,7 @@ class ActionCenterViewModel(
             ActionCenterUi(
                 (core + payroll + stock + backup + rest).sortedBy { it.severity.ordinal }
             )
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ActionCenterUi())
+        }
 
     private companion object {
         const val SHIFT_MS = 8L * 60 * 60 * 1000
@@ -712,3 +725,16 @@ fun pendingRequestsAlert(count: Int, access: Access): Alert? {
         route = Routes.WORKSHOP_LINK
     )
 }
+
+/**
+ * پرفروشِ رو به اتمام و کالای راکد، زنده — هشدارِ مرکزِ هشدار و کارتِ
+ * داشبورد هر دو از همین (یک منبع برای یک عدد).
+ */
+fun productInsightsFlow(repo: Repo, now: Flow<Long> = clockTicks()): Flow<ProductInsights.Summary> =
+    combine(repo.observeFinishedStock(), repo.observeFinishedSales(), now) { stock, sales, n ->
+        ProductInsights.analyze(
+            stock.map { ProductInsights.Stock(it.name, it.size, it.qty, it.totalValue, it.updatedAt) },
+            sales.map { ProductInsights.Sale(it.productName, it.size, it.qty - it.returnedQty, it.createdAt) },
+            n,
+        )
+    }

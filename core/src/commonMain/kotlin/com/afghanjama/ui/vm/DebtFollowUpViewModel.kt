@@ -23,14 +23,16 @@ import kotlinx.coroutines.launch
  * هر کدام حسابِ خودش را داشت، هشدار می‌گفت «۵ نفر» و صفحه چهار نفر
  * نشان می‌داد — همان دامی که `healthFlow` را هم مشترک کرد.
  */
-fun debtPlanFlow(repo: Repo): Flow<DebtFollowUp.Plan> =
+fun debtPlanFlow(repo: Repo, now: Flow<Long> = clockTicks()): Flow<DebtFollowUp.Plan> =
+    // «امروز» با ساعت جلو می‌رود، نه فقط با ثبتِ تازه: فهرستِ دیروز تا اولین
+    // ثبتِ امروز «امروز» نمی‌ماند (بازبینی، بندِ ۱۸).
     combine(
         repo.observeCustomerAccounts(),
         repo.observeDebtFollowUps(),
-        lateInstallmentsFlow(repo),
+        lateInstallmentsFlow(repo, now),
         phonesFlow(repo),
-    ) { accounts, contacts, late, phones ->
-        val now = nowMillis()
+        now,
+    ) { accounts, contacts, late, phones, now ->
         val names = accounts.filterValues { it.owed > 0L }.keys + late.keys
         val debtors = names.map { n ->
             val acc = accounts[n]
@@ -55,9 +57,8 @@ fun debtPlanFlow(repo: Repo): Flow<DebtFollowUp.Plan> =
  * هشدارِ قسط می‌خوانند — تا اینجا قسطی «گذشته» نباشد که آنجا «تسویه»
  * است.
  */
-private fun lateInstallmentsFlow(repo: Repo): Flow<Map<String, Pair<Long, Long>>> =
-    combine(repo.observeInstallments(), repo.observePaidByCustomer()) { all, paidBy ->
-        val now = nowMillis()
+private fun lateInstallmentsFlow(repo: Repo, now: Flow<Long>): Flow<Map<String, Pair<Long, Long>>> =
+    combine(repo.observeInstallments(), repo.observePaidByCustomer(), now) { all, paidBy, now ->
         all.groupBy { it.customerName.trim() }
             .filterKeys { it.isNotEmpty() }
             .mapNotNull { (name, rows) ->

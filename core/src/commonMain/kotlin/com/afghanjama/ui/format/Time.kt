@@ -3,9 +3,12 @@ package com.afghanjama.ui.format
 import com.afghanjama.util.nowMillis
 
 /** تعداد روزهایی که سفارش در مرحله فعلی مانده است. */
-fun stageDays(stageChangedAt: Long, createdAt: Long): Long {
+fun stageDays(stageChangedAt: Long, createdAt: Long): Long = stageDays(stageChangedAt, createdAt, nowMillis())
+
+/** همان، با «الانِ» داده‌شده — برای جریان‌هایی که ساعتشان جلو می‌رود (`clockTicks`). */
+fun stageDays(stageChangedAt: Long, createdAt: Long, now: Long): Long {
     val start = if (stageChangedAt > 0) stageChangedAt else createdAt
-    return ((nowMillis() - start) / 86_400_000L).coerceAtLeast(0)
+    return ((now - start) / 86_400_000L).coerceAtLeast(0)
 }
 
 /** آستانه هشدار معطلی سفارش در یک مرحله (روز). */

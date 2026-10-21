@@ -289,8 +289,8 @@ class NewSaleViewModel(private val repo: Repo) : ViewModel() {
  * تازه هم «سودِ معمول» را از همین می‌گیرد، تا دو صفحه دو درصدِ متفاوت
  * نگویند.
  */
-fun saleBookFlow(repo: Repo): Flow<PriceAdvisor.Book> =
-    repo.observeFinishedSales().map { sales ->
+fun saleBookFlow(repo: Repo, now: Flow<Long> = clockTicks()): Flow<PriceAdvisor.Book> =
+    combine(repo.observeFinishedSales(), now.hourly()) { sales, _ ->
         val sold = sales
             .filter { it.qty > 0 && it.returnedQty < it.qty }
             .map {

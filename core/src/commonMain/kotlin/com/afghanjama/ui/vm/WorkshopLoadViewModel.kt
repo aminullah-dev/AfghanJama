@@ -50,7 +50,9 @@ class WorkshopLoadViewModel(repo: Repo) : ViewModel() {
  * مرکزِ هشدار هر سه از همین می‌خوانند، تا یکی «دیر می‌شود» نگوید و
  * دیگری ساکت بماند.
  */
-fun forecastFlow(repo: Repo): Flow<DeliveryForecast.Result> =
-    combine(repo.observeAllOrders(), repo.observeAllAssignments()) { orders, sewn ->
-        DeliveryForecast.of(orders, sewn, nowMillis())
+fun forecastFlow(repo: Repo, now: Flow<Long> = clockTicks()): Flow<DeliveryForecast.Result> =
+    // «الان» هر دقیقه جلو می‌رود: سفارشی که امشب از مهلتش می‌گذرد، فردا صبح
+    // بی هیچ ثبتی «در خطر» نیست بلکه «گذشته» است (بازبینی، بندِ ۱۸).
+    combine(repo.observeAllOrders(), repo.observeAllAssignments(), now) { orders, sewn, n ->
+        DeliveryForecast.of(orders, sewn, n)
     }

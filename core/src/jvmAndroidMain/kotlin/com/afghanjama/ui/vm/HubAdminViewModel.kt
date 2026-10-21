@@ -173,22 +173,15 @@ class HubAdminViewModel(
 
     // ------------------------------------------------------------ صندوقِ درخواست‌ها
 
+    // همان درِ داشبورد ([RequestDecisions]): اجازه پیش از هر کاری پرسیده می‌شود.
     fun approve(r: SyncRequest, time: RequestTime = RequestTime.AUTO) = work {
-        if (!WorkshopLinkAccess.canDecide(access(), r.type)) {
-            say(WorkshopLinkAccess.NOT_YOURS, error = true)
-            return@work
-        }
-        val err = repo.approveRequest(r.id, time = time)
+        val err = RequestDecisions.approve(repo, access(), r, time)
         if (err == null) say("تأیید و ثبت شد.") else say(err, error = true)
     }
 
     fun reject(r: SyncRequest) = work {
-        if (!WorkshopLinkAccess.canDecide(access(), r.type)) {
-            say(WorkshopLinkAccess.NOT_YOURS, error = true)
-            return@work
-        }
-        repo.rejectRequest(r.id)
-        say("درخواست رد شد.")
+        val err = RequestDecisions.reject(repo, access(), r)
+        if (err == null) say("درخواست رد شد.") else say(err, error = true)
     }
 
     /**
@@ -221,15 +214,6 @@ class HubAdminViewModel(
 
     companion object {
         /** نسخهٔ گوشی از نسخهٔ این دستگاه عقب‌تر است؟ (سه عدد؛ ناخوانا یعنی نه.) */
-        fun outdated(phone: String, here: String = AppVersion.current): Boolean {
-            fun parts(v: String): List<Int>? {
-                val out = v.split('.', '-').take(3).map { it.toIntOrNull() }
-                return if (out.isEmpty() || out.any { it == null }) null else out.map { it!! }
-            }
-            val a = parts(phone) ?: return false
-            val b = parts(here) ?: return false
-            for (i in 0 until minOf(a.size, b.size)) if (a[i] != b[i]) return a[i] < b[i]
-            return a.size < b.size
-        }
+        fun outdated(phone: String, here: String = AppVersion.current): Boolean = AppVersion.isBehind(phone, here)
     }
 }

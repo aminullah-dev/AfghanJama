@@ -83,4 +83,23 @@ object OrderPipeline {
             Step(stage, state)
         }
     }
+
+    /**
+     * شمارِ سفارش‌های **باز** در هر کدام از پنج قدم — برای نوارِ خطِ تولیدِ
+     * داشبورد.
+     *
+     * سفارشِ تمام‌شده (`SENT`، `SALES`) شمرده نمی‌شود، وگرنه قدمِ «تحویل» همهٔ
+     * تاریخچهٔ کارگاه را می‌شمرد. `STORED` (ساخته‌شده و منتظرِ مشتری) در قدمِ
+     * تحویل می‌ماند — کارِ کارگاه با آن هنوز تمام نیست. وضعیتِ ناشناخته جایی
+     * شمرده نمی‌شود.
+     */
+    fun counts(statuses: List<String>): List<Int> {
+        val out = IntArray(STAGES.size)
+        for (s in statuses) {
+            if (isComplete(s)) continue
+            val i = indexOf(s)
+            if (i >= 0) out[i]++
+        }
+        return out.toList()
+    }
 }

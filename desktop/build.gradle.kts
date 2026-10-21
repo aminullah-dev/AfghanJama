@@ -563,6 +563,23 @@ val lanLoopSmoke by tasks.registering(JavaExec::class) {
     }
 }
 
+/*
+ * `dashSmoke` — داشبورد روی دفترِ موقتِ Room با کارگاهِ نمونه: کارت و هشدارش
+ * یک حرف می‌زنند، و «الان» بی ثبتِ تازه جلو می‌رود (فازِ C).
+ */
+val dashSmoke by tasks.registering(JavaExec::class) {
+    group = "verification"
+    description = "داشبورد: هم‌خوانیِ کارت و هشدار، و ساعتی که جلو می‌رود"
+    dependsOn("createDistributable")
+    mainClass.set("com.afghanjama.desktop.data.DashSmokeKt")
+    jvmArgs("-Dfile.encoding=UTF-8", "-Dstdout.encoding=UTF-8")
+    doFirst {
+        val appDir = packagedJarDir()
+        val jars = appDir.listFiles { f: JFile -> f.name.endsWith(".jar") } ?: emptyArray()
+        classpath = files(appDir) + files(*jars)
+    }
+}
+
 val authSmoke by tasks.registering(JavaExec::class) {
     group = "verification"
     description = "ورود، نقش و تغییرِ رمز روی تنظیماتِ موقت"

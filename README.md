@@ -98,6 +98,12 @@ Keychain، و گوشیِ جفت‌نشده هیچ داده‌ای نمی‌گی�
 می‌رسد. چهار PR: #36 تا #40. متنِ کامل:
 [`docs/RELEASE-1.11.0.md`](docs/RELEASE-1.11.0.md).
 
+**پس از آن: ۱.۱۲.۰ (شمارهٔ ساخت ۱۸) — داشبوردِ مادر.** صفحهٔ اولِ کامپیوتر
+داشبورد است و هر عدد منبع و تازگی‌اش را می‌گوید؛ نامعلوم «نامعلوم» است، نه
+صفر. ورود روی هر سه سکو کاشیِ هر نفر است و نقش را فقط مدیر عوض می‌کند. یک تم
+برای گوشی، آیفون و کامپیوتر. متنِ کامل:
+[`docs/RELEASE-1.12.0.md`](docs/RELEASE-1.12.0.md).
+
 **لایسنس (از نسخهٔ ۱.۹.۰).** هر کارگاه یک لایسنس می‌خواهد که لینومیک
 بی‌اینترنت فعال می‌کند و به دستگاهِ اصلی (یا تنها) بسته است؛ گوشی‌های
 کارگر زیرِ همان‌اند. بی‌لایسنس، ۱۴ روز و ۲۰ سفارش کامل کار می‌کند و بعد
@@ -231,6 +237,13 @@ lives in the Android Keystore or iOS Keychain, and an unpaired device gets
 nothing. 1.9/1.10 phones keep working for 30 days after the last one is seen,
 then get a Dari "update this phone" message. Database 67. Notes (Dari):
 [`docs/RELEASE-1.11.0.md`](docs/RELEASE-1.11.0.md).
+
+Then: **1.12.0 (build 18)**, the smart desktop dashboard — the landing page
+on Mac and Windows is a four-column digest where every number names its
+source and freshness and an unknown is never shown as 0; login on all three
+platforms is by person tiles (name, role pill, own 4-digit PIN, persistent
+lockout); one shared theme, shape scale, pill and glass. Database unchanged.
+Notes (Dari): [`docs/RELEASE-1.12.0.md`](docs/RELEASE-1.12.0.md).
 
 From 1.9.0 every workshop needs an offline, device-bound licence issued by
 Linumic (14-day / 20-order trial, then read-only; worker phones are covered

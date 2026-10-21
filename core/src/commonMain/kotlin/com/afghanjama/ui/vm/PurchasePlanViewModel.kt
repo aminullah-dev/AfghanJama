@@ -1,5 +1,8 @@
 package com.afghanjama.ui.vm
 
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.Flow
 import com.afghanjama.util.nowMillis
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -109,12 +112,22 @@ data class PurchasePlanUi(
  */
 class PurchasePlanViewModel(private val repo: Repo) : ViewModel() {
 
-    val ui: StateFlow<PurchasePlanUi> = combine(
-        repo.observeMaterialStock(),
-        repo.observeStockMovementsSince(
-            nowMillis() - BURN_WINDOW_DAYS * 86_400_000L
-        )
-    ) { materials, movements ->
-        PurchasePlanUi(buildReorderRows(materials, movements))
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PurchasePlanUi())
+    val ui: StateFlow<PurchasePlanUi> = reorderRowsFlow(repo)
+        .map { PurchasePlanUi(it) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PurchasePlanUi())
 }
+
+/**
+ * ردیف‌های پیشنهادِ خرید، زنده — صفحهٔ «برنامهٔ خرید»، هشدارِ «به‌زودی تمام
+ * می‌شود» و کارتِ «مواد رو به اتمام»ِ داشبورد هر سه از همین می‌خوانند.
+ *
+ * **سرِ پنجره ساعتی جلو می‌رود.** تا ۱.۱۱ `since` یک بار سرِ ساختن حساب
+ * می‌شد، پس «مصرفِ ۳۰ روزِ اخیر» روی کامپیوتری که روزها باز است کش می‌آمد
+ * (بازبینی، بندِ ۱۸).
+ */
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+fun reorderRowsFlow(repo: Repo, now: Flow<Long> = clockTicks()): Flow<List<ReorderRow>> =
+    combine(
+        repo.observeMaterialStock(),
+        now.hourly().flatMapLatest { h -> repo.observeStockMovementsSince(h - BURN_WINDOW_DAYS * 86_400_000L) },
+    ) { materials, movements -> buildReorderRows(materials, movements) }

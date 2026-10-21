@@ -30,7 +30,7 @@ import com.afghanjama.ui.components.glassSurface
  * و آن منو بیرونِ `Shell` ساخته می‌شود. پس یک صاحب، دو خواننده.
  */
 internal class DeskNav {
-    var section by mutableStateOf(DeskSection.Home)
+    var section by mutableStateOf(DeskSection.Dashboard)
         private set
 
     /** جزئیاتِ مشتری — از دلِ «خریداران» یا «پیگیریِ طلب». */
@@ -47,6 +47,12 @@ internal class DeskNav {
      */
     var moneyAsPayment by mutableStateOf(false)
         private set
+
+    /** جست‌وجوی همه‌جا (⌘/Ctrl+K) باز است؟ */
+    var palette by mutableStateOf(false)
+
+    /** کسی وارد است؟ — میان‌برها پشتِ صفحهٔ ورود کاری نمی‌کنند. */
+    var signedIn by mutableStateOf(false)
 
     fun go(s: DeskSection) {
         section = s

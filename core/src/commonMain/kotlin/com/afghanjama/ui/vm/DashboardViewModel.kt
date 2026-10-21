@@ -47,7 +47,9 @@ data class DashboardStats(
     val recentSales: List<RecentSale> = emptyList(),
     val tailorStats: List<TailorStat> = emptyList(),
     /** قدیمی‌ترین کارمزد باز چند روز است؟ (برای یادآوری تسویه هفتگی) */
-    val oldestPendingWageDays: Long = 0
+    val oldestPendingWageDays: Long = 0,
+    /** زمانِ قدیمی‌ترین کارمزدِ باز؛ `null` وقتی کارمزدِ بازی نیست. */
+    val oldestPendingWageAt: Long? = null,
 ) {
     val wageReminderDue: Boolean get() = oldestPendingWageDays >= 7
 }
@@ -74,17 +76,36 @@ data class RecentSale(
 /** یک روزِ ۲۴ ساعته به میلی‌ثانیه. */
 private const val DAY_MS = 24L * 3600 * 1000
 
-class DashboardViewModel(repo: Repo) : ViewModel() {
+class DashboardViewModel(repo: Repo, now: Flow<Long> = clockTicks()) : ViewModel() {
 
-    private val base: kotlinx.coroutines.flow.Flow<DashboardStats> =
+    val stats: StateFlow<DashboardStats> =
+        dashboardStatsFlow(repo, now).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DashboardStats())
+
+    /**
+     * «وضعِ مالی» — ترازنامهٔ همین لحظه + هزینه و فروشِ ۳۰ روزه.
+     *
+     * `null` تا وقتی اولین عددها برسند؛ کارتِ خالی بهتر از کارتی است که
+     * یک لحظه «همه‌چیز صفر است» نشان دهد.
+     */
+    val health: StateFlow<FinancialHealth.Snapshot?> =
+        healthFlow(repo, now).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+}
+
+/**
+ * آمارِ داشبوردِ مالی، زنده — صفحهٔ «مالی» و داشبوردِ کامپیوتر هر دو از همین.
+ *
+ * پنجره‌های ۷ و ۳۰ روز با [now] جلو می‌روند (بازبینی، بندِ ۱۸).
+ */
+fun dashboardStatsFlow(repo: Repo, now: Flow<Long> = clockTicks()): Flow<DashboardStats> {
+    val base: Flow<DashboardStats> =
         combine(
             repo.observeAllOrders(),
             repo.observeFinishedSales(),
             repo.observeTx(),
-            repo.observeAllWages()
-        ) { orders, sales, tx, allWages ->
+            repo.observeAllWages(),
+            now,
+        ) { orders, sales, tx, allWages, now ->
             val wages = allWages.filter { !it.settled }
-            val now = nowMillis()
             val d7 = now - 7L * DAY_MS
             val d30 = now - 30L * DAY_MS
 
@@ -149,30 +170,19 @@ class DashboardViewModel(repo: Repo) : ViewModel() {
                 openWagesCount = wages.size,
                 recentSales = recentSales,
                 tailorStats = tailorStats,
-                oldestPendingWageDays = oldestPendingDays
+                oldestPendingWageDays = oldestPendingDays,
+                oldestPendingWageAt = wages.minOfOrNull { it.createdAt },
             )
         }
 
-    private val income30 = journalLast30(repo)
-
-    val stats: StateFlow<DashboardStats> =
-        combine(base, repo.observeFinishedStock(), income30) { s, finished, journal ->
-            // «آماده» یعنی چیزی که واقعاً در انبار هست؛ ردیفِ کسری از آن
-            // کم نمی‌شود، وگرنه یک کسری، موجودیِ طرحِ دیگری را پنهان می‌کند.
-            s.copy(
-                readyPieces = finished.sumOf { it.qty.coerceAtLeast(0) },
-                expenses30 = incomeStatementOf(journal).totalExpense,
-            )
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DashboardStats())
-
-    /**
-     * «وضعِ مالی» — ترازنامهٔ همین لحظه + هزینه و فروشِ ۳۰ روزه.
-     *
-     * `null` تا وقتی اولین عددها برسند؛ کارتِ خالی بهتر از کارتی است که
-     * یک لحظه «همه‌چیز صفر است» نشان دهد.
-     */
-    val health: StateFlow<FinancialHealth.Snapshot?> =
-        healthFlow(repo).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    return combine(base, repo.observeFinishedStock(), journalLast30(repo)) { s, finished, journal ->
+        // «آماده» یعنی چیزی که واقعاً در انبار هست؛ ردیفِ کسری از آن
+        // کم نمی‌شود، وگرنه یک کسری، موجودیِ طرحِ دیگری را پنهان می‌کند.
+        s.copy(
+            readyPieces = finished.sumOf { it.qty.coerceAtLeast(0) },
+            expenses30 = incomeStatementOf(journal).totalExpense,
+        )
+    }
 }
 
 /**
@@ -202,13 +212,13 @@ fun journalLast30(repo: Repo): Flow<List<AccountBalance>> =
  * فروش از دفترِ فروشِ انبارِ محصول (همان منبعِ کارتِ «فروش»)، بقیه از
  * ژورنال.
  */
-fun healthFlow(repo: Repo): Flow<FinancialHealth.Snapshot> =
+fun healthFlow(repo: Repo, now: Flow<Long> = clockTicks()): Flow<FinancialHealth.Snapshot> =
     combine(
         repo.observeFinishedSales(),
         journalLast30(repo),
         repo.observeAccountBalances(),
-    ) { sales, last30, all ->
-        val now = nowMillis()
+        now,
+    ) { sales, last30, all, now ->
         val d30 = now - 30L * DAY_MS
         val d60 = now - 60L * DAY_MS
         FinancialHealth.assess(
