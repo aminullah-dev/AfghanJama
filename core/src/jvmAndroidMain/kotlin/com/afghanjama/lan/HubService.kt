@@ -157,7 +157,7 @@ class HubService(
             is HubPairing.Submit.Wrong -> {
                 val v = guard.admit(peer, false)
                 if (v is LanGuard.Verdict.Blocked) blocked(v.waitMs)
-                else json(401, "code" to HubProtocol.ERR_AUTH, "error" to if (r.closed) HubPairing.TOO_MANY else WRONG_SECRET)
+                else json(401, "code" to HubProtocol.ERR_AUTH, "error" to if (r.codeShut) HubPairing.TOO_MANY else WRONG_SECRET)
             }
         }
     }
@@ -225,11 +225,18 @@ class HubService(
         return pairing.decide(p.requestId, HubPairing.Outcome.Rejected("کارفرما اجازه نداد."))
     }
 
-    /** «قطعِ دسترسی»: کلید از دفتر و nonceها از حافظه — همین حالا. */
-    suspend fun revoke(deviceId: String): Boolean {
+    /**
+     * «قطعِ دسترسی»: کلید از دفتر و nonceها از حافظه — همین حالا.
+     *
+     * **زیرِ همان قفلِ صندوق** ([inbox]): همگام‌سازی‌ای که همین لحظه کارِ آن
+     * گوشی را می‌نشاند اول تمام می‌شود، و هر چه پس از بازگشتِ این تابع برسد
+     * دستگاه را درونِ قفل دوباره می‌خوانَد و برداشته می‌بیند. بی این، درخواستی
+     * که پیش از «قطع» سنجیده شده بود کارش را پس از آن هم در صندوق می‌گذاشت.
+     */
+    suspend fun revoke(deviceId: String): Boolean = inbox.withLock {
         val ok = repo.revokeLanDevice(deviceId, clock())
         replay.forget(deviceId)
-        return ok
+        ok
     }
 
     // ================================================================ همگام‌سازی
@@ -265,18 +272,22 @@ class HubService(
             ?: return Reply(200, HubEnvelope.sealResponse(head, key, HubProtocol.PATH_SYNC, mapOf("ok" to false)))
 
         val acks = inbox.withLock {
+            // دستگاه دوباره، **درونِ قفل**: «قطعِ دسترسی» یا «تغییرِ نقش» که پس از
+            // سنجشِ پاکت و پیش از این لحظه رسید، همین‌جا دیده می‌شود.
+            val live = repo.lanDevice(device.deviceId)?.takeIf { it.active && it.keyB64 == device.keyB64 }
+                ?: return unknown()
             ask.outbox.map { w ->
                 val cmd = HubCommand.of(w.type)
                 when {
                     cmd == null -> Ack(w.key, AckStatus.REJECTED, "نوعِ درخواست پذیرفته نیست.")
-                    cmd.queues -> repo.submitHubWork(device, w, ask.phoneNow, now)
-                    else -> repo.applyOwnerCommand(device, w, now)
+                    cmd.queues -> repo.submitHubWork(live, w, ask.phoneNow, now)
+                    else -> repo.applyOwnerCommand(live, w, now)
                 }
             }
         }
         repo.touchLanDevice(device.deviceId, now, peer, ask.appVersion)
 
-        val fresh = repo.lanDevice(device.deviceId) ?: device
+        val fresh = repo.lanDevice(device.deviceId)?.takeIf { it.active } ?: return unknown()
         val snapshot = HubViews.snapshot(db, repo, fresh, now)
             ?: return unknown()
         val cursor = HubViews.cursorOf(snapshot)
