@@ -32,7 +32,8 @@ object HubEnvelope {
         val shared = LanPrims.p256Agree(mine, hello.hubPub)
             ?: throw IllegalStateException("کلیدِ عمومیِ کامپیوتر روی منحنی نیست")
         val key = LanCrypto.pairKey(
-            shared, secret, HubProtocol.pairTranscript(hello.pairingId, via, hello.hubPub, mine.publicX963)
+            shared, routeSecret(via, secret, hello.pairingId),
+            HubProtocol.pairTranscript(hello.pairingId, via, hello.hubPub, mine.publicX963),
         )
         val box = LanCrypto.seal(
             key, LanJson.write(info.toJson()).encodeToByteArray(), HubProtocol.aadPairRequest(hello.pairingId, via)
@@ -53,6 +54,14 @@ object HubEnvelope {
     class PairOpened(val via: PairVia, val info: PhoneInfo, val key: ByteArray, val phonePub: ByteArray) {
         override fun toString(): String = "PairOpened(via=$via, info=$info, key=…)"
     }
+
+    /**
+     * رازی که در کلیدِ جفت شدن می‌نشیند: رازِ ۱۲۸ بیتیِ QR همان‌طور، و رمزِ دستیِ
+     * ۴۰ بیتی **کُندشده** ([LanCrypto.codeSecret]) — تا میانجیِ فعالی که یک پاکتِ
+     * گوشی را گرفته نتواند در ده دقیقه همهٔ رمزها را بی‌اتصال بیازماید.
+     */
+    private fun routeSecret(via: PairVia, secret: ByteArray, pairingId: String): ByteArray =
+        if (via == PairVia.CODE) LanCrypto.codeSecret(secret, pairingId) else secret
 
     /** آنچه از درخواستِ جفت شدن پیش از باز کردن خوانده می‌شود — برای اینکه کدام راز. */
     fun pairVia(body: Map<String, Any?>): PairVia? = PairVia.of(body.jStr("via"))
@@ -76,7 +85,8 @@ object HubEnvelope {
         val box = LanCrypto.unb64(body.jStr("box")) ?: return null
         val shared = LanPrims.p256Agree(hubPair, phonePub) ?: return null
         val key = LanCrypto.pairKey(
-            shared, secret, HubProtocol.pairTranscript(pairingId, via, hubPair.publicX963, phonePub)
+            shared, routeSecret(via, secret, pairingId),
+            HubProtocol.pairTranscript(pairingId, via, hubPair.publicX963, phonePub),
         )
         val plain = LanCrypto.open(key, nonce, box, HubProtocol.aadPairRequest(pairingId, via)) ?: return null
         val info = LanJson.parseObject(plain.decodeToString())?.let { PhoneInfo.parse(it) } ?: return null

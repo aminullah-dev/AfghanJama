@@ -59,6 +59,23 @@ object HubProtocol {
     /** هر بار گوشی در صفِ ارسال حداکثر این شمار کار می‌فرستد. */
     const val MAX_OUTBOX_PER_SYNC = 50
 
+    /**
+     * سقفِ درخواست‌های منتظرِ یک گوشی در صندوق — بیش از این، کارِ تازهٔ همان
+     * گوشی رد می‌شود تا کارفرما تصمیم بگیرد (کارگرِ سالم در یک هفته سی‌تا هم
+     * نمی‌فرستد).
+     */
+    const val MAX_PENDING_PER_DEVICE = 100
+
+    /**
+     * سقفِ هر فهرست در تصویرِ گوشی — همان سقفی که گوشی هنگامِ خواندن می‌گذارد
+     * ([HubSnapshot.parse])؛ بیش از آن فقط جوابِ بزرگ‌تر می‌شد و از سقفِ جوابِ گوشی
+     * می‌گذشت. صندوقِ صاحب‌کار قدیمی‌ترها را اول می‌آورد.
+     */
+    const val SNAPSHOT_PENDING_LINES = 100
+    const val SNAPSHOT_ORDER_LINES = 300
+    const val SNAPSHOT_BOARD_LINES = 500
+    const val SNAPSHOT_DEBT_LINES = 200
+
     /** هر ۱۵ ثانیه، وقتی برنامه جلوی چشم است — همان آهنگِ تابلو. */
     const val POLL_MS = 15_000L
 

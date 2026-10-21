@@ -50,11 +50,14 @@ object HubViews {
         }
     }
 
+    /** تابلو در تصویرِ گوشی — تا همان سقفی که گوشی می‌خوانَد. */
+    private suspend fun sent(db: Db, now: Long): List<BoardRow> = board(db, now).take(HubProtocol.SNAPSHOT_BOARD_LINES)
+
     suspend fun snapshot(db: Db, repo: Repo, device: LanDevice, now: Long): HubSnapshot? =
         when (HubRole.of(device.role)) {
-            HubRole.WORKER -> HubSnapshot(HubRole.WORKER, worker = worker(db, repo, device.personLabel), board = board(db, now))
-            HubRole.OWNER -> HubSnapshot(HubRole.OWNER, owner = owner(db, repo, now), board = board(db, now))
-            HubRole.WALL -> HubSnapshot(HubRole.WALL, board = board(db, now))
+            HubRole.WORKER -> HubSnapshot(HubRole.WORKER, worker = worker(db, repo, device.personLabel), board = sent(db, now))
+            HubRole.OWNER -> HubSnapshot(HubRole.OWNER, owner = owner(db, repo, now), board = sent(db, now))
+            HubRole.WALL -> HubSnapshot(HubRole.WALL, board = sent(db, now))
             null -> null
         }
 
@@ -111,16 +114,16 @@ object HubViews {
         val inside = db.attendanceDao().observeRecent().first().filter { it.checkOut == null }.map { it.employee }.distinct()
         val plan = debtPlanFlow(repo).first()
         return OwnerView(
-            pending = db.syncRequestDao().observePending().first().map { requestLine(it) },
-            dueToday = dueToday.map { line(it) },
-            overdue = overdue.map { line(it) },
-            createdToday = createdToday.map { line(it) },
+            pending = db.syncRequestDao().observePending().first().take(HubProtocol.SNAPSHOT_PENDING_LINES).map { requestLine(it) },
+            dueToday = dueToday.take(HubProtocol.SNAPSHOT_ORDER_LINES).map { line(it) },
+            overdue = overdue.take(HubProtocol.SNAPSHOT_ORDER_LINES).map { line(it) },
+            createdToday = createdToday.take(HubProtocol.SNAPSHOT_ORDER_LINES).map { line(it) },
             openOrders = open.sortedWith(compareBy({ if (it.dueDate > 0) it.dueDate else Long.MAX_VALUE }, { it.createdAt }))
                 .take(100).map { line(it) },
             openCount = open.size,
             readyCount = orders.count { it.status == OrderStatus.STORED.name },
             insideNow = inside,
-            debtToday = plan.today.map {
+            debtToday = plan.today.take(HubProtocol.SNAPSHOT_DEBT_LINES).map {
                 DebtLine(it.debtor.name, it.debtor.phone, it.debtor.amount, it.reason.label, it.contactedToday)
             },
         )
