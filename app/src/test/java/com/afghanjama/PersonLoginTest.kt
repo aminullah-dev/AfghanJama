@@ -111,17 +111,84 @@ class PersonLoginTest {
     }
 
     @Test
-    fun `a person changes their own pin, never to someone else's`() {
+    fun `a person changes their own pin, and only their own`() {
         val s = device()
         val vm = AuthViewModel(s)
         vm.login("2222")
-        vm.changePin("2222", "1111")          // رمزِ مدیر
-        assertTrue(vm.ui.value.isError)
         vm.changePin("2222", "3333")
         assertFalse(vm.ui.value.isError)
         assertTrue(PinHash.verify("3333", UserStore.find(s, "u1")!!.pinHash))
         // رمزِ دستگاه دست نخورد
         assertTrue(AuthViewModel.verifyPin(s, "1111"))
+    }
+
+    // ─────────────────────── حمله به سقفِ اشتباه (بازبینیِ فازِ C)
+
+    /**
+     * «تغییرِ رمز» پیش‌گوی رمزِ دیگران نیست. تا پیش از این، کارگرِ واردشده با
+     * زدنِ هر رمزِ تازه می‌فهمید آن رمز «مالِ کسِ دیگری» است یا نه — بی سقف —
+     * و رمزِ مدیر را می‌یافت. پاسخ به رمزِ مدیر و به رمزی تصادفی باید یکی باشد،
+     * و کاشیِ مدیر همچنان فقط با رمزِ مدیر باز شود.
+     */
+    @Test
+    fun `change-pin is not an oracle for other people's pins`() {
+        val s = device()
+        val vm = vmOf(s)
+        vm.loginAs("u1", "2222")
+        vm.changePin("2222", "4444")           // رمزِ کسی نیست
+        val random = vm.ui.value.isError to vm.ui.value.message
+        vm.changePin("4444", "1111")           // رمزِ مدیر
+        assertEquals(random, vm.ui.value.isError to vm.ui.value.message)
+
+        // هم‌رمز بودن با مدیر کسی را مدیر نمی‌کند: کاشی می‌گوید کیست.
+        vm.logout()
+        vm.loginAs("u1", "1111")
+        assertTrue(vm.ui.value.isLoggedIn)
+        assertFalse(vm.ui.value.access.isManager)
+        vm.logout()
+        // راهِ «فقط رمز» رمزِ دوصاحبه را به هیچ‌کس نمی‌دهد.
+        vm.login("1111")
+        assertFalse(vm.ui.value.isLoggedIn)
+    }
+
+    /** کسی که پشتِ جلسهٔ بازِ مدیر نشسته، رمزِ مدیر را از «رمزِ فعلی» حدس نمی‌زند. */
+    @Test
+    fun `guessing the current pin in change-pin is throttled like the tile`() {
+        val s = device()
+        val vm = vmOf(s)
+        vm.loginAs(LoginPerson.OWNER_ID, "1111")
+        repeat(PinLockout.FREE_TRIES) { vm.changePin("9${it}99", "5555") }
+        // حالا حتی رمزِ درست تا پایانِ قفل پذیرفته نمی‌شود…
+        vm.changePin("1111", "5555")
+        assertTrue(vm.ui.value.isError)
+        assertTrue(AuthViewModel.verifyPin(s, "1111"))
+        // …و کاشیِ مدیر هم بسته است.
+        vm.logout()
+        vm.loginAs(LoginPerson.OWNER_ID, "1111")
+        assertFalse(vm.ui.value.isLoggedIn)
+    }
+
+    /**
+     * قفلِ کاشیِ مدیر از راهِ «فقط رمز» دور زده نمی‌شود، و ورودِ درستِ کسِ
+     * دیگر شمارِ کاشیِ مدیر را صفر نمی‌کند.
+     */
+    @Test
+    fun `the pin-only path cannot reopen a locked owner tile or reset its count`() {
+        val s = device()
+        val vm = vmOf(s)
+        repeat(PinLockout.FREE_TRIES) { vm.loginAs(LoginPerson.OWNER_ID, "9999") }
+        vm.login("1111")
+        assertFalse(vm.ui.value.isLoggedIn)
+
+        clock += PinLockout.MAX_LOCK_MS + 1
+        val before = PinLockout.state(s, LoginPerson.OWNER_ID).fails
+        vm.login("2222")                       // سمیع، درست
+        assertTrue(vm.ui.value.isLoggedIn)
+        vm.logout()
+        assertEquals(before, PinLockout.state(s, LoginPerson.OWNER_ID).fails)
+        // و اشتباهِ راهِ «فقط رمز» به کاشیِ مدیر شمرده می‌شود.
+        vm.login("9999")
+        assertTrue(PinLockout.lockedUntil(s, LoginPerson.OWNER_ID, clock) > clock)
     }
 
     // ─────────────────────── کاشیِ هر نفر (۱.۱۲)
