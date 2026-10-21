@@ -1,4 +1,4 @@
-# ═══════════════════════════════════════════════════════════════════
+﻿# ═══════════════════════════════════════════════════════════════════
 #  گامِ ۲ — امضای نسخهٔ ویندوز (هر بار که خروجیِ تازه می‌گیرید)
 # ═══════════════════════════════════════════════════════════════════
 #
@@ -26,6 +26,12 @@ if (-not (Test-Path $pfxPath)) {
 # ─── پیدا کردنِ signtool ─────────────────────────────────────────
 # در Windows SDK است و مسیرش با هر نسخه فرق می‌کند، پس دنبالش
 # می‌گردیم و **تازه‌ترین** را برمی‌داریم.
+# اول PATH (مثلاً signtoolِ بستهٔ رسمیِ NuGetِ مایکروسافت،
+# Microsoft.Windows.SDK.BuildTools، که بی ادمین باز می‌شود)، بعد SDKِ نصب‌شده.
+$signtool = Get-Command signtool.exe -ErrorAction SilentlyContinue |
+    Select-Object -First 1 |
+    ForEach-Object { Get-Item $_.Source }
+if (-not $signtool) {
 $signtool = Get-ChildItem -Path @(
         "${env:ProgramFiles(x86)}\Windows Kits\10\bin",
         "${env:ProgramFiles}\Windows Kits\10\bin"
@@ -33,6 +39,7 @@ $signtool = Get-ChildItem -Path @(
     Where-Object { $_.FullName -match '\\(x64|x86)\\' } |
     Sort-Object FullName -Descending |
     Select-Object -First 1
+}
 
 if (-not $signtool) {
     Write-Host ""
@@ -43,6 +50,8 @@ if (-not $signtool) {
     Write-Host "    «Windows 11 SDK» را تیک بزنید" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "  یا SDK را جدا از سایتِ مایکروسافت بگیرید." -ForegroundColor Yellow
+    Write-Host "  یا بی ادمین: بستهٔ NuGetِ Microsoft.Windows.SDK.BuildTools را باز کنید" -ForegroundColor Yellow
+    Write-Host "  و پوشهٔ x64ِ signtool را به PATH بیفزایید." -ForegroundColor Yellow
     Write-Host ""
     throw "signtool لازم است."
 }
@@ -64,9 +73,9 @@ Write-Host ""
 Write-Host "  $($targets.Count) فایل برای امضا:" -ForegroundColor Cyan
 $targets | ForEach-Object { Write-Host "    $($_.Name)" -ForegroundColor DarkGray }
 
-$pwd = Read-Host "`n  رمزِ گواهی" -AsSecureString
+$certPwd = Read-Host "`n  رمزِ گواهی" -AsSecureString
 $plain = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
-           [Runtime.InteropServices.Marshal]::SecureStringToBSTR($pwd))
+           [Runtime.InteropServices.Marshal]::SecureStringToBSTR($certPwd))
 
 # ─── امضا ────────────────────────────────────────────────────────
 # `/tr` مهرِ زمانی است و **اختیاری نیست**. بی آن، روزی که گواهی
