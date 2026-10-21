@@ -20,7 +20,7 @@ import _src
 
 ALLOWED = {4, 8, 12, 16, 20, 24, 28}
 SHAPE = re.compile(r"RoundedCornerShape\(\s*(\d+)\.dp\s*\)")
-THEME = re.compile(r"(?<![A-Za-z0-9_.])MaterialTheme\(")
+THEME = re.compile(r"(?<![A-Za-z0-9_])MaterialTheme\(")
 
 fail = []
 checked = 0
