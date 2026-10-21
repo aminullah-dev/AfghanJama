@@ -229,6 +229,29 @@ fun main() {
         }
     }
 
+    // داشبورد (صفحهٔ اولِ ۱.۱۲) در پهنای بزرگِ ۱۹۲۰ — چهار ستون؛ ۱۱۰۰ و ۱۴۴۰
+    // همان «shell-*» بالا است که حالا با داشبورد باز می‌شود.
+    check("shell-1920", "داشبورد در پهنای 1920", 1920, 1080, frames = 3) {
+        val auth: AuthViewModel = viewModel { AuthViewModel(settings) }
+        Shell(repo, UserRole.MANAGER, auth = auth)
+    }
+    // «خانه» (کاشی‌های گوشی) هنوز هست — همان صفحه‌ای که پیش از ۱.۱۲ صفحهٔ اول بود.
+    check("home-1440", "خانه در پهنای 1440", 1440, 900, frames = 2) {
+        val auth: AuthViewModel = viewModel { AuthViewModel(settings) }
+        val nav = androidx.compose.runtime.remember { DeskNav().also { it.go(Section.Home) } }
+        Shell(repo, UserRole.MANAGER, com.afghanjama.ui.vm.Access.MANAGER, nav, auth)
+    }
+    // جست‌وجوی همه‌جا (⌘/Ctrl+K) روی داشبورد.
+    check("palette-1440", "جست‌وجوی همه‌جا", 1440, 900, frames = 2) {
+        val auth: AuthViewModel = viewModel { AuthViewModel(settings) }
+        val nav = androidx.compose.runtime.remember { DeskNav().also { it.palette = true } }
+        Shell(repo, UserRole.MANAGER, com.afghanjama.ui.vm.Access.MANAGER, nav, auth)
+    }
+    // داشبورد برای فروشنده: فقط کارت‌هایی که به صفحه‌شان راه دارد.
+    check("dash-sales", "داشبورد برای فروشنده", 1440, 900, frames = 3) {
+        SectionContent(Section.Dashboard, repo, role = UserRole.SALES, access = com.afghanjama.ui.vm.Access.forRole(UserRole.SALES), go = {}, onOpenCustomer = {})
+    }
+
     // نوار برای نقشی که بیشترِ بخش‌ها را ندارد — گروه‌های خالی نباید سرگروهِ
     // تنها بکشند.
     check("shell-sales", "نوارِ کنار برای فروشنده", 1100, 700, frames = 2) {
@@ -268,7 +291,7 @@ fun main() {
         com.afghanjama.ui.screens.LoginScreen(auth, onLoggedIn = {})
     }
 
-    val total = Section.entries.size + 1 + shellSizes.size + 1 + shellSizes.size + shellSizes.size + 2
+    val total = Section.entries.size + 1 + shellSizes.size + 1 + shellSizes.size + shellSizes.size + 2 + 4
     println("=".repeat(52))
     val shots = shotDir.listFiles { f: java.io.File -> f.name.endsWith(".png") }?.size ?: 0
     println("screenshots: $shots in ${shotDir.absolutePath}")

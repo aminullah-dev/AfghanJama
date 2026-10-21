@@ -189,6 +189,9 @@ private fun ApplicationScope.MainWindow(settings: Settings) {
     var visible by remember { mutableStateOf(true) }
     var askClose by remember { mutableStateOf(false) }
     val hub by LanHub.shared.state.collectAsState()
+    // جای کاربر در پنجره — بیرونِ `Window`، تا میان‌برهای صفحه‌کلید (⌘/Ctrl+K و D)
+    // هم به آن برسند.
+    val nav = remember { DeskNav() }
     ReminderTray(windowState)
     HubTray(
         hidden = !visible,
@@ -223,9 +226,9 @@ private fun ApplicationScope.MainWindow(settings: Settings) {
         title = "${AppInfo.NAME} — ${AppVersion.short()} — $platformName",
         // هر کلیدی یعنی کسی پشتِ کامپیوتر است (قفلِ خودکار). رویداد را
         // نمی‌خورد؛ فقط می‌بیند.
-        onPreviewKeyEvent = {
+        onPreviewKeyEvent = { e ->
             DeskIdle.touch()
-            false
+            deskShortcut(e, nav)
         }
     ) {
         LaunchedEffect(Unit) {
@@ -295,17 +298,18 @@ private fun ApplicationScope.MainWindow(settings: Settings) {
                 // درِ ورود: نقش از `AuthViewModel` می‌آید، نه از فرض.
                 val authVm: AuthViewModel = viewModel { AuthViewModel(settings) }
                 val auth by authVm.ui.collectAsState()
-                val nav = remember { DeskNav() }
 
                 if (isMac) DeskMenuBar(nav, auth, authVm, windowState)
 
                 // کسی که دوباره وارد می‌شود سرِ جای قبلی‌اش برمی‌گردد (مثلاً
-                // پس از قفلِ خودکار)؛ کسِ دیگری از «خانه» شروع می‌کند.
+                // پس از قفلِ خودکار)؛ کسِ دیگری از «داشبورد» شروع می‌کند.
                 var lastUser by remember { mutableStateOf<String?>(null) }
                 LaunchedEffect(auth.isLoggedIn, auth.userId, auth.role) {
+                    nav.signedIn = auth.isLoggedIn
+                    if (!auth.isLoggedIn) nav.palette = false
                     if (auth.isLoggedIn) {
                         val who = "${auth.userId}|${auth.role}"
-                        if (who != lastUser) nav.go(Section.Home)
+                        if (who != lastUser) nav.go(Section.Dashboard)
                         lastUser = who
                     }
                 }
@@ -421,7 +425,13 @@ private fun FrameWindowScope.DeskMenuBar(
             Item("خروج از حساب", enabled = inside, onClick = { authVm.logout() })
         }
         Menu("نما") {
-            listOf(Section.Home, Section.ActionCenter, Section.WorkshopLink, Section.OrderSearch).forEach { s ->
+            Item(
+                "جست‌وجو…", enabled = inside,
+                shortcut = androidx.compose.ui.input.key.KeyShortcut(androidx.compose.ui.input.key.Key.K, meta = true),
+                onClick = { nav.palette = true },
+            )
+            Separator()
+            listOf(Section.Dashboard, Section.Home, Section.ActionCenter, Section.WorkshopLink, Section.OrderSearch).forEach { s ->
                 Item(s.title, enabled = can(s), onClick = { nav.go(s) })
             }
         }

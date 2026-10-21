@@ -33,6 +33,7 @@ class SectionGroupTest {
 
     private val v191: Map<DeskSection, Need> = mapOf(
         // «وضعیت»ِ ۱.۹.۱ برای همه بود؛ «خانه» جایش را گرفت.
+        DeskSection.Dashboard to Need.All,
         DeskSection.Home to Need.All,
         DeskSection.OrderSearch to Need.All,
         DeskSection.MyWork to Need.All,
@@ -156,7 +157,9 @@ class SectionGroupTest {
     fun `workshop sharing stays in today, among the first three`() {
         assertEquals(DeskGroup.TODAY, DeskSection.WorkshopLink.group)
         assertTrue(DeskSection.entries.indexOf(DeskSection.WorkshopLink) < 3)
-        assertEquals(DeskSection.Home, DeskSection.entries.first())
+        // از ۱.۱۲ صفحهٔ اول داشبورد است و «خانه» درست پس از آن.
+        assertEquals(DeskSection.Dashboard, DeskSection.entries.first())
+        assertEquals(DeskSection.Home, DeskSection.entries[1])
     }
 
     @Test

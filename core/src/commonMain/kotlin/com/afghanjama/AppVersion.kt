@@ -20,6 +20,23 @@ import com.afghanjama.ui.format.toPersianDigits
  */
 object AppVersion {
 
+    /**
+     * نسخهٔ [phone] از [here] عقب‌تر است؟ (سه عدد؛ ناخوانا یعنی نه.)
+     *
+     * یک جا برای صفحهٔ «کارگاهِ وصل» و داشبورد — تا یکی «کهنه» نگوید و دیگری نه.
+     */
+    fun isBehind(phone: String, here: String = current): Boolean {
+        fun parts(v: String): List<Int>? {
+            val out = v.split('.', '-').take(3).map { it.toIntOrNull() }
+            return if (out.isEmpty() || out.any { it == null }) null else out.map { it!! }
+        }
+        val a = parts(phone) ?: return false
+        val b = parts(here) ?: return false
+        for (i in 0 until minOf(a.size, b.size)) if (a[i] != b[i]) return a[i] < b[i]
+        return a.size < b.size
+    }
+
+
     /** کانالِ ساختی که از روی تگِ نسخه و با درختِ تمیز ساخته شده. */
     const val RELEASE = "release"
 

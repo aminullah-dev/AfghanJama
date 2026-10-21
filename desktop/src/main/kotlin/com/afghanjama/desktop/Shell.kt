@@ -237,6 +237,8 @@ internal fun Shell(
                 }
             }
         }
+        // جست‌وجوی همه‌جا (⌘/Ctrl+K) روی همه‌چیز.
+        if (nav.palette) CommandPalette(repo, access, nav)
     }
 }
 
@@ -313,9 +315,17 @@ internal fun SectionContent(
     auth: AuthViewModel? = null,
 ) {
 
-    val back = { go(Section.Home) }
+    // «برگشت» به صفحهٔ اول، که از ۱.۱۲ داشبورد است.
+    val back = { go(Section.Dashboard) }
 
     when (section) {
+        /*
+         * داشبورد — چکیدهٔ کلِ کارگاه، صفحهٔ اولِ کامپیوتر (فازِ C). هر کارت با
+         * دسترسیِ صفحهٔ خودش نشان داده می‌شود؛ کلیک روی کارت همان صفحه را باز
+         * می‌کند.
+         */
+        Section.Dashboard -> HubDashboard(repo, access, go = go, onOpenOrder = onOpenOrder)
+
         /*
          * خانه — همان خانهٔ گوشی، با همان کاشی‌ها و همان قاعدهٔ دسترسی.
          *

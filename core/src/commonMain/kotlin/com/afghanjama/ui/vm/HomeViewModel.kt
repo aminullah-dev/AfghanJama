@@ -40,45 +40,8 @@ data class HomeSummary(
 
 class HomeViewModel(repo: Repo) : ViewModel() {
 
-    private val base: kotlinx.coroutines.flow.Flow<HomeSummary> =
-        combine(
-            repo.observeMaterialStock(),
-            repo.observeAllOrders(),
-            repo.observeWalletBalance(),
-            repo.observeBankBalance(),
-            repo.observeProfitBalance()
-        ) { materials, orders, wallet, bank, profit ->
-            val productionStatuses = setOf(
-                OrderStatus.CUTTING.name,
-                OrderStatus.CUT_DONE.name,
-                OrderStatus.SEWING.name,
-                OrderStatus.REVIEW.name
-            )
-            HomeSummary(
-                materialItems = materials.size,
-                materialValue = materials.sumOf { (it.amount * it.avgPrice) }.toLong(),
-                lowStockCount = materials.count { it.minLevel > 0.0 && it.amount <= it.minLevel },
-                inProduction = orders.count { it.status in productionStatuses },
-                inStock = orders.count { it.status == OrderStatus.IN_STOCK.name },
-                wallet = wallet,
-                bank = bank,
-                profit = profit,
-                cutting = orders.count { it.status == OrderStatus.CUTTING.name || it.status == OrderStatus.CUT_DONE.name },
-                sewing = orders.count { it.status == OrderStatus.SEWING.name },
-                review = orders.count { it.status == OrderStatus.REVIEW.name },
-                stuck = orders.count {
-                    it.status in productionStatuses &&
-                        stageDays(it.stageChangedAt, it.createdAt) >= STAGE_WARN_DAYS
-                }
-            )
-        }
-
     val summary: StateFlow<HomeSummary> =
-        combine(base, repo.observeFinishedStock()) { s, finished ->
-            // ردیفِ کسری از شمارشِ «آماده» کم نمی‌شود — آن یک بدهیِ جنسی
-            // است، نه کالایی که کم شده باشد.
-            s.copy(finishedPieces = finished.sumOf { it.qty.coerceAtLeast(0) })
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeSummary())
+        homeSummaryFlow(repo).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeSummary())
 
     /** بازه‌های بازِ حضور (کارمندانِ داخل کارگاه) برای ساعتِ شیفتِ داشبورد. */
     /**
@@ -133,4 +96,51 @@ class HomeViewModel(repo: Repo) : ViewModel() {
         repo.observeAttendance()
             .map { list -> list.filter { it.checkOut == null } }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+}
+
+/**
+ * خلاصهٔ زندهٔ کارگاه — خانهٔ گوشی و داشبوردِ کامپیوتر هر دو از همین.
+ *
+ * تا ۱.۱۱ این جریان `private`ِ `HomeViewModel` بود؛ داشبورد اگر عددِ صندوق را
+ * می‌خواست باید آن را دوباره می‌ساخت (بازبینی، بندِ ۲۰).
+ */
+fun homeSummaryFlow(repo: Repo): kotlinx.coroutines.flow.Flow<HomeSummary> {
+    val base: kotlinx.coroutines.flow.Flow<HomeSummary> =
+        combine(
+            repo.observeMaterialStock(),
+            repo.observeAllOrders(),
+            repo.observeWalletBalance(),
+            repo.observeBankBalance(),
+            repo.observeProfitBalance()
+        ) { materials, orders, wallet, bank, profit ->
+            val productionStatuses = setOf(
+                OrderStatus.CUTTING.name,
+                OrderStatus.CUT_DONE.name,
+                OrderStatus.SEWING.name,
+                OrderStatus.REVIEW.name
+            )
+            HomeSummary(
+                materialItems = materials.size,
+                materialValue = materials.sumOf { (it.amount * it.avgPrice) }.toLong(),
+                lowStockCount = materials.count { it.minLevel > 0.0 && it.amount <= it.minLevel },
+                inProduction = orders.count { it.status in productionStatuses },
+                inStock = orders.count { it.status == OrderStatus.IN_STOCK.name },
+                wallet = wallet,
+                bank = bank,
+                profit = profit,
+                cutting = orders.count { it.status == OrderStatus.CUTTING.name || it.status == OrderStatus.CUT_DONE.name },
+                sewing = orders.count { it.status == OrderStatus.SEWING.name },
+                review = orders.count { it.status == OrderStatus.REVIEW.name },
+                stuck = orders.count {
+                    it.status in productionStatuses &&
+                        stageDays(it.stageChangedAt, it.createdAt) >= STAGE_WARN_DAYS
+                }
+            )
+        }
+
+    return combine(base, repo.observeFinishedStock()) { s, finished ->
+            // ردیفِ کسری از شمارشِ «آماده» کم نمی‌شود — آن یک بدهیِ جنسی
+            // است، نه کالایی که کم شده باشد.
+            s.copy(finishedPieces = finished.sumOf { it.qty.coerceAtLeast(0) })
+        }
 }

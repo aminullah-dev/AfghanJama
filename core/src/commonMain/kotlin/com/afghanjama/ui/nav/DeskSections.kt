@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.HealthAndSafety
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.SpaceDashboard
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.ManageAccounts
@@ -89,10 +90,12 @@ enum class DeskGroup(val title: String) {
  * (`deskscreens`)، همان جایی که کارفرما پیدایش می‌کند.
  */
 enum class DeskSection(val title: String, val group: DeskGroup) {
-    // امروز
+    // امروز — از ۱.۱۲ صفحهٔ اول «داشبورد» است (چکیدهٔ کلِ کارگاه)، و «خانه»
+    // همان کاشی‌های کارِ روزمرهٔ گوشی.
+    Dashboard("داشبورد", DeskGroup.TODAY),
     Home("خانه", DeskGroup.TODAY),
-    ActionCenter("مرکز هشدار", DeskGroup.TODAY),
     WorkshopLink("کارگاهِ وصل", DeskGroup.TODAY),
+    ActionCenter("مرکز هشدار", DeskGroup.TODAY),
     MyWork("کارِ من", DeskGroup.TODAY),
 
     // کارگاه — از سفارش تا تحویل
@@ -166,6 +169,8 @@ enum class DeskSection(val title: String, val group: DeskGroup) {
 fun DeskSection.allowedFor(access: Access): Boolean {
     if (access.isManager) return true
     val need: Feature = when (this) {
+        // داشبورد برای همه باز است؛ هر کارتش با دسترسیِ صفحهٔ خودش نشان داده می‌شود.
+        DeskSection.Dashboard,
         DeskSection.Home, DeskSection.Settings, DeskSection.OrderSearch, DeskSection.MyWork,
         DeskSection.WorkshopLink, DeskSection.QuoteCalc, DeskSection.Guide, DeskSection.Licence,
         DeskSection.About -> return true
@@ -202,6 +207,7 @@ fun DeskSection.allowedFor(access: Access): Boolean {
  */
 val DeskSection.icon: ImageVector
     get() = when (this) {
+        DeskSection.Dashboard -> Icons.Default.SpaceDashboard
         DeskSection.Home -> Icons.Default.Home
         DeskSection.ActionCenter -> Icons.Default.NotificationsActive
         DeskSection.WorkshopLink -> Icons.Default.Wifi
