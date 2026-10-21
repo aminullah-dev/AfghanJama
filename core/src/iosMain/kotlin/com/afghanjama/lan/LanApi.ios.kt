@@ -3,27 +3,34 @@ package com.afghanjama.lan
 import com.afghanjama.ui.vm.BoardRow
 
 /*
- * سهمِ iOS — **هنوز نیست، و صریح می‌گوید نیست.**
+ * سهمِ iOS از **قراردادِ ۱** (رمزِ شش‌رقمی، گوشی‌های ۱.۹/۱.۱۰) — که آیفون ندارد.
  *
- * اشتراکِ کارگاه روی وای‌فای با `HttpURLConnection` و `org.json` نوشته
- * شده و هیچ‌کدام روی iOS نیستند؛ نسخهٔ بومی‌اش (`NSURLSession` و
- * `kotlinx.serialization`) کارِ جداگانه‌ای است.
+ * آیفون از ۱.۱۱ با «کارگاهِ وصل» (قراردادِ ۲، `HubSession`) وصل می‌شود و آن
+ * کار می‌کند. این مشتری فقط برای راهِ قدیم است: `BoardViewModel` وقتی
+ * `lanClient` را صدا می‌زند که گوشی جفت **نشده** ولی حالتش «کارگر» است، و
+ * روی آیفون حالتِ «کارگر» فقط با جفت شدن می‌آید و با «جدا کردن» برمی‌گردد
+ * (`HubClientViewModel`). پس در کارِ عادی به اینجا نمی‌رسیم؛ `actual`
+ * می‌ماند چون `expect`ِ مشترک آن را می‌خواهد.
+ *
+ * اگر روزی رسیدیم (مثلاً تنظیمی نیمه‌کاره)، پیام باید راهِ درست را بگوید —
+ * تا ۱.۱۲.۰ می‌گفت «کارگاهِ وصل در نسخهٔ آیفون هنوز نیست»، که درست برعکسِ
+ * صفحهٔ «کارگاهِ وصل»ِ همان آیفون بود.
  *
  * **چرا `Err` و نه `TODO()`:** آن یکی برنامه را وسطِ کار می‌کشت. و چرا
  * `Err` و نه فهرستِ خالی: فهرستِ خالی روی صفحهٔ تخته شبیهِ «کارگاه امروز
  * کاری ندارد» دیده می‌شود، و کارگر منتظرِ کاری می‌مانَد که هرگز
- * نمی‌آید. پیامِ صریح بدترین خبر است ولی درست‌ترینش.
+ * نمی‌آید.
  */
-private const val NOT_YET =
-    "کارگاهِ وصل در نسخهٔ آیفون هنوز نیست — فعلاً از گوشیِ اندرویدی یا کامپیوتر استفاده کنید."
+private const val LEGACY_ONLY =
+    "آیفون با رمزِ شش‌رقمیِ قدیم وصل نمی‌شود. از «کارگاهِ وصل» این گوشی را با کامپیوترِ کارگاه جفت کنید."
 
 private object IosLanApi : LanApi {
-    override suspend fun ping(): LanResult<Unit> = LanResult.Err(NOT_YET)
+    override suspend fun ping(): LanResult<Unit> = LanResult.Err(LEGACY_ONLY)
 
     override suspend fun myWork(worker: String): LanResult<List<RemoteWork>> =
-        LanResult.Err(NOT_YET)
+        LanResult.Err(LEGACY_ONLY)
 
-    override suspend fun board(): LanResult<List<BoardRow>> = LanResult.Err(NOT_YET)
+    override suspend fun board(): LanResult<List<BoardRow>> = LanResult.Err(LEGACY_ONLY)
 
     override suspend fun sendRequest(
         device: String,
@@ -33,7 +40,7 @@ private object IosLanApi : LanApi {
         refId: Long,
         amount: Int,
         note: String,
-    ): LanResult<String> = LanResult.Err(NOT_YET)
+    ): LanResult<String> = LanResult.Err(LEGACY_ONLY)
 }
 
 actual fun lanClient(host: String, code: String): LanApi = IosLanApi

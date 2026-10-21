@@ -40,6 +40,91 @@ set -euo pipefail
 # Gradle از همین شل اجرا می‌شود، پس `BuildInfo` هم همین محیطِ پاک را می‌بیند.
 for v in $(compgen -e | grep '^GIT_' || true); do unset "$v"; done
 
+# ---------------------------------------------------------------------
+# پاک‌سازیِ پایانی — **همهٔ متغیرهایش پیش از `trap` مقدار می‌گیرند.**
+#
+# تا ۱.۱۲.۰ سه `trap` در طولِ اسکریپت بود و آخری `$STAGE` و `$APPZIP` را
+# پاک می‌کرد که خیلی پایین‌تر ساخته می‌شدند. با `set -u`، هر شکستی در این
+# فاصله (مثلاً ردِ اپل) پیامِ واقعی را زیرِ «STAGE: unbound variable» دفن
+# می‌کرد. حالا یک `trap` است، همین بالا، و هر متغیری که می‌خوانَد از قبل
+# خالی تعریف شده. `tools/checks/releasegate.py` همین ترتیب را نگه می‌دارد.
+# ---------------------------------------------------------------------
+ENT=""
+UNJAR=""
+SUBMIT_OUT=""
+APPZIP_DIR=""
+STAGE=""
+LOCK=""
+LOCK_HELD=0
+
+cleanup() {
+  if [ -n "$ENT" ]; then rm -f "$ENT"; fi
+  if [ -n "$SUBMIT_OUT" ]; then rm -f "$SUBMIT_OUT"; fi
+  if [ -n "$UNJAR" ]; then rm -rf "$UNJAR"; fi
+  if [ -n "$APPZIP_DIR" ]; then rm -rf "$APPZIP_DIR"; fi
+  if [ -n "$STAGE" ]; then rm -rf "$STAGE"; fi
+  # قفل فقط به دستِ همان اجرایی که گرفته‌اش برداشته می‌شود؛ اجرای دومی
+  # که پشتِ قفل برگشته نباید قفلِ اولی را بردارد.
+  if [ "$LOCK_HELD" = 1 ] && [ -n "$LOCK" ]; then rm -rf "$LOCK"; fi
+}
+trap cleanup EXIT
+# Ctrl-C و kill هم از راهِ `exit` می‌روند تا پاک‌سازی و آزاد شدنِ قفل
+# جا نماند. فقط `kill -9` پاک‌سازی ندارد؛ قفلِ کهنه‌اش را بندِ پایین
+# از روی شناسهٔ فرایند می‌شناسد.
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
+
+# ---------------------------------------------------------------------
+# فقط یک اجرا در یک زمان.
+#
+# صاحبِ کار یک بار این اسکریپت را دو بار هم‌زمان اجرا کرد. اجرای دوم بسته
+# را از نو ساخت و دوباره امضا کرد درست وقتی اولی داشت مهرِ اپل را
+# می‌چسباند، و اولی با «Record not found» افتاد. پس اجرای دوم همان اول
+# بیرون می‌رود.
+#
+# `mkdir` اتمی است: از دو اجرا فقط یکی پوشه را می‌سازد. شناسهٔ فرایند
+# (`pid`) داخلش نوشته می‌شود تا قفلِ اجرایی که کشته شده (`kill -9`،
+# خاموش شدنِ مک) برای همیشه راه را نبندد: اگر آن فرایند دیگر زنده نیست،
+# یا شناسه‌اش حالا مالِ برنامهٔ دیگری است، قفل کهنه است و برداشته می‌شود.
+# ---------------------------------------------------------------------
+take_lock() {
+  local other _
+  LOCK="${TMPDIR:-/tmp}"
+  LOCK="${LOCK%/}/khayatyar-sign-and-notarize.lock"
+  for _ in 1 2 3; do
+    if mkdir "$LOCK" 2>/dev/null; then
+      LOCK_HELD=1
+      echo "$$" > "$LOCK/pid"
+      return 0
+    fi
+    other=$(cat "$LOCK/pid" 2>/dev/null || true)
+    if [ -z "$other" ]; then
+      # پوشه همین لحظه ساخته شده و شناسه هنوز نوشته نشده؛ کمی صبر.
+      sleep 1
+      other=$(cat "$LOCK/pid" 2>/dev/null || true)
+    fi
+    if [ -n "$other" ] && kill -0 "$other" 2>/dev/null &&
+       ps -p "$other" -o command= 2>/dev/null | grep -q 'sign-and-notarize'; then
+      echo "✗ این اسکریپت همین حالا در اجرای دیگری در کار است (شناسهٔ فرایند: $other)." >&2
+      echo >&2
+      echo "دو اجرای هم‌زمان بستهٔ همدیگر را از نو می‌سازند و دوباره امضا می‌کنند، و" >&2
+      echo "اجرایی که در حالِ مهر است با «Record not found» می‌افتد." >&2
+      echo "صبر کنید تا آن اجرا تمام شود و بعد دوباره بزنید." >&2
+      exit 4
+    fi
+    # کهنه: فرایندش مرده یا شناسه مالِ برنامهٔ دیگری است. پیش از برداشتن
+    # دوباره خوانده می‌شود تا قفلی که اجرای دیگری همین حالا گرفته برداشته نشود.
+    if [ "$(cat "$LOCK/pid" 2>/dev/null || true)" = "$other" ]; then
+      echo "قفلِ کهنهٔ اجرای پیشین (شناسهٔ ${other:-نامعلوم}) برداشته شد."
+      rm -rf "$LOCK"
+    fi
+  done
+  echo "✗ قفلِ اجرا گرفته نشد: $LOCK" >&2
+  exit 4
+}
+take_lock
+
 IDENTITY="${1:-}"
 # نامِ نمایهٔ جاکلیدی که `notarytool store-credentials` ساخته.
 PROFILE="${NOTARY_PROFILE:-KhayatYar}"
@@ -261,7 +346,6 @@ cat > "$ENT" <<'PLIST'
 </dict>
 </plist>
 PLIST
-trap 'rm -f "$ENT"' EXIT
 
 # ---------------------------------------------------------------------
 # ۳. امضا — از درون به بیرون
@@ -309,7 +393,6 @@ trap 'rm -f "$ENT"' EXIT
 echo "==> امضای فایل‌های بومیِ داخلِ jarها"
 jarcount=0
 UNJAR=$(mktemp -d -t khayatyar-jars)
-trap 'rm -f "$ENT"; rm -rf "$UNJAR"' EXIT
 while IFS= read -r -d '' jar; do
   d="$UNJAR/$(basename "$jar" .jar)"
   rm -rf "$d"; mkdir -p "$d"
@@ -380,7 +463,6 @@ codesign --verify --deep --strict --verbose=2 "$APP"
 # برای DMG. دلیلش در بندِ ۴ آمده.
 # ---------------------------------------------------------------------
 SUBMIT_OUT=$(mktemp -t khayatyar-notary)
-trap 'rm -f "$ENT" "$SUBMIT_OUT" "$APPZIP"; rm -rf "$UNJAR" "$STAGE"' EXIT
 
 notarize() {
   local what="$1"
@@ -435,7 +517,10 @@ notarize() {
 # مکِ داخلِ بسته باید سالم بمانند، وگرنه اپل بسته‌ای می‌بیند که با
 # آنچه امضا شده یکی نیست.
 # ---------------------------------------------------------------------
-APPZIP=$(mktemp -d -t khayatyar-appzip)/KhayatYar.zip
+# پوشهٔ موقت خودش نگه داشته می‌شود تا پاک‌سازیِ بالا کلِ آن را بردارد، نه
+# فقط zip را و پوشهٔ خالی را پشتِ سر بگذارد.
+APPZIP_DIR=$(mktemp -d -t khayatyar-appzip)
+APPZIP="$APPZIP_DIR/KhayatYar.zip"
 echo "==> بسته‌بندیِ برنامه برای اپل"
 ditto -c -k --keepParent "$APP" "$APPZIP"
 

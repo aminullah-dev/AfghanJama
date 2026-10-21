@@ -235,7 +235,9 @@ private fun ApproveBox(
     if (role == HubRole.WORKER) {
         Text("این گوشی دستِ کیست؟", style = MaterialTheme.typography.labelMedium)
         if (people.isEmpty()) {
-            Text("هنوز خیاط، ناظر یا کارمندی در «اطلاعات پایه» ثبت نشده.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            // رنگِ خطا عمدی است: همین جمله دلیلِ خاموش بودنِ «اجازه» است و نباید
+            // مثلِ یک توضیحِ عادی دیده نشود (در یک‌دستیِ ۱.۱۲.۰ خاکستری شده بود).
+            Text("هنوز خیاط، ناظر یا کارمندی در «اطلاعات پایه» ثبت نشده.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             for (p in people) FilterChip(selected = person == p, onClick = { person = p }, label = { Text(p) }, shape = RoundedCornerShape(50))

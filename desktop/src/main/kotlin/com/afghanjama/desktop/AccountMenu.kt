@@ -12,6 +12,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -58,10 +60,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
  */
 
 /**
- * پایینِ نوار: نام و قرصِ نقش، «تغییرِ رمز»، «خروج از حساب»، و نسخه.
+ * پایینِ نوار: نام و قرصِ نقش، «تغییرِ رمزِ ورود»، «خروج از حساب»، و نسخه.
  *
  * [auth] `null` یعنی پنجره بی‌ورود رسم شده (آزمونِ صفحه‌ها) — فقط نسخه.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun AccountFooter(auth: AuthViewModel?, onAbout: () -> Unit) {
     var changing by remember { mutableStateOf(false) }
@@ -103,11 +106,13 @@ internal fun AccountFooter(auth: AuthViewModel?, onAbout: () -> Unit) {
                 // همان قرصِ نقشِ کاشیِ ورود و کارتِ «حسابِ کاربری».
                 Pill(accountRole(ui), tone = if (ui.access.isManager) PillTone.Coral else PillTone.Brand)
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            // `FlowRow` و نه `Row`: با «تغییرِ رمزِ ورود» دو دکمه از ۲۲۸ پهنای نوار
+            // بیشتر می‌شوند؛ «خروج از حساب» به خطِ بعد می‌رود به‌جای اینکه بشکند.
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 TextButton(onClick = { changing = true }) {
                     Icon(Icons.Default.Key, contentDescription = null, modifier = Modifier.size(16.dp))
                     Text(
-                        "تغییرِ رمز",
+                        "تغییرِ رمزِ ورود",
                         style = MaterialTheme.typography.labelMedium,
                         modifier = Modifier.padding(start = Space.sm)
                     )
