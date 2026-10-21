@@ -87,6 +87,9 @@ class WorkerRequestApprovalTest {
         override suspend fun update(row: SyncRequest) {
             rows.replaceAll { if (it.id == row.id) row else it }
         }
+        override suspend fun getByClientKey(key: String): SyncRequest? = rows.firstOrNull { it.clientKey == key }
+        override suspend fun recentFor(worker: String, limit: Int): List<SyncRequest> =
+            rows.filter { it.worker == worker }.sortedByDescending { it.createdAt }.take(limit)
     }
 
     private class Fixture {
@@ -134,8 +137,21 @@ class WorkerRequestApprovalTest {
                 )
             }
 
+        /** درخواستِ قراردادِ ۲: رسیدن [received]، زدنِ دکمه [pressed] (به ساعتِ کامپیوتر). */
+        fun requestV2(worker: String, type: String, received: Long, pressed: Long?): Long =
+            runBlocking {
+                requests.insert(
+                    SyncRequest(
+                        deviceName = "گوشی", worker = worker, type = type, summary = type,
+                        createdAt = received, receivedAt = received, clientAt = pressed, protocol = 2,
+                        clientKey = "k-$type-$received",
+                    )
+                )
+            }
+
         fun status(id: Long) = requests.rows.first { it.id == id }.status
-        fun approve(id: Long): String? = runBlocking { repo.approveRequest(id) }
+        fun approve(id: Long, time: com.afghanjama.data.entities.RequestTime = com.afghanjama.data.entities.RequestTime.AUTO): String? =
+            runBlocking { repo.approveRequest(id, time = time) }
     }
 
     private val ahmad = "[T1] احمد"
@@ -143,6 +159,42 @@ class WorkerRequestApprovalTest {
     // ------------------------------------------------------------
     // زمانِ حضور
     // ------------------------------------------------------------
+
+    // ------------------------------------------------------------
+    // قراردادِ ۲: ساعتِ زدنِ دکمه از گوشی، با بازهٔ معتبر نسبت به رسیدن
+    // ------------------------------------------------------------
+
+    @Test
+    fun `a v2 press that arrives hours later is stamped at the press`() {
+        val f = Fixture()
+        // ساعتِ ۷ زده شد، گوشی آفلاین بود، ساعتِ ۱۰ رسید؛ کارفرما ساعتِ ۱۲ تأیید می‌کند.
+        val id = f.requestV2(ahmad, "ATTENDANCE_IN", received = day0 + 10 * hour, pressed = day0 + 7 * hour)
+        assertNull(f.approve(id))
+        assertEquals(day0 + 7 * hour, f.attendance.rows.single().checkIn)
+    }
+
+    @Test
+    fun `a v2 press outside the window is not guessed - the owner picks phone time or arrival`() {
+        val f = Fixture()
+        val id = f.requestV2(ahmad, "ATTENDANCE_IN", received = day0 + 20 * hour, pressed = day0 + 2 * hour)
+        val why = f.approve(id)
+        assertTrue("AUTO must refuse a suspect clock: $why", why != null && why.contains("ساعتِ گوشی معتبر نیست"))
+        assertEquals("PENDING", f.status(id))
+        assertTrue(f.attendance.rows.isEmpty())
+        assertNull(f.approve(id, com.afghanjama.data.entities.RequestTime.PHONE))
+        assertEquals(day0 + 2 * hour, f.attendance.rows.single().checkIn)
+    }
+
+    @Test
+    fun `offline presses are ordered by when they were pressed, not when they arrived`() {
+        val f = Fixture()
+        // خروجِ عصر زودتر رسید از ورودِ صبح (صبح گوشی آفلاین بود).
+        val out = f.requestV2(ahmad, "ATTENDANCE_OUT", received = day0 + 17 * hour, pressed = day0 + 17 * hour)
+        val inn = f.requestV2(ahmad, "ATTENDANCE_IN", received = day0 + 18 * hour, pressed = day0 + 8 * hour)
+        assertNull(f.approve(out))
+        assertEquals(listOf(day0 + 8 * hour to day0 + 17 * hour), f.attendance.rows.map { it.checkIn to it.checkOut })
+        assertEquals("APPROVED", f.status(inn))
+    }
 
     @Test
     fun `attendance is stamped with the press time, not the approval time`() {

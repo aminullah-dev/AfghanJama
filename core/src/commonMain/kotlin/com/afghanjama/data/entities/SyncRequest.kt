@@ -1,6 +1,7 @@
 package com.afghanjama.data.entities
 
 import com.afghanjama.util.nowMillis
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -15,7 +16,12 @@ import androidx.room.PrimaryKey
  */
 @Entity(
     tableName = "sync_requests",
-    indices = [Index(value = ["status"])]
+    indices = [
+        Index(value = ["status"]),
+        // **یکتا:** همان کارِ گوشی (قراردادِ ۲) دو بار نمی‌نشیند. ردیف‌های
+        // قراردادِ ۱ کلید ندارند (`NULL`) و SQLite چند `NULL` را یکتا می‌شمارد.
+        Index(value = ["clientKey"], unique = true),
+    ]
 )
 data class SyncRequest(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -45,7 +51,27 @@ data class SyncRequest(
 
     val createdAt: Long = nowMillis(),
     val decidedAt: Long? = null,
-    val decidedNote: String = ""
+    val decidedNote: String = "",
+
+    // ---- دفترِ ۶۷: قراردادِ ۲ ----
+
+    /** کلیدِ تکرارنشدنیِ همان کار روی گوشی؛ `null` برای قراردادِ ۱. */
+    val clientKey: String? = null,
+
+    /**
+     * لحظهٔ زدنِ دکمه، **با ساعتِ کامپیوتر** (ساعتِ گوشی تصحیح‌شده،
+     * `AttendanceClock`). `null` برای قراردادِ ۱ یا ساعتِ بی‌معنا.
+     */
+    val clientAt: Long? = null,
+
+    /** لحظه‌ای که کامپیوتر آن را گرفت؛ بازهٔ ساعتِ حضور با همین سنجیده می‌شود. */
+    val receivedAt: Long? = null,
+
+    /** گوشیِ جفت‌شده‌ای که فرستاد (`lan_devices`)؛ `null` برای قراردادِ ۱. */
+    val deviceId: String? = null,
+
+    /** ۱ یا ۲ — ردیف‌های پیش از دفترِ ۶۷ همه ۱. */
+    @ColumnInfo(defaultValue = "1") val protocol: Int = 1,
 )
 
 /** برچسبِ فارسیِ نوعِ درخواست. */
@@ -134,3 +160,27 @@ fun isRepeatOf(
         last.amount == amount &&
         last.note == note &&
         now - last.createdAt in 0L..REQUEST_REPEAT_WINDOW_MS
+
+/**
+ * کدام ساعت برای «ورود» و «خروج»ی که از گوشی رسیده ثبت شود.
+ *
+ * - [AUTO]: ساعتِ گوشی اگر معتبر است (`AttendanceClock.trusted`)، وگرنه
+ *   تأیید نمی‌شود و کارفرما باید یکی از دو تای دیگر را انتخاب کند.
+ * - [PHONE]: لحظهٔ زدنِ دکمه، با ساعتِ گوشیِ تصحیح‌شده.
+ * - [ARRIVAL]: لحظه‌ای که کامپیوتر درخواست را گرفت.
+ */
+enum class RequestTime {
+    AUTO, PHONE, ARRIVAL;
+
+    companion object {
+        fun of(s: String?): RequestTime = entries.firstOrNull { it.name.equals(s, ignoreCase = true) } ?: AUTO
+    }
+}
+
+/**
+ * ساعتِ گوشی برای این درخواستِ حضور معتبر نیست؟ — کارت باید دو دکمه نشان
+ * دهد، نه یکی. فقط قراردادِ ۲ (قراردادِ ۱ ساعتِ گوشی را اصلاً نمی‌فرستد).
+ */
+fun SyncRequest.clockSuspect(): Boolean =
+    protocol >= 2 && type in ATTENDANCE_REQUEST_TYPES &&
+        !com.afghanjama.lan.AttendanceClock.trusted(clientAt, receivedAt ?: createdAt)

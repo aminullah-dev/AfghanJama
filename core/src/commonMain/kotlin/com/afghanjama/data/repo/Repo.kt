@@ -12,6 +12,22 @@ import com.afghanjama.data.PartialFlow
 import com.afghanjama.data.entities.AttendanceRecord
 import com.afghanjama.data.entities.ATTENDANCE_REQUEST_TYPES
 import com.afghanjama.data.entities.ownsAssignment
+import com.afghanjama.data.entities.LanCommand
+import com.afghanjama.data.entities.LanDevice
+import com.afghanjama.data.entities.LanHubRow
+import com.afghanjama.lan.Ack
+import com.afghanjama.lan.AckStatus
+import com.afghanjama.lan.HubCommand
+import com.afghanjama.lan.HubProtocol
+import com.afghanjama.lan.HubRole
+import com.afghanjama.lan.OutboxWire
+import com.afghanjama.licence.LicenceRefused
+import com.afghanjama.licence.LicenceText
+import com.afghanjama.util.AuditActor
+import kotlinx.coroutines.withContext
+import com.afghanjama.data.entities.SyncRequest
+import com.afghanjama.data.entities.requestWorkerLabel
+import com.afghanjama.ui.format.fa
 import com.afghanjama.data.entities.syncRequestLabel
 import com.afghanjama.data.entities.Customer
 import com.afghanjama.data.dao.NamedMeasurement
@@ -59,7 +75,12 @@ import com.afghanjama.data.SalePolicy
 import com.afghanjama.licence.LicenceGate
 import com.afghanjama.ui.format.bareWorkerName
 import com.afghanjama.ui.format.PersianDate
-import com.afghanjama.util.CurrentUser
+import com.afghanjama.util.auditWho
+import com.afghanjama.lan.AttendanceClock
+import com.afghanjama.lan.jInt
+import com.afghanjama.lan.jLong
+import com.afghanjama.lan.jStr
+import com.afghanjama.data.entities.RequestTime
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
@@ -297,6 +318,7 @@ class Repo(private val db: Db) {
     ) {
         LicenceGate.requireWrite()
         val now = nowMillis()
+        val who = auditWho()
         db.orderDao().update(
             mutate(order).copy(status = newStatus, stageChangedAt = now)
         )
@@ -312,8 +334,8 @@ class Repo(private val db: Db) {
                 // پارامتر می‌شد، یکی از آن نُه جا روزی فراموشش می‌کرد
                 // و آن یک مورد دقیقاً همانی می‌بود که کسی سراغش را
                 // می‌گیرد.
-                user = CurrentUser.name,
-                role = CurrentUser.role
+                user = who.first,
+                role = who.second
             )
         )
     }
@@ -1500,10 +1522,11 @@ class Repo(private val db: Db) {
     suspend fun ordersCreatedSince(since: Long): Int = db.orderDao().countCreatedSince(since)
 
     private suspend fun audit(action: String, detail: String = "") {
+        val (user, role) = auditWho()
         db.auditDao().insert(
             AuditLog(
-                user = CurrentUser.name,
-                role = CurrentUser.role,
+                user = user,
+                role = role,
                 action = action,
                 detail = detail
             )
@@ -1652,14 +1675,15 @@ class Repo(private val db: Db) {
         aggregateId: String,
         payload: String = ""
     ) {
+        val (user, role) = auditWho()
         db.domainEventDao().insert(
             DomainEvent(
                 type = type,
                 aggregate = aggregate,
                 aggregateId = aggregateId,
                 payload = payload,
-                user = CurrentUser.name,
-                role = CurrentUser.role
+                user = user,
+                role = role
             )
         )
     }
@@ -4101,17 +4125,17 @@ class Repo(private val db: Db) {
      *
      * @return پیغامِ خطا، یا null اگر انجام شد.
      */
-    suspend fun approveRequest(id: Long, note: String = ""): String? {
+    suspend fun approveRequest(id: Long, note: String = "", time: RequestTime = RequestTime.AUTO): String? {
         LicenceGate.requireWrite()
         return try {
-            db.atomic { approveRequestTx(id, note.trim()) }
+            db.atomic { approveRequestTx(id, note.trim(), time) }
             null
         } catch (e: RequestRefused) {
             e.reason
         }
     }
 
-    private suspend fun approveRequestTx(id: Long, note: String) {
+    private suspend fun approveRequestTx(id: Long, note: String, time: RequestTime) {
         val r = db.syncRequestDao().getById(id) ?: throw RequestRefused("درخواست پیدا نشد.")
         if (r.status != "PENDING") throw RequestRefused("این درخواست قبلاً رسیدگی شده.")
 
@@ -4135,18 +4159,21 @@ class Repo(private val db: Db) {
                 // صبح تأیید کند، خروج بازه‌ای پیدا نمی‌کرد و بازهٔ آن روز گم
                 // می‌شد؛ پس درخواست‌های حضورِ منتظرِ قبلیِ همان کارگر، از
                 // قدیمی به تازه، اول ثبت می‌شوند.
+                //
+                // ترتیب با **لحظهٔ زدنِ دکمه** است (`clientAt` در قراردادِ ۲)، نه
+                // با رسیدن: کارِ آفلاینِ گوشی ممکن است دیرتر از کارِ تازه‌تر برسد.
                 val earlier = db.syncRequestDao().observePending().first()
                     .filter {
                         it.id != r.id && it.worker == r.worker &&
                             it.type in ATTENDANCE_REQUEST_TYPES &&
-                            (it.createdAt < r.createdAt || (it.createdAt == r.createdAt && it.id < r.id))
+                            (pressOrder(it) < pressOrder(r) || (pressOrder(it) == pressOrder(r) && it.id < r.id))
                     }
-                    .sortedWith(compareBy({ it.createdAt }, { it.id }))
+                    .sortedWith(compareBy({ pressOrder(it) }, { it.id }))
                 for (e in earlier) {
-                    applyAttendance(e, blocking = true)
+                    applyAttendance(e, blocking = true, time = RequestTime.AUTO)
                     markApproved(e, "به ترتیبِ زمان، همراهِ درخواستِ بعدیِ همین کارگر تأیید شد.")
                 }
-                applyAttendance(r, blocking = false)
+                applyAttendance(r, blocking = false, time = time)
             }
             "NOTE" -> Unit  // پیام فقط خوانده می‌شود
             else -> throw RequestRefused("نوعِ درخواست شناخته نشد.")
@@ -4157,28 +4184,64 @@ class Repo(private val db: Db) {
     /**
      * ثبتِ یک درخواستِ حضور با **زمانِ زدنِ دکمه**.
      *
-     * `createdAt`ِ درخواست لحظه‌ای است که دستگاهِ اصلی آن را گرفت، با
-     * ساعتِ همان دستگاه. گوشیِ کارگر در قراردادِ ۱ درخواست را همان لحظهٔ
-     * زدن می‌فرستد و صفِ آفلاین ندارد، پس این همان زمانِ زدنِ دکمه است —
-     * و ساعتِ گوشیِ کارگر، که ممکن است غلط باشد، اصلاً به کار نمی‌آید.
+     * - **قراردادِ ۱:** `createdAt` لحظه‌ای است که دستگاهِ اصلی آن را گرفت.
+     *   گوشیِ کارگر آن را همان لحظهٔ زدن می‌فرستاد و صفِ آفلاین نداشت، پس
+     *   همان زمانِ زدنِ دکمه است.
+     * - **قراردادِ ۲:** گوشی صفِ آفلاین دارد و کار ممکن است ساعت‌ها بعد برسد.
+     *   `clientAt` لحظهٔ زدن است، با ساعتِ کامپیوتر (`AttendanceClock`). اگر در
+     *   بازهٔ معتبر نسبت به **رسیدن** بود همان ثبت می‌شود؛ اگر نه، برنامه
+     *   حدس نمی‌زند: کارفرما باید «با ساعتِ گوشی» یا «با ساعتِ رسیدن» را
+     *   خودش انتخاب کند ([RequestTime]).
      *
      * حضور و غیاب با نامِ خالی کار می‌کند، نه با برچسبِ «[T10] احمد».
      * برچسب برای کارمزد و تحویلِ دوخت کلیدِ درست است و دست نمی‌خورد؛ فقط
      * همین شاخه نامِ خالی می‌خواهد.
      */
-    private suspend fun applyAttendance(r: com.afghanjama.data.entities.SyncRequest, blocking: Boolean) {
+    private suspend fun applyAttendance(
+        r: com.afghanjama.data.entities.SyncRequest,
+        blocking: Boolean,
+        time: RequestTime,
+    ) {
         val name = r.worker.bareWorkerName()
-        val why = if (r.type == "ATTENDANCE_IN") checkInTx(name, r.createdAt)
-        else checkOutTx(name, r.createdAt)
+        val at = attendanceTime(r, time) ?: throw RequestRefused(
+            if (!blocking) clockSuspectText(r)
+            else "درخواستِ پیشینِ «${syncRequestLabel(r.type)}» ساعتِ معتبر ندارد؛ اول آن را جدا تأیید یا رد کنید. " +
+                clockSuspectText(r)
+        )
+        val why = if (r.type == "ATTENDANCE_IN") checkInTx(name, at)
+        else checkOutTx(name, at)
         if (why != null) {
             throw RequestRefused(
                 if (!blocking) why
                 else "درخواستِ پیشینِ «${syncRequestLabel(r.type)}» " +
-                    "(${PersianDate.shortWithTime(r.createdAt)}) ثبت‌شدنی نیست: $why " +
+                    "(${PersianDate.shortWithTime(at)}) ثبت‌شدنی نیست: $why " +
                     "اول آن را رد کنید."
             )
         }
     }
+
+    /** لحظه‌ای که ترتیبِ حضور با آن چیده می‌شود: زدنِ دکمه اگر هست، وگرنه رسیدن. */
+    private fun pressOrder(r: com.afghanjama.data.entities.SyncRequest): Long = r.clientAt ?: r.createdAt
+
+    /**
+     * ساعتی که برای این حضور ثبت می‌شود؛ `null` یعنی «ساعتِ گوشی معتبر نیست و
+     * کارفرما باید انتخاب کند».
+     */
+    private fun attendanceTime(r: com.afghanjama.data.entities.SyncRequest, time: RequestTime): Long? {
+        val received = r.receivedAt
+        if (r.protocol < 2 || received == null) return r.createdAt
+        return when (time) {
+            RequestTime.PHONE -> r.clientAt
+            RequestTime.ARRIVAL -> received
+            RequestTime.AUTO -> r.clientAt?.takeIf { AttendanceClock.trusted(it, received) }
+        }
+    }
+
+    private fun clockSuspectText(r: com.afghanjama.data.entities.SyncRequest): String =
+        "ساعتِ گوشی معتبر نیست" +
+            (r.clientAt?.let { " (گوشی می‌گوید ${PersianDate.shortWithTime(it)})" } ?: "") +
+            "؛ رسیدن: ${PersianDate.shortWithTime(r.receivedAt ?: r.createdAt)}. " +
+            "«با ساعتِ گوشی» یا «با ساعتِ رسیدن» را انتخاب کنید، یا بعد در «حضور و غیاب» اصلاحش کنید."
 
     private suspend fun markApproved(r: com.afghanjama.data.entities.SyncRequest, note: String) {
         db.syncRequestDao().update(
@@ -4203,6 +4266,267 @@ class Repo(private val db: Db) {
             )
         )
         audit("رد درخواست کارگر", "${r.worker} — ${r.summary}")
+    }
+
+    // =========================
+    // «کارگاهِ وصل» — قراردادِ ۲ (دفترِ ۶۷)
+    // =========================
+
+    fun observeLanDevices(): Flow<List<LanDevice>> = db.lanDao().observeDevices()
+
+    fun observeHubRow(): Flow<LanHubRow?> = db.lanDao().observeHub()
+
+    suspend fun lanDevice(id: String): LanDevice? = db.lanDao().device(id)
+
+    suspend fun hubRow(): LanHubRow? = db.lanDao().hub()
+
+    /**
+     * شناسنامهٔ کارگاه؛ اگر نیست ساخته می‌شود (اولین روشن شدنِ سرورِ ۱.۱۱).
+     *
+     * [legacyEvidence] یعنی این دستگاه پیش از ۱.۱۱ هم اصلی بوده و صندوقش
+     * درخواستِ قراردادِ ۱ دارد: آن‌وقت گوشی‌های قدیم ۳۰ روز دیگر پذیرفته
+     * می‌شوند (و تا وقتی می‌آیند). کامپیوترِ تازه این در را باز نمی‌کند.
+     */
+    suspend fun ensureHubRow(machine: String, defaultName: String, now: Long): LanHubRow {
+        db.lanDao().hub()?.let { return it }
+        val hadV1 = db.syncRequestDao().observeAll().first().any { it.protocol < 2 }
+        db.lanDao().insertHub(
+            LanHubRow(
+                hubId = randomUuid().toString(),
+                hubName = defaultName.trim().take(80),
+                machine = machine,
+                lastV1At = if (hadV1) now else null,
+                createdAt = now,
+            )
+        )
+        return db.lanDao().hub()!!
+    }
+
+    suspend fun updateHubRow(change: (LanHubRow) -> LanHubRow) {
+        val cur = db.lanDao().hub() ?: return
+        db.lanDao().updateHub(change(cur))
+    }
+
+    /** کارفرما «اجازه» داد: گوشی با نقش و آدمی که او انتخاب کرد در دفتر می‌نشیند. */
+    suspend fun addLanDevice(d: LanDevice) {
+        db.lanDao().insertDevice(d)
+        audit(
+            "جفت شدنِ گوشی",
+            "«${d.name}» — ${HubRole.of(d.role)?.label ?: d.role}" +
+                (d.personLabel.takeIf { it.isNotBlank() }?.let { " — $it" } ?: "")
+        )
+    }
+
+    /** «قطعِ دسترسی»: کلید همین حالا پاک می‌شود؛ همگام‌سازیِ بعدیِ آن گوشی رد است. */
+    suspend fun revokeLanDevice(id: String, now: Long): Boolean {
+        val d = db.lanDao().device(id) ?: return false
+        if (d.revokedAt != null) return false
+        db.lanDao().updateDevice(d.copy(keyB64 = "", revokedAt = now))
+        audit("قطعِ دسترسیِ گوشی", "«${d.name}»")
+        return true
+    }
+
+    /** «تغییرِ نقش»؛ کلید عوض نمی‌شود. */
+    suspend fun changeLanDeviceRole(id: String, role: HubRole, person: String): Boolean {
+        val d = db.lanDao().device(id) ?: return false
+        if (!d.active) return false
+        val label = if (role == HubRole.WORKER) requestWorkerLabel(person) else ""
+        if (role == HubRole.WORKER && label.isEmpty()) return false
+        db.lanDao().updateDevice(d.copy(role = role.wire, personLabel = label))
+        audit("تغییرِ نقشِ گوشی", "«${d.name}» — ${role.label}" + (label.takeIf { it.isNotEmpty() }?.let { " — $it" } ?: ""))
+        return true
+    }
+
+    suspend fun touchLanDevice(id: String, at: Long, ip: String, version: String) {
+        db.lanDao().touch(id, at, ip.take(45), version.take(24))
+    }
+
+    /**
+     * کارِ کارگر از گوشیِ جفت‌شده — در صندوقِ درخواست‌ها، منتظرِ تأیید.
+     *
+     * **هویت از جفت شدن است، نه از پیام**: کارگر همان [device]`.personLabel`
+     * است، هر چه گوشی بگوید (طرح، B.2). خلاصه را هم کامپیوتر می‌سازد، نه
+     * گوشی.
+     *
+     * **یک بار، هر چند بار برسد**: کلیدِ کار (`clientKey`) یکتاست؛ تکرار
+     * [AckStatus.DUPLICATE] می‌گیرد و ردیفِ دوم نمی‌سازد.
+     *
+     * **همان قاعده‌های تأیید، زودتر**: کارِ دوختی که مالِ این کارگر نیست، یا
+     * تمام شده، همین‌جا رد می‌شود و دلیلش به گوشی می‌رسد؛ سرِ تأیید هم
+     * دوباره سنجیده می‌شود.
+     */
+    suspend fun submitHubWork(
+        device: LanDevice,
+        wire: OutboxWire,
+        phoneNow: Long,
+        receivedAt: Long,
+    ): Ack {
+        fun no(reason: String) = Ack(wire.key, AckStatus.REJECTED, reason)
+        val cmd = HubCommand.of(wire.type)
+        if (cmd == null || !cmd.queues) return no("نوعِ درخواست پذیرفته نیست.")
+        if (HubRole.of(device.role) != HubRole.WORKER) {
+            return no("این گوشی گوشیِ کارگر نیست.")
+        }
+        // دستگاهِ اصلیِ فقط‌خواندنی درخواستِ تازه هم نمی‌نشاند — همان قاعدهٔ قراردادِ ۱.
+        if (!LicenceGate.canWrite()) return no(LicenceText.LAN_REFUSAL)
+        val worker = requestWorkerLabel(device.personLabel)
+        if (worker.isEmpty()) return no("این گوشی به نامِ کسی بسته نیست؛ کارفرما باید نقشش را تعیین کند.")
+
+        db.syncRequestDao().getByClientKey(wire.key)?.let { prev ->
+            return if (prev.deviceId == device.deviceId) {
+                Ack(wire.key, AckStatus.DUPLICATE, "", prev.id)
+            } else no("کلیدِ این کار تکراری است.")
+        }
+        // سقفِ کارِ منتظرِ هر گوشی. بی آن یک گوشیِ کارگر (یا کسی که کلیدش را دارد)
+        // با پیام‌های پیاپی صندوق را بی‌اندازه پر می‌کرد و تصویرِ گوشیِ صاحب‌کار از
+        // سقفِ جوابِ گوشی بزرگ‌تر می‌شد — یعنی گوشیِ صاحب‌کار دیگر همگام نمی‌شد.
+        val waiting = db.syncRequestDao().observePending().first().count { it.deviceId == device.deviceId }
+        if (waiting >= HubProtocol.MAX_PENDING_PER_DEVICE) {
+            return no("${waiting.fa()} درخواستِ این گوشی هنوز منتظرِ کارفرماست؛ تا او تصمیم نگرفته، تازه‌ای پذیرفته نمی‌شود.")
+        }
+
+        var refId = 0L
+        var amount = 0
+        var note = ""
+        var clientAt: Long? = null
+        val summary: String = when (cmd) {
+            HubCommand.SEWING_DONE -> {
+                val id = wire.payload.jLong("assignmentId") ?: return no("کارِ دوخت مشخص نیست.")
+                val qty = wire.payload.jInt("qty") ?: return no("شمارِ تمام‌شده مشخص نیست.")
+                val a = db.sewingAssignmentDao().getById(id)
+                    ?: return no("این کار پیدا نشد؛ شاید لغو شده باشد.")
+                if (!ownsAssignment(a, worker)) return no("این کار به نامِ شما نیست.")
+                if (a.status == "DONE") return no("این کار قبلاً تحویل شده.")
+                if (qty !in 1..a.qty) return no("شمارِ تمام‌شده باید از ۱ تا ${a.qty.fa()} باشد.")
+                refId = a.id
+                amount = qty
+                "${a.orderCode} — ${qty.fa()} عدد از ${a.qty.fa()} عدد"
+            }
+            HubCommand.ATTENDANCE_IN, HubCommand.ATTENDANCE_OUT -> {
+                clientAt = AttendanceClock.corrected(wire.at, phoneNow, receivedAt)
+                if (cmd == HubCommand.ATTENDANCE_IN) "درخواستِ ثبتِ ورود" else "درخواستِ ثبتِ خروج"
+            }
+            HubCommand.NOTE -> {
+                note = wire.payload.jStr("text").orEmpty().trim().take(300)
+                if (note.isEmpty()) return no("پیام خالی است.")
+                "پیام"
+            }
+            else -> return no("نوعِ درخواست پذیرفته نیست.")
+        }
+
+        val row = SyncRequest(
+            deviceName = device.name,
+            worker = worker,
+            type = cmd.wire,
+            summary = summary,
+            refId = refId,
+            amount = amount,
+            note = note,
+            createdAt = receivedAt,
+            clientKey = wire.key,
+            clientAt = clientAt,
+            receivedAt = receivedAt,
+            deviceId = device.deviceId,
+            protocol = 2,
+        )
+        val id = try {
+            db.syncRequestDao().insert(row)
+        } catch (e: Exception) {
+            // دو همگام‌سازیِ هم‌زمانِ همان گوشی: ایندکسِ یکتا دومی را نگه داشت.
+            val prev = db.syncRequestDao().getByClientKey(wire.key) ?: throw e
+            return Ack(wire.key, AckStatus.DUPLICATE, "", prev.id)
+        }
+        return Ack(wire.key, AckStatus.QUEUED, "", id)
+    }
+
+    /**
+     * فرمانِ گوشیِ صاحب‌کار — **فهرستِ بسته** (طرح، سؤالِ ۵): تأیید و ردِ
+     * درخواستِ کارگر، و ثبتِ نتیجهٔ پیگیریِ طلب. هر چیزِ دیگر رد.
+     *
+     * - همان تابع‌های همیشگیِ دفتر اجرا می‌شوند، با همان قاعده‌ها؛ هیچ راهِ
+     *   میان‌بری برای دادهٔ شبکه ساخته نشده.
+     * - «چه کسی» در حسابرسی خودِ گوشی است ([AuditActor])،
+     *   نه کسی که پشتِ کامپیوتر نشسته (نقدِ ۱۱).
+     * - هر فرمان یک بار: جوابِ اول با کلیدش در `lan_commands` می‌ماند و
+     *   تکرار همان را می‌گیرد (نقدِ ۱۰).
+     * - فرمان روی چیزی که از وقتِ تصویرِ گوشی عوض شده رد می‌شود: تأییدِ
+     *   درخواستی که دیگر منتظر نیست «قبلاً رسیدگی شده» می‌گیرد (B.6 قاعدهٔ ۵).
+     */
+    suspend fun applyOwnerCommand(
+        device: LanDevice,
+        wire: OutboxWire,
+        now: Long,
+    ): Ack {
+        fun ack(status: AckStatus, reason: String = "") = Ack(wire.key, status, reason)
+        val cmd = HubCommand.of(wire.type)
+        if (cmd == null || HubRole.OWNER !in cmd.roles) {
+            return ack(AckStatus.REJECTED, "این فرمان از گوشی پذیرفته نیست.")
+        }
+        if (HubRole.of(device.role) != HubRole.OWNER) {
+            return ack(AckStatus.REJECTED, "این گوشی گوشیِ صاحبِ کار نیست.")
+        }
+        db.lanDao().command(wire.key)?.let { prev ->
+            if (prev.deviceId != device.deviceId) {
+                return ack(AckStatus.REJECTED, "کلیدِ این فرمان تکراری است.")
+            }
+            return ack(
+                runCatching { AckStatus.valueOf(prev.status) }
+                    .getOrDefault(AckStatus.REJECTED),
+                prev.result,
+            )
+        }
+        if (!LicenceGate.canWrite()) {
+            return ack(AckStatus.REJECTED, LicenceText.LAN_REFUSAL)
+        }
+
+        val actor = AuditActor("گوشیِ «${device.name}»", "OWNER_DEVICE")
+        val result: Pair<AckStatus, String> = withContext(actor) {
+            try {
+                when (cmd) {
+                    HubCommand.APPROVE_REQUEST -> {
+                        val id = wire.payload.jLong("requestId") ?: 0L
+                        val time = RequestTime.of(wire.payload.jStr("time"))
+                        val err = approveRequest(id, "از گوشیِ صاحبِ کار", time)
+                        if (err == null) AckStatus.APPLIED to "تأیید و ثبت شد."
+                        else AckStatus.REJECTED to err
+                    }
+                    HubCommand.REJECT_REQUEST -> {
+                        val id = wire.payload.jLong("requestId") ?: 0L
+                        val r = db.syncRequestDao().getById(id)
+                        when {
+                            r == null -> AckStatus.REJECTED to "درخواست پیدا نشد."
+                            r.status != "PENDING" -> AckStatus.REJECTED to "این درخواست قبلاً رسیدگی شده."
+                            else -> {
+                                rejectRequest(id, wire.payload.jStr("note").orEmpty().take(200))
+                                AckStatus.APPLIED to "رد شد."
+                            }
+                        }
+                    }
+                    HubCommand.DEBT_FOLLOW_UP -> {
+                        val name = wire.payload.jStr("customer").orEmpty().trim()
+                        val outcome = DebtFollowUp.Outcome.of(wire.payload.jStr("outcome").orEmpty())
+                        val days = (wire.payload.jInt("untilDays") ?: 0).coerceIn(0, 60)
+                        if (name.isEmpty() || outcome == null) {
+                            AckStatus.REJECTED to "نامِ مشتری یا نتیجهٔ پیگیری نیست."
+                        } else {
+                            val owed = observeCustomerAccounts().first()[name]?.owed?.coerceAtLeast(0L) ?: 0L
+                            val until = if (days > 0) now + days * 86_400_000L else 0L
+                            recordDebtFollowUp(name, outcome, until, owed)
+                            AckStatus.APPLIED to "پیگیری ثبت شد."
+                        }
+                    }
+                    else -> AckStatus.REJECTED to "این فرمان از گوشی پذیرفته نیست."
+                }
+            } catch (e: LicenceRefused) {
+                AckStatus.REJECTED to (e.message ?: LicenceText.LAN_REFUSAL)
+            }
+        }
+        runCatching {
+            db.lanDao().insertCommand(
+                LanCommand(wire.key, device.deviceId, cmd.wire, result.first.name, result.second, now)
+            )
+        }
+        return ack(result.first, result.second)
     }
 
     // =========================

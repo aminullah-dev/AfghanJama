@@ -28,6 +28,13 @@ object AppVersion {
 
     val isRelease: Boolean get() = BuildInfo.CHANNEL == RELEASE
 
+    /**
+     * شمارهٔ نسخهٔ همین برنامه («۱.۱۱.۰» به لاتین) — برای بسته‌هایی بیرون از
+     * ریشه. `BuildInfo` ساختهٔ Gradle است و بررسی‌های ساختاری آن را نمی‌بینند؛
+     * همین یک در کافی است.
+     */
+    val current: String get() = BuildInfo.VERSION
+
     /** «نسخهٔ ۱.۹.۱» — و برای ساختِ آزمایشی «نسخهٔ ۱.۹.۱، آزمایشی». */
     fun title(
         version: String = BuildInfo.VERSION,
