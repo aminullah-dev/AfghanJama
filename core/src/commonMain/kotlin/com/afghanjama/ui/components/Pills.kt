@@ -146,15 +146,23 @@ object GlassTokens {
     const val FILL_ALPHA = 0.80f
     const val EDGE_ALPHA = 0.60f
     const val SHADOW_ALPHA = 0.08f
+
+    /** شیشه روی زمینهٔ نفتیِ صفحهٔ ورود. */
+    const val ON_DARK_ALPHA = 0.95f
 }
 
 /** [glassSurface] با رنگ‌های تم. */
 @Composable
-fun Modifier.glass(shape: Shape = androidx.compose.foundation.shape.RoundedCornerShape(Radius.xl), elevation: Dp = 8.dp): Modifier {
+fun Modifier.glass(
+    shape: Shape = androidx.compose.foundation.shape.RoundedCornerShape(Radius.xl),
+    elevation: Dp = 8.dp,
+    /** روی زمینهٔ تیره (صفحهٔ ورود) شیشه باید پُرتر باشد تا خاکستری نشود. */
+    fillAlpha: Float = GlassTokens.FILL_ALPHA,
+): Modifier {
     val c = MaterialTheme.colorScheme
     return glassSurface(
         shape = shape,
-        fill = c.surface.copy(alpha = GlassTokens.FILL_ALPHA),
+        fill = c.surface.copy(alpha = fillAlpha),
         edge = c.surface.copy(alpha = GlassTokens.EDGE_ALPHA),
         shadowTint = c.primary.copy(alpha = GlassTokens.SHADOW_ALPHA),
         elevation = elevation,

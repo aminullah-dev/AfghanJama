@@ -256,7 +256,19 @@ fun main() {
         }
     }
 
-    val total = Section.entries.size + 1 + shellSizes.size + 1 + shellSizes.size + shellSizes.size
+    // پس از زدنِ کاشیِ «احمد»: رمزِ خودش، با صفحه‌کلیدِ عددی و خطِ نقش.
+    check("login-pin-1440", "رمزِ یک نفر پس از زدنِ کاشی", 1440, 900, frames = 2) {
+        val auth: AuthViewModel = viewModel { AuthViewModel(loginSettings).also { it.select("u1") } }
+        com.afghanjama.ui.screens.LoginScreen(auth, onLoggedIn = {})
+    }
+    // بارِ اولِ دستگاه: «نخستین مدیرِ این دستگاه» — نام و رمز، بی پرسیدنِ نقش.
+    check("login-first-1100", "بارِ اول: نخستین مدیر", 1100, 700, frames = 2) {
+        val fresh = com.afghanjama.desktop.data.FileSettings(java.nio.file.Files.createTempDirectory("ky-first-shot").toFile())
+        val auth: AuthViewModel = viewModel { AuthViewModel(fresh) }
+        com.afghanjama.ui.screens.LoginScreen(auth, onLoggedIn = {})
+    }
+
+    val total = Section.entries.size + 1 + shellSizes.size + 1 + shellSizes.size + shellSizes.size + 2
     println("=".repeat(52))
     val shots = shotDir.listFiles { f: java.io.File -> f.name.endsWith(".png") }?.size ?: 0
     println("screenshots: $shots in ${shotDir.absolutePath}")

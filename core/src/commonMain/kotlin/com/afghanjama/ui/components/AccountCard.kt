@@ -36,6 +36,7 @@ import com.afghanjama.ui.platform.AppAlertDialog
 import com.afghanjama.ui.vm.AuthUi
 import com.afghanjama.ui.vm.AuthViewModel
 import com.afghanjama.ui.vm.label
+import com.afghanjama.ui.vm.personLabel
 
 /**
  * نامی که برای کسِ واردشده نشان داده می‌شود. صاحبِ دستگاه گاهی نامی ثبت
@@ -44,11 +45,18 @@ import com.afghanjama.ui.vm.label
 fun accountName(ui: AuthUi): String =
     ui.userName.trim().ifBlank { if (ui.userId == null) "صاحبِ دستگاه" else ui.role.label }
 
-/** برچسبِ نقش: مدیر، نقشِ دستگاه، یا «کاربر» برای کسی که مدیر ساخته. */
-fun accountRole(ui: AuthUi): String = when {
-    ui.access.isManager -> "مدیر"
-    ui.userId != null -> "کاربر"
-    else -> ui.role.label
+/**
+ * برچسبِ نقشِ کسِ واردشده — همان قرصِ کاشیِ ورودش: «مدیر» برای صاحبِ
+ * دستگاه، و برای کسی که مدیر ساخته نقشی که از تیک‌هایش می‌آید («خیاط»،
+ * «فروشنده»…). تا ۱.۱۱ اینجا «کاربر» بود برای همه، و «مدیریت» (نامِ بخش)
+ * برای مدیری که نامش ثبت نشده بود.
+ */
+fun accountRole(ui: AuthUi): String = ui.roleLabel.ifBlank {
+    when {
+        ui.access.isManager -> "مدیر"
+        ui.userId != null -> "کاربر"
+        else -> ui.role.personLabel
+    }
 }
 
 /**

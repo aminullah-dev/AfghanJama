@@ -18,7 +18,17 @@ import kotlinx.coroutines.flow.stateIn
  * **رمز یکتاست.** ورود با رمز می‌فهمد کیست؛ دو نفر با یک رمز یعنی یکی
  * با دسترسیِ دیگری وارد می‌شود. رمزِ مدیر هم برای کسی گذاشته نمی‌شود.
  */
-class UsersViewModel(private val settings: Settings, repo: Repo) : ViewModel() {
+class UsersViewModel(
+    private val settings: Settings,
+    repo: Repo,
+    /**
+     * کسی که همین حالا وارد است. **نقش و دسترسی را فقط مدیر عوض می‌کند** —
+     * صفحه فقط برای مدیر باز است، ولی قاعده اینجا هم نوشته شده تا راهِ
+     * دیگری به همین کار (فرمانی از جای دیگر، صفحه‌ای که روزی باز بماند)
+     * نتواند نقشِ کسی را عوض کند.
+     */
+    private val access: () -> Access = { CurrentAccess.value },
+) : ViewModel() {
 
     private val _users = MutableStateFlow(UserStore.load(settings))
     val users: StateFlow<List<AppUser>> = _users
@@ -42,6 +52,10 @@ class UsersViewModel(private val settings: Settings, repo: Repo) : ViewModel() {
      * یعنی همان رمزِ قبلی. `true` یعنی ثبت شد و پنجره بسته شود.
      */
     fun save(id: String?, name: String, pin: String, features: Set<Feature>): Boolean {
+        if (!access().isManager) {
+            _message.value = NOT_MANAGER
+            return false
+        }
         val nm = name.trim()
         val p = pin.trim()
         val all = _users.value
@@ -77,8 +91,16 @@ class UsersViewModel(private val settings: Settings, repo: Repo) : ViewModel() {
 
     /** حذف؛ اگر همین حالا وارد است، دفعهٔ بعد که اپ باز شود بیرون است. */
     fun delete(id: String) {
+        if (!access().isManager) {
+            _message.value = NOT_MANAGER
+            return
+        }
         val next = _users.value.filterNot { it.id == id }
         UserStore.save(settings, next)
         _users.value = next
+    }
+
+    companion object {
+        const val NOT_MANAGER = "نقش و دسترسیِ هر کس را فقط مدیر عوض می‌کند."
     }
 }
