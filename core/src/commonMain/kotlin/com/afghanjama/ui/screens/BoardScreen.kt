@@ -2,12 +2,19 @@ package com.afghanjama.ui.screens
 
 import com.afghanjama.util.nowMillis
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,13 +54,27 @@ import kotlinx.coroutines.delay
 
 // رنگ‌های تابلو عمداً ثابت‌اند و از تمِ اپ نمی‌آیند: این صفحه همیشه
 // تیره است تا از آن‌طرفِ کارگاه خوانده شود، چه گوشی روشن باشد چه تاریک.
-private val BoardBg = Color(0xFF0B0F14)
-private val BoardHeader = Color(0xFF13202B)
-private val BoardText = Color(0xFFE8EEF2)
-private val BoardDim = Color(0xFF8FA3B0)
-private val BoardLate = Color(0xFFFF5252)
-private val BoardWarn = Color(0xFFFFC046)
-private val BoardOk = Color(0xFF5BD6A6)
+//
+// سبکِ «پایانهٔ سبز»: سبزِ فسفری روی سیاه، با درخششِ ملایم و خط‌های افقیِ
+// بسیار کم‌رنگِ مانیتورِ قدیمی. زیبا و خوانا، نه شلوغِ ماتریکسی و ترسناک —
+// دیرشده‌ها هنوز قرمزند چون باید از دور فریاد بزنند.
+private val BoardBg = Color(0xFF050806)
+private val BoardHeader = Color(0xFF0A130D)
+private val BoardText = Color(0xFF73F59A)
+private val BoardDim = Color(0xFF3F7D5A)
+private val BoardLate = Color(0xFFFF6B6B)
+private val BoardWarn = Color(0xFFF2D65C)
+private val BoardOk = Color(0xFF5BF08A)
+private val BoardGlowColor = Color(0xFF39FF9A)
+
+/** درخششِ فسفری روی متن‌های اصلی — تا تابلو «روشن» دیده شود، نه تخت. */
+private val GlowStyle = androidx.compose.ui.text.TextStyle(
+    shadow = androidx.compose.ui.graphics.Shadow(
+        color = BoardGlowColor.copy(alpha = 0.55f),
+        offset = androidx.compose.ui.geometry.Offset.Zero,
+        blurRadius = 18f,
+    )
+)
 
 /** چند سطر در هر صفحهٔ تابلو؛ بیشتر از این روی گوشی ریز می‌شود. */
 private const val ROWS_PER_PAGE = 7
@@ -112,6 +133,17 @@ fun BoardScreen(
         Modifier
             .fillMaxSize()
             .background(BoardBg)
+            // خط‌های افقیِ بسیار کم‌رنگ — حسِ مانیتورِ فسفری، آن‌قدر ملایم که
+            // خواندن را سخت نکند.
+            .drawBehind {
+                val gap = 3.dp.toPx()
+                val line = BoardGlowColor.copy(alpha = 0.035f)
+                var y = 0f
+                while (y < size.height) {
+                    drawLine(line, Offset(0f, y), Offset(size.width, y), strokeWidth = 1f)
+                    y += gap
+                }
+            }
             // ضربه روی تابلو برمی‌گرداند — بدونِ دکمه، تا چیزی روی
             // دیوار اضافه دیده نشود
             .clickable(onClick = onBack)
@@ -125,12 +157,16 @@ fun BoardScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f)) {
-                Text(
-                    text = "در حالِ دوخت",
-                    color = BoardText,
-                    fontSize = 26.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "در حالِ دوخت",
+                        color = BoardText,
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.Bold,
+                        style = GlowStyle,
+                    )
+                    AnimatedChevrons(reduced)
+                }
                 Text(
                     text = "${ui.rows.size.fa()} کار • ${ui.pieces.fa()} عدد • " +
                         "${ui.tailors.fa()} خیاط" +
@@ -144,7 +180,8 @@ fun BoardScreen(
                     nowText,
                     color = BoardText,
                     fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    style = GlowStyle,
                 )
                 Text(
                     when {
@@ -236,6 +273,36 @@ fun BoardScreen(
     }
 }
 
+/**
+ * «>>>>>>>» متحرک — موجِ روشنایی که روی چورون‌ها می‌دود (حسِ جریانِ داده در
+ * پایانه). تعدادِ چورون‌ها ثابت است و فقط روشنایی عوض می‌شود، پس چیدمان
+ * نمی‌پرد. با حرکتِ کم‌شده، فقط چورون‌های کم‌رنگِ ثابت.
+ */
+@Composable
+private fun AnimatedChevrons(reduced: Boolean, count: Int = 7) {
+    val transition = rememberInfiniteTransition(label = "chevrons")
+    val phase by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = count.toFloat(),
+        animationSpec = infiniteRepeatable(tween(1500, easing = LinearEasing), RepeatMode.Restart),
+        label = "chevron-phase",
+    )
+    val head = if (reduced) 0f else phase
+    Row(horizontalArrangement = Arrangement.spacedBy(1.dp), verticalAlignment = Alignment.CenterVertically) {
+        for (i in 0 until count) {
+            val dist = (head - i + count) % count          // فاصلهٔ حلقوی از سرِ موج
+            val alpha = if (reduced) 0.55f else (1f - dist / count).coerceIn(0.18f, 1f)
+            Text(
+                ">",
+                color = BoardOk.copy(alpha = alpha),
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                style = GlowStyle,
+            )
+        }
+    }
+}
+
 @Composable
 private fun androidx.compose.foundation.layout.RowScope.HeaderCell(
     text: String,
@@ -272,6 +339,7 @@ private fun BoardRowView(row: BoardRow, designCode: String) {
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
+            style = GlowStyle,
             modifier = Modifier.weight(3f)
         )
         // تابلو یک جدولِ ستون‌ثابت است که از فاصلهٔ چند متری خوانده
@@ -302,6 +370,7 @@ private fun BoardRowView(row: BoardRow, designCode: String) {
             fontSize = 19.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
+            style = GlowStyle,
             modifier = Modifier.weight(1.2f)
         )
         Text(
@@ -311,6 +380,7 @@ private fun BoardRowView(row: BoardRow, designCode: String) {
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.End,
             maxLines = 1,
+            style = GlowStyle,
             modifier = Modifier.weight(2.4f)
         )
     }
