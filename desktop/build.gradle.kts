@@ -1,3 +1,4 @@
+import java.io.File
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
@@ -667,26 +668,34 @@ val screenSmoke by tasks.registering(JavaExec::class) {
 }
 
 /*
- * `signWindowsApp` — `KhayatYar.exe` پیش از اینکه در MSI بنشیند امضا می‌شود.
+ * امضای `KhayatYar.exe` پیش از اینکه در MSI بنشیند: `signWindowsApp` و
+ * `packageSignedMsi`.
  *
  * **چرا لازم شد.** تا ۱.۱۲.۰ MSI را امضا می‌کردیم ولی `.exe`ِ داخلش بی‌امضا
  * بود: `2-امضا.ps1` فقط فایل‌های بعد از ساخت را امضا می‌کرد و به داخلِ MSI
  * راه نداشت. ویندوز هنگامِ اجرا خودِ `.exe` را می‌سنجد، نه MSIِ نصب‌شده را.
  *
- * ترتیب: `createDistributable` ← این کار ← `packageMsi`. اگر امضا بعد از
- * `packageMsi` می‌آمد دیر بود؛ و اگر `createDistributable` بعد از امضا دوباره
- * اجرا می‌شد، امضا را دور می‌ریخت (همان دلیلی که `sign-and-notarize.sh` در مک
- * `packageDmg` را نمی‌زند).
+ * **چرا `packageMsi` را نمی‌شود دور بزنیم.** روی ویندوزِ واقعی (۲۰۲۶-۱۰-۲۲)
+ * دیده شد که Compose به `jpackage` فقط `--input` و `--runtime-image` می‌دهد و
+ * **`--app-image` نه** (در مک `packageDmg` آن را می‌دهد، و همان ما را گمراه
+ * کرده بود). پس jpackage خودش یک `KhayatYar.exe`ی تازه از قالبِ خودش می‌سازد و
+ * `.exe`ِ امضاشدهٔ `createDistributable` کنار می‌رود: داخلِ MSI همان ۵۳۵٬۵۵۲
+ * بایتِ بی‌امضا بود. `packageMsi` روی ویندوز نمی‌تواند `.exe`ِ امضاشده بدهد.
  *
- * **فقط وقتی کار می‌کند که `KY_SIGN_PFX` در محیط باشد** (و روی ویندوز). ساخت
- * معمولی و CI بی‌امضا می‌مانند و چیزی در آن‌ها عوض نمی‌شود. با `KY_SIGN_PFX`
- * ولی بی `KY_SIGN_PASSWORD`، ساخت قرمز می‌شود، نه اینکه بی‌صدا بی‌امضا بسازد.
- * رمز را `tools/windows-signing/3-ساخت-و-امضا.ps1` می‌پرسد و فقط در محیطِ
- * همان فرایند می‌گذارد؛ در `--debug` خطِ فرمان دیده می‌شود، پس با آن نزنید.
+ * پس MSI را خودمان می‌سازیم: `createDistributable` ← `signWindowsApp` ←
+ * `packageSignedMsi` (jpackage با `--type msi --app-image <پوشهٔ امضاشده>`).
+ * گزینه‌ها همان‌هایی‌اند که Compose در `packageMsi` می‌دهد (نام، نسخه، فروشنده،
+ * توضیح، میان‌بر، منو، پوشهٔ نصب، `upgradeUuid`) تا MSI همان محصول بماند و
+ * روی نصبِ قبلی بنشیند؛ اسکریپتِ ویندوز `UpgradeCode` را وارسی می‌کند.
+ * `packageMsi`ِ خودِ Compose دست‌نخورده می‌ماند (CI و ساختِ بی‌امضا).
+ *
+ * فقط روی ویندوز و فقط با `KY_SIGN_PFX`. رمز را
+ * `tools/windows-signing/3-ساخت-و-امضا.ps1` می‌پرسد؛ در `--debug` خطِ فرمانِ
+ * signtool دیده می‌شود، پس با آن نزنید.
  */
 val signWindowsApp = tasks.register<Exec>("signWindowsApp") {
     group = "distribution"
-    description = "KhayatYar.exe را پیش از بسته‌بندیِ MSI امضا می‌کند (نیازمندِ KY_SIGN_PFX)."
+    description = "KhayatYar.exe را در پوشهٔ برنامه امضا می‌کند (نیازمندِ KY_SIGN_PFX)."
     dependsOn("createDistributable")
     val pfx = System.getenv("KY_SIGN_PFX")
     onlyIf { pfx != null && org.gradle.internal.os.OperatingSystem.current().isWindows }
@@ -698,7 +707,7 @@ val signWindowsApp = tasks.register<Exec>("signWindowsApp") {
         require(!password.isNullOrEmpty()) { "KY_SIGN_PFX هست ولی KY_SIGN_PASSWORD نیست." }
         // jpackage می‌سازدش با ویژگیِ ReadOnly و signtool برای نوشتنِ امضا به
         // دسترسیِ نوشتن نیاز دارد: بی این، «Access is denied» (آزموده روی ویندوزِ
-        // واقعی، ۲۰۲۶-۱۰-۲۲؛ نه قفل بود، نه Defender، نه گواهی). فقط همین .exe.
+        // واقعی؛ نه قفل بود، نه Defender، نه گواهی). فقط همین .exe.
         exes.forEach { check(it.setWritable(true)) { "نتوانستم ReadOnlyِ ${it.name} را بردارم." } }
         val tool = System.getenv("KY_SIGNTOOL") ?: "signtool.exe"
         commandLine(
@@ -710,4 +719,40 @@ val signWindowsApp = tasks.register<Exec>("signWindowsApp") {
         )
     }
 }
-tasks.matching { it.name == "packageMsi" }.configureEach { dependsOn(signWindowsApp) }
+
+val packageSignedMsi = tasks.register<Exec>("packageSignedMsi") {
+    group = "distribution"
+    description = "MSI را از پوشهٔ برنامهٔ امضاشده می‌سازد (jpackage --app-image؛ نیازمندِ KY_SIGN_PFX)."
+    dependsOn(signWindowsApp)
+    onlyIf { org.gradle.internal.os.OperatingSystem.current().isWindows }
+    val appImage = layout.buildDirectory.dir("compose/binaries/main/app/KhayatYar")
+    val msiDir = layout.buildDirectory.dir("compose/binaries/main/msi")
+    val version = providers.gradleProperty("appVersion")
+    doFirst {
+        // این کار «MSIِ امضاشده» می‌سازد؛ بی گواهی نباید بی‌صدا یک MSIِ بی‌امضا بدهد.
+        require(System.getenv("KY_SIGN_PFX") != null) {
+            "packageSignedMsi بی KY_SIGN_PFX معنا ندارد؛ برای ساختِ بی‌امضا :desktop:packageMsi را بزنید."
+        }
+        require(File(appImage.get().asFile, "KhayatYar.exe").isFile) { "پوشهٔ برنامه نیست: ${appImage.get().asFile}" }
+        val out = msiDir.get().asFile
+        out.mkdirs()
+        out.listFiles { f -> f.name.endsWith(".msi") }?.forEach { it.delete() }
+        val jpackage = File(System.getProperty("java.home"), "bin/jpackage.exe")
+        require(jpackage.isFile) { "jpackage.exe نیست (JDK کامل لازم است): $jpackage" }
+        commandLine(
+            jpackage.absolutePath,
+            "--type", "msi",
+            "--app-image", appImage.get().asFile.absolutePath,
+            "--dest", out.absolutePath,
+            "--name", "KhayatYar",
+            "--description", "KhayatYar - tailoring workshop ledger",
+            "--app-version", version.get(),
+            "--vendor", "KhayatYar",
+            "--win-dir-chooser",
+            "--win-shortcut",
+            "--win-menu",
+            "--win-menu-group", "KhayatYar",
+            "--win-upgrade-uuid", "6E7B1F2C-9A54-4B8E-97C6-3D2A5B41E0F7",
+        )
+    }
+}
