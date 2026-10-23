@@ -696,6 +696,10 @@ val signWindowsApp = tasks.register<Exec>("signWindowsApp") {
         require(exes.isNotEmpty()) { "KhayatYar.exe در ${appDir.get().asFile} نیست؛ createDistributable چیزی نساخت." }
         val password = System.getenv("KY_SIGN_PASSWORD")
         require(!password.isNullOrEmpty()) { "KY_SIGN_PFX هست ولی KY_SIGN_PASSWORD نیست." }
+        // jpackage می‌سازدش با ویژگیِ ReadOnly و signtool برای نوشتنِ امضا به
+        // دسترسیِ نوشتن نیاز دارد: بی این، «Access is denied» (آزموده روی ویندوزِ
+        // واقعی، ۲۰۲۶-۱۰-۲۲؛ نه قفل بود، نه Defender، نه گواهی). فقط همین .exe.
+        exes.forEach { check(it.setWritable(true)) { "نتوانستم ReadOnlyِ ${it.name} را بردارم." } }
         val tool = System.getenv("KY_SIGNTOOL") ?: "signtool.exe"
         commandLine(
             listOf(
