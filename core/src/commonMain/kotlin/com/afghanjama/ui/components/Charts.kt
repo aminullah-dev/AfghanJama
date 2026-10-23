@@ -22,8 +22,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -32,6 +35,13 @@ import androidx.compose.ui.unit.dp
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.theme.PillShape
 import com.afghanjama.ui.theme.Radius
+
+/**
+ * گرادیانِ نرمِ یک رنگ — کمی روشن‌تر در بالا، مثلِ نورِ مایل روی سطحِ صیقلی.
+ * همان حسی که کارت‌های شیشه‌ای دارند را به میله‌ها هم می‌دهد تا یک‌خانواده باشند.
+ */
+private fun sheen(color: Color): Brush =
+    Brush.verticalGradient(listOf(lerp(color, Color.White, 0.22f), color))
 
 /*
  * چارت‌های داشبورد — دست‌ساز، بی هیچ وابستگیِ تازه.
@@ -67,7 +77,7 @@ fun BarMeter(
     Box(modifier.fillMaxWidth().height(height).clip(PillShape).background(track)) {
         val f = fraction.coerceIn(0f, 1f)
         if (f > 0f) {
-            Box(Modifier.fillMaxWidth(f).fillMaxHeight().clip(PillShape).background(color))
+            Box(Modifier.fillMaxWidth(f).fillMaxHeight().clip(PillShape).background(sheen(color)))
         }
     }
 }
@@ -138,11 +148,12 @@ fun ColumnBars(
                 Text(b.value.fa(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Box(Modifier.fillMaxWidth().height(chartHeight), contentAlignment = Alignment.BottomCenter) {
                     val frac = if (b.value <= 0) 0f else (b.value.toFloat() / max).coerceIn(0.08f, 1f)
+                    val fill = if (b.emphasize) emphColor else color
                     Box(
                         Modifier.fillMaxWidth()
                             .fillMaxHeight(if (b.value <= 0) 0.03f else frac)
                             .clip(RoundedCornerShape(topStart = Radius.sm, topEnd = Radius.sm))
-                            .background(if (b.value <= 0) track else if (b.emphasize) emphColor else color),
+                            .background(if (b.value <= 0) SolidColor(track) else sheen(fill)),
                     )
                 }
                 Text(
