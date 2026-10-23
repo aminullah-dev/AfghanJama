@@ -2,6 +2,11 @@ package com.afghanjama.ui.screens
 
 import com.afghanjama.util.nowMillis
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -152,13 +157,16 @@ fun BoardScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f)) {
-                Text(
-                    text = "در حالِ دوخت" + if (clock % 2 == 0) " ▌" else "",
-                    color = BoardText,
-                    fontSize = 26.sp,
-                    fontWeight = FontWeight.Bold,
-                    style = GlowStyle,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "در حالِ دوخت",
+                        color = BoardText,
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.Bold,
+                        style = GlowStyle,
+                    )
+                    AnimatedChevrons(reduced)
+                }
                 Text(
                     text = "${ui.rows.size.fa()} کار • ${ui.pieces.fa()} عدد • " +
                         "${ui.tailors.fa()} خیاط" +
@@ -261,6 +269,36 @@ fun BoardScreen(
                 )
             }
             Text("برای برگشت، صفحه را لمس کنید", color = BoardDim, fontSize = 12.sp)
+        }
+    }
+}
+
+/**
+ * «>>>>>>>» متحرک — موجِ روشنایی که روی چورون‌ها می‌دود (حسِ جریانِ داده در
+ * پایانه). تعدادِ چورون‌ها ثابت است و فقط روشنایی عوض می‌شود، پس چیدمان
+ * نمی‌پرد. با حرکتِ کم‌شده، فقط چورون‌های کم‌رنگِ ثابت.
+ */
+@Composable
+private fun AnimatedChevrons(reduced: Boolean, count: Int = 7) {
+    val transition = rememberInfiniteTransition(label = "chevrons")
+    val phase by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = count.toFloat(),
+        animationSpec = infiniteRepeatable(tween(1500, easing = LinearEasing), RepeatMode.Restart),
+        label = "chevron-phase",
+    )
+    val head = if (reduced) 0f else phase
+    Row(horizontalArrangement = Arrangement.spacedBy(1.dp), verticalAlignment = Alignment.CenterVertically) {
+        for (i in 0 until count) {
+            val dist = (head - i + count) % count          // فاصلهٔ حلقوی از سرِ موج
+            val alpha = if (reduced) 0.55f else (1f - dist / count).coerceIn(0.18f, 1f)
+            Text(
+                ">",
+                color = BoardOk.copy(alpha = alpha),
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                style = GlowStyle,
+            )
         }
     }
 }
