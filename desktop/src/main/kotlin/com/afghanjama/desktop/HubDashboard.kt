@@ -9,14 +9,19 @@ import androidx.compose.foundation.TooltipArea
 import androidx.compose.foundation.TooltipPlacement
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -25,21 +30,28 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
@@ -57,7 +69,13 @@ import com.afghanjama.lan.LanHub
 import com.afghanjama.prefs.DeviceMode
 import com.afghanjama.prefs.LanPrefs
 import com.afghanjama.prefs.LocalSettings
+import com.afghanjama.ui.components.BarRow
 import com.afghanjama.ui.components.CardPadding
+import com.afghanjama.ui.components.ColumnBars
+import com.afghanjama.ui.components.ColumnDatum
+import com.afghanjama.ui.components.DonutChart
+import com.afghanjama.ui.components.DonutLegend
+import com.afghanjama.ui.components.DonutSlice
 import com.afghanjama.ui.components.Pill
 import com.afghanjama.ui.components.PillTone
 import com.afghanjama.ui.components.Space
@@ -69,6 +87,7 @@ import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.format.toPersianDigits
 import com.afghanjama.ui.nav.allowedFor
+import com.afghanjama.ui.theme.Brand
 import com.afghanjama.ui.theme.Radius
 import com.afghanjama.ui.vm.Access
 import com.afghanjama.ui.vm.HubDashboardViewModel
@@ -100,6 +119,23 @@ private class DashCard(
     val extraGate: Boolean = true,
     val body: @Composable () -> Unit,
 )
+
+/**
+ * همهٔ کارت‌ها یک قد — شبکهٔ یک‌دست و آرام. کارتی که داده‌اش بیشتر است
+ * داخلش بریده می‌شود و با دکمهٔ «بزرگ کردن» کامل دیده می‌شود.
+ */
+private val DashCardHeight = 300.dp
+
+/** یک کارتِ بزرگ‌شده: عنوان، منبع، و همان بدنهٔ کارت که حالا به‌اندازهٔ داده باز می‌شود. */
+private class DashExpand(
+    val title: String,
+    val source: DigestSource,
+    val fresh: String,
+    val body: @Composable ColumnScope.() -> Unit,
+)
+
+/** هر `DashFrame` از این می‌خواند تا بگوید «مرا بزرگ کن»؛ داشبورد روی خودش پوششِ بزرگ را می‌کشد. */
+private val LocalDashExpand = compositionLocalOf<(DashExpand) -> Unit> { {} }
 
 /** کارت برای این نفر هست؟ — همان دسترسیِ صفحه‌ای که کارت به آن می‌برد (بازبینی، ۱۹-و). */
 internal fun dashVisible(section: Section, extraGate: Boolean, access: Access): Boolean =
@@ -177,11 +213,14 @@ internal fun HubDashboard(
         add(DashCard(3, Section.FinishedWarehouse) { BelowCostCard(d, fresh, go) })
     }.filter { dashVisible(it.section, it.extraGate, access) }
 
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(Space.xl),
-        verticalArrangement = Arrangement.spacedBy(Space.lg),
-    ) {
-        Header(d, fresh, access, go)
+    var expanded by remember { mutableStateOf<DashExpand?>(null) }
+    Box(Modifier.fillMaxSize()) {
+      CompositionLocalProvider(LocalDashExpand provides { expanded = it }) {
+        Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(Space.xl),
+            verticalArrangement = Arrangement.spacedBy(Space.lg),
+        ) {
+            Header(d, fresh, access, go)
         msg?.let { (text, error) ->
             Row(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.md))
@@ -214,6 +253,9 @@ internal fun HubDashboard(
                 }
             }
         }
+    }
+      }
+      expanded?.let { ex -> DashExpandOverlay(ex, onClose = { expanded = null }) }
     }
 }
 
@@ -279,15 +321,22 @@ private fun DashFrame(
     allLabel: String = "همه",
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val expand = LocalDashExpand.current
     Column(
-        Modifier.fillMaxWidth().widthIn(min = 240.dp).glass().padding(CardPadding),
+        Modifier.fillMaxWidth().widthIn(min = 240.dp).height(DashCardHeight).glass().padding(CardPadding),
         verticalArrangement = Arrangement.spacedBy(Space.sm),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            IconButton(onClick = { expand(DashExpand(title, source, fresh, content)) }, modifier = Modifier.size(28.dp)) {
+                Icon(Icons.Filled.OpenInFull, contentDescription = "بزرگ کردن", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(15.dp))
+            }
             if (onAll != null) TextButton(onClick = onAll) { Text(allLabel) }
         }
-        content()
+        // ناحیهٔ بدنه قدِ باقی‌مانده را می‌گیرد؛ بیشترش بریده می‌شود (با «بزرگ کردن» کامل).
+        Column(Modifier.weight(1f).fillMaxWidth().clipToBounds(), verticalArrangement = Arrangement.spacedBy(Space.sm)) {
+            content()
+        }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.xs)) {
             Text(
                 "از: ${source.label} • تازه: $fresh",
@@ -296,6 +345,54 @@ private fun DashFrame(
                 modifier = Modifier.weight(1f),
             )
             SourceTip(source)
+        }
+    }
+}
+
+/**
+ * کارتِ بزرگ‌شده روی کلِ داشبورد — زمینهٔ تیره، و کارتی که به‌اندازهٔ داده‌اش
+ * باز می‌شود (تا ۸۵٪ قد، بیشترش اسکرول). کلیکِ بیرون یا ✕ می‌بندد.
+ */
+@Composable
+private fun DashExpandOverlay(ex: DashExpand, onClose: () -> Unit) {
+    val noRipple = remember { MutableInteractionSource() }
+    Box(
+        Modifier.fillMaxSize()
+            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.45f))
+            .clickable(interactionSource = noRipple, indication = null, onClick = onClose),
+        contentAlignment = Alignment.Center,
+    ) {
+        BoxWithConstraints(Modifier.padding(Space.xl)) {
+            val maxH = maxHeight * 0.85f
+            Column(
+                Modifier.fillMaxWidth(0.62f).widthIn(min = 360.dp, max = 760.dp).heightIn(max = maxH)
+                    .glass(RoundedCornerShape(Radius.xxl))
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
+                    .padding(Space.xl),
+                verticalArrangement = Arrangement.spacedBy(Space.md),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(ex.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    IconButton(onClick = onClose) {
+                        Icon(Icons.Filled.Close, contentDescription = "بستن", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                Column(
+                    Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(Space.sm),
+                ) {
+                    ex.body(this)
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.xs)) {
+                    Text(
+                        "از: ${ex.source.label} • تازه: ${ex.fresh}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
+                    )
+                    SourceTip(ex.source)
+                }
+            }
         }
     }
 }
@@ -480,19 +577,10 @@ private fun InsideCard(d: HubDigest.Digest, fresh: String, go: (Section) -> Unit
 private fun PipelineCard(d: HubDigest.Digest, fresh: String, go: (Section) -> Unit) {
     DashFrame("خطِ تولید", DigestSource.PIPELINE, fresh, onAll = { go(Section.Inventory) }) {
         Show(d.pipeline) { p ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.xs)) {
-                OrderPipeline.STAGES.forEachIndexed { i, st ->
-                    Column(
-                        Modifier.weight(1f).clip(RoundedCornerShape(Radius.md))
-                            .background(if (p.counts[i] > 0) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer)
-                            .padding(vertical = Space.sm),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Text(p.counts[i].fa(), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        Text(st.label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            }
+            ColumnBars(
+                bars = OrderPipeline.STAGES.mapIndexed { i, st -> ColumnDatum(st.label, p.counts[i]) },
+                color = MaterialTheme.colorScheme.primary,
+            )
             Pill("معطل: ${p.stuck.fa()}", tone = if (p.stuck > 0) PillTone.Coral else PillTone.Neutral)
         }
     }
@@ -519,13 +607,18 @@ private fun TailorsCard(d: HubDigest.Digest, fresh: String, go: (Section) -> Uni
     DashFrame("بارِ خیاط‌ها", DigestSource.FORECAST, fresh, onAll = { go(Section.WorkshopLoad) }) {
         Show(d.tailors) { list ->
             if (list.isEmpty()) Calm("کاری زیرِ دستِ خیاط‌ها نیست.")
+            val max = (list.maxOfOrNull { it.inHand } ?: 0).coerceAtLeast(1)
             list.forEach { t ->
-                Line(t.name, "در دست: ${t.inHand.fa()} دست") {
-                    when (val f = t.days) {
-                        is Figure.Known -> Pill("${kotlin.math.ceil(f.value).toInt().fa()} روز کار", tone = PillTone.Brand)
-                        is Figure.Unknown -> Pill("نامعلوم", tone = PillTone.Neutral)
-                    }
-                }
+                BarRow(
+                    label = t.name,
+                    value = "${t.inHand.fa()} دست",
+                    fraction = t.inHand.toFloat() / max,
+                    color = MaterialTheme.colorScheme.primary,
+                    sub = when (val f = t.days) {
+                        is Figure.Known -> "${kotlin.math.ceil(f.value).toInt().fa()} روز کار"
+                        is Figure.Unknown -> "روزِ کار نامعلوم"
+                    },
+                )
             }
         }
     }
@@ -537,9 +630,16 @@ private fun TailorsCard(d: HubDigest.Digest, fresh: String, go: (Section) -> Uni
 private fun MoneyCard(d: HubDigest.Digest, fresh: String, go: (Section) -> Unit) {
     DashFrame("پول", DigestSource.MONEY, fresh, onAll = { go(Section.Finance) }) {
         Show(d.money) { m ->
-            Line("صندوق", trailing = { Text(m.wallet.afn(), fontWeight = FontWeight.Bold) })
-            Line("بانک", trailing = { Text(m.bank.afn(), fontWeight = FontWeight.Bold) })
-            Line("صندوقِ فایده", trailing = { Text(m.profit.afn(), fontWeight = FontWeight.Bold) })
+            val slices = listOf(
+                DonutSlice("صندوق", m.wallet, Brand.Coral),
+                DonutSlice("بانک", m.bank, MaterialTheme.colorScheme.primary),
+                DonutSlice("صندوقِ فایده", m.profit, MaterialTheme.colorScheme.tertiary),
+            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.lg)) {
+                DonutChart(slices, diameter = 104.dp, ring = 15.dp)
+                DonutLegend(slices, valueText = { it.afn() }, modifier = Modifier.weight(1f))
+            }
+            Calm("کل: ${(m.wallet + m.bank + m.profit).afn()}")
         }
     }
 }
@@ -586,13 +686,15 @@ private fun DebtsCard(d: HubDigest.Digest, fresh: String, go: (Section) -> Unit)
         Show(d.debts) { list ->
             if (list.isEmpty()) Calm("امروز کسی برای پیگیری نیست.")
             else d.debtsTotal.known?.let { Calm("جمعاً ${it.afn()}") }
+            val max = (list.maxOfOrNull { it.amount } ?: 0L).coerceAtLeast(1L)
             list.forEach { x ->
-                Line(
-                    x.name, x.reason,
-                    trailing = {
-                        if (x.contactedToday) Pill("امروز تماس شد", tone = PillTone.Neutral)
-                        else Text(x.amount.afn(), fontWeight = FontWeight.SemiBold)
-                    },
+                BarRow(
+                    label = x.name,
+                    value = x.amount.afn(),
+                    fraction = x.amount.toFloat() / max,
+                    color = MaterialTheme.colorScheme.secondary,
+                    sub = x.reason,
+                    trailing = if (x.contactedToday) ({ Pill("امروز تماس شد", tone = PillTone.Neutral) }) else null,
                     onClick = { go(Section.FollowUp) },
                 )
             }
