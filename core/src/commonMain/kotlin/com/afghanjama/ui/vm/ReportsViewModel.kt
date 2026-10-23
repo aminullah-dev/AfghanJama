@@ -368,20 +368,9 @@ class ReportsViewModel(private val repo: Repo) : ViewModel() {
         combine(repo.observeFinishedSales(), _range) { sales, range ->
             val monthsWanted = PersianDate.recentMonths(6)
             val byMonth = sales.groupBy { PersianDate.monthKey(it.createdAt) }
-            val months = monthsWanted.map { (key, label) ->
-                val list = byMonth[key].orEmpty()
-                MonthPoint(
-                    key = key,
-                    label = label,
-                    revenue = list.sumOf { it.netTotal },
-                    cost = list.sumOf { it.netCost },
-                    // فروشی که تمامش برگشته دیگر فروش نیست و نباید شمرده
-                    // شود؛ وگرنه «۱۲ فروش» می‌گوید در ماهی که عملاً ۱۱ تا
-                    // بوده.
-                    salesCount = list.count { it.returnedQty < it.qty },
-                    returned = list.sumOf { it.total - it.netTotal }
-                )
-            }
+            // روندِ ماهانه از فرمولِ مشترکِ FinancialModels — همان چیزی که
+            // خلاصهٔ «مالی» هم می‌خوانَد، تا در دو جا دو جور نشود.
+            val months = salesTrendMonths(sales)
 
             val products = sales
                 .filter { it.createdAt in range }
