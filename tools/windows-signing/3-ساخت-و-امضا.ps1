@@ -8,10 +8,12 @@
 #
 #  چرا: «2-امضا.ps1» فقط MSI را امضا می‌کند و KhayatYar.exe داخلِ آن
 #  بی‌امضا می‌ماند، چون MSI پیش از امضا ساخته شده. این اسکریپت Gradle را با
-#  KY_SIGN_PFX می‌زند تا `signWindowsApp` (desktop/build.gradle.kts)
-#  KhayatYar.exe را میانِ «ساختِ پوشهٔ برنامه» و «بسته‌بندیِ MSI» امضا کند؛
-#  بعد خودِ MSI را امضا می‌کند، و آخر MSI را باز می‌کند و **می‌سنجد** که
-#  .exe داخلش با همان گواهی امضا شده.
+#  KY_SIGN_PFX می‌زند: `signWindowsApp` KhayatYar.exe را در پوشهٔ برنامه امضا
+#  می‌کند و `packageSignedMsi` MSI را با jpackage --app-image از همان پوشه
+#  می‌سازد (:desktop:packageMsi این کار را نمی‌کند: روی ویندوز jpackage یک
+#  .exe تازه می‌سازد و امضا کنار می‌رود). بعد خودِ MSI را امضا می‌کند، و آخر
+#  MSI را باز می‌کند و **می‌سنجد** که .exe داخلش با همان گواهی امضا شده و
+#  UpgradeCode همان است که باید باشد.
 #
 #  پیش‌نیاز: JDK 17 کامل (jpackage) و WiX 3 — همان‌ها که packageMsi لازم دارد.
 #
@@ -62,7 +64,7 @@ $env:KY_SIGN_PASSWORD = $plain
 $env:KY_SIGNTOOL = $signtool.FullName
 Push-Location $repoRoot
 try {
-    & .\gradlew.bat --no-daemon :desktop:packageMsi
+    & .\gradlew.bat --no-daemon :desktop:packageSignedMsi
     if ($LASTEXITCODE -ne 0) { throw "ساخت شکست خورد (کد $LASTEXITCODE)." }
 } finally {
     Pop-Location
@@ -82,6 +84,27 @@ Write-Host "  امضای $($msi.Name) …" -ForegroundColor Cyan
     /f $pfxPath /p $plain $msi.FullName
 if ($LASTEXITCODE -ne 0) { throw "امضای MSI شکست خورد." }
 $plain = $null
+
+# ─── وارسی: UpgradeCode ──────────────────────────────────────────
+# با UpgradeCodeی دیگر MSIِ تازه روی نصبِ قبلی نمی‌نشیند و یک برنامهٔ دوم
+# کنارش نصب می‌شود (و دفترِ حساب دو جا می‌ماند). باید همان `upgradeUuid`ِ
+# desktop/build.gradle.kts باشد.
+function Get-MsiProperty([string]$path, [string]$name) {
+    $inst = New-Object -ComObject WindowsInstaller.Installer
+    $db = $inst.GetType().InvokeMember("OpenDatabase", "InvokeMethod", $null, $inst, @($path, 0))
+    $view = $db.GetType().InvokeMember("OpenView", "InvokeMethod", $null, $db,
+        @("SELECT Value FROM Property WHERE Property='$name'"))
+    $view.GetType().InvokeMember("Execute", "InvokeMethod", $null, $view, $null) | Out-Null
+    $rec = $view.GetType().InvokeMember("Fetch", "InvokeMethod", $null, $view, $null)
+    if ($rec) { $rec.GetType().InvokeMember("StringData", "GetProperty", $null, $rec, @(1)) }
+}
+$expectedUpgrade = "{6E7B1F2C-9A54-4B8E-97C6-3D2A5B41E0F7}"
+$gotUpgrade = Get-MsiProperty $msi.FullName "UpgradeCode"
+$gotVersion = Get-MsiProperty $msi.FullName "ProductVersion"
+Write-Host "  MSI: UpgradeCode=$gotUpgrade ProductVersion=$gotVersion" -ForegroundColor DarkGray
+if ($gotUpgrade -ne $expectedUpgrade) {
+    throw "✗ UpgradeCode همان نیست: $gotUpgrade (انتظار $expectedUpgrade)."
+}
 
 # ─── وارسی: .exe داخلِ MSI واقعاً امضا شده؟ ──────────────────────
 # MSI را «نصبِ مدیر» می‌کنیم (فقط فایل‌ها را بیرون می‌ریزد، چیزی نصب نمی‌شود)
