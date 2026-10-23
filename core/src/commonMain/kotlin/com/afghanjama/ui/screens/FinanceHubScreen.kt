@@ -20,6 +20,8 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Payments
 import com.afghanjama.ui.components.BrandCard
+import com.afghanjama.ui.components.ColumnBars
+import com.afghanjama.ui.components.ColumnDatum
 import com.afghanjama.ui.components.FinancialStatusCard
 import com.afghanjama.ui.components.financialStatusText
 import com.afghanjama.platform.LocalSystemActions
@@ -240,6 +242,38 @@ private fun DashboardTab(vm: DashboardViewModel) {
                 ) {
                     MoneyBlock("۷ روز اخیر", s.sales7.afn(), onCoral = true)
                     MoneyBlock("۳۰ روز اخیر", s.sales30.afn(), onCoral = true)
+                }
+            }
+        }
+
+        // روندِ فروشِ ۶ ماه — نمودار، تا «بهتر شده یا بدتر» در یک نگاه دیده شود.
+        if (s.salesMonths.any { it.revenue > 0L }) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                ) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            "روندِ فروشِ ۶ ماه",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        ColumnBars(
+                            bars = s.salesMonths.mapIndexed { i, m ->
+                                ColumnDatum(m.label, m.revenue, emphasize = i == s.salesMonths.lastIndex)
+                            },
+                            color = MaterialTheme.colorScheme.primary,
+                            chartHeight = 96.dp,
+                        )
+                        Text(
+                            "ماهِ جاری: ${s.salesMonths.last().revenue.afn()}",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         }

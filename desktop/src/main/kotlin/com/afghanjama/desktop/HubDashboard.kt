@@ -578,7 +578,7 @@ private fun PipelineCard(d: HubDigest.Digest, fresh: String, go: (Section) -> Un
     DashFrame("خطِ تولید", DigestSource.PIPELINE, fresh, onAll = { go(Section.Inventory) }) {
         Show(d.pipeline) { p ->
             ColumnBars(
-                bars = OrderPipeline.STAGES.mapIndexed { i, st -> ColumnDatum(st.label, p.counts[i]) },
+                bars = OrderPipeline.STAGES.mapIndexed { i, st -> ColumnDatum(st.label, p.counts[i].toLong(), p.counts[i].fa()) },
                 color = MaterialTheme.colorScheme.primary,
             )
             Pill("معطل: ${p.stuck.fa()}", tone = if (p.stuck > 0) PillTone.Coral else PillTone.Neutral)

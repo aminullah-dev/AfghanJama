@@ -2,6 +2,8 @@ package com.afghanjama.ui.vm
 
 import com.afghanjama.data.dao.AccountBalance
 import com.afghanjama.data.entities.Accounts
+import com.afghanjama.data.entities.FinishedSale
+import com.afghanjama.ui.format.PersianDate
 
 /** یک سطرِ صورتِ مالی: حساب و مبلغِ طبیعی‌اش (همیشه مثبت‌خوان). */
 data class StatementLine(
@@ -108,4 +110,26 @@ fun balanceSheetOf(list: List<AccountBalance>): BalanceSheet {
         capital = capital,
         retained = retained
     )
+}
+
+/**
+ * روندِ فروشِ [count] ماهِ شمسیِ اخیر — **یک فرمول** که هم «گزارش‌ها» و هم
+ * خلاصهٔ «مالی» از آن می‌خوانند، تا روندِ ماهانه در دو جا دو جور نشود. عددها
+ * خالص‌اند (برگشتی‌ها کم شده‌اند)، از دفترِ فروشِ انبارِ محصول.
+ */
+fun salesTrendMonths(sales: List<FinishedSale>, count: Int = 6): List<MonthPoint> {
+    val monthsWanted = PersianDate.recentMonths(count)
+    val byMonth = sales.groupBy { PersianDate.monthKey(it.createdAt) }
+    return monthsWanted.map { (key, label) ->
+        val list = byMonth[key].orEmpty()
+        MonthPoint(
+            key = key,
+            label = label,
+            revenue = list.sumOf { it.netTotal },
+            cost = list.sumOf { it.netCost },
+            // فروشی که تمامش برگشته دیگر فروش نیست و شمرده نمی‌شود.
+            salesCount = list.count { it.returnedQty < it.qty },
+            returned = list.sumOf { it.total - it.netTotal },
+        )
+    }
 }

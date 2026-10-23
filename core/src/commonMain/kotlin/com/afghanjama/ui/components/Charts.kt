@@ -32,7 +32,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.theme.PillShape
 import com.afghanjama.ui.theme.Radius
 
@@ -124,12 +123,16 @@ fun BarRow(
     }
 }
 
-/** یک ستونِ میله‌ایِ عمودی: برچسب و شمار. [emphasize] ردیفِ مهم را پررنگ‌تر می‌کند. */
-data class ColumnDatum(val label: String, val value: Int, val emphasize: Boolean = false)
+/**
+ * یک ستونِ میله‌ایِ عمودی: برچسبِ زیر، مقدارِ [value] (برای قدِ میله) و
+ * [top] (نوشتهٔ روی میله — خالی یعنی هیچ). [emphasize] میله را پررنگ‌تر می‌کند.
+ */
+data class ColumnDatum(val label: String, val value: Long, val top: String = "", val emphasize: Boolean = false)
 
 /**
- * میله‌های عمودی برای مرحله‌ها (خطِ تولید): شمار بالای هر میله، میله به
- * نسبتِ بیشینه، برچسب زیرش. میلهٔ صفر یک خطِ کم‌رنگِ نازک است، نه هیچ.
+ * میله‌های عمودی برای یک مجموعهٔ ترتیبی (مرحله‌های تولید، یا روندِ ماهانه):
+ * نوشتهٔ بالا (اختیاری)، میله به نسبتِ بیشینه، برچسب زیرش. میلهٔ صفر یک خطِ
+ * کم‌رنگِ نازک است، نه هیچ.
  */
 @Composable
 fun ColumnBars(
@@ -139,21 +142,23 @@ fun ColumnBars(
     chartHeight: Dp = 84.dp,
 ) {
     if (bars.isEmpty()) return
-    val max = (bars.maxOfOrNull { it.value } ?: 0).coerceAtLeast(1)
+    val max = (bars.maxOfOrNull { it.value } ?: 0L).coerceAtLeast(1L)
     val track = MaterialTheme.colorScheme.surfaceVariant
     val emphColor = MaterialTheme.colorScheme.secondary
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.sm), verticalAlignment = Alignment.Bottom) {
         bars.forEach { b ->
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Space.xs)) {
-                Text(b.value.fa(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                if (b.top.isNotBlank()) {
+                    Text(b.top, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1)
+                }
                 Box(Modifier.fillMaxWidth().height(chartHeight), contentAlignment = Alignment.BottomCenter) {
-                    val frac = if (b.value <= 0) 0f else (b.value.toFloat() / max).coerceIn(0.08f, 1f)
+                    val frac = if (b.value <= 0L) 0f else (b.value.toFloat() / max).coerceIn(0.08f, 1f)
                     val fill = if (b.emphasize) emphColor else color
                     Box(
                         Modifier.fillMaxWidth()
-                            .fillMaxHeight(if (b.value <= 0) 0.03f else frac)
+                            .fillMaxHeight(if (b.value <= 0L) 0.03f else frac)
                             .clip(RoundedCornerShape(topStart = Radius.sm, topEnd = Radius.sm))
-                            .background(if (b.value <= 0) SolidColor(track) else sheen(fill)),
+                            .background(if (b.value <= 0L) SolidColor(track) else sheen(fill)),
                     )
                 }
                 Text(

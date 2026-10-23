@@ -50,6 +50,8 @@ data class DashboardStats(
     val oldestPendingWageDays: Long = 0,
     /** زمانِ قدیمی‌ترین کارمزدِ باز؛ `null` وقتی کارمزدِ بازی نیست. */
     val oldestPendingWageAt: Long? = null,
+    /** روندِ فروشِ ۶ ماهِ اخیر (برای نمودار در خلاصهٔ «مالی»). */
+    val salesMonths: List<MonthPoint> = emptyList(),
 ) {
     val wageReminderDue: Boolean get() = oldestPendingWageDays >= 7
 }
@@ -172,6 +174,7 @@ fun dashboardStatsFlow(repo: Repo, now: Flow<Long> = clockTicks()): Flow<Dashboa
                 tailorStats = tailorStats,
                 oldestPendingWageDays = oldestPendingDays,
                 oldestPendingWageAt = wages.minOfOrNull { it.createdAt },
+                salesMonths = salesTrendMonths(sales),
             )
         }
 
