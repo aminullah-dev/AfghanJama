@@ -24,8 +24,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
@@ -213,6 +215,59 @@ fun DonutChart(
             }
         }
         center()
+    }
+}
+
+/**
+ * نمودارِ خطیِ کوچک — یک منحنی با پُرشدنِ گرادیانِ نرمِ زیرش (برای روندِ پول).
+ * خطِ مبنا (صفر) کم‌رنگ کشیده می‌شود، نقطهٔ پایان پررنگ، و [markIndex] (مثلاً
+ * پایین‌ترین روز) با یک حلقهٔ کوچک. چپ = امروز، راست = تهِ افق.
+ */
+@Composable
+fun Sparkline(
+    values: List<Long>,
+    color: Color,
+    modifier: Modifier = Modifier,
+    height: Dp = 64.dp,
+    baseline: Long = 0L,
+    markIndex: Int? = null,
+) {
+    if (values.size < 2) return
+    val fillTop = color.copy(alpha = 0.22f)
+    val track = MaterialTheme.colorScheme.outlineVariant
+    Canvas(modifier.fillMaxWidth().height(height)) {
+        val n = values.size
+        val w = size.width
+        val h = size.height
+        val lo = minOf(values.min(), baseline).toFloat()
+        val hi = maxOf(values.max(), baseline).toFloat()
+        val span = (hi - lo).takeIf { it != 0f } ?: 1f
+        fun px(i: Int) = i.toFloat() / (n - 1) * w
+        fun py(v: Long) = h - (v.toFloat() - lo) / span * h
+
+        val yBase = py(baseline)
+        drawLine(track, Offset(0f, yBase), Offset(w, yBase), strokeWidth = 1f)
+
+        val line = Path().apply {
+            moveTo(px(0), py(values[0]))
+            for (i in 1 until n) lineTo(px(i), py(values[i]))
+        }
+        val fill = Path().apply {
+            addPath(line)
+            lineTo(px(n - 1), h)
+            lineTo(px(0), h)
+            close()
+        }
+        drawPath(fill, brush = Brush.verticalGradient(listOf(fillTop, Color.Transparent)))
+        drawPath(line, color = color, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+        drawCircle(color, radius = 3.dp.toPx(), center = Offset(px(n - 1), py(values[n - 1])))
+        markIndex?.let { m ->
+            if (m in 0 until n) {
+                val c = Offset(px(m), py(values[m]))
+                drawCircle(color.copy(alpha = 0.25f), radius = 5.dp.toPx(), center = c)
+                drawCircle(color, radius = 3.dp.toPx(), center = c)
+            }
+        }
     }
 }
 

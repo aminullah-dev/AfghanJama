@@ -48,6 +48,7 @@ enum class DigestSource(val label: String, val formula: String) {
     PRODUCTS("انبارِ محصول", "فروشِ ۳۰ روزِ هر کالا در برابرِ موجودی؛ «راکد» یعنی مدتی فروش نرفته."),
     PRICES("قیمت‌دهی", "میانهٔ قیمتِ ۱۰ فروشِ آخرِ هر کالا در ۱۸۰ روز، در برابرِ بهای تمام‌شدهٔ امروز."),
     DEVICES("کارگاهِ وصل", "گوشی‌های جفت‌شده با این کامپیوتر؛ «آنلاین» یعنی در ۴۵ ثانیهٔ اخیر دیده شده."),
+    CASH_FORECAST("پیش‌بینیِ پول", "نقدِ امروز، با فروش و هزینهٔ روزانه، طلبِ قابلِ وصول، بدهیِ سررسید و کارمزدِ باز — پیش‌بینیِ ۳۰ روزِ آینده (محتاط)."),
 }
 
 /**
@@ -222,6 +223,7 @@ object HubDigest {
         val products: Figure<Products>,
         val belowCost: Figure<List<BelowCost>>,
         val devices: Figure<Devices>,
+        val forecast: Figure<CashForecast.Snapshot>,
     )
 
     /** پیش از رسیدنِ هر عدد — همه «در حالِ خواندن»، هیچ صفری. */
@@ -346,6 +348,20 @@ object HubDigest {
                         }
                 )
             ),
+            forecast = if (i.money == null || i.health == null || i.sales30 == null || i.openWagesTotal == null) Figure.Unknown(READING)
+                else if (!i.health.hasData) Figure.Unknown("هنوز داده‌ای برای پیش‌بینیِ پول نیست")
+                else Figure.Known(
+                    CashForecast.project(
+                        CashForecast.Inputs(
+                            cash = i.money.wallet + i.money.bank + i.money.profit,
+                            sales30 = i.sales30,
+                            expense30 = i.health.figures.expense30,
+                            receivable = i.health.figures.receivable,
+                            payable = i.health.figures.debts,
+                            openWages = i.openWagesTotal,
+                        )
+                    )
+                ),
         )
     }
 
