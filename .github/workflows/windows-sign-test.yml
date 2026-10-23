@@ -10,9 +10,6 @@ name: آزمونِ امضای ویندوز
 # هزینه: یک ساختِ ویندوز (دقیقه‌اش ۲ برابر) — به همین دلیل خودکار نیست.
 on:
   workflow_dispatch:
-  # موقت: تا این شاخه ادغام نشده workflow_dispatch از شاخهٔ دیگر کار نمی‌کند.
-  push:
-    branches: [claude/windows-sign-before-msi]
 
 permissions:
   contents: read
