@@ -665,3 +665,45 @@ val screenSmoke by tasks.registering(JavaExec::class) {
         classpath = files(appDir) + files(*jars)
     }
 }
+
+/*
+ * `signWindowsApp` — `KhayatYar.exe` پیش از اینکه در MSI بنشیند امضا می‌شود.
+ *
+ * **چرا لازم شد.** تا ۱.۱۲.۰ MSI را امضا می‌کردیم ولی `.exe`ِ داخلش بی‌امضا
+ * بود: `2-امضا.ps1` فقط فایل‌های بعد از ساخت را امضا می‌کرد و به داخلِ MSI
+ * راه نداشت. ویندوز هنگامِ اجرا خودِ `.exe` را می‌سنجد، نه MSIِ نصب‌شده را.
+ *
+ * ترتیب: `createDistributable` ← این کار ← `packageMsi`. اگر امضا بعد از
+ * `packageMsi` می‌آمد دیر بود؛ و اگر `createDistributable` بعد از امضا دوباره
+ * اجرا می‌شد، امضا را دور می‌ریخت (همان دلیلی که `sign-and-notarize.sh` در مک
+ * `packageDmg` را نمی‌زند).
+ *
+ * **فقط وقتی کار می‌کند که `KY_SIGN_PFX` در محیط باشد** (و روی ویندوز). ساخت
+ * معمولی و CI بی‌امضا می‌مانند و چیزی در آن‌ها عوض نمی‌شود. با `KY_SIGN_PFX`
+ * ولی بی `KY_SIGN_PASSWORD`، ساخت قرمز می‌شود، نه اینکه بی‌صدا بی‌امضا بسازد.
+ * رمز را `tools/windows-signing/3-ساخت-و-امضا.ps1` می‌پرسد و فقط در محیطِ
+ * همان فرایند می‌گذارد؛ در `--debug` خطِ فرمان دیده می‌شود، پس با آن نزنید.
+ */
+val signWindowsApp = tasks.register<Exec>("signWindowsApp") {
+    group = "distribution"
+    description = "KhayatYar.exe را پیش از بسته‌بندیِ MSI امضا می‌کند (نیازمندِ KY_SIGN_PFX)."
+    dependsOn("createDistributable")
+    val pfx = System.getenv("KY_SIGN_PFX")
+    onlyIf { pfx != null && org.gradle.internal.os.OperatingSystem.current().isWindows }
+    val appDir = layout.buildDirectory.dir("compose/binaries/main/app")
+    doFirst {
+        val exes = appDir.get().asFileTree.matching { include("**/KhayatYar.exe") }.files.toList()
+        require(exes.isNotEmpty()) { "KhayatYar.exe در ${appDir.get().asFile} نیست؛ createDistributable چیزی نساخت." }
+        val password = System.getenv("KY_SIGN_PASSWORD")
+        require(!password.isNullOrEmpty()) { "KY_SIGN_PFX هست ولی KY_SIGN_PASSWORD نیست." }
+        val tool = System.getenv("KY_SIGNTOOL") ?: "signtool.exe"
+        commandLine(
+            listOf(
+                tool, "sign", "/fd", "SHA256", "/td", "SHA256",
+                "/tr", "http://timestamp.digicert.com",
+                "/f", pfx, "/p", password,
+            ) + exes.map { it.absolutePath },
+        )
+    }
+}
+tasks.matching { it.name == "packageMsi" }.configureEach { dependsOn(signWindowsApp) }

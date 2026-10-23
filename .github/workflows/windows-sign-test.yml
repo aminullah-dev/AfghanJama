@@ -1,0 +1,56 @@
+name: آزمونِ امضای ویندوز
+
+# فقط دستی. ثابت می‌کند که زنجیرهٔ «createDistributable ← signWindowsApp ←
+# packageMsi» واقعاً `.exe`ِ امضاشده را داخلِ MSI می‌گذارد، روی ویندوزِ واقعی.
+#
+# گواهیِ این‌جا **یک‌بارمصرفِ همین اجرا** است (ساخته می‌شود و با رانر می‌رود).
+# کلیدِ واقعیِ Linumic هرگز به GitHub نمی‌آید؛ این کار برای آن نیست که چیزی
+# امضا کند، فقط برای آن است که بفهمیم اسکریپتِ امضا درست کار می‌کند.
+#
+# هزینه: یک ساختِ ویندوز (دقیقه‌اش ۲ برابر) — به همین دلیل خودکار نیست.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sign:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: کشِ Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: برداشتنِ local.properties
+        shell: bash
+        run: rm -f local.properties
+
+      - name: گواهیِ آزمایشیِ یک‌بارمصرف
+        shell: pwsh
+        run: |
+          $secret = [guid]::NewGuid().ToString("N")
+          Write-Output "::add-mask::$secret"
+          $cert = New-SelfSignedCertificate -Type CodeSigningCert `
+            -Subject "CN=KhayatYar CI test" -CertStoreLocation "Cert:\CurrentUser\My"
+          $pfx = Join-Path $env:RUNNER_TEMP "ci-test.pfx"
+          Export-PfxCertificate -Cert $cert -FilePath $pfx `
+            -Password (ConvertTo-SecureString $secret -AsPlainText -Force) | Out-Null
+          "KY_SIGN_PFX=$pfx" >> $env:GITHUB_ENV
+          "KY_SIGN_PASSWORD=$secret" >> $env:GITHUB_ENV
+
+      # PowerShell 5.1، همان که روی کمپیوترِ مشتری است (نه pwsh).
+      - name: ساخت، امضا و وارسیِ .exe داخلِ MSI
+        shell: powershell
+        run: |
+          $script = Get-ChildItem tools\windows-signing -Filter "3-*.ps1" | Select-Object -First 1
+          & $script.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
