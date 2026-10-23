@@ -89,6 +89,8 @@ object CashForecast {
         val level: Level,
         /** بدترین اول. */
         val signals: List<Signal>,
+        /** پولِ پیش‌بینی‌شدهٔ هر روز از امروز تا تهِ افق (برای نمودار). */
+        val curve: List<Long>,
     ) {
         /** کارگاهِ تازه که هیچ عددی ندارد، پیش‌بینی هم ندارد. */
         val hasData: Boolean
@@ -120,13 +122,14 @@ object CashForecast {
 
     fun project(i: Inputs): Snapshot {
         val horizon = i.horizonDays.coerceAtLeast(1)
-        val start = cashAt(i, 0, withCollecting = true)
+        val curve = (0..horizon).map { cashAt(i, it, withCollecting = true) }
+        val start = curve.first()
+        val end = curve.last()
 
         var lowest = start
         var lowestDay = 0
         var shortDay: Int? = null
-        for (day in 0..horizon) {
-            val c = cashAt(i, day, withCollecting = true)
+        curve.forEachIndexed { day, c ->
             if (c < lowest) {
                 lowest = c
                 lowestDay = day
@@ -134,7 +137,6 @@ object CashForecast {
             if (shortDay == null && c < i.safetyBuffer) shortDay = day
         }
 
-        val end = cashAt(i, horizon, withCollecting = true)
         val endWithoutCollecting = cashAt(i, horizon, withCollecting = false)
 
         // آیا بدونِ وصولِ طلب، جایی از افق زیرِ حاشیه می‌رود؟
@@ -165,6 +167,7 @@ object CashForecast {
             endWithoutCollecting = endWithoutCollecting,
             level = level,
             signals = signals.sortedBy { rank(it.level) },
+            curve = curve,
         )
     }
 

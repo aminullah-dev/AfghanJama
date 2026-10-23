@@ -57,6 +57,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.afghanjama.data.CashForecast
 import com.afghanjama.data.DigestSource
 import com.afghanjama.data.Figure
 import com.afghanjama.data.FinancialHealth
@@ -79,6 +80,7 @@ import com.afghanjama.ui.components.DonutSlice
 import com.afghanjama.ui.components.Pill
 import com.afghanjama.ui.components.PillTone
 import com.afghanjama.ui.components.Space
+import com.afghanjama.ui.components.Sparkline
 import com.afghanjama.ui.components.glass
 import com.afghanjama.ui.components.levelLabel
 import com.afghanjama.ui.components.signalText
@@ -204,6 +206,7 @@ internal fun HubDashboard(
         // ── پول
         add(DashCard(2, Section.Finance) { MoneyCard(d, fresh, go) })
         add(DashCard(2, Section.Finance) { HealthCard(d, fresh, go) })
+        add(DashCard(2, Section.Finance) { ForecastCard(d, fresh, go) })
         add(DashCard(2, Section.Finance) { SalesCard(d, fresh, go) })
         add(DashCard(2, Section.FollowUp) { DebtsCard(d, fresh, go) })
         add(DashCard(2, Section.Payroll) { WagesCard(d, fresh, go) })
@@ -662,6 +665,37 @@ private fun HealthCard(d: HubDigest.Digest, fresh: String, go: (Section) -> Unit
             h.signals.take(2).forEach { Text("• ${signalText(it)}", style = MaterialTheme.typography.bodySmall) }
         }
     }
+}
+
+@Composable
+private fun ForecastCard(d: HubDigest.Digest, fresh: String, go: (Section) -> Unit) {
+    DashFrame("پیش‌بینیِ پول", DigestSource.CASH_FORECAST, fresh, onAll = { go(Section.Finance) }) {
+        Show(d.forecast) { f ->
+            val color = when (f.level) {
+                CashForecast.Level.RISK -> MaterialTheme.colorScheme.error
+                CashForecast.Level.WATCH -> MaterialTheme.colorScheme.secondary
+                CashForecast.Level.GOOD -> MaterialTheme.colorScheme.primary
+            }
+            val tone = when (f.level) {
+                CashForecast.Level.RISK -> PillTone.Bad
+                CashForecast.Level.WATCH -> PillTone.Coral
+                CashForecast.Level.GOOD -> PillTone.Brand
+            }
+            Pill(forecastHeadline(f), tone = tone)
+            Sparkline(values = f.curve, color = color, markIndex = f.shortDay ?: f.lowestDay)
+            Line("امروز", trailing = { Text(f.start.afn(), fontWeight = FontWeight.SemiBold) })
+            Line("تهِ ماه (پیش‌بینی)", trailing = { Text(f.end.afn(), fontWeight = FontWeight.SemiBold) })
+        }
+    }
+}
+
+/** سرتیترِ کارتِ پیش‌بینی — از بدترین نشانه. */
+private fun forecastHeadline(f: CashForecast.Snapshot): String = when (f.signals.firstOrNull()?.kind) {
+    CashForecast.Kind.SHORT_EVEN_WITH_COLLECTING ->
+        f.shortDay?.let { "حدودِ ${it.fa()} روزِ دیگر پول کم می‌آید" } ?: "پول کم می‌آید"
+    CashForecast.Kind.SHORT_UNLESS_COLLECTING -> "اگر طلب را به‌موقع وصول نکنی، پول کم می‌آید"
+    CashForecast.Kind.DECLINING -> "پولِ نقد رو به کاهش است"
+    else -> "پول تا تهِ ماه می‌رسد"
 }
 
 @Composable
