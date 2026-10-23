@@ -57,7 +57,13 @@ import com.afghanjama.lan.LanHub
 import com.afghanjama.prefs.DeviceMode
 import com.afghanjama.prefs.LanPrefs
 import com.afghanjama.prefs.LocalSettings
+import com.afghanjama.ui.components.BarRow
 import com.afghanjama.ui.components.CardPadding
+import com.afghanjama.ui.components.ColumnBars
+import com.afghanjama.ui.components.ColumnDatum
+import com.afghanjama.ui.components.DonutChart
+import com.afghanjama.ui.components.DonutLegend
+import com.afghanjama.ui.components.DonutSlice
 import com.afghanjama.ui.components.Pill
 import com.afghanjama.ui.components.PillTone
 import com.afghanjama.ui.components.Space
@@ -69,6 +75,7 @@ import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.format.toPersianDigits
 import com.afghanjama.ui.nav.allowedFor
+import com.afghanjama.ui.theme.Brand
 import com.afghanjama.ui.theme.Radius
 import com.afghanjama.ui.vm.Access
 import com.afghanjama.ui.vm.HubDashboardViewModel
@@ -480,19 +487,10 @@ private fun InsideCard(d: HubDigest.Digest, fresh: String, go: (Section) -> Unit
 private fun PipelineCard(d: HubDigest.Digest, fresh: String, go: (Section) -> Unit) {
     DashFrame("خطِ تولید", DigestSource.PIPELINE, fresh, onAll = { go(Section.Inventory) }) {
         Show(d.pipeline) { p ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.xs)) {
-                OrderPipeline.STAGES.forEachIndexed { i, st ->
-                    Column(
-                        Modifier.weight(1f).clip(RoundedCornerShape(Radius.md))
-                            .background(if (p.counts[i] > 0) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer)
-                            .padding(vertical = Space.sm),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Text(p.counts[i].fa(), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        Text(st.label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            }
+            ColumnBars(
+                bars = OrderPipeline.STAGES.mapIndexed { i, st -> ColumnDatum(st.label, p.counts[i]) },
+                color = MaterialTheme.colorScheme.primary,
+            )
             Pill("معطل: ${p.stuck.fa()}", tone = if (p.stuck > 0) PillTone.Coral else PillTone.Neutral)
         }
     }
@@ -519,13 +517,18 @@ private fun TailorsCard(d: HubDigest.Digest, fresh: String, go: (Section) -> Uni
     DashFrame("بارِ خیاط‌ها", DigestSource.FORECAST, fresh, onAll = { go(Section.WorkshopLoad) }) {
         Show(d.tailors) { list ->
             if (list.isEmpty()) Calm("کاری زیرِ دستِ خیاط‌ها نیست.")
+            val max = (list.maxOfOrNull { it.inHand } ?: 0).coerceAtLeast(1)
             list.forEach { t ->
-                Line(t.name, "در دست: ${t.inHand.fa()} دست") {
-                    when (val f = t.days) {
-                        is Figure.Known -> Pill("${kotlin.math.ceil(f.value).toInt().fa()} روز کار", tone = PillTone.Brand)
-                        is Figure.Unknown -> Pill("نامعلوم", tone = PillTone.Neutral)
-                    }
-                }
+                BarRow(
+                    label = t.name,
+                    value = "${t.inHand.fa()} دست",
+                    fraction = t.inHand.toFloat() / max,
+                    color = MaterialTheme.colorScheme.primary,
+                    sub = when (val f = t.days) {
+                        is Figure.Known -> "${kotlin.math.ceil(f.value).toInt().fa()} روز کار"
+                        is Figure.Unknown -> "روزِ کار نامعلوم"
+                    },
+                )
             }
         }
     }
@@ -537,9 +540,16 @@ private fun TailorsCard(d: HubDigest.Digest, fresh: String, go: (Section) -> Uni
 private fun MoneyCard(d: HubDigest.Digest, fresh: String, go: (Section) -> Unit) {
     DashFrame("پول", DigestSource.MONEY, fresh, onAll = { go(Section.Finance) }) {
         Show(d.money) { m ->
-            Line("صندوق", trailing = { Text(m.wallet.afn(), fontWeight = FontWeight.Bold) })
-            Line("بانک", trailing = { Text(m.bank.afn(), fontWeight = FontWeight.Bold) })
-            Line("صندوقِ فایده", trailing = { Text(m.profit.afn(), fontWeight = FontWeight.Bold) })
+            val slices = listOf(
+                DonutSlice("صندوق", m.wallet, Brand.Coral),
+                DonutSlice("بانک", m.bank, MaterialTheme.colorScheme.primary),
+                DonutSlice("صندوقِ فایده", m.profit, MaterialTheme.colorScheme.tertiary),
+            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.lg)) {
+                DonutChart(slices, diameter = 104.dp, ring = 15.dp)
+                DonutLegend(slices, valueText = { it.afn() }, modifier = Modifier.weight(1f))
+            }
+            Calm("کل: ${(m.wallet + m.bank + m.profit).afn()}")
         }
     }
 }
@@ -586,13 +596,15 @@ private fun DebtsCard(d: HubDigest.Digest, fresh: String, go: (Section) -> Unit)
         Show(d.debts) { list ->
             if (list.isEmpty()) Calm("امروز کسی برای پیگیری نیست.")
             else d.debtsTotal.known?.let { Calm("جمعاً ${it.afn()}") }
+            val max = (list.maxOfOrNull { it.amount } ?: 0L).coerceAtLeast(1L)
             list.forEach { x ->
-                Line(
-                    x.name, x.reason,
-                    trailing = {
-                        if (x.contactedToday) Pill("امروز تماس شد", tone = PillTone.Neutral)
-                        else Text(x.amount.afn(), fontWeight = FontWeight.SemiBold)
-                    },
+                BarRow(
+                    label = x.name,
+                    value = x.amount.afn(),
+                    fraction = x.amount.toFloat() / max,
+                    color = MaterialTheme.colorScheme.secondary,
+                    sub = x.reason,
+                    trailing = if (x.contactedToday) ({ Pill("امروز تماس شد", tone = PillTone.Neutral) }) else null,
                     onClick = { go(Section.FollowUp) },
                 )
             }
