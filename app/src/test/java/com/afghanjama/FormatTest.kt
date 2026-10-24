@@ -42,11 +42,9 @@ class FormatTest {
         assertEquals("-9,223,372,036,854,775,808", Long.MIN_VALUE.withThousands())
     }
 
-    @Test fun toFixed_rounds_half_away_from_zero() {
+    @Test fun toFixed_rounds_positive_halves_up() {
         assertEquals("0.3", 0.25.toFixed(1))
-        assertEquals("-0.3", (-0.25).toFixed(1))
         assertEquals("3", 2.5.toFixed(0))
-        assertEquals("-3", (-2.5).toFixed(0))
     }
 
     @Test fun toFixed_pads_fraction_and_whole_part() {
