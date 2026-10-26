@@ -1,4 +1,7 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@file:OptIn(
+    androidx.compose.material3.ExperimentalMaterial3Api::class,
+    androidx.compose.foundation.layout.ExperimentalLayoutApi::class,
+)
 
 package com.afghanjama.ui.screens
 
@@ -7,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,11 +21,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -29,23 +36,28 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.afghanjama.ui.vm.AssistantViewModel
 import com.afghanjama.ui.vm.Insight
 import com.afghanjama.ui.vm.InsightTone
+import com.afghanjama.ui.vm.answerOffline
+import com.afghanjama.ui.vm.assistantSuggestions
 
 /**
- * «دستیار» — خلاصهٔ کسب‌وکار به زبانِ ساده، از مغزهای همین اپ. آفلاین و
- * خصوصی. گامِ بعد: پرسشِ آزاد با هوش مصنوعی (با اینترنت و اجازهٔ کاربر).
+ * «دستیار» — خلاصهٔ کسب‌وکار و پاسخ به پرسش‌ها به زبانِ ساده، از مغزهای
+ * همین اپ. **کاملاً آفلاین** — هیچ‌چیز از دستگاه بیرون نمی‌رود.
  */
 @Composable
 fun AssistantScreen(vm: AssistantViewModel, onBack: () -> Unit) {
-    val insights by vm.insights.collectAsState()
+    val data by vm.data.collectAsState()
+    var query by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -66,13 +78,65 @@ fun AssistantScreen(vm: AssistantViewModel, onBack: () -> Unit) {
         ) {
             item {
                 Text(
-                    "خلاصهٔ کسب‌وکارت، از روی دفترِ خودت — آفلاین و خصوصی.",
+                    "خلاصهٔ کسب‌وکارت و پاسخ به پرسش‌هایت، از روی دفترِ خودت — کاملاً آفلاین، چیزی بیرون نمی‌رود.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            items(insights) { InsightCard(it) }
-            item { ComingSoonCard() }
+
+            // جعبهٔ پرسش + پیشنهادها.
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("به زبانِ خودت بپرس") },
+                        singleLine = true,
+                        trailingIcon = {
+                            if (query.isNotBlank()) {
+                                IconButton(onClick = { query = "" }) {
+                                    Icon(Icons.Filled.Close, contentDescription = "پاک کردن")
+                                }
+                            }
+                        },
+                    )
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        assistantSuggestions.forEach { s ->
+                            AssistChip(onClick = { query = s }, label = { Text(s) })
+                        }
+                    }
+                }
+            }
+
+            // پاسخِ پرسش (اگر چیزی تایپ شده).
+            if (query.isNotBlank()) {
+                item {
+                    val answer = answerOffline(query, data)
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    ) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                answer ?: "این را نفهمیدم. یکی از پیشنهادهای بالا را بزن.",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                Text(
+                    "خلاصهٔ امروز",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+            items(data.insights) { InsightCard(it) }
         }
     }
 }
@@ -96,24 +160,6 @@ private fun InsightCard(i: Insight) {
                 Text(i.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             }
             Text(i.body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
-        }
-    }
-}
-
-@Composable
-private fun ComingSoonCard() {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-    ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("به‌زودی: پرسشِ آزاد", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            Text(
-                "به‌زودی می‌توانی هر چیزی را به زبانِ خودت از دفتر بپرسی و با هوش مصنوعی پاسخ بگیری — با اینترنت و اجازهٔ خودت (دفترت روی دستگاه می‌ماند).",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }

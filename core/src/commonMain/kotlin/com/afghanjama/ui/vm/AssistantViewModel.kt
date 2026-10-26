@@ -16,16 +16,13 @@ import kotlinx.coroutines.flow.stateIn
 import kotlin.math.abs
 
 /**
- * «دستیار» — خلاصهٔ هوشمندِ کسب‌وکار به زبانِ ساده، از همان مغزها و
- * جریان‌هایی که صفحه‌های دیگر دارند (سود به مشتری/خیاط، سربه‌سر، روندِ
- * فروش، کارمزدِ باز). کاملاً آفلاین و خصوصی — چیزی از دستگاه بیرون نمی‌رود.
- *
- * این پایهٔ «پرسشِ آزاد با هوش مصنوعی» است؛ آن گام، با اینترنت و اجازهٔ
- * صاحبِ کار، بعداً روی همین می‌نشیند.
+ * «دستیار» — خلاصهٔ هوشمندِ کسب‌وکار و پاسخ به پرسش‌ها، به زبانِ ساده، از
+ * همان مغزها و جریان‌های همین اپ. **کاملاً آفلاین و خصوصی** — هیچ‌چیز از
+ * دستگاه بیرون نمی‌رود، هیچ تماسِ اینترنتی نیست. هوشش روی خودِ دفتر است.
  */
 class AssistantViewModel(repo: Repo, now: Flow<Long> = clockTicks()) : ViewModel() {
 
-    val insights: StateFlow<List<Insight>> =
+    val data: StateFlow<AssistantData> =
         combine(
             dashboardStatsFlow(repo, now),
             breakEvenFlow(repo, now),
@@ -48,15 +45,99 @@ class AssistantViewModel(repo: Repo, now: Flow<Long> = clockTicks()) : ViewModel
             }
             val tailors = PartyProfit.summarize(PartyProfit.tailorEntries(sewn), unknown = "بی‌خیاط")
 
-            businessBriefing(stats, be, customers, tailors)
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+            AssistantData(
+                insights = businessBriefing(stats, be, customers, tailors),
+                customers = customers,
+                tailors = tailors,
+                be = be,
+                sales30 = stats.sales30,
+                salesMonths = stats.salesMonths,
+                openWagesTotal = stats.openWagesTotal,
+                oldestPendingWageDays = stats.oldestPendingWageDays,
+            )
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AssistantData())
 }
+
+/** همهٔ چیزی که دستیار برای خلاصه و پاسخ لازم دارد — از دفترِ محلی. */
+data class AssistantData(
+    val insights: List<Insight> = emptyList(),
+    val customers: List<PartyProfit.Row> = emptyList(),
+    val tailors: List<PartyProfit.Row> = emptyList(),
+    val be: BreakEven.Snapshot? = null,
+    val sales30: Long = 0,
+    val salesMonths: List<MonthPoint> = emptyList(),
+    val openWagesTotal: Long = 0,
+    val oldestPendingWageDays: Long = 0,
+)
 
 /** لحنِ یک نکته — برای رنگ و نشانه. */
 enum class InsightTone { GOOD, WATCH, INFO }
 
 /** یک نکتهٔ دستیار: یک پرسش و پاسخش به زبانِ ساده. */
 data class Insight(val title: String, val body: String, val tone: InsightTone)
+
+/** پرسش‌هایی که دستیار آفلاین بلد است — برای پیشنهاد و راهنمایی. */
+val assistantSuggestions: List<String> = listOf(
+    "پرسودترین مشتری کیست؟",
+    "بهترین خیاط کدام است؟",
+    "فروشِ این ماه چطور است؟",
+    "سربه‌سر شده‌ام؟",
+    "کارمزدِ باز چقدر است؟",
+    "این بازه چقدر سود کردم؟",
+)
+
+/**
+ * پاسخِ **آفلاین** به یک پرسش — تطبیقِ کلیدواژه روی دفترِ محلی، بی اینترنت.
+ * `null` یعنی نفهمید (صفحه پیشنهادها را نشان می‌دهد).
+ */
+fun answerOffline(query: String, d: AssistantData): String? {
+    val q = query.normalizeFa()
+    fun has(vararg words: String) = words.any { q.contains(it.normalizeFa()) }
+
+    return when {
+        has("مشتری", "خریدار") -> d.customers.firstOrNull()?.takeIf { it.profit > 0 }?.let {
+            "ارزشمندترین مشتری‌ات ${it.name} است — ${it.profit.afn()} سود از ${it.count.fa()} سفارش."
+        } ?: "هنوز سودِ سفارشی به تفکیکِ مشتری نیست."
+
+        has("خیاط") -> d.tailors.firstOrNull()?.takeIf { it.profit > 0 }?.let {
+            "سودآورترین خیاط‌ات ${it.name} است — ${it.profit.afn()} سود."
+        } ?: "هنوز سودی به تفکیکِ خیاط نیست."
+
+        has("سربه‌سر", "سر به سر", "سربسر") -> d.be?.takeIf { it.hasData && it.fixedCosts > 0 }?.let { be ->
+            if (be.pastBreakEven) "بله — این ماه از سربه‌سر گذشته‌ای؛ از این‌جا سودِ خالص است."
+            else be.revenueToGo?.let { "هنوز نه — تا سربه‌سر حدودِ ${it.afn()} فروشِ دیگر مانده (${be.coveredPercent.fa()}٪ پوشیده)." }
+                ?: "با حاشیهٔ فعلی سربه‌سر نمی‌شوی؛ قیمت‌ها را ببین."
+        } ?: "برای سربه‌سر، اول هزینه‌های ثابتِ ماهانه را در «هزینه‌های ثابت» وارد کن."
+
+        has("کارمزد", "حقوق خیاط") -> if (d.openWagesTotal > 0)
+            "کارمزدِ تسویه‌نشده ${d.openWagesTotal.afn()} است؛ قدیمی‌ترینش ${d.oldestPendingWageDays.fa()} روز پیش."
+        else "کارمزدِ تسویه‌نشده‌ای نیست."
+
+        has("سود", "فایده", "منفعت") -> {
+            val profit = d.customers.sumOf { it.profit }
+            val revenue = d.customers.sumOf { it.revenue }
+            val margin = if (revenue > 0) ((profit * 100) / revenue).toInt() else null
+            if (revenue > 0) "سودِ سفارش‌ها ${profit.afn()}" + (margin?.let { " (حاشیه ${it.fa()}٪)." } ?: ".")
+            else "هنوز سفارشِ قیمت‌خورده‌ای نیست."
+        }
+
+        has("فروش") -> {
+            val months = d.salesMonths
+            if (months.size >= 2) {
+                val cur = months.last(); val prev = months[months.size - 2]
+                val pct = if (prev.revenue > 0) ((cur.revenue - prev.revenue) * 100 / prev.revenue).toInt() else null
+                "فروشِ این ماه ${cur.revenue.afn()}" +
+                    (pct?.let { " — ${if (cur.revenue >= prev.revenue) "بیشتر" else "کمتر"} از ماهِ قبل (${abs(it).fa()}٪)." } ?: ".")
+            } else "فروشِ ۳۰ روزِ اخیر ${d.sales30.afn()}."
+        }
+
+        else -> null
+    }
+}
+
+/** یکسان‌سازیِ ی/ک عربی و فاصله، تا تطبیقِ کلیدواژه سخت‌گیر نباشد. */
+private fun String.normalizeFa(): String =
+    trim().replace('ي', 'ی').replace('ك', 'ک').replace('‌', ' ')
 
 /**
  * خلاصهٔ کسب‌وکار از داده‌های آماده — خالص و قابل‌تست، بی ViewModel.
