@@ -7,6 +7,7 @@ import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.AddShoppingCart
 import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.material.icons.filled.AssignmentInd
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Badge
@@ -136,6 +137,7 @@ enum class DeskSection(val title: String, val group: DeskGroup) {
     Ledger("دفتر کل", DeskGroup.BOOKS),
     Journal("دفتر روزنامه", DeskGroup.BOOKS),
     Reports("گزارش‌ها", DeskGroup.BOOKS),
+    Analytics("تحلیل", DeskGroup.BOOKS),
     Documents("اسناد", DeskGroup.BOOKS),
     Audit("رویدادها", DeskGroup.BOOKS),
 
@@ -185,7 +187,7 @@ fun DeskSection.allowedFor(access: Access): Boolean {
         DeskSection.FinishedWarehouse, DeskSection.NewSale -> Feature.SALES
         DeskSection.Procurement, DeskSection.PurchasePlan, DeskSection.PurchaseReturn -> Feature.PROCUREMENT
         DeskSection.DailyTrade, DeskSection.Finance, DeskSection.MoneyMove, DeskSection.Documents,
-        DeskSection.Reports, DeskSection.Journal, DeskSection.Recurring -> Feature.FINANCE
+        DeskSection.Reports, DeskSection.Analytics, DeskSection.Journal, DeskSection.Recurring -> Feature.FINANCE
         DeskSection.Customers, DeskSection.FollowUp -> Feature.CUSTOMERS
         DeskSection.Ledger -> Feature.LEDGER
         DeskSection.Payroll, DeskSection.Performance -> Feature.PAYROLL
@@ -241,6 +243,7 @@ val DeskSection.icon: ImageVector
         DeskSection.Ledger -> Icons.Default.AccountBalance
         DeskSection.Journal -> Icons.AutoMirrored.Filled.MenuBook
         DeskSection.Reports -> Icons.Default.Assessment
+        DeskSection.Analytics -> Icons.Default.QueryStats
         DeskSection.Documents -> Icons.Default.Description
         DeskSection.Audit -> Icons.Default.Policy
         DeskSection.Settings -> Icons.Default.Settings

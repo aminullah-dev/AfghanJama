@@ -95,6 +95,7 @@ import com.afghanjama.ui.screens.PurchasePlanScreen
 import com.afghanjama.ui.screens.PurchaseReturnScreen
 import com.afghanjama.ui.screens.QuoteCalculatorScreen
 import com.afghanjama.ui.screens.RecurringExpenseScreen
+import com.afghanjama.ui.screens.AnalyticsScreen
 import com.afghanjama.ui.screens.ReportsScreen
 import com.afghanjama.ui.screens.ReviewScreen
 import com.afghanjama.ui.screens.SampleWorkshopScreen
@@ -139,6 +140,7 @@ import com.afghanjama.ui.vm.ProductionViewModel
 import com.afghanjama.ui.vm.PurchasePlanViewModel
 import com.afghanjama.ui.vm.PurchaseReturnViewModel
 import com.afghanjama.ui.vm.RecurringExpenseViewModel
+import com.afghanjama.ui.vm.AnalyticsViewModel
 import com.afghanjama.ui.vm.ReportsViewModel
 import com.afghanjama.ui.vm.ReviewViewModel
 import com.afghanjama.ui.vm.SampleWorkshopViewModel
@@ -592,6 +594,11 @@ internal fun SectionContent(
         Section.Reports -> {
             val vm: ReportsViewModel = viewModel { ReportsViewModel(repo) }
             ReportsScreen(vm, onBack = back)
+        }
+
+        Section.Analytics -> {
+            val vm: AnalyticsViewModel = viewModel { AnalyticsViewModel(repo) }
+            AnalyticsScreen(vm, onBack = back)
         }
 
         Section.Audit -> {
