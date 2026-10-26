@@ -114,9 +114,14 @@ import kotlinx.coroutines.flow.map
  *    ([allowedFor]) — همان قاعدهٔ نوار و خانهٔ گوشی (بازبینی، بندِ ۱۹-و).
  */
 
-/** یک کارت و جایش. [section] صفحه‌ای است که کارت به آن می‌برد و دسترسی را از آن می‌گیرد. */
+/**
+ * یک کارت و جایش. [priority] جایِ کارت را می‌سازد — کوچک‌تر یعنی مهم‌تر و
+ * بالاتر. کارت‌ها به ترتیبِ همین عدد چیده و نوبتی در ستون‌ها پخش می‌شوند، پس
+ * مهم‌ترین‌ها همیشه بالای صفحه‌اند (خواستِ صاحبِ کار: «الویت‌ها بالای صفحه، به
+ * هر صورت»). [section] صفحه‌ای است که کارت به آن می‌برد و دسترسی را از آن می‌گیرد.
+ */
 private class DashCard(
-    val column: Int,
+    val priority: Int,
     val section: Section,
     val extraGate: Boolean = true,
     val body: @Composable () -> Unit,
@@ -152,16 +157,14 @@ internal fun dashColumns(widthDp: Int): Int = when {
 }
 
 /**
- * کدام ستونِ منطقی ([0..logicalCount-1]، به ترتیبِ امروز/تولید/پول/انبار) در
- * کدام ستونِ واقعی می‌نشیند. ستون‌های آخر روی هم می‌روند: با سه ستون انبار زیرِ
- * پول، با دو ستون امروز و تولید در یکی و پول و انبار در دیگری.
+ * کارتِ شمارهٔ [order] (به ترتیبِ اولویت، از ۰) در کدام ستون می‌نشیند — پخشِ
+ * نوبتی. چون همهٔ کارت‌ها یک قد دارند، نوبتی‌چیدن یعنی ستون‌ها در شمار با هم
+ * حداکثر یکی فرق می‌کنند (فاصلهٔ خالیِ ته ستون‌ها کم می‌شود)، و چون به ترتیبِ
+ * اولویت است، ردیفِ اولِ هر ستون همیشه مهم‌ترین کارت‌هاست. ستونِ ۰ در RTL
+ * راست‌ترین است، پس مهم‌ترین کارت بالا-راست می‌نشیند، همان‌جا که چشم شروع می‌کند.
  */
-internal fun dashPlace(logical: Int, columns: Int, logicalCount: Int = 4): Int {
-    if (columns <= 1 || logicalCount <= 1) return 0
-    if (columns >= logicalCount) return logical
-    // دو ستون: نیمهٔ اول و نیمهٔ دوم. بیشتر: آخری‌ها زیرِ ستونِ آخر.
-    return if (columns == 2) (logical * 2 / logicalCount).coerceIn(0, 1) else minOf(logical, columns - 1)
-}
+internal fun dashColumn(order: Int, columns: Int): Int =
+    if (columns <= 1) 0 else order % columns
 
 @Composable
 internal fun HubDashboard(
@@ -192,29 +195,31 @@ internal fun HubDashboard(
     }
     val fresh = freshness(d.at, clock)
 
+    // ترتیبِ اولویت (خواستِ صاحبِ کار): اول هشدارِ فوری، بعد پول و پیش‌بینی و
+    // وضعِ مالی، بعد کارِ امروز (سفارش‌ها، آمادهٔ تحویل، درخواستِ گوشی‌ها)، بعد
+    // تولید و طلب و حقوق، و در آخر انبار و حضور. عددِ اولویت جای ستون و منطق را
+    // نمی‌سازد؛ فقط بالا-به-پایین‌بودن را. پخشِ نوبتی ([dashColumn]) ستون‌ها را
+    // هم‌قد نگه می‌دارد.
     val cards = buildList {
-        // ── امروز
         add(DashCard(0, Section.ActionCenter) { AlertsCard(d, fresh, go) })
-        add(DashCard(0, Section.WorkshopLink, WorkshopLinkAccess.seesRequests(access)) { RequestsCard(d, fresh, vm, go) })
-        add(DashCard(0, Section.Inventory) { TodayCard(d, fresh, go, onOpenOrder) })
-        add(DashCard(0, Section.DeliveryQueue) { ReadyCard(d, fresh, go) })
-        add(DashCard(0, Section.Attendance) { InsideCard(d, fresh, go, clock) })
-        // ── تولید
-        add(DashCard(1, Section.Inventory) { PipelineCard(d, fresh, go) })
-        add(DashCard(1, Section.WorkshopLoad) { RiskCard(d, fresh, go, onOpenOrder) })
-        add(DashCard(1, Section.WorkshopLoad) { TailorsCard(d, fresh, go) })
-        // ── پول
-        add(DashCard(2, Section.Finance) { MoneyCard(d, fresh, go) })
+        add(DashCard(1, Section.Finance) { ForecastCard(d, fresh, go) })
         add(DashCard(2, Section.Finance) { HealthCard(d, fresh, go) })
-        add(DashCard(2, Section.Finance) { ForecastCard(d, fresh, go) })
-        add(DashCard(2, Section.Finance) { SalesCard(d, fresh, go) })
-        add(DashCard(2, Section.FollowUp) { DebtsCard(d, fresh, go) })
-        add(DashCard(2, Section.Payroll) { WagesCard(d, fresh, go) })
-        // ── انبار و پیشنهاد
-        add(DashCard(3, Section.PurchasePlan) { MaterialsCard(d, fresh, go) })
-        add(DashCard(3, Section.FinishedWarehouse) { ProductsCard(d, fresh, go) })
-        add(DashCard(3, Section.FinishedWarehouse) { BelowCostCard(d, fresh, go) })
+        add(DashCard(3, Section.Finance) { MoneyCard(d, fresh, go) })
+        add(DashCard(4, Section.Inventory) { TodayCard(d, fresh, go, onOpenOrder) })
+        add(DashCard(5, Section.DeliveryQueue) { ReadyCard(d, fresh, go) })
+        add(DashCard(6, Section.WorkshopLink, WorkshopLinkAccess.seesRequests(access)) { RequestsCard(d, fresh, vm, go) })
+        add(DashCard(7, Section.WorkshopLoad) { RiskCard(d, fresh, go, onOpenOrder) })
+        add(DashCard(8, Section.FollowUp) { DebtsCard(d, fresh, go) })
+        add(DashCard(9, Section.Inventory) { PipelineCard(d, fresh, go) })
+        add(DashCard(10, Section.WorkshopLoad) { TailorsCard(d, fresh, go) })
+        add(DashCard(11, Section.Finance) { SalesCard(d, fresh, go) })
+        add(DashCard(12, Section.Payroll) { WagesCard(d, fresh, go) })
+        add(DashCard(13, Section.PurchasePlan) { MaterialsCard(d, fresh, go) })
+        add(DashCard(14, Section.FinishedWarehouse) { ProductsCard(d, fresh, go) })
+        add(DashCard(15, Section.FinishedWarehouse) { BelowCostCard(d, fresh, go) })
+        add(DashCard(16, Section.Attendance) { InsideCard(d, fresh, go, clock) })
     }.filter { dashVisible(it.section, it.extraGate, access) }
+        .sortedBy { it.priority }
 
     var expanded by remember { mutableStateOf<DashExpand?>(null) }
     Box(Modifier.fillMaxSize()) {
@@ -244,14 +249,14 @@ internal fun HubDashboard(
             return@Column
         }
         BoxWithConstraints(Modifier.fillMaxWidth()) {
-            // ستونی که برای این نفر کارتی ندارد جا نمی‌گیرد: فروشنده «امروز»ِ
-            // خالی نمی‌بیند، ستون‌های خودش از راست شروع می‌شوند.
-            val used = cards.map { it.column }.distinct().sorted()
-            val columns = minOf(dashColumns(maxWidth.value.toInt()), used.size)
+            // ستون‌ها به اندازهٔ کارت‌های همین نفر؛ کسی که کم کارت دارد ستونِ
+            // خالی نمی‌بیند. کارت‌ها به ترتیبِ اولویت نوبتی در ستون‌ها می‌افتند،
+            // پس ردیفِ بالا همیشه مهم‌ترین‌هاست و ته ستون‌ها هم‌قد می‌ماند.
+            val columns = minOf(dashColumns(maxWidth.value.toInt()), cards.size).coerceAtLeast(1)
             Row(horizontalArrangement = Arrangement.spacedBy(Space.lg), verticalAlignment = Alignment.Top) {
                 for (col in 0 until columns) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Space.lg)) {
-                        cards.filter { dashPlace(used.indexOf(it.column), columns, used.size) == col }.forEach { it.body() }
+                        cards.filterIndexed { i, _ -> dashColumn(i, columns) == col }.forEach { it.body() }
                     }
                 }
             }

@@ -66,6 +66,9 @@ import com.afghanjama.platform.LocalSystemActions
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.SalePrefs
 import com.afghanjama.prefs.Settings
+import com.afghanjama.prefs.ThemeMode
+import com.afghanjama.prefs.ThemePrefs
+import androidx.compose.foundation.isSystemInDarkTheme
 import com.afghanjama.ui.components.LicenceHeartbeat
 import com.afghanjama.ui.nav.allowedFor
 import com.afghanjama.ui.platform.LocalWidgets
@@ -238,9 +241,20 @@ private fun ApplicationScope.MainWindow(settings: Settings) {
         RememberBounds(windowState, settings)
 
         // **همان تمِ گوشی و آیفون** ([AppTheme]): پالت، قلم، گوشه‌ها و
-        // راست‌به‌چپ از `:core`. کامپیوتر فعلاً فقط روشن است.
-        AppTheme(fontFamily = Vazirmatn) {
+        // راست‌به‌چپ از `:core`. ظاهر (روشن/تاریک/پیروِ سیستم) را کاربر در
+        // تنظیمات انتخاب می‌کند و [LocalThemeControl] همان لحظه عوضش می‌کند.
+        var themeMode by remember { mutableStateOf(ThemePrefs.mode(settings)) }
+        val dark = when (themeMode) {
+            ThemeMode.LIGHT -> false
+            ThemeMode.DARK -> true
+            ThemeMode.SYSTEM -> isSystemInDarkTheme()
+        }
+        AppTheme(fontFamily = Vazirmatn, dark = dark) {
             CompositionLocalProvider(
+                LocalThemeControl provides ThemeControl(themeMode) { m ->
+                    themeMode = m
+                    ThemePrefs.setMode(settings, m)
+                },
                 LocalViewModelStoreOwner provides DesktopViewModelStoreOwner,
                 // صفحه‌های مشترک تنظیمات را از اینجا می‌گیرند، همان‌طور
                 // که روی اندروید از `MainActivity`.

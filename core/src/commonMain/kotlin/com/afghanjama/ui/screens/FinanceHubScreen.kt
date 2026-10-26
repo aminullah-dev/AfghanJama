@@ -19,6 +19,9 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Payments
+import com.afghanjama.data.BreakEven
+import com.afghanjama.ui.components.AppCard
+import com.afghanjama.ui.components.BarRow
 import com.afghanjama.ui.components.BrandCard
 import com.afghanjama.ui.components.ColumnBars
 import com.afghanjama.ui.components.ColumnDatum
@@ -140,6 +143,7 @@ fun FinanceHubScreen(
 private fun DashboardTab(vm: DashboardViewModel) {
     val s by vm.stats.collectAsState()
     val health by vm.health.collectAsState()
+    val breakEven by vm.breakEven.collectAsState()
     val system = LocalSystemActions.current
     val settings = LocalSettings.current
 
@@ -161,6 +165,16 @@ private fun DashboardTab(vm: DashboardViewModel) {
                         )
                     }
                 )
+            }
+        }
+
+        // نقطهٔ سربه‌سرِ این ماه: «هزینه‌های ثابت را درآورده‌ام یا هنوز فقط
+        // کرایه را؟» — کنارِ وضعِ مالی، پیش از آمارِ تولید و فروش. فقط وقتی
+        // هزینهٔ ثابتی ثبت شده؛ بی آن، سربه‌سر معنا ندارد و «۱۰۰٪ پوشیده»ی
+        // قلابی نمی‌سازیم.
+        breakEven?.takeIf { it.hasData && it.fixedCosts > 0 }?.let { be ->
+            item(key = "break-even") {
+                BreakEvenCard(be)
             }
         }
 
@@ -469,6 +483,49 @@ private fun DashboardTab(vm: DashboardViewModel) {
         }
 
         item { Spacer(Modifier.height(80.dp)) }
+    }
+}
+
+/**
+ * «نقطهٔ سربه‌سرِ این ماه» — چند درصدِ هزینه‌های ثابت تا امروز با سودِ
+ * ناخالصِ ماه پوشیده شده، و تا سربه‌سر چقدر فروشِ دیگر مانده.
+ */
+@Composable
+private fun BreakEvenCard(be: BreakEven.Snapshot) {
+    AppCard {
+            Text(
+                "نقطهٔ سربه‌سرِ این ماه",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            BarRow(
+                label = "پوششِ هزینهٔ ثابت",
+                value = "${be.coveredPercent.fa()}٪",
+                fraction = (be.coveredPercent / 100f).coerceIn(0f, 1f),
+                color = if (be.pastBreakEven) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.secondary,
+            )
+            val toGo = be.revenueToGo
+            val msg = when {
+                be.pastBreakEven ->
+                    "هزینه‌های ثابتِ این ماه (${be.fixedCosts.afn()}) درآمده؛ از این‌جا به بعد سودِ خالص است."
+                toGo != null ->
+                    "تا سربه‌سر حدودِ ${toGo.afn()} فروشِ دیگر مانده (هزینهٔ ثابت: ${be.fixedCosts.afn()})."
+                else ->
+                    "با حاشیهٔ سودِ فعلی، با فروشِ بیشتر هم سربه‌سر نمی‌شوی — هر فروش ضرر می‌دهد."
+            }
+            Text(
+                msg,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            be.breakEvenRevenue?.let {
+                Text(
+                    "فروشِ لازم برای سربه‌سر: ${it.afn()}",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
     }
 }
 

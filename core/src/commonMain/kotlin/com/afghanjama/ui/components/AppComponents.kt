@@ -102,6 +102,8 @@ fun AppCard(
     bordered: Boolean = true,
     onClick: (() -> Unit)? = null,
     contentPadding: androidx.compose.ui.unit.Dp = CardPadding,
+    /** فاصلهٔ بینِ اجزای کارت — تا صفحه‌ای که فاصلهٔ خودش را می‌خواهد هم همین کارت را به کار ببرد. */
+    spacing: androidx.compose.ui.unit.Dp = Space.sm,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val colors = CardDefaults.cardColors(containerColor = container)
@@ -118,7 +120,7 @@ fun AppCard(
         ) {
             Column(
                 Modifier.padding(contentPadding),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(spacing),
                 content = content
             )
         }
@@ -131,7 +133,7 @@ fun AppCard(
         ) {
             Column(
                 Modifier.padding(contentPadding),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(spacing),
                 content = content
             )
         }

@@ -60,6 +60,8 @@ import com.afghanjama.platform.LocalFileExport
 import com.afghanjama.prefs.LocalSettings
 import com.afghanjama.prefs.SalePrefs
 import com.afghanjama.ui.components.AppCard
+import androidx.compose.material3.FilterChip
+import com.afghanjama.prefs.ThemeMode
 import com.afghanjama.ui.components.AppScreen
 import com.afghanjama.ui.format.fa
 import com.afghanjama.ui.nav.allowedFor
@@ -109,6 +111,7 @@ internal fun SettingsSection(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 val first: @Composable ColumnScope.() -> Unit = {
+                    AppearanceCard()
                     if (manager) SalePolicyCard()
                     if (Permissions.canBackup(role)) ExportCard(repo)
                     if (Section.Backup.allowedFor(access)) BackupLinkCard(go)
@@ -132,6 +135,21 @@ internal fun SettingsSection(
                 if (Permissions.canResetData(role)) ResetCard(repo, role)
                 Spacer(Modifier.height(24.dp))
             }
+        }
+    }
+}
+
+/** «ظاهر» — روشن، تاریک، یا پیروِ سیستم. همان لحظه کلِ برنامه عوض می‌شود. */
+@Composable
+private fun AppearanceCard() {
+    val theme = LocalThemeControl.current
+    AppCard {
+        CardTitle("ظاهر")
+        CardHint("رنگِ برنامه را روشن یا تاریک کنید، یا بگذارید از سیستم پیروی کند.")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(theme.mode == ThemeMode.LIGHT, { theme.set(ThemeMode.LIGHT) }, label = { Text("روشن") })
+            FilterChip(theme.mode == ThemeMode.DARK, { theme.set(ThemeMode.DARK) }, label = { Text("تاریک") })
+            FilterChip(theme.mode == ThemeMode.SYSTEM, { theme.set(ThemeMode.SYSTEM) }, label = { Text("پیروِ سیستم") })
         }
     }
 }

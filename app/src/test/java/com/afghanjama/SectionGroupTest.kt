@@ -34,6 +34,7 @@ class SectionGroupTest {
     private val v191: Map<DeskSection, Need> = mapOf(
         // «وضعیت»ِ ۱.۹.۱ برای همه بود؛ «خانه» جایش را گرفت.
         DeskSection.Dashboard to Need.All,
+        DeskSection.Assistant to Need.Tick(Feature.FINANCE),
         DeskSection.Home to Need.All,
         DeskSection.OrderSearch to Need.All,
         DeskSection.MyWork to Need.All,
@@ -67,6 +68,7 @@ class SectionGroupTest {
         DeskSection.MoneyMove to Need.Tick(Feature.FINANCE),
         DeskSection.Documents to Need.Tick(Feature.FINANCE),
         DeskSection.Reports to Need.Tick(Feature.FINANCE),
+        DeskSection.Analytics to Need.Tick(Feature.FINANCE),
         DeskSection.Journal to Need.Tick(Feature.FINANCE),
         DeskSection.Recurring to Need.Tick(Feature.FINANCE),
         DeskSection.Customers to Need.Tick(Feature.CUSTOMERS),

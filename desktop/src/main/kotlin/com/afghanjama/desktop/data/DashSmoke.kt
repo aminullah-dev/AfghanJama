@@ -114,15 +114,21 @@ fun main() {
             }
         }
 
-        check("columns follow the work area: 4 / 3 / 2 / 1, and today stays first") {
+        check("columns follow the work area: 4 / 3 / 2 / 1, priorities fill the top row, columns stay level") {
             val want = mapOf(1650 to 4, 1500 to 4, 1170 to 3, 1100 to 3, 830 to 2, 760 to 2, 600 to 1)
             want.forEach { (w, c) -> need(com.afghanjama.desktop.dashColumns(w) == c, "width $w should give $c columns") }
-            for (c in 1..4) need(com.afghanjama.desktop.dashPlace(0, c) == 0, "«امروز» must stay the first (rightmost) column at $c")
-            need(com.afghanjama.desktop.dashPlace(3, 3) == 2 && com.afghanjama.desktop.dashPlace(2, 2) == 1, "stock stacks under money")
-            need((0..3).map { com.afghanjama.desktop.dashPlace(it, 3) } == listOf(0, 1, 2, 2), "three columns: stock under money")
-            need((0..3).map { com.afghanjama.desktop.dashPlace(it, 2) } == listOf(0, 0, 1, 1), "two columns: today+production | money+stock")
-            // فروشنده‌ای که فقط کارتِ تولید و انبار دارد: دو ستونِ منطقی، از راست.
-            need((0..1).map { com.afghanjama.desktop.dashPlace(it, 2, 2) } == listOf(0, 1), "a role with two groups fills two columns")
+            // مهم‌ترین کارت (اولویتِ ۰) در هر شمارِ ستون، ستونِ ۰ (راست‌ترین) است.
+            for (c in 1..4) need(com.afghanjama.desktop.dashColumn(0, c) == 0, "the top-priority card must stay the first (rightmost) column at $c")
+            // پخشِ نوبتی: ردیفِ بالا مهم‌ترین‌هاست، نه یک ستونِ بلند.
+            need((0..5).map { com.afghanjama.desktop.dashColumn(it, 3) } == listOf(0, 1, 2, 0, 1, 2), "three columns deal priorities across the top row")
+            need((0..3).map { com.afghanjama.desktop.dashColumn(it, 2) } == listOf(0, 1, 0, 1), "two columns alternate by priority")
+            need((0..4).all { com.afghanjama.desktop.dashColumn(it, 1) == 0 }, "one column stacks everything")
+            // هم‌قدی: با ۱۷ کارت و ۳ ستون، شمارِ ستون‌ها حداکثر یکی فرق می‌کند.
+            for (cols in 1..4) {
+                val counts = IntArray(cols)
+                for (i in 0 until 17) counts[com.afghanjama.desktop.dashColumn(i, cols)]++
+                need(counts.max() - counts.min() <= 1, "$cols columns must stay within one card of each other, got ${counts.toList()}")
+            }
         }
 
         check("each card follows its section's access: a seller sees no money or alerts") {
