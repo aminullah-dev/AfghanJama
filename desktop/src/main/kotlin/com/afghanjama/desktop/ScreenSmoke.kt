@@ -106,7 +106,7 @@ private fun renderOnce(
         height = height,
         density = Density(1f)
     ) {
-        AppTheme(fontFamily = Vazirmatn) {
+        AppTheme(fontFamily = Vazirmatn, dark = System.getenv("KY_SMOKE_DARK") == "1") {
             CompositionLocalProvider(
                 // هر صفحه صاحبِ تازه می‌گیرد تا حالتِ یکی به دیگری نشت
                 // نکند و هر شکست به خودِ همان صفحه مربوط باشد.
