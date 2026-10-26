@@ -3,17 +3,21 @@ package com.afghanjama.ui.vm
 import com.afghanjama.util.nowMillis
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.afghanjama.data.BreakEven
 import com.afghanjama.data.FinancialHealth
 import com.afghanjama.data.dao.AccountBalance
 import com.afghanjama.data.entities.Accounts
 import com.afghanjama.data.entities.OrderStatus
 import com.afghanjama.data.repo.Repo
+import com.afghanjama.ui.format.PersianDate
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
@@ -91,6 +95,13 @@ class DashboardViewModel(repo: Repo, now: Flow<Long> = clockTicks()) : ViewModel
      */
     val health: StateFlow<FinancialHealth.Snapshot?> =
         healthFlow(repo, now).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /**
+     * «نقطهٔ سربه‌سر» این ماه — چقدر باید بفروشم تا هزینه‌های ثابت درآید، و
+     * تا امروز چندش را درآورده‌ام. `null` تا وقتی عددها برسند.
+     */
+    val breakEven: StateFlow<BreakEven.Snapshot?> =
+        breakEvenFlow(repo, now).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 }
 
 /**
@@ -207,6 +218,51 @@ fun journalLast30(repo: Repo): Flow<List<AccountBalance>> =
     }.flatMapLatest { now ->
         repo.observeAccountBalancesBetween(now - 30L * DAY_MS, Long.MAX_VALUE)
     }
+
+/**
+ * صورتِ سود و زیانِ همین ماهِ جلالی — از اولِ ماه تا حالا.
+ *
+ * نقطهٔ سربه‌سر پرسشش «این ماه» است نه «۳۰ روزِ اخیر»، پس بازهٔ جداست.
+ * سرِ ماه از [now] می‌آید و با `distinctUntilChanged` فقط سرِ ماهِ نو
+ * دوباره مشترک می‌شود؛ تهِ بازه باز است تا ثبتِ لحظهٔ بعد هم بیاید.
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
+fun journalThisMonth(repo: Repo, now: Flow<Long> = clockTicks()): Flow<List<AccountBalance>> =
+    now.map { n ->
+        val j = PersianDate.todayJalali(n)
+        PersianDate.startOfJalaliDay(j[0], j[1], 1)
+    }.distinctUntilChanged()
+        .flatMapLatest { monthStart ->
+            repo.observeAccountBalancesBetween(monthStart, Long.MAX_VALUE)
+        }
+
+/**
+ * «نقطهٔ سربه‌سر» به‌صورتِ جریان — صورتِ سود و زیانِ ماه + هزینه‌های ثابتِ
+ * ماهانه (جمعِ هزینه‌های تکرارشوندهٔ فعال).
+ */
+fun breakEvenFlow(repo: Repo, now: Flow<Long> = clockTicks()): Flow<BreakEven.Snapshot> =
+    combine(journalThisMonth(repo, now), repo.observeRecurringExpenses()) { journal, recurring ->
+        breakEvenOf(
+            incomeStatementOf(journal),
+            fixedCostsMonthly = recurring.filter { it.enabled }.sumOf { it.amount },
+        )
+    }
+
+/**
+ * صورتِ سود و زیان + هزینهٔ ثابت → نقطهٔ سربه‌سر. جدا و خالص، تا آزمون
+ * بدون ViewModel بسنجدش. حاشیهٔ **ناخالص** (نه خالص) را می‌دهد، چون هر
+ * فروش به اندازهٔ سودِ ناخالصش هزینهٔ ثابت را می‌پوشاند.
+ */
+fun breakEvenOf(statement: IncomeStatement, fixedCostsMonthly: Long): BreakEven.Snapshot =
+    BreakEven.assess(
+        BreakEven.Inputs(
+            fixedCostsMonthly = fixedCostsMonthly,
+            grossMarginPercent =
+                if (statement.totalRevenue > 0) ((statement.grossProfit * 100) / statement.totalRevenue).toInt() else 0,
+            revenueThisMonth = statement.totalRevenue,
+            grossProfitThisMonth = statement.grossProfit,
+        )
+    )
 
 /**
  * «وضعِ مالی» به‌صورتِ جریان — داشبوردِ مالی و مرکزِ هشدار هر دو از همین

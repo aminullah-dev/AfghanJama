@@ -58,6 +58,7 @@ import com.afghanjama.ui.components.OrderCodeLine
 import com.afghanjama.data.entities.FabricUnit
 import com.afghanjama.data.entities.OrderStatus
 import com.afghanjama.ui.components.DeliverDialog
+import com.afghanjama.data.OrderCostSheet
 import com.afghanjama.data.OrderMessage
 import com.afghanjama.ui.components.MeasurementsBlock
 import com.afghanjama.ui.components.OrderStageBar
@@ -414,6 +415,38 @@ fun OrderDetailScreen(
                         if (o.sewingCost > 0) DetailRow("دستمزد دوخت", o.sewingCost.afn())
                         DetailRow("بهای تمام‌شده", (o.fabricPrice + o.workCost + o.sewingCost).afn())
                         if (o.agreedPrice > 0) DetailRow("قیمت توافقی", o.agreedPrice.afn())
+                        // برگهٔ هزینهٔ سفارش: سود/ضرر و حاشیه، از همان بها و قیمتِ
+                        // بالا (OrderCostSheet) — تا کارفرما بداند این سفارش چقدر
+                        // برایش ماند و کدام زیرِ بهای تمام‌شده فروخته شده.
+                        val sheet = OrderCostSheet.of(o)
+                        sheet.profit?.let { profit ->
+                            val loss = sheet.belowCost
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    if (loss) "ضرر" else "سود",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    kotlin.math.abs(profit).afn() +
+                                        (sheet.marginPercent?.let { " • ${kotlin.math.abs(it).fa()}٪" } ?: ""),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (loss) MaterialTheme.colorScheme.error
+                                    else MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            if (loss) {
+                                Text(
+                                    "این سفارش زیرِ بهای تمام‌شده فروخته شده است.",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
                         if (o.customerName.isNotBlank()) {
                             DetailRow(
                                 "مشتری",
