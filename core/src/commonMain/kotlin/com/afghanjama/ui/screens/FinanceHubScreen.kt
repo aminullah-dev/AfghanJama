@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Payments
 import com.afghanjama.data.BreakEven
+import com.afghanjama.ui.components.AppCard
 import com.afghanjama.ui.components.BarRow
 import com.afghanjama.ui.components.BrandCard
 import com.afghanjama.ui.components.ColumnBars
@@ -491,13 +492,7 @@ private fun DashboardTab(vm: DashboardViewModel) {
  */
 @Composable
 private fun BreakEvenCard(be: BreakEven.Snapshot) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-    ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    AppCard {
             Text(
                 "نقطهٔ سربه‌سرِ این ماه",
                 style = MaterialTheme.typography.titleMedium,
@@ -531,7 +526,6 @@ private fun BreakEvenCard(be: BreakEven.Snapshot) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-        }
     }
 }
 

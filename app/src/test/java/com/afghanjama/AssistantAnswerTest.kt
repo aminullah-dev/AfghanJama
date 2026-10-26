@@ -55,4 +55,27 @@ class AssistantAnswerTest {
         val ans = answerOffline("این بازه چقدر سود کردم؟", data)!!
         assertTrue(ans.contains("سود"))
     }
+
+    private val rich = data.copy(cash = 586_300, atRiskCount = 2, lowMaterials = 3, readyPieces = 10)
+
+    @Test
+    fun `asks about cash`() {
+        assertTrue(answerOffline("پولِ نقد چقدر دارم؟", rich)!!.contains("۵۸۶"))
+    }
+
+    @Test
+    fun `asks about late orders`() {
+        assertTrue(answerOffline("کدام سفارش‌ها دیر می‌شود؟", rich)!!.contains("۲"))
+        assertTrue(answerOffline("دیرکرد", data)!!.contains("هیچ سفارشی"))
+    }
+
+    @Test
+    fun `asks about low materials`() {
+        assertTrue(answerOffline("کدام مواد رو به اتمام است؟", rich)!!.contains("۳"))
+    }
+
+    @Test
+    fun `asks about ready stock`() {
+        assertTrue(answerOffline("چقدر آمادهٔ فروش داری؟", rich)!!.contains("۱۰"))
+    }
 }

@@ -22,13 +22,25 @@ import kotlin.math.abs
  */
 class AssistantViewModel(repo: Repo, now: Flow<Long> = clockTicks()) : ViewModel() {
 
+    // عددهای بیشتر برای پاسخ‌ها: نقد، در خطرِ دیرکرد، موادِ رو به اتمام —
+    // از همان جریان‌های داشبورد و انبار (combine جدا چون پنج‌تایی می‌شود).
+    private val extra: Flow<ExtraFigures> =
+        combine(healthFlow(repo, now), forecastFlow(repo, now), reorderRowsFlow(repo, now)) { health, forecast, materials ->
+            ExtraFigures(
+                cash = health.figures.cash,
+                atRiskCount = forecast.atRisk.size,
+                lowMaterials = materials.count { it.runsOutSoon },
+            )
+        }
+
     val data: StateFlow<AssistantData> =
         combine(
             dashboardStatsFlow(repo, now),
             breakEvenFlow(repo, now),
             repo.observeAllOrders(),
             repo.observeAllAssignments(),
-        ) { stats, be, orders, assignments ->
+            extra,
+        ) { stats, be, orders, assignments, ex ->
             fun costOf(o: Order): Long = o.fabricPrice + o.workCost + o.sewingCost
             val priced = orders.filter { it.agreedPrice > 0 }
 
@@ -54,9 +66,17 @@ class AssistantViewModel(repo: Repo, now: Flow<Long> = clockTicks()) : ViewModel
                 salesMonths = stats.salesMonths,
                 openWagesTotal = stats.openWagesTotal,
                 oldestPendingWageDays = stats.oldestPendingWageDays,
+                cash = ex.cash,
+                atRiskCount = ex.atRiskCount,
+                lowMaterials = ex.lowMaterials,
+                readyPieces = stats.readyPieces,
+                salesCount = stats.salesCount,
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AssistantData())
 }
+
+/** عددهای کمکی که از جریان‌های دیگر می‌آیند. */
+private data class ExtraFigures(val cash: Long, val atRiskCount: Int, val lowMaterials: Int)
 
 /** همهٔ چیزی که دستیار برای خلاصه و پاسخ لازم دارد — از دفترِ محلی. */
 data class AssistantData(
@@ -68,6 +88,11 @@ data class AssistantData(
     val salesMonths: List<MonthPoint> = emptyList(),
     val openWagesTotal: Long = 0,
     val oldestPendingWageDays: Long = 0,
+    val cash: Long = 0,
+    val atRiskCount: Int = 0,
+    val lowMaterials: Int = 0,
+    val readyPieces: Int = 0,
+    val salesCount: Int = 0,
 )
 
 /** لحنِ یک نکته — برای رنگ و نشانه. */
@@ -80,10 +105,12 @@ data class Insight(val title: String, val body: String, val tone: InsightTone)
 val assistantSuggestions: List<String> = listOf(
     "پرسودترین مشتری کیست؟",
     "بهترین خیاط کدام است؟",
+    "پولِ نقد چقدر دارم؟",
     "فروشِ این ماه چطور است؟",
     "سربه‌سر شده‌ام؟",
+    "کدام سفارش‌ها دیر می‌شود؟",
+    "کدام مواد رو به اتمام است؟",
     "کارمزدِ باز چقدر است؟",
-    "این بازه چقدر سود کردم؟",
 )
 
 /**
@@ -112,6 +139,20 @@ fun answerOffline(query: String, d: AssistantData): String? {
         has("کارمزد", "حقوق خیاط") -> if (d.openWagesTotal > 0)
             "کارمزدِ تسویه‌نشده ${d.openWagesTotal.afn()} است؛ قدیمی‌ترینش ${d.oldestPendingWageDays.fa()} روز پیش."
         else "کارمزدِ تسویه‌نشده‌ای نیست."
+
+        has("آماده", "انبار محصول", "موجودی محصول") ->
+            "${d.readyPieces.fa()} عدد آمادهٔ فروش در انبارِ محصول داری."
+
+        has("دیرکرد", "دیر می", "عقب", "خطر") -> if (d.atRiskCount > 0)
+            "${d.atRiskCount.fa()} سفارش در خطرِ دیرکرد است — در «بارِ کارگاه» ببین کدام‌ها."
+        else "با سرعتِ فعلی هیچ سفارشی از مهلتش دیر نمی‌شود."
+
+        has("مواد", "خرید") -> if (d.lowMaterials > 0)
+            "${d.lowMaterials.fa()} ماده رو به اتمام است — در «برنامهٔ خرید» پیشنهادِ خرید را ببین."
+        else "هیچ ماده‌ای رو به اتمام نیست."
+
+        has("نقد", "صندوق", "پول", "بانک") ->
+            "پولِ نقدت (صندوق + بانک + صندوقِ فایده) ${d.cash.afn()} است."
 
         has("سود", "فایده", "منفعت") -> {
             val profit = d.customers.sumOf { it.profit }
