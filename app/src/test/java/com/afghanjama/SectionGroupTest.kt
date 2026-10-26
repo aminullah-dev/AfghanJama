@@ -67,6 +67,7 @@ class SectionGroupTest {
         DeskSection.MoneyMove to Need.Tick(Feature.FINANCE),
         DeskSection.Documents to Need.Tick(Feature.FINANCE),
         DeskSection.Reports to Need.Tick(Feature.FINANCE),
+        DeskSection.Analytics to Need.Tick(Feature.FINANCE),
         DeskSection.Journal to Need.Tick(Feature.FINANCE),
         DeskSection.Recurring to Need.Tick(Feature.FINANCE),
         DeskSection.Customers to Need.Tick(Feature.CUSTOMERS),
