@@ -49,6 +49,10 @@ for name, ms in durations.items():
     if name == "AMBIENT_MS":
         check(300 < ms <= 800, f"AMBIENT_MS = {ms} — نمایشِ محیطی هم حدی دارد")
         continue
+    if name == "AMBIENT_LOOP_MS":
+        # یک دورِ حلقهٔ بی‌پایان، نه پاسخ به لمس؛ از یک ثانیه کمتر و از سه ثانیه بیشتر نباشد.
+        check(1000 <= ms <= 3000, f"AMBIENT_LOOP_MS = {ms} — حلقهٔ محیطی بیرونِ ۱..۳ ثانیه است")
+        continue
     check(
         150 <= ms <= 300,
         f"{name} = {ms} بیرونِ بازهٔ ۱۵۰..۳۰۰ است — "

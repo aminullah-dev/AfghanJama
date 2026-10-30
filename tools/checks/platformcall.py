@@ -106,6 +106,12 @@ def _read_bytes(p: pathlib.Path) -> bytes:
         return pathlib.Path("\\\\?\\" + str(p.resolve())).read_bytes()
 
 
+#: کلاس‌هایی با پسوندِ `_jvmKt` که در artifactِ **اندروید** هم هستند.
+#: `jvmMain`ِ ui-util با اندروید مشترک است؛ وجودش در `ui-util-release-runtime.jar`
+#: با `unzip -l` سنجیده شد (۱۰-۳۰). فقط `_skikoKt`/`_desktopKt` واقعاً دسکتاپی‌اند.
+ANDROID_HAS = {"InlineClassHelper_jvmKt"}
+
+
 def check_bytecode():
     """دقیق: ارجاعِ واقعی در فایل‌های `.class`."""
     files = sorted(CLASSES.rglob("*.class"))
@@ -120,6 +126,8 @@ def check_bytecode():
     bad = {}
     for p in files:
         for m in set(pat.findall(_read_bytes(p))):
+            if m.decode() in ANDROID_HAS:
+                continue
             bad.setdefault(m.decode(), set()).add(p.stem.split("$")[0])
     return files, bad
 
