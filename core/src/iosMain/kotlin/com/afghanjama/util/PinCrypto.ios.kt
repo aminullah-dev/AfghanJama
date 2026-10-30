@@ -32,6 +32,9 @@ import platform.Security.kSecRandomDefault
 @OptIn(ExperimentalForeignApi::class)
 internal actual fun secureRandomBytes(n: Int): ByteArray {
     val out = ByteArray(n)
+    // آرایهٔ تهی را جدا برمی‌گردانیم: `addressOf(0)` روی آرایهٔ صفر-طول
+    // خطا می‌دهد، و برای صفر بایت هم چیزی از مولد نمی‌خواهیم.
+    if (n == 0) return out
     val status = out.usePinned { pinned ->
         SecRandomCopyBytes(kSecRandomDefault, n.convert(), pinned.addressOf(0))
     }
@@ -81,7 +84,12 @@ internal actual fun pbkdf2(
 @OptIn(ExperimentalForeignApi::class)
 internal actual fun sha256(data: ByteArray): ByteArray {
     val out = ByteArray(CC_SHA256_DIGEST_LENGTH)
-    data.usePinned { pinnedIn ->
+    // SHA-256ِ ورودیِ تهی تعریف‌شده است (e3b0c442…)، ولی `addressOf(0)`
+    // روی آرایهٔ صفر-طول خطا می‌دهد. پس برای ورودیِ تهی یک بایتِ ساختگی
+    // پین می‌کنیم و طول را صفر می‌دهیم — CC_SHA256 با طولِ صفر محتوای
+    // اشاره‌گر را نمی‌خواند.
+    val pinSource = if (data.isEmpty()) ByteArray(1) else data
+    pinSource.usePinned { pinnedIn ->
         out.usePinned { pinnedOut ->
             CC_SHA256(
                 pinnedIn.addressOf(0),
