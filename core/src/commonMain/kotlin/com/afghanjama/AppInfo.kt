@@ -39,5 +39,5 @@ object AppInfo {
      * تا ۱.۹ فقط در تنظیماتِ اندروید نوشته شده بود و کامپیوتر هیچ راهی
      * برای تماس با پشتیبانی نشان نمی‌داد.
      */
-    const val SUPPORT_EMAIL = "aminhashemi979@gmail.com"
+    const val SUPPORT_EMAIL = "khayatyar@linumic.com"
 }
