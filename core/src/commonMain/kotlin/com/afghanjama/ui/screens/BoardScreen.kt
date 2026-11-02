@@ -284,7 +284,7 @@ private fun AnimatedChevrons(reduced: Boolean, count: Int = 7) {
     val phase by transition.animateFloat(
         initialValue = 0f,
         targetValue = count.toFloat(),
-        animationSpec = infiniteRepeatable(tween(1500, easing = LinearEasing), RepeatMode.Restart),
+        animationSpec = infiniteRepeatable(tween(Motion.AMBIENT_LOOP_MS, easing = LinearEasing), RepeatMode.Restart),
         label = "chevron-phase",
     )
     val head = if (reduced) 0f else phase

@@ -25,6 +25,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.vector.PathNode
+import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -248,16 +250,9 @@ fun Sparkline(
         val yBase = py(baseline)
         drawLine(track, Offset(0f, yBase), Offset(w, yBase), strokeWidth = 1f)
 
-        val line = Path().apply {
-            moveTo(px(0), py(values[0]))
-            for (i in 1 until n) lineTo(px(i), py(values[i]))
-        }
-        val fill = Path().apply {
-            addPath(line)
-            lineTo(px(n - 1), h)
-            lineTo(px(0), h)
-            close()
-        }
+        val linePoints = List(n) { i -> Offset(px(i), py(values[i])) }
+        val line = polyPath(linePoints, close = false)
+        val fill = polyPath(linePoints + Offset(px(n - 1), h) + Offset(px(0), h), close = true)
         drawPath(fill, brush = Brush.verticalGradient(listOf(fillTop, Color.Transparent)))
         drawPath(line, color = color, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
         drawCircle(color, radius = 3.dp.toPx(), center = Offset(px(n - 1), py(values[n - 1])))
@@ -281,10 +276,25 @@ fun DonutLegend(
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Space.xs)) {
         slices.forEach { s ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
-                Box(Modifier.size(10.dp).clip(RoundedCornerShape(3.dp)).background(s.color))
+                Box(Modifier.size(10.dp).clip(RoundedCornerShape(Radius.xs)).background(s.color))
                 Text(s.label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                 Text(valueText(s.value), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
             }
         }
     }
+}
+
+/**
+ * یک مسیرِ خط‌شکسته. عمداً با `Path()` ساخته نمی‌شود: آن تابع در بایت‌کدِ :core به
+ * `SkiaBackedPath_skikoKt` می‌بندد و روی اندروید NoClassDefFoundError می‌دهد
+ * (ببینید `ui/platform/Widgets.kt`). `PathParser` در خودِ کتابخانه `Path()` را صدا می‌زند،
+ * پس هر سکو کلاسِ خودش را می‌گیرد.
+ */
+private fun polyPath(points: List<Offset>, close: Boolean): Path {
+    val nodes = buildList<PathNode> {
+        add(PathNode.MoveTo(points.first().x, points.first().y))
+        for (p in points.drop(1)) add(PathNode.LineTo(p.x, p.y))
+        if (close) add(PathNode.Close)
+    }
+    return PathParser().addPathNodes(nodes).toPath()
 }

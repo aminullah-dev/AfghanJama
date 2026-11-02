@@ -40,6 +40,7 @@ EXPECTED = {
     "MaterialsCard": "PurchasePlan",
     "ProductsCard": "FinishedWarehouse",
     "BelowCostCard": "FinishedWarehouse",
+    "ForecastCard": "Finance",
 }
 
 src = SRC.read_text(encoding="utf-8")
