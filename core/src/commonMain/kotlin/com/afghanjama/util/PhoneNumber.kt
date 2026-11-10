@@ -91,6 +91,22 @@ object PhoneNumber {
 
     private val SPACES = setOf(' ', ' ')
 
+    /**
+     * رشته‌ای برای `tel:` که شماره‌گیرِ سیستم می‌فهمد: فقط رقمِ لاتین و
+     * یک «+»ِ اول. رقمِ فارسی و عربی لاتین می‌شود (شمارهٔ کارگاه معمولاً
+     * با کیبوردِ فارسی ثبت می‌شود و `Char.isDigit` رقمِ فارسی را هم رقم
+     * می‌داند، پس «tel:۰۷۰۰…» ساخته می‌شد که شماره‌گیر نمی‌شناسد).
+     * چیزی نماند، رشتهٔ تهی. شمارهٔ داخلی را بین‌المللی نمی‌کند — فقط
+     * همان چیزی را که کاربر ثبت کرده پاک‌سازی می‌کند.
+     */
+    fun dialable(raw: String): String {
+        val s = raw.trim()
+        val out = StringBuilder()
+        if (s.startsWith('+') || s.startsWith('＋')) out.append('+')
+        for (c in s) asciiDigit(c)?.let { out.append(it) }
+        return if (out.length == 1 && out[0] == '+') "" else out.toString()
+    }
+
     /** همان، بی «+» — شکلی که `wa.me/<شماره>` می‌خواهد. */
     fun forWhatsApp(raw: String): String? = international(raw)?.removePrefix("+")
 
