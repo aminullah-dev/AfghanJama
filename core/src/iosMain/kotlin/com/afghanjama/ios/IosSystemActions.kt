@@ -1,6 +1,7 @@
 package com.afghanjama.ios
 
 import com.afghanjama.platform.SystemActions
+import com.afghanjama.util.PhoneNumber
 import platform.Foundation.NSURL
 import platform.UIKit.UIActivityViewController
 import platform.UIKit.UIApplication
@@ -30,7 +31,7 @@ object IosSystemActions : SystemActions {
     }
 
     override fun dial(phone: String) {
-        val digits = phone.filter { it.isDigit() || it == '+' }
+        val digits = PhoneNumber.dialable(phone)
         if (digits.isEmpty()) return
         val url = NSURL.URLWithString("tel:$digits") ?: return
         UIApplication.sharedApplication.openURL(url, options = emptyMap<Any?, Any?>(), completionHandler = null)

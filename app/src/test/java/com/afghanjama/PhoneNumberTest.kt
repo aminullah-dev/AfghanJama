@@ -109,4 +109,24 @@ class PhoneNumberTest {
         assertEquals("93700123456", PhoneNumber.forWhatsApp("0700123456"))
         assertNull(PhoneNumber.forWhatsApp("ندارد"))
     }
+
+    @Test
+    fun `dialable turns Persian and Arabic digits into Latin`() {
+        assertEquals("0700123456", PhoneNumber.dialable("\u06F0\u06F7\u06F0\u06F0\u06F1\u06F2\u06F3\u06F4\u06F5\u06F6"))
+        assertEquals("0700123456", PhoneNumber.dialable("\u0660\u0667\u0660\u0660\u0661\u0662\u0663\u0664\u0665\u0666"))
+    }
+
+    @Test
+    fun `dialable keeps a leading plus and drops separators`() {
+        assertEquals("+93700123456", PhoneNumber.dialable(" +93 (700) 123-456 "))
+        assertEquals("0700123456", PhoneNumber.dialable("0700.123.456"))
+        assertEquals("700", PhoneNumber.dialable("7+00"))   // + only at the start
+    }
+
+    @Test
+    fun `dialable of nothing dialable is empty`() {
+        assertEquals("", PhoneNumber.dialable(""))
+        assertEquals("", PhoneNumber.dialable("+"))
+        assertEquals("", PhoneNumber.dialable("\u0646\u062F\u0627\u0631\u062F"))
+    }
 }
