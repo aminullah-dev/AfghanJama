@@ -364,7 +364,7 @@ private fun LoggedIn(repo: Repo, role: UserRole, auth: AuthViewModel, access: Ac
                     onGoProcurement = { go(Routes.PROCUREMENT) },
                     onGoWarehouse = { go(Routes.WAREHOUSE) },
                     onGoStockLedger = { go(Routes.STOCK_LEDGER) },
-                    onGoProduction = { go(Routes.PRODUCTION_ORDER) },
+                    onGoProduction = { go(Routes.INVENTORY) },
                     onGoFinishedSales = { go(Routes.FINISHED_SALES) },
                     onGoDeliveryQueue = { go(Routes.DELIVERY_QUEUE) },
                     onGoDebtFollowUp = { go(Routes.DEBT_FOLLOW_UP) },
@@ -494,11 +494,19 @@ private fun LoggedIn(repo: Repo, role: UserRole, auth: AuthViewModel, access: Ac
                     )
                 }
 
-                Routes.FINISHED_SALES -> FinishedWarehouseScreen(
-                    vm = vm.finishedSale,
-                    onBack = back,
-                    onOpenInvoice = { go(Routes.NEW_SALE) },
-                )
+                Routes.FINISHED_SALES -> {
+                    // مثلِ اندروید و کامپیوتر: «به فاکتور» کالا را به فاکتورِ باز
+                    // می‌افزاید و شمارش کنارِ دکمه می‌آید. بی این دو، دکمه روی
+                    // آیفون کاری نمی‌کرد و فاکتور خالی باز می‌شد.
+                    val invoiceCount by vm.newSale.pickedCount.collectAsState()
+                    FinishedWarehouseScreen(
+                        vm = vm.finishedSale,
+                        onBack = back,
+                        onOpenInvoice = { go(Routes.NEW_SALE) },
+                        onAddToInvoice = { vm.newSale.addItem(it) },
+                        invoiceCount = invoiceCount,
+                    )
+                }
 
                 Routes.NEW_SALE -> NewSaleScreen(vm = vm.newSale, onBack = back)
 

@@ -329,9 +329,12 @@ fun ReportsScreen(
                     }
                     IconButton(onClick = {
                         scope.launch {
-                            docs.financials(
-                                income, sheet, periodLabel, "اشتراک صورت‌های مالی"
-                            )
+                            // روی آیفون ساختِ PDF هنوز نیامده و استثنا می‌دهد.
+                            runCatching {
+                                docs.financials(
+                                    income, sheet, periodLabel, "اشتراک صورت‌های مالی"
+                                )
+                            }
                         }
                     }) {
                         Icon(Icons.Default.PictureAsPdf, contentDescription = "صورت‌های مالی PDF")

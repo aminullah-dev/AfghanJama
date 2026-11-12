@@ -252,7 +252,7 @@ class NewSaleViewModel(private val repo: Repo) : ViewModel() {
             .mapNotNull { (_, rows) ->
                 val item = rows.first().item!!
                 val need = rows.sumOf { it.qty }
-                if (need > item.qty) "${item.name}: ${need} خواسته، ${item.qty} موجود" else null
+                if (need > item.qty) "${item.name}: ${need.fa()} خواسته، ${item.qty.fa()} موجود" else null
             }
         if (over.isNotEmpty()) {
             _ui.update {
@@ -270,9 +270,9 @@ class NewSaleViewModel(private val repo: Repo) : ViewModel() {
         if (ok) {
             _ui.value = NewSaleUi(
                 lines = listOf(DraftLine(key = nextKey++)),
-                message = "فاکتور با ${ready.size} ردیف ثبت شد." +
+                message = "فاکتور با ${ready.size.fa()} ردیف ثبت شد." +
                     (if (u.appliedPrepay > 0) " بیعانه هم اعمال شد." else "") +
-                    (if (incomplete > 0) " ($incomplete ردیفِ ناقص ثبت نشد.)" else ""),
+                    (if (incomplete > 0) " (${incomplete.fa()} ردیفِ ناقص ثبت نشد.)" else ""),
                 isError = false
             )
         } else {

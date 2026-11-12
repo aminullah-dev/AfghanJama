@@ -257,9 +257,12 @@ fun LedgerScreen(
                     TextButton(onClick = {
                         // صورت‌حساب PDF برای اشتراک با خودِ طرف
                         scope.launch {
-                            docs.partyStatement(
-                                p.type, p.name, p.net, rows, "اشتراک صورت‌حساب"
-                            )
+                            // روی آیفون ساختِ PDF هنوز نیامده و استثنا می‌دهد.
+                            runCatching {
+                                docs.partyStatement(
+                                    p.type, p.name, p.net, rows, "اشتراک صورت‌حساب"
+                                )
+                            }
                         }
                     }) { Text("PDF") }
                     TextButton(onClick = {

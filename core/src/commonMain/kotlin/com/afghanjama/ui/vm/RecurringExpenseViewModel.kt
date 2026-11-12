@@ -1,5 +1,6 @@
 package com.afghanjama.ui.vm
 
+import com.afghanjama.ui.format.fa
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.afghanjama.data.entities.RecurringExpense
@@ -89,9 +90,9 @@ class RecurringExpenseViewModel(private val repo: Repo) : ViewModel() {
         _extra.value = _extra.value.copy(
             message = when {
                 before == 0 -> "این ماه چیزی برای ثبت نبود."
-                done == before -> "${done} قلم ثبت شد."
+                done == before -> "${done.fa()} قلم ثبت شد."
                 done == 0 -> "هیچ‌کدام ثبت نشد — موجودیِ صندوق کافی نیست."
-                else -> "$done از $before قلم ثبت شد؛ بقیه موجودیِ کافی نداشت."
+                else -> "${done.fa()} از ${before.fa()} قلم ثبت شد؛ بقیه موجودیِ کافی نداشت."
             },
             isError = done == 0 && before > 0,
         )

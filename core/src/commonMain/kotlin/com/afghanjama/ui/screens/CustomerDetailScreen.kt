@@ -287,12 +287,17 @@ fun CustomerDetailScreen(
                             onClick = {
                                 sharing = true
                                 scope.launch {
-                                    val data = vm.statementData(name)
-                                    docs.statement(
-                                        data,
-                                        "hesab-${name.trim()}.pdf",
-                                        "فرستادن کارت حساب"
-                                    )
+                                    // `runCatching`: روی آیفون ساختِ PDF هنوز
+                                    // نیامده و استثنا می‌دهد. بی این، برنامه
+                                    // می‌افتاد یا دکمه برای همیشه خاموش می‌ماند.
+                                    runCatching {
+                                        val data = vm.statementData(name)
+                                        docs.statement(
+                                            data,
+                                            "hesab-${name.trim()}.pdf",
+                                            "فرستادن کارت حساب"
+                                        )
+                                    }
                                     sharing = false
                                 }
                             }

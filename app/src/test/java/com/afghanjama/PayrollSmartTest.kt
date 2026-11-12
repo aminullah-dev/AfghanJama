@@ -95,4 +95,21 @@ class PayrollSmartTest {
         assertEquals(0, s.proratedSalary)
         assertEquals(0, s.suggestedTotal)
     }
+
+    /**
+     * حقوقی که بر روزهای کاری بخش‌پذیر نیست: ۱۰٬۰۰۰ ÷ ۲۶ = ۳۸۴٫۶.
+     * حضورِ کامل باید حقوقِ کامل بدهد، نه ۳۸۴ × ۲۶ = ۹٬۹۸۴ با برچسبِ «کسری».
+     */
+    @Test
+    fun `full attendance pays the full salary even when it does not divide evenly`() {
+        val odd = Config(monthlySalary = 10_000, workingDays = 26, shiftHours = 8)
+        val full = PayrollSmart.analyze((1..26).map { shift(it, 8) }, odd, dayOf)
+        assertEquals(10_000L, full.proratedSalary)
+        assertFalse(full.hasDeduction)
+
+        // و غیبت: اول ضرب، بعد تقسیم — ۱۰٬۰۰۰ × ۱۳ ÷ ۲۶ دقیقاً نیم است.
+        val half = PayrollSmart.analyze((1..13).map { shift(it, 8) }, odd, dayOf)
+        assertEquals(5_000L, half.proratedSalary)
+        assertTrue(half.hasDeduction)
+    }
 }

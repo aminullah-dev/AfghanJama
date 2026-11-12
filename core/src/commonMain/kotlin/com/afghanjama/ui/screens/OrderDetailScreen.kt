@@ -395,7 +395,7 @@ fun OrderDetailScreen(
                         // تا وقتی این‌ها نوشته نشود، «تعداد: ۲۰» می‌گوید
                         // بیست عدد آماده است در حالی که شاید شش عدد باشد.
                         if (o.storedQty in 1 until o.qty) {
-                            DetailRow("وارد انبار شده", "${o.storedQty} از ${o.qty} عدد")
+                            DetailRow("وارد انبار شده", "${o.storedQty.fa()} از ${o.qty.fa()} عدد")
                         }
                         if (o.reviewQty > 0) {
                             DetailRow("دستِ نظارت", "${o.reviewQty} عدد")
@@ -696,7 +696,7 @@ fun OrderDetailScreen(
                     ) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(
-                                "پارچه‌های سفارش (${fabrics.size})",
+                                "پارچه‌های سفارش (${fabrics.size.fa()})",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -750,7 +750,7 @@ fun OrderDetailScreen(
                             }
                             HorizontalDivider(thickness = 0.5.dp)
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("جمع فی‌عدد × ${o.qty}", fontWeight = FontWeight.Medium)
+                                Text("جمع فی‌عدد × ${o.qty.fa()}", fontWeight = FontWeight.Medium)
                                 Text(o.workCost.afn(), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                             }
                         }

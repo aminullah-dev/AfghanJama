@@ -456,7 +456,8 @@ fun FinishedWarehouseScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
                     Text(
-                        "مبلغ برگشتی: ${(q.coerceAtLeast(0) * sale.unitPrice).afn()}",
+                        // همان عددی که واقعاً برمی‌گردد: سهمِ ردیف پس از تخفیف، نه فی × تعداد.
+                        "مبلغ برگشتی: ${sale.refundFor(q.coerceIn(0, sale.returnableQty)).afn()}",
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.primary
                     )

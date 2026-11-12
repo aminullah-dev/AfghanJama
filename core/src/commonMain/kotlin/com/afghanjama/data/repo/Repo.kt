@@ -3103,7 +3103,7 @@ class Repo(private val db: Db) {
         if (remaining <= 0) return "همهٔ این سفارش قبلاً تحویل شده."
         if (qty <= 0) return "تعداد را وارد کنید."
         if (qty > remaining)
-            return "از این سفارش فقط ${remaining} عدد باقی مانده."
+            return "از این سفارش فقط ${remaining.fa()} عدد باقی مانده."
 
         val allowShortage = SalePolicy.allowNegativeStock()
         var item = db.finishedStockDao().find(order.designTitle, order.size)
@@ -3135,7 +3135,7 @@ class Repo(private val db: Db) {
                     "تحویلِ دیگری خالی شده باشد."
             }
             if (item.qty < qty)
-                return "موجودی انبار ${item.qty} عدد است، کمتر از ${qty} عددِ خواسته‌شده."
+                return "موجودی انبار ${item.qty.fa()} عدد است، کمتر از ${qty.fa()} عددِ خواسته‌شده."
         }
 
         val ok = sellInvoice(
@@ -3229,8 +3229,25 @@ class Repo(private val db: Db) {
         receivedNow: Long,
         applyPrepay: Long
     ): Boolean {
-        val valid = lines.filter { it.qty > 0 && it.unitPrice > 0 }
-        if (valid.isEmpty()) return false
+        val asked = lines.filter { it.qty > 0 && it.unitPrice > 0 }
+        if (asked.isEmpty()) return false
+        /*
+         * ردیفِ انبار **همین‌جا، درونِ تراکنش** دوباره خوانده می‌شود.
+         *
+         * `SaleLine.item` عکسی است از لحظه‌ای که کالا به فاکتور افزوده شد.
+         * فاکتور می‌تواند دقیقه‌ها باز بماند، و در آن فاصله فروشِ تکی، برگشت،
+         * تأییدِ نظارت یا شمارشِ انبار همان ردیف را عوض می‌کند. تا ۱.۱۳
+         * موجودیِ تازه از روی همان عکسِ کهنه نوشته می‌شد: کالایی که ۱۰ بود
+         * و ۳تایش جدا فروخته شده بود، با فروشِ ۱ عدد در فاکتور ۹ می‌شد نه ۶
+         * — و نام یا عکسِ تازه‌اش هم به حالتِ قبل برمی‌گشت.
+         *
+         * کالایی که در این میان حذف شده باشد فروخته نمی‌شود.
+         */
+        val fresh = HashMap<Long, FinishedStock>()
+        for (id in asked.map { it.item.id }.distinct()) {
+            fresh[id] = db.finishedStockDao().findById(id) ?: return false
+        }
+        val valid = asked.map { it.copy(item = fresh.getValue(it.item.id)) }
         // موجودی را برای ردیف‌های تکراریِ یک کالا هم با هم می‌سنجیم،
         // وگرنه دو ردیف از یک طرح می‌توانستند بیشتر از موجودی بفروشند.
         val neededPerItem = valid.groupBy { it.item.id }

@@ -1,5 +1,6 @@
 package com.afghanjama.ui.vm
 
+import com.afghanjama.ui.format.fa
 import com.afghanjama.util.nowMillis
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -120,7 +121,7 @@ data class ReportRange(
 
         fun lastDays(days: Int) = ReportRange(
             from = nowMillis() - days * 24L * 3600L * 1000L,
-            label = "${days} روز اخیر",
+            label = "${days.fa()} روز اخیر",
             presetDays = days
         )
 

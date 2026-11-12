@@ -83,7 +83,9 @@ class CustomerDetailViewModel(private val repo: Repo) : ViewModel() {
         "CUSTOMER_PREPAY", "PREPAY" -> "بیعانه"
         "CUSTOMER_RETURN", "RETURN" -> "برگشت از فروش"
         "MANUAL" -> "ثبت دستی"
-        else -> refType
+        // بقیه از همان منبعِ واحدِ دفتر کل — نوع‌های امروزی (SALE_BILLING،
+        // PREPAY_APPLIED…) پیش‌تر با کدِ خام روی کارتِ مشتری می‌آمدند.
+        else -> com.afghanjama.data.entities.ledgerRefLabel(refType)
     }
 
     val measurements: StateFlow<List<CustomerMeasurement>> =

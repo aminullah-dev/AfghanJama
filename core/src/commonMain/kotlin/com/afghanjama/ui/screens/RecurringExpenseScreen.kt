@@ -147,7 +147,7 @@ fun RecurringExpenseScreen(
                                 fontWeight = FontWeight.SemiBold,
                             )
                             Text(
-                                "${row.amount.afn()} • روزِ ${row.dayOfMonth.fa()} • ${row.source}",
+                                "${row.amount.afn()} • روزِ ${row.dayOfMonth.fa()} • ${boxName(row.source)}",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -270,4 +270,11 @@ private fun Editor(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("لغو") } },
     )
+}
+
+/** نامِ فارسیِ صندوق — کدِ خام («WALLET») روی صفحه نمی‌آید. */
+private fun boxName(code: String): String = when (code) {
+    "BANK" -> "بانک"
+    "PROFIT" -> "فایده"
+    else -> "کیف پول"
 }

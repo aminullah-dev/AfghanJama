@@ -103,7 +103,7 @@ fun MoneyMoveScreen(
         }
     }
 
-    val selected = ui.payees.firstOrNull { it.type == type && it.name == name }
+    val selected = ui.payees.firstOrNull { it.type == type && com.afghanjama.util.NameMatch.same(it.name, name) }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },

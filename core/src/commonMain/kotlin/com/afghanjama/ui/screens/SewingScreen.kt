@@ -530,7 +530,7 @@ private fun HandoutCard(
                         when {
                             tailor.isBlank() -> "اول خیاط را انتخاب کنید"
                             qty !in 1..handout.remaining -> "تعداد نامعتبر"
-                            else -> "تحویل ($qty عدد به خیاط)"
+                            else -> "تحویل (${qty.fa()} عدد به خیاط)"
                         }
                     )
                 }
