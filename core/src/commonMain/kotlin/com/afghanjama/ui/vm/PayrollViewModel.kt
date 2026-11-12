@@ -62,6 +62,12 @@ class PayrollViewModel(private val repo: Repo) : ViewModel() {
 
     /** کلید و برچسبِ ماهِ جاری (بر مبنای همین لحظه). */
     private fun nowKey() = PersianDate.monthKey(nowMillis())
+
+    /** نیمه‌شبِ اولِ همین ماهِ شمسی. */
+    private fun monthStart(): Long {
+        val j = PersianDate.todayJalali()
+        return PersianDate.startOfJalaliDay(j[0], j[1], 1)
+    }
     private fun nowLabel() = PersianDate.monthLabel(nowMillis())
 
     val ui: StateFlow<PayrollUi> = combine(
@@ -110,7 +116,10 @@ class PayrollViewModel(private val repo: Repo) : ViewModel() {
      * از ViewModel.
      */
     val shiftsThisMonth: StateFlow<Map<String, List<PayrollSmart.Shift>>> =
-        repo.observeAttendance().map { records ->
+        // از اولِ همین ماه، نه «۳۰۰ ردیفِ آخرِ کلِ کارگاه»: با پانزده نفر آن
+        // سقف در ده تا بیست روز پر می‌شد و آخرِ ماه روزهای حاضر کم شمرده
+        // می‌شد — و پیشنهادِ حقوق هم کمتر از حق.
+        repo.observeAttendanceSince(monthStart()).map { records ->
             val key = nowKey()
             records
                 .filter { PersianDate.monthKey(it.checkIn) == key }

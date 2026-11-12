@@ -1,5 +1,6 @@
 package com.afghanjama.ui.vm
 
+import com.afghanjama.data.entities.OrderStatus
 import com.afghanjama.util.nowMillis
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -28,9 +29,25 @@ data class CustomerSummary(
     val customer: Customer? = null,
     val orders: List<Order> = emptyList(),
     val totalDue: Long = 0,
-    val totalPaid: Long = 0
+    val totalPaid: Long = 0,
+    /**
+     * ماندهٔ مشتری از **دفتر کل** — همان عددی که «پیگیری طلب» نشان می‌دهد.
+     * مثبت یعنی بدهکار است، منفی یعنی پیش‌پرداخت نزدِ ما دارد.
+     */
+    val owed: Long = 0,
+    /** ارزشِ سفارش‌هایی که هنوز تحویل نشده‌اند؛ هنگامِ تحویل به حساب می‌آیند. */
+    val pendingOrders: Long = 0
 ) {
-    val balance: Long get() = totalDue - totalPaid
+    /**
+     * مانده‌ای که بالای پرونده نشان داده می‌شود.
+     *
+     * **تا ۱.۱۳ «جمعِ قیمتِ سفارش‌ها منهای همهٔ دریافتی‌ها» بود.** ولی
+     * دریافتی‌ها پولِ خرید از انبار را هم دارند و «جمعِ سفارش‌ها» آن خریدها
+     * را ندارد: مشتری‌ای که از انبار ۵٬۰۰۰ نسیه خریده و ۲٬۰۰۰ داده بود
+     * اینجا «حساب تسویه است» می‌دید، در حالی که دفتر و «پیگیری طلب» ۳٬۰۰۰
+     * بدهی نشان می‌دادند. حالا هر دو صفحه یک عدد را از یک جا می‌خوانند.
+     */
+    val balance: Long get() = owed
 }
 
 /** پروندهٔ کامل یک مشتری: مشخصات، مانده، تاریخچهٔ سفارش و اندازه‌ها. */
@@ -83,7 +100,9 @@ class CustomerDetailViewModel(private val repo: Repo) : ViewModel() {
         "CUSTOMER_PREPAY", "PREPAY" -> "بیعانه"
         "CUSTOMER_RETURN", "RETURN" -> "برگشت از فروش"
         "MANUAL" -> "ثبت دستی"
-        else -> refType
+        // بقیه از همان منبعِ واحدِ دفتر کل — نوع‌های امروزی (SALE_BILLING،
+        // PREPAY_APPLIED…) پیش‌تر با کدِ خام روی کارتِ مشتری می‌آمدند.
+        else -> com.afghanjama.data.entities.ledgerRefLabel(refType)
     }
 
     val measurements: StateFlow<List<CustomerMeasurement>> =
@@ -96,8 +115,9 @@ class CustomerDetailViewModel(private val repo: Repo) : ViewModel() {
             customerId,
             repo.observeCustomers(),
             repo.observeAllOrders(),
-            repo.observePaidByCustomer()
-        ) { id, customers, orders, paidBy ->
+            repo.observePaidByCustomer(),
+            repo.observeCustomerAccounts()
+        ) { id, customers, orders, paidBy, accounts ->
             val customer = customers.firstOrNull { it.id == id } ?: return@combine CustomerSummary()
             val myOrders = orders.filter { it.customerName == customer.name }
             CustomerSummary(
@@ -107,7 +127,14 @@ class CustomerDetailViewModel(private val repo: Repo) : ViewModel() {
                 // قاعدهٔ «نامِ پرداختِ وصل به سفارش از خودِ سفارش می‌آید»
                 // حالا در `Repo` است، تا هشدارِ قسط هم دقیقاً همین عدد را
                 // ببیند و دو صفحه دربارهٔ یک پول دو حرف نزنند.
-                totalPaid = paidBy[customer.name.trim()] ?: 0L
+                totalPaid = paidBy[customer.name.trim()] ?: 0L,
+                owed = accounts[customer.name.trim()]?.owed ?: 0L,
+                pendingOrders = myOrders
+                    .filter { it.status != OrderStatus.SENT.name && it.qty > 0 }
+                    .sumOf { o ->
+                        val price = if (o.agreedPrice > 0) o.agreedPrice else o.fabricPrice + o.workCost
+                        price * (o.qty - o.deliveredQty).coerceAtLeast(0) / o.qty
+                    }
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CustomerSummary())
 

@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Card
@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import com.afghanjama.ui.components.BrandButton
 import com.afghanjama.ui.theme.Brand
 import com.afghanjama.ui.theme.CoralBrush
+import com.afghanjama.ui.theme.Radius
 import com.afghanjama.ui.theme.PetrolBrush
 import com.afghanjama.ui.format.digitsOnly
 import com.afghanjama.util.AppLock
@@ -58,10 +59,11 @@ fun PinLockScreen(onUnlock: () -> Unit) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // قفلِ ایموجی جایش را به نشانِ مسی داد: ایموجی روی هر گوشی
-        // شکلِ خودش را دارد و اندازه‌اش با متن می‌پرد.
+        // قفلِ ایموجی جایش را به نشانِ مرجانی داد: ایموجی روی هر گوشی
+        // شکلِ خودش را دارد و اندازه‌اش با متن می‌پرد. شکلش همان مربعِ
+        // گوشه‌نرمِ نشانِ صفحهٔ ورود است.
         Box(
-            Modifier.size(64.dp).clip(CircleShape).background(CoralBrush),
+            Modifier.size(64.dp).clip(RoundedCornerShape(Radius.xl)).background(CoralBrush),
             contentAlignment = Alignment.Center
         ) {
             Icon(

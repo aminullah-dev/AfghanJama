@@ -9,6 +9,16 @@ import com.afghanjama.licence.LicenceGate
 import com.afghanjama.util.currentHour
 import com.afghanjama.util.nowMillis
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import com.afghanjama.ui.components.AppCard
+import com.afghanjama.ui.components.CountPill
+import com.afghanjama.ui.theme.Radius
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -313,38 +323,27 @@ fun HomeDashboardScreen(
             item(span = { fullSpan() }) { extraTop() }
         }
 
-        // ---------- پرداخت و دریافتِ سریع ----------
+        // ---------- پول: موجودی و سه کارِ هرروزه ----------
+        //
+        // **تا ۱.۱۳ این‌ها پنج تکهٔ جدا بودند:** دو دکمهٔ رنگیِ پرداخت و
+        // دریافت، یک نوارِ «معاملات روزمره»، و پایین‌تر — زیرِ هشدارها و
+        // انبار — دو کارتِ موجودی. یعنی «چقدر پول دارم» و «پول بده/بگیر»
+        // که یک فکرند، با سه رنگِ مختلف در دو جای صفحه بودند.
+        //
+        // حالا یک کارت است: عدد بالا، سه کار زیرش. و چون اولِ صفحه است،
+        // «موجودی نقد» بی اسکرول دیده می‌شود (آزمونِ `smoke.sh` هم همین را
+        // می‌خواند).
+        //
+        // فقط برای کسی که تیکِ مالی دارد — خیاط و فروشنده صندوقِ کارگاه را
+        // روی خانه نمی‌بینند.
         if (can(Feature.FINANCE)) {
             item(span = { fullSpan() }) {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    MoneyButton(
-                        label = "پرداخت",
-                        sub = "به کارمند، خیاط، فروشنده…",
-                        icon = Icons.AutoMirrored.Filled.CallMade,
-                        container = MaterialTheme.colorScheme.errorContainer,
-                        onContainer = MaterialTheme.colorScheme.onErrorContainer,
-                        onClick = onGoPay,
-                        modifier = Modifier.weight(1f)
-                    )
-                    MoneyButton(
-                        label = "دریافت",
-                        sub = "از مشتری یا هر کسِ دیگر",
-                        icon = Icons.AutoMirrored.Filled.CallReceived,
-                        container = MaterialTheme.colorScheme.primaryContainer,
-                        onContainer = MaterialTheme.colorScheme.onPrimaryContainer,
-                        onClick = onGoReceive,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-            item(span = { fullSpan() }) {
-                MoneyButton(
-                    label = "معاملات روزمره",
-                    sub = "خرید • فروش • برگشتی‌ها",
-                    icon = Icons.Default.SwapHoriz,
-                    container = MaterialTheme.colorScheme.secondaryContainer,
-                    onContainer = MaterialTheme.colorScheme.onSecondaryContainer,
-                    onClick = onGoDailyTrade
+                CashHero(
+                    wallet = s.wallet,
+                    bank = s.bank,
+                    onReceive = onGoReceive,
+                    onPay = onGoPay,
+                    onDailyTrade = onGoDailyTrade
                 )
             }
         }
@@ -353,64 +352,42 @@ fun HomeDashboardScreen(
         if (can(Feature.AUDIT) && !action.allClear) {
             item(span = { fullSpan() }) {
                 val urgent = action.urgent > 0
-                Card(
-                    onClick = onGoActionCenter,
-                    modifier = Modifier.fillMaxWidth(),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (urgent) MaterialTheme.colorScheme.errorContainer
-                        else MaterialTheme.colorScheme.tertiaryContainer
-                    )
-                ) {
+                // کارتِ سفید با نشانِ رنگی، نه یک نوارِ تمام‌رنگ: رنگ فقط
+                // روی آیکن و شمار می‌نشیند و همان‌قدر می‌گوید «بحرانی است»
+                // بی آنکه نصفِ صفحه را سرخ کند.
+                AppCard(onClick = onGoActionCenter) {
                     Row(
-                        Modifier.fillMaxWidth().padding(16.dp),
+                        Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        val onColor = if (urgent) MaterialTheme.colorScheme.onErrorContainer
-                        else MaterialTheme.colorScheme.onTertiaryContainer
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            // **ایموجی نبود که آیکن شود.**
-                            //
-                            // تا امروز اینجا «🚨» و «🔔» بود. ایموجی روی هر
-                            // گوشی و هر نسخهٔ اندروید شکلِ خودش را دارد، با
-                            // تم رنگ نمی‌شود، و در اندازهٔ متن هم‌تراز
-                            // نمی‌مانَد. همین را `BrandComponents` ماه‌ها
-                            // پیش برای «⚠» نوشته بود و همان‌جا کنارش
-                            // گذاشت؛ این یکی جا مانده بود.
-                            //
-                            // آیکنِ برداری با `onColor` رنگ می‌شود، پس در
-                            // حالتِ بحرانی و عادی خودش را با کارت هماهنگ
-                            // می‌کند — کاری که ایموجی هرگز نمی‌کند.
-                            Icon(
-                                if (urgent) Icons.Default.NotificationsActive
-                                else Icons.Default.Notifications,
-                                contentDescription = null,
-                                tint = onColor
-                            )
-                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        IconBadge(
+                            if (urgent) Icons.Default.NotificationsActive
+                            else Icons.Default.Notifications,
+                            tint = if (urgent) MaterialTheme.colorScheme.onErrorContainer
+                            else MaterialTheme.colorScheme.onPrimaryContainer,
+                            container = if (urgent) MaterialTheme.colorScheme.errorContainer
+                            else MaterialTheme.colorScheme.primaryContainer
+                        )
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(
                                 "مرکز هشدار",
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = onColor
+                                fontWeight = FontWeight.SemiBold
                             )
                             Text(
                                 if (urgent)
                                     "${action.urgent.fa()} موردِ بحرانی و ${action.total.fa()} مورد در مجموع نیاز به رسیدگی دارد"
                                 else "${action.total.fa()} مورد نیاز به رسیدگی دارد",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = onColor
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            }
                         }
+                        CountPill(action.total, urgent = urgent)
                         Icon(
                             Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                             contentDescription = "باز کردن مرکز هشدار",
-                            tint = onColor
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -458,26 +435,28 @@ fun HomeDashboardScreen(
 
         // ---------- کارت‌های خلاصه ----------
         item(span = { fullSpan() }) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-            ) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        "انبار مواد",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                    Text(
-                        "${s.materialItems.fa()} قلم • ارزش ${s.materialValue.afn()}",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                    if (s.lowStockCount > 0) {
-                        WarningLine("${s.lowStockCount.fa()} قلم موجودی کم دارد")
+            AppCard {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    IconBadge(Icons.Default.Warehouse)
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            "انبار مواد",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            "${s.materialItems.fa()} قلم • ارزش ${s.materialValue.afn()}",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
+                }
+                if (s.lowStockCount > 0) {
+                    WarningLine("${s.lowStockCount.fa()} قلم موجودی کم دارد")
                 }
             }
         }
@@ -534,14 +513,8 @@ fun HomeDashboardScreen(
             }
         }
 
-        item { StatCard("در تولید", s.inProduction.fa(), "سفارش در جریان") }
-        item { StatCard("انبار محصول", s.finishedPieces.fa(), "عدد آماده فروش") }
-        // موجودیِ صندوق و بانک فقط برای کسی که تیکِ مالی دارد. تا امروز هر
-        // نقشی — خیاط و فروشنده هم — صندوقِ کارگاه را روی خانه می‌دید.
-        if (can(Feature.FINANCE)) {
-            item { StatCard("کیف پول", s.wallet.afn(), "موجودی نقد", money = true, amount = s.wallet) }
-            item { StatCard("بانک", s.bank.afn(), "موجودی بانک", money = true, amount = s.bank) }
-        }
+        item { StatCard("در تولید", s.inProduction.fa(), "سفارش در جریان", Icons.Default.Checkroom) }
+        item { StatCard("انبار محصول", s.finishedPieces.fa(), "عدد آماده فروش", Icons.Default.Sell) }
 
         // ---------- ضربان خط تولید ----------
         if (can(Feature.ORDERS) && s.inProduction > 0) {
@@ -598,47 +571,104 @@ fun HomeDashboardScreen(
     }
 }
 
-/** دکمهٔ بزرگِ پرداخت/دریافت — عمداً ساده: یک عنوان، یک زیرنویس، یک آیکن. */
+/**
+ * کارتِ قهرمانِ خانه: موجودیِ نقد و بانک، و سه کارِ پولیِ هرروزه.
+ *
+ * عددِ صندوق درشت است و بانک کنارش کوچک‌تر: صندوق چیزی است که در طولِ
+ * روز تکان می‌خورد و چشم دنبالش می‌گردد؛ بانک مرجع است.
+ *
+ * `AnimatedAfn` می‌ماند تا تغییرِ پول دیده شود — پول جهشی عوض می‌شود و
+ * همان است که باید به چشم بیاید.
+ */
 @Composable
-private fun MoneyButton(
+private fun CashHero(
+    wallet: Long,
+    bank: Long,
+    onReceive: () -> Unit,
+    onPay: () -> Unit,
+    onDailyTrade: () -> Unit
+) {
+    BrandCard {
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    "موجودی نقد",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Brand.OnPetrolMuted
+                )
+                AnimatedAfn(
+                    amount = wallet,
+                    style = MaterialTheme.typography.headlineMedium
+                        .copy(fontWeight = FontWeight.Bold),
+                    color = Brand.OnPetrol
+                )
+            }
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    "بانک",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Brand.OnPetrolMuted
+                )
+                AnimatedAfn(
+                    amount = bank,
+                    style = MaterialTheme.typography.titleMedium
+                        .copy(fontWeight = FontWeight.SemiBold),
+                    color = Brand.OnPetrol
+                )
+            }
+        }
+        Row(
+            Modifier.fillMaxWidth().padding(top = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            HeroAction("دریافت", Icons.AutoMirrored.Filled.CallReceived, onReceive, Modifier.weight(1f))
+            HeroAction("پرداخت", Icons.AutoMirrored.Filled.CallMade, onPay, Modifier.weight(1f))
+            HeroAction("معاملات روزمره", Icons.Default.SwapHoriz, onDailyTrade, Modifier.weight(1f))
+        }
+    }
+}
+
+/**
+ * یک کار روی کارتِ قهرمان: آیکن بالا، نام پایین، روی شیشهٔ کم‌رنگ.
+ *
+ * زمینه‌اش رنگِ متنِ همان کارت با کدریِ کم است، نه رنگِ تازه — پس با
+ * هر رویه‌ای که کارت بگیرد هماهنگ می‌ماند. ارتفاعِ کمینه ۶۴dp است،
+ * بالای حدِ ۴۸dpِ هدفِ لمسی.
+ */
+@Composable
+private fun HeroAction(
     label: String,
-    sub: String,
     icon: ImageVector,
-    container: androidx.compose.ui.graphics.Color,
-    onContainer: androidx.compose.ui.graphics.Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        onClick = onClick,
-        modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = container),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    Column(
+        modifier
+            .clip(RoundedCornerShape(Radius.md))
+            .background(Brand.OnPetrol.copy(alpha = 0.10f))
+            .clickable(role = Role.Button, onClickLabel = label, onClick = onClick)
+            .heightIn(min = 64.dp)
+            .padding(horizontal = 8.dp, vertical = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)
     ) {
-        Column(
-            Modifier.fillMaxWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(icon, contentDescription = null, tint = onContainer)
-                Text(
-                    label,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = onContainer
-                )
-            }
-            Text(
-                sub,
-                style = MaterialTheme.typography.labelSmall,
-                // زیرنویس نباید هم‌وزنِ عنوان باشد وگرنه هر دو با هم
-                // خوانده می‌شوند و هیچ‌کدام دیده نمی‌شود
-                color = onContainer.copy(alpha = 0.75f)
-            )
-        }
+        Icon(icon, contentDescription = null, tint = Brand.OnPetrol, modifier = Modifier.size(20.dp))
+        Text(
+            label,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = Brand.OnPetrol,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
@@ -679,74 +709,48 @@ private fun ActionCard(action: HomeAction) {
     }
 }
 
+/**
+ * کارتِ شمارش (سفارش در جریان، عددِ آمادهٔ فروش).
+ *
+ * تا ۱.۱۳ نسخهٔ «پولی» هم داشت که مرجانی می‌شد؛ موجودی حالا در
+ * [CashHero] بالای صفحه است و این کارت فقط می‌شمارد.
+ */
 @Composable
 private fun StatCard(
     title: String,
     value: String,
     sub: String,
-    money: Boolean = false,
-    /**
-     * مبلغ، وقتی کارت پولی است — تا تغییرش دیده شود.
-     *
-     * `value` برای کارت‌های شمارشی می‌ماند (عددِ سفارش و عدد
-     * انبار). آن‌ها هم عوض می‌شوند ولی هر بار یک-دو واحد؛ پول
-     * جهشی عوض می‌شود و همان است که باید دیده شود.
-     */
-    amount: Long? = null
+    icon: ImageVector
 ) {
-    /*
-     * کارتِ پول رویهٔ مسی می‌گیرد، کارتِ شمارش نه.
-     *
-     * چهار کارت کنارِ هم‌اند و هر چهار تا یک شکل بودند، پس چشم برای
-     * پیدا کردنِ «چقدر پول داریم» باید هر بار عنوان‌ها را می‌خواند.
-     * دو تای پولی که مسی شوند، همان نگاهِ اول جواب می‌دهد.
-     *
-     * اگر هر چهار تا مسی می‌شدند دوباره هیچ‌کدام برجسته نبود — تأکید
-     * فقط وقتی کار می‌کند که اقلیت باشد.
-     */
-    if (money) {
-        BrandCard(contentPadding = 14.dp) {
-            Text(title, style = MaterialTheme.typography.labelMedium, color = Brand.OnCoralMuted)
-            if (amount != null) {
-                AnimatedAfn(
-                    amount = amount,
-                    style = MaterialTheme.typography.titleLarge
-                        .copy(fontWeight = FontWeight.Bold),
-                    color = Brand.OnCoral
-                )
-            } else {
-                Text(
-                    value,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = Brand.OnCoral
-                )
-            }
-            Text(sub, style = MaterialTheme.typography.labelSmall, color = Brand.OnCoralMuted)
-        }
-        return
-    }
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-    ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(title, style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
+    AppCard(spacing = 4.dp) {
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
             Text(
-                value,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                title,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Text(sub, style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+            )
         }
+        Text(
+            value,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            sub,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }

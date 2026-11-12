@@ -104,11 +104,12 @@ internal fun DeskBackdrop(modifier: Modifier = Modifier) {
 
 /**
  * سطحِ شیشه‌ای — همان شیشهٔ `:core` ([glassSurface] و [GlassTokens])، با
- * رنگ‌های ثابتِ کامپیوتر که فعلاً فقط روشن است.
+ * رنگ‌های تمِ جاری (روشن یا تاریک).
  *
  * تا ۱.۱۱ اینجا شیشهٔ سومی بود (۰٫۸۰ و سایهٔ ۸)، کنارِ دو شیشهٔ دیگر در
  * صفحه‌های کارگاهِ وصل (۰٫۸۶ و ۰٫۹۲). حالا هر سه از یک عدد می‌خوانند.
  */
+@Composable
 internal fun Modifier.deskGlass(shape: Shape, elevation: Dp = 8.dp): Modifier =
     glassSurface(
         shape = shape,

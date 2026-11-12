@@ -55,9 +55,19 @@ object PayrollSmart {
         val hourlyRate: Long,
         val monthlySalary: Long,
     ) {
-        /** حقوقِ پیشنهادی بابتِ روزهای حاضر — هیچ‌وقت بیش از حقوقِ کامل. */
+        /**
+         * حقوقِ پیشنهادی بابتِ روزهای حاضر — هیچ‌وقت بیش از حقوقِ کامل.
+         *
+         * اول ضرب، بعد تقسیم. پیش‌تر `dailyRate × روز` بود و `dailyRate`
+         * خودش گردشده است: حقوقِ ۱۰٬۰۰۰ با ۲۶ روزِ کاری و ۲۶ روزِ حاضر
+         * ۹٬۹۸۴ می‌شد و کارمندِ بی‌غیبت «کسری» می‌دید.
+         */
         val proratedSalary: Long
-            get() = minOf(monthlySalary, dailyRate * daysPresent.coerceAtLeast(0))
+            get() {
+                val days = daysPresent.coerceAtLeast(0)
+                if (workingDays <= 0 || days >= workingDays) return monthlySalary
+                return monthlySalary * days / workingDays
+            }
 
         /** پیشنهادِ پرداختِ اضافه‌کاری. */
         val overtimePay: Long get() = hourlyRate * overtimeHours.coerceAtLeast(0)

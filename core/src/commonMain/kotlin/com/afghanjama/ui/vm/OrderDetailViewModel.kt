@@ -143,41 +143,19 @@ class OrderDetailViewModel(private val repo: Repo) : ViewModel() {
         dueDate: Long
     ) = viewModelScope.launch {
         val id = orderId.value ?: return@launch
-        val o = repo.getOrder(id) ?: return@launch
 
         if (designTitle.isBlank()) {
             _ui.update { it.copy(message = "نام طرح نمی‌تواند خالی باشد.", isError = true) }
             return@launch
         }
-        repo.updateOrder(
-            o.copy(
-                designTitle = designTitle.trim(),
-                size = size.trim(),
-                customerName = customerName.trim(),
-                customerPhone = customerPhone.trim(),
-                agreedPrice = agreedPrice,
-                dueDate = dueDate
-            )
+        // سفارش و دفترِ مشتری با هم، در یک تراکنش — `Repo.editOrderDetails`.
+        val err = repo.editOrderDetails(
+            id, designTitle, size, customerName, customerPhone, agreedPrice, dueDate
         )
-
-        // همگام‌سازیِ دفتر کل: بدهیِ مشتری بابتِ سفارش (SALE_BILLING) با
-        // نام/قیمتِ جدید — سندِ قبلی خنثی و سندِ جدید ثبت می‌شود.
-        val newName = customerName.trim()
-        if (o.customerName != newName || o.agreedPrice != agreedPrice) {
-            if (o.customerName.isNotBlank() && o.agreedPrice > 0) {
-                repo.postLedger(
-                    "CUSTOMER", o.customerName, 0, o.agreedPrice,
-                    "SALE_ADJUST", o.orderCode, "اصلاح مشخصات سفارش"
-                )
-            }
-            if (newName.isNotBlank() && agreedPrice > 0) {
-                repo.postLedger(
-                    "CUSTOMER", newName, agreedPrice, 0,
-                    "SALE_BILLING", o.orderCode, "اصلاح مشخصات سفارش"
-                )
-            }
+        _ui.update {
+            if (err == null) it.copy(message = "مشخصات سفارش ذخیره شد.", isError = false)
+            else it.copy(message = err, isError = true)
         }
-        _ui.update { it.copy(message = "مشخصات سفارش ذخیره شد.", isError = false) }
     }
 
     /**
@@ -231,13 +209,18 @@ class OrderDetailViewModel(private val repo: Repo) : ViewModel() {
         receivedNow: Long,
         applyPrepay: Long
     ) = viewModelScope.launch {
-        val o = order.value ?: return@launch
-        val err = repo.deliverOrderToCustomer(o, qty, unitPrice, receivedNow, applyPrepay)
-        _ui.update {
-            if (err == null) it.copy(message = "سفارش تحویل مشتری شد.", isError = false)
-            else it.copy(message = err, isError = true)
+        // دو ضربهٔ پشتِ هم یک تحویل است، نه دو — همان نگهبانِ صفِ تحویل.
+        delivering.once {
+            val o = order.value ?: return@once
+            val err = repo.deliverOrderToCustomer(o, qty, unitPrice, receivedNow, applyPrepay)
+            _ui.update {
+                if (err == null) it.copy(message = "سفارش تحویل مشتری شد.", isError = false)
+                else it.copy(message = err, isError = true)
+            }
+            if (err == null) _prepay.value = 0L
         }
-        if (err == null) _prepay.value = 0L
     }
+
+    private val delivering = Busy()
 
 }

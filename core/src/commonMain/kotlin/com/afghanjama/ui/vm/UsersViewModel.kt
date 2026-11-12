@@ -58,7 +58,10 @@ class UsersViewModel(
         }
         val nm = name.trim()
         val p = pin.trim()
-        val all = _users.value
+        // از فهرستِ ذخیره‌شده، نه از نسخه‌ای که این ViewModel هنگامِ باز شدن
+        // خوانده: اگر در این میان کسی رمزِ خودش را عوض کرده باشد، نوشتنِ
+        // نسخهٔ کهنه رمزِ او را برمی‌گرداند.
+        val all = UserStore.load(settings)
         val others = all.filter { it.id != id }
         val error = when {
             nm.isEmpty() -> "نامِ این نفر را بنویسید."
@@ -95,7 +98,7 @@ class UsersViewModel(
             _message.value = NOT_MANAGER
             return
         }
-        val next = _users.value.filterNot { it.id == id }
+        val next = UserStore.load(settings).filterNot { it.id == id }
         UserStore.save(settings, next)
         _users.value = next
     }

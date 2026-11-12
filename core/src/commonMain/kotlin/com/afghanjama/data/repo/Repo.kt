@@ -27,6 +27,7 @@ import com.afghanjama.util.AuditActor
 import kotlinx.coroutines.withContext
 import com.afghanjama.data.entities.SyncRequest
 import com.afghanjama.data.entities.requestWorkerLabel
+import com.afghanjama.ui.format.afn
 import com.afghanjama.ui.format.fa
 import com.afghanjama.data.entities.syncRequestLabel
 import com.afghanjama.data.entities.Customer
@@ -189,6 +190,74 @@ class Repo(private val db: Db) {
 
     suspend fun updateOrder(order: Order) =
         writes { db.orderDao().update(order) }
+
+    /**
+     * ویرایشِ مشخصاتِ قراردادیِ سفارش، با همگام‌سازیِ دفترِ مشتری — **در یک
+     * تراکنش**.
+     *
+     * تا ۱.۱۳ این سه نوشتن (خودِ سفارش، خنثی‌کردنِ بدهیِ قبلی، بدهیِ نو) جدا
+     * از هم و از روی `ViewModel` انجام می‌شدند: اگر برنامه میانِ راه بسته
+     * می‌شد، قیمتِ سفارش عوض شده بود و دفترِ مشتری نه.
+     *
+     * دو قاعده برای سفارشی که به انبارِ محصول رسیده (`STORED`/`SENT`):
+     *  - **دفتر دست نمی‌خورد.** بدهیِ ثبتِ سفارش همان لحظهٔ انتقال به انبار
+     *    خنثی شده (`SALE_TO_STOCK`) و بدهیِ واقعی را تحویل می‌سازد؛ بدهیِ
+     *    تازه در اینجا جفتی نداشت و در دفتر می‌ماند.
+     *  - **نامِ طرح و سایز عوض نمی‌شود.** ردیفِ انبار و تحویل با همین دو
+     *    پیدا می‌شوند ([stockForOrder])؛ عوض کردنشان سفارش را از جنسِ خودش
+     *    جدا می‌کرد.
+     *
+     * @return پیغامِ خطا، یا null اگر ذخیره شد.
+     */
+    suspend fun editOrderDetails(
+        orderId: UUID,
+        designTitle: String,
+        size: String,
+        customerName: String,
+        customerPhone: String,
+        agreedPrice: Long,
+        dueDate: Long
+    ): String? {
+        LicenceGate.requireWrite()
+        return db.atomic {
+            val o = db.orderDao().getById(orderId)
+                ?: return@atomic "این سفارش دیگر در دفتر نیست."
+            val title = designTitle.trim()
+            val sz = size.trim()
+            val newName = customerName.trim()
+            val inStock = o.status == OrderStatus.STORED.name || o.status == OrderStatus.SENT.name
+            if (inStock && (title != o.designTitle.trim() || sz != o.size.trim())) {
+                return@atomic "این سفارش به انبار محصول رسیده؛ نامِ طرح و سایزش دیگر عوض نمی‌شود."
+            }
+            db.orderDao().update(
+                o.copy(
+                    designTitle = title,
+                    size = sz,
+                    customerName = newName,
+                    customerPhone = customerPhone.trim(),
+                    agreedPrice = agreedPrice,
+                    dueDate = dueDate
+                )
+            )
+            // بدهیِ مشتری بابتِ سفارش (SALE_BILLING) با نام/قیمتِ جدید: سندِ
+            // قبلی خنثی و سندِ جدید ثبت می‌شود.
+            if (!inStock && (o.customerName != newName || o.agreedPrice != agreedPrice)) {
+                if (o.customerName.isNotBlank() && o.agreedPrice > 0) {
+                    postLedger(
+                        "CUSTOMER", o.customerName, 0, o.agreedPrice,
+                        "SALE_ADJUST", o.orderCode, "اصلاح مشخصات سفارش"
+                    )
+                }
+                if (newName.isNotBlank() && agreedPrice > 0) {
+                    postLedger(
+                        "CUSTOMER", newName, agreedPrice, 0,
+                        "SALE_BILLING", o.orderCode, "اصلاح مشخصات سفارش"
+                    )
+                }
+            }
+            null
+        }
+    }
 
     /**
      * @return false اگر خرج‌کار نقدی باشد و صندوق کافی نباشد — و آن‌وقت
@@ -3085,6 +3154,17 @@ class Repo(private val db: Db) {
     suspend fun stockForOrder(order: Order): Int =
         db.finishedStockDao().find(order.designTitle, order.size)?.qty ?: 0
 
+    /*
+     * پوستهٔ تراکنش؛ بدنه در `deliverOrderToCustomerTx` است (همان الگوی
+     * `sellInvoice`).
+     *
+     * **چرا یک تراکنش.** تا ۱.۱۳ فروش در تراکنشِ خودش ثبت می‌شد و بعد
+     * «تحویل شد»ِ سفارش جدا نوشته می‌شد، آن هم از روی نسخه‌ای از سفارش که
+     * صفحه داده بود. دو ضربهٔ پشتِ هم هر دو «باقی‌مانده» را از همان نسخهٔ
+     * کهنه می‌خواندند: جنس دو بار از انبار می‌رفت و مشتری دو بار بدهکار
+     * می‌شد، ولی سفارش یک تحویل نشان می‌داد. حالا سفارش درونِ تراکنش دوباره
+     * خوانده می‌شود و فروش و وضعیتِ سفارش یا با هم می‌نشینند یا هیچ‌کدام.
+     */
     suspend fun deliverOrderToCustomer(
         order: Order,
         qty: Int,
@@ -3093,6 +3173,19 @@ class Repo(private val db: Db) {
         applyPrepay: Long
     ): String? {
         LicenceGate.requireWrite()
+        return db.atomic {
+            deliverOrderToCustomerTx(order.id, qty, unitPrice, receivedNow, applyPrepay)
+        }
+    }
+
+    private suspend fun deliverOrderToCustomerTx(
+        orderId: UUID,
+        qty: Int,
+        unitPrice: Long,
+        receivedNow: Long,
+        applyPrepay: Long
+    ): String? {
+        val order = db.orderDao().getById(orderId) ?: return "این سفارش دیگر در دفتر نیست."
         if (order.customerName.isBlank())
             return "این سفارش مشتری ندارد؛ از انبار محصول بفروشید."
         if (order.status != OrderStatus.STORED.name)
@@ -3103,7 +3196,7 @@ class Repo(private val db: Db) {
         if (remaining <= 0) return "همهٔ این سفارش قبلاً تحویل شده."
         if (qty <= 0) return "تعداد را وارد کنید."
         if (qty > remaining)
-            return "از این سفارش فقط ${remaining} عدد باقی مانده."
+            return "از این سفارش فقط ${remaining.fa()} عدد باقی مانده."
 
         val allowShortage = SalePolicy.allowNegativeStock()
         var item = db.finishedStockDao().find(order.designTitle, order.size)
@@ -3135,10 +3228,11 @@ class Repo(private val db: Db) {
                     "تحویلِ دیگری خالی شده باشد."
             }
             if (item.qty < qty)
-                return "موجودی انبار ${item.qty} عدد است، کمتر از ${qty} عددِ خواسته‌شده."
+                return "موجودی انبار ${item.qty.fa()} عدد است، کمتر از ${qty.fa()} عددِ خواسته‌شده."
         }
 
-        val ok = sellInvoice(
+        // بدنهٔ فروش مستقیم، نه `sellInvoice`: همین حالا درونِ تراکنش هستیم.
+        val ok = sellInvoiceTx(
             lines = listOf(SaleLine(item, qty, unitPrice)),
             customerName = order.customerName,
             receivedNow = receivedNow,
@@ -3156,8 +3250,8 @@ class Repo(private val db: Db) {
         }
         audit(
             "تحویل سفارش به مشتری",
-            "${order.orderCode} — ${order.customerName} — ${qty} عدد — ${(unitPrice * qty)} ؋" +
-                if (fullyDelivered) "" else " (باقی: ${order.qty - delivered})"
+            "${order.orderCode} — ${order.customerName} — ${qty.fa()} عدد — ${(unitPrice * qty).afn()}" +
+                if (fullyDelivered) "" else " (باقی: ${(order.qty - delivered).fa()})"
         )
         return null
     }
@@ -3229,8 +3323,25 @@ class Repo(private val db: Db) {
         receivedNow: Long,
         applyPrepay: Long
     ): Boolean {
-        val valid = lines.filter { it.qty > 0 && it.unitPrice > 0 }
-        if (valid.isEmpty()) return false
+        val asked = lines.filter { it.qty > 0 && it.unitPrice > 0 }
+        if (asked.isEmpty()) return false
+        /*
+         * ردیفِ انبار **همین‌جا، درونِ تراکنش** دوباره خوانده می‌شود.
+         *
+         * `SaleLine.item` عکسی است از لحظه‌ای که کالا به فاکتور افزوده شد.
+         * فاکتور می‌تواند دقیقه‌ها باز بماند، و در آن فاصله فروشِ تکی، برگشت،
+         * تأییدِ نظارت یا شمارشِ انبار همان ردیف را عوض می‌کند. تا ۱.۱۳
+         * موجودیِ تازه از روی همان عکسِ کهنه نوشته می‌شد: کالایی که ۱۰ بود
+         * و ۳تایش جدا فروخته شده بود، با فروشِ ۱ عدد در فاکتور ۹ می‌شد نه ۶
+         * — و نام یا عکسِ تازه‌اش هم به حالتِ قبل برمی‌گشت.
+         *
+         * کالایی که در این میان حذف شده باشد فروخته نمی‌شود.
+         */
+        val fresh = HashMap<Long, FinishedStock>()
+        for (id in asked.map { it.item.id }.distinct()) {
+            fresh[id] = db.finishedStockDao().findById(id) ?: return false
+        }
+        val valid = asked.map { it.copy(item = fresh.getValue(it.item.id)) }
         // موجودی را برای ردیف‌های تکراریِ یک کالا هم با هم می‌سنجیم،
         // وگرنه دو ردیف از یک طرح می‌توانستند بیشتر از موجودی بفروشند.
         val neededPerItem = valid.groupBy { it.item.id }

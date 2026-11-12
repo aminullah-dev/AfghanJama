@@ -267,7 +267,7 @@ fun AttendanceScreen(
                     }
 
                     Text(
-                        "روزِ این بازه عوض نمی‌شود؛ فقط ساعت و دقیقه.",
+                        "روزِ ورود عوض نمی‌شود؛ فقط ساعت و دقیقه. خروجِ زودتر از ورود، فردای آن حساب می‌شود.",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -278,9 +278,15 @@ fun AttendanceScreen(
                     enabled = inOk && outOk,
                     onClick = {
                         val newIn = withTime(rec.checkIn, ih!!, im!!)
+                        // خروج روی **روزِ ورود** ساخته می‌شود، نه روزِ خروجِ
+                        // ثبت‌شده: خروجِ فراموش‌شده‌ای که فردا بسته شده بود با
+                        // اصلاح به «۱۷:۰۰» یک بازهٔ ۳۴ ساعته می‌ساخت. اگر ساعتِ
+                        // خروج پیش از ورود باشد (شیفتِ شب)، فردای ورود است.
                         val newOut =
                             if (stillInside) null
-                            else withTime(rec.checkOut ?: rec.checkIn, oh!!, om!!)
+                            else withTime(newIn, oh!!, om!!).let {
+                                if (it < newIn) it + 24L * 60L * 60L * 1000L else it
+                            }
                         vm.editTimes(rec, newIn, newOut)
                         editing = null
                     }

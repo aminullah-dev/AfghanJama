@@ -40,7 +40,12 @@ object CustomerCredit {
     )
 
     /** نوع‌های سطری که به چرخهٔ «سفارش ← انبار» تعلق دارند. */
-    private val ORDER_LIFECYCLE = setOf("SALE_BILLING", "SALE_TO_STOCK", "SALE_CANCEL")
+    //
+    // `SALE_ADJUST` هم هست: ویرایشِ قیمتِ سفارش بدهیِ قبلی را با همین نوع
+    // خنثی می‌کند. تا وقتی بیرونِ این فهرست بود، خودِ بدهی کنار گذاشته
+    // می‌شد ولی خنثی‌کننده‌اش «بستانکاریِ واقعی» شمرده می‌شد — مشتری‌ای که
+    // بدهکار بود از «پیگیری طلب» می‌افتاد.
+    private val ORDER_LIFECYCLE = setOf("SALE_BILLING", "SALE_ADJUST", "SALE_TO_STOCK", "SALE_CANCEL")
 
     /**
      * ماندهٔ مشتری آن‌طور که ژورنال می‌شناسد: مثبت یعنی به ما بدهکار است،

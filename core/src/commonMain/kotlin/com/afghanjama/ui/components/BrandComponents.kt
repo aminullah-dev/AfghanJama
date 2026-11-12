@@ -26,6 +26,10 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -38,6 +42,8 @@ import androidx.compose.ui.unit.dp
 import com.afghanjama.ui.theme.Brand
 import com.afghanjama.ui.theme.PillShape
 import com.afghanjama.ui.theme.CoralBrush
+import com.afghanjama.ui.theme.InkBrush
+import com.afghanjama.ui.theme.Radius
 import com.afghanjama.ui.theme.disabledContent
 import com.afghanjama.ui.theme.disabledSurface
 
@@ -45,25 +51,34 @@ import com.afghanjama.ui.theme.disabledSurface
  * اجزای «قهرمان» — جاهایی که باید در نگاهِ اول دیده شوند.
  *
  * قاعده‌ای که این‌ها را از [AppCard] جدا می‌کند: **در هر صفحه حداکثر
- * یکی.** اگر همه‌چیز مسی شود، هیچ‌چیز برجسته نیست و صفحه فقط شلوغ
- * می‌شود. مس برای موجودیِ نقد، خلاصهٔ مالی، دکمهٔ ثبت و صفحهٔ ورود
- * است؛ بقیه همان کارتِ آرام را می‌گیرند.
+ * یکی.** اگر همه‌چیز رنگی شود، هیچ‌چیز برجسته نیست و صفحه فقط شلوغ
+ * می‌شود. کارتِ قهرمان برای موجودیِ نقد و خلاصهٔ مالی است و دکمهٔ
+ * مرجانی برای کارِ اصلیِ صفحه؛ بقیه همان کارتِ آرام را می‌گیرند.
  */
 
 /**
- * کارتِ قهرمان با رویهٔ مسی.
+ * کارتِ قهرمان با رویهٔ نفتیِ عمیق ([InkBrush]).
  *
- * رنگِ محتوا خودش [Brand.OnCoral] می‌شود، پس متن‌های داخلش لازم نیست
- * رنگ بگیرند — و مهم‌تر، **نمی‌توانند اشتباه بگیرند**. اگر این کار را
- * نمی‌کرد، هر متنِ داخلِ کارت `onSurface` را به ارث می‌برد که در
- * حالتِ تاریک تقریباً سفید است و روی مس خوانده نمی‌شود.
+ * **تا ۱.۱۳ مرجانیِ براق بود.** بزرگ‌ترین سطحِ صفحه هم‌رنگِ دکمهٔ اصلی
+ * بود و این دو سرِ توجه رقابت می‌کردند. حالا سطحِ بزرگ آرام است و عددِ
+ * روشن رویش می‌نشیند.
+ *
+ * یک **هالهٔ روشنِ کم‌رنگ** در گوشهٔ بالاییِ انتها می‌افتد — نه برای
+ * زینت، برای اینکه سطحِ تیرهٔ پهن تخت و مرده دیده نشود. رنگش همان رنگِ
+ * متنِ کارت است با کدریِ ۰٫۰۸ (هالهٔ مرجانی روی نفتی خاکستریِ کدر
+ * می‌داد). روی روشن‌ترین پلهٔ نفتی هم متنِ اصلی بالای ۵٫۵ و متنِ فرعی
+ * بالای ۳٫۲ می‌ماند (حدها ۴٫۵ و ۳٫۰).
+ *
+ * رنگِ محتوا خودش [Brand.OnPetrol] می‌شود، پس متن‌های داخلش لازم نیست
+ * رنگ بگیرند — و مهم‌تر، **نمی‌توانند اشتباه بگیرند**: `onSurface` در
+ * حالتِ روشن تقریباً سیاه است و روی نفتی خوانده نمی‌شود.
  */
 @Composable
 fun BrandCard(
     modifier: Modifier = Modifier,
-    brush: Brush = CoralBrush,
-    shape: RoundedCornerShape = RoundedCornerShape(20.dp),
-    contentPadding: Dp = 16.dp,
+    brush: Brush = InkBrush,
+    shape: RoundedCornerShape = RoundedCornerShape(Radius.xl),
+    contentPadding: Dp = 20.dp,
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
@@ -77,9 +92,24 @@ fun BrandCard(
             .fillMaxWidth()
             .clip(shape)
             .background(brush)
+            .drawBehind {
+                // هاله در گوشهٔ بالاییِ انتها (در راست‌به‌چپ: بالا-چپ)،
+                // دور از جایی که عنوان و عدد شروع می‌شوند.
+                val cx = if (layoutDirection == LayoutDirection.Rtl) 0f else size.width
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        0f to Brand.OnPetrol.copy(alpha = HERO_GLOW_ALPHA),
+                        1f to Color.Transparent,
+                        center = Offset(cx, 0f),
+                        radius = size.minDimension * 1.4f
+                    ),
+                    radius = size.minDimension * 1.4f,
+                    center = Offset(cx, 0f)
+                )
+            }
             .then(clickable)
     ) {
-        CompositionLocalProvider(LocalContentColor provides Brand.OnCoral) {
+        CompositionLocalProvider(LocalContentColor provides Brand.OnPetrol) {
             Column(
                 Modifier.padding(contentPadding),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -89,8 +119,11 @@ fun BrandCard(
     }
 }
 
+/** کدریِ هالهٔ روشنِ کارتِ قهرمان — دلیلِ عدد در توضیحِ [BrandCard]. */
+private const val HERO_GLOW_ALPHA = 0.08f
+
 /**
- * دکمهٔ اصلیِ صفحه، با رویهٔ مسی.
+ * دکمهٔ اصلیِ صفحه، با رویهٔ مرجانی.
  *
  * **چرا `Button`ِ متریال استفاده نشد.** رنگِ ظرفِ آن یک `Color` است، نه
  * `Brush`؛ برای گرادیان باید ظرف را شفاف می‌کردیم و زمینه را خودمان
@@ -135,6 +168,18 @@ fun BrandButton(
      */
     Box(
         modifier
+            // سایهٔ نرمِ هم‌رنگ زیرِ دکمهٔ زنده: دکمه «برآمده» خوانده می‌شود
+            // بی آنکه خط یا براقی بخواهد. دکمهٔ خاموش سایه ندارد — چیزی که
+            // زده نمی‌شود نباید از صفحه بیرون بزند.
+            .then(
+                if (live) Modifier.shadow(
+                    elevation = 6.dp,
+                    shape = shape,
+                    clip = false,
+                    ambientColor = Brand.CoralDeep.copy(alpha = 0.35f),
+                    spotColor = Brand.CoralDeep.copy(alpha = 0.45f)
+                ) else Modifier
+            )
             .clip(shape)
             .background(surface)
             .clickable(
@@ -261,13 +306,13 @@ fun BrandStat(
             Text(
                 label,
                 style = MaterialTheme.typography.labelMedium,
-                color = Brand.OnCoralMuted
+                color = Brand.OnPetrolMuted
             )
             Text(
                 value,
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
-                color = Brand.OnCoral
+                color = Brand.OnPetrol
             )
         }
         if (trailing != null) trailing()

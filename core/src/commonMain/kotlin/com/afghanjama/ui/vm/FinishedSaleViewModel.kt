@@ -256,7 +256,7 @@ class FinishedSaleViewModel(private val repo: Repo) : ViewModel() {
                 )
                 _ui.update {
                     if (changed) it.copy(
-                        message = "موجودی «${item.name}» به ${countedQty} عدد اصلاح شد.",
+                        message = "موجودی «${item.name}» به ${countedQty.fa()} عدد اصلاح شد.",
                         isError = false
                     ) else it.copy(
                         message = "چیزی برای اصلاح نبود — همین تعداد از قبل ثبت است.",
@@ -282,7 +282,7 @@ class FinishedSaleViewModel(private val repo: Repo) : ViewModel() {
             val ok = repo.setOpeningFinishedStock(name, size, qty, unitCost, note)
             _ui.update {
                 if (ok) it.copy(
-                    message = "«${name.trim()}» با $qty عدد به انبار افزوده شد.",
+                    message = "«${name.trim()}» با ${qty.fa()} عدد به انبار افزوده شد.",
                     isError = false
                 ) else it.copy(
                     message = "نام و تعداد لازم است؛ تعداد هم باید بیشتر از صفر باشد.",

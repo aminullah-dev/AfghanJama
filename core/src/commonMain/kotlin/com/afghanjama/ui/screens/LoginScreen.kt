@@ -45,6 +45,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.semantics.Role
@@ -120,7 +125,39 @@ fun LoginScreen(
     }
     if (ui.isLoggedIn) return
 
-    Box(Modifier.fillMaxSize().background(PetrolBrush)) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(PetrolBrush)
+            // دو هالهٔ خیلی کم‌رنگ روی میدانِ نفتی: مرجانی پشتِ نشانِ اپ و
+            // آبیِ روشن در پایین. بی این‌ها، گرادیانِ تک‌رنگ روی پنجرهٔ
+            // بزرگِ کامپیوتر مثلِ یک دیوارِ رنگ‌شده تخت دیده می‌شد.
+            // متن روی هیچ‌کدام نمی‌نشیند که کنتراستش عوض شود: کاشی‌ها و
+            // کارتِ رمز سطحِ خودشان را دارند و عنوان بالاترِ از مرکزِ هاله است.
+            .drawBehind {
+                val r = size.minDimension * 0.75f
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        0f to Brand.Coral.copy(alpha = 0.10f),
+                        1f to Color.Transparent,
+                        center = Offset(size.width / 2f, size.height * 0.18f),
+                        radius = r
+                    ),
+                    radius = r,
+                    center = Offset(size.width / 2f, size.height * 0.18f)
+                )
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        0f to Brand.PetrolLight.copy(alpha = 0.55f),
+                        1f to Color.Transparent,
+                        center = Offset(size.width / 2f, size.height),
+                        radius = r
+                    ),
+                    radius = r,
+                    center = Offset(size.width / 2f, size.height)
+                )
+            }
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -129,7 +166,9 @@ fun LoginScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            BrandMark(coName)
+            // سرِ رمز، نشان کوچک‌تر و بی زیرنویس است: کارتِ رمز با صفحه‌کلیدِ
+            // عددی بلند است و در پنجرهٔ ۹۰۰ پیکسلی پایینش بریده می‌شد.
+            BrandMark(coName, compact = ui.isSetupDone && ui.selected != null)
             Spacer(Modifier.height(Space.xl))
             Column(
                 Modifier.widthIn(max = 760.dp).fillMaxWidth(),
@@ -149,21 +188,33 @@ fun LoginScreen(
 
 /** نشانِ اپ، نام و نامِ کارگاه — بالای هر سه حالت. */
 @Composable
-private fun BrandMark(coName: String) {
+private fun BrandMark(coName: String, compact: Boolean = false) {
+    // همان شکلِ نشانِ اپ روی صفحهٔ گوشی: مربعِ گوشه‌نرم، نه دایره.
+    val markShape = RoundedCornerShape(Radius.xl)
     Box(
-        Modifier.size(64.dp).clip(CircleShape).background(CoralBrush),
+        Modifier
+            .size(if (compact) 56.dp else 72.dp)
+            .shadow(
+                elevation = 16.dp,
+                shape = markShape,
+                clip = false,
+                ambientColor = Brand.CoralDeep.copy(alpha = 0.45f),
+                spotColor = Brand.CoralDeep.copy(alpha = 0.55f)
+            )
+            .clip(markShape)
+            .background(CoralBrush),
         contentAlignment = Alignment.Center
     ) {
-        Icon(Icons.Default.Checkroom, contentDescription = null, tint = Brand.OnCoral, modifier = Modifier.size(32.dp))
+        Icon(Icons.Default.Checkroom, contentDescription = null, tint = Brand.OnCoral, modifier = Modifier.size(if (compact) 28.dp else 36.dp))
     }
-    Spacer(Modifier.height(Space.md))
+    Spacer(Modifier.height(if (compact) Space.md else Space.lg))
     Text(
         AppInfo.NAME,
-        style = MaterialTheme.typography.headlineSmall,
+        style = if (compact) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineMedium,
         fontWeight = FontWeight.Bold,
         color = Brand.OnPetrol
     )
-    Text(
+    if (!compact) Text(
         coName.ifBlank { "سامانهٔ مدیریتِ کارگاهِ خیاطی" },
         style = MaterialTheme.typography.bodyMedium,
         color = Brand.OnPetrolMuted,
@@ -305,7 +356,7 @@ private fun PinStep(vm: AuthViewModel, ui: AuthUi, person: LoginPerson) {
             onClick = { submit() },
             enabled = pin.length >= MIN_PIN && locked <= 0L,
             modifier = Modifier.fillMaxWidth(),
-            leading = { Icon(Icons.Default.Lock, contentDescription = null, tint = Brand.OnCoral) },
+            leading = { Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(18.dp)) },
         )
 
         val msg = when {
@@ -419,7 +470,7 @@ private fun FirstManager(vm: AuthViewModel, ui: AuthUi) {
                 vm.setupPin(pin)
             },
             modifier = Modifier.fillMaxWidth(),
-            leading = { Icon(Icons.Default.Lock, contentDescription = null, tint = Brand.OnCoral) }
+            leading = { Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(18.dp)) }
         )
         ui.message?.let { Notice(it, ui.isError) }
     }

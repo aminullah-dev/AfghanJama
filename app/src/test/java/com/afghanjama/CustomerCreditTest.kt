@@ -162,4 +162,21 @@ class CustomerCreditTest {
         assertEquals(Split(0, 0), CustomerCredit.credit(1_000, -5))
         assertEquals(Split(0, 0), CustomerCredit.debit(-1_000, 0))
     }
+
+    /**
+     * ویرایشِ قیمتِ سفارشِ باز: بدهیِ قبلی با `SALE_ADJUST` خنثی و بدهیِ نو
+     * ثبت می‌شود. هر سه سطر مالِ چرخهٔ همان سفارش‌اند و تا تحویل نباید در
+     * ماندهٔ شناخته‌شده بیایند — وگرنه خنثی‌کننده «بستانکاریِ واقعی» شمرده
+     * می‌شود و مشتریِ بدهکار از «پیگیری طلب» می‌افتد.
+     */
+    @Test
+    fun `editing an open order's price does not create a phantom credit`() {
+        val rows = listOf(
+            Row("CUSTOMER_SALE", "FR-1", 5_000, 0),      // فروشِ نسیه از انبار
+            Row("SALE_BILLING", "AJ-1", 8_000, 0),       // ثبتِ سفارش
+            Row("SALE_ADJUST", "AJ-1", 0, 8_000),        // ویرایشِ قیمت: خنثی
+            Row("SALE_BILLING", "AJ-1", 9_000, 0),       // … و بدهیِ نو
+        )
+        assertEquals(5_000L, CustomerCredit.recognizedNet(rows, setOf("AJ-1")))
+    }
 }

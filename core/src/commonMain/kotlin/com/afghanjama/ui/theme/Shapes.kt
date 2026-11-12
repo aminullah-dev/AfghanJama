@@ -20,16 +20,16 @@ object Radius {
     /** نشانِ رنگِ کوچک در راهنمای نمودار. */
     val xs = 4.dp
 
-    /** نشانِ کوچک، کادرِ ورودِ متن. */
+    /** نشانِ کوچک. */
     val sm = 8.dp
 
-    /** دکمه و سطرِ فهرست. */
+    /** کادرِ ورودِ متن، نشانِ آیکن و سطرِ فهرست. */
     val md = 12.dp
 
-    /** کارتِ پیش‌فرض. */
+    /** کاشیِ کوچک درونِ کارت. */
     val lg = 16.dp
 
-    /** کارتِ شیشه‌ای و کاشیِ بزرگ. */
+    /** کارتِ پیش‌فرض، کارتِ قهرمان و کارتِ شیشه‌ای. */
     val xl = 20.dp
 
     /** سطحِ اصلیِ پنجره و ورقه‌ها. */
@@ -39,12 +39,18 @@ object Radius {
     val sheet = 28.dp
 }
 
-/** `MaterialTheme.shapes` برای هر سه سکو. */
+/**
+ * `MaterialTheme.shapes` برای هر سه سکو.
+ *
+ * **یک پله نرم‌تر از ۱.۱۳.** کادرِ ورودِ متن ۸ بود و کنارِ دکمه‌های
+ * قرصی تیز دیده می‌شد؛ کارت ۱۶ بود و کارتِ قهرمان ۲۰، یعنی دو کارتِ
+ * کنارِ هم دو گوشهٔ متفاوت داشتند. حالا کادر ۱۲ است و هر کارتی ۲۰.
+ */
 val AppShapes = Shapes(
-    extraSmall = RoundedCornerShape(Radius.sm),
+    extraSmall = RoundedCornerShape(Radius.md),
     small = RoundedCornerShape(Radius.md),
-    medium = RoundedCornerShape(Radius.lg),
-    large = RoundedCornerShape(Radius.xl),
+    medium = RoundedCornerShape(Radius.xl),
+    large = RoundedCornerShape(Radius.xxl),
     extraLarge = RoundedCornerShape(Radius.sheet),
 )
 
