@@ -1,5 +1,6 @@
 package com.afghanjama.ui.theme
 
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -44,7 +45,23 @@ fun AppTheme(
             colorScheme = if (dark) DarkColors else LightColors,
             typography = typography,
             shapes = AppShapes,
-            content = content,
-        )
+        ) {
+            /*
+             * رنگِ پیش‌فرضِ متن از تم، نه سیاهِ ثابت.
+             *
+             * `MaterialTheme` خودش `LocalContentColor` را نمی‌گذارد؛ آن را
+             * `Surface` و `Scaffold` می‌گذارند. پنجرهٔ کامپیوتر محتوا را روی
+             * یک `Box`ِ شیشه‌ای می‌نشاند، نه `Surface` — پس هر متنی که رنگِ
+             * صریح نداشت سیاهِ پیش‌فرض می‌گرفت. در حالتِ روشن دیده نمی‌شد
+             * (سیاه و جوهرِ تیره نزدیکِ هم‌اند)، ولی در حالتِ تاریک عنوانِ
+             * داشبورد و نامِ کارگاه روی زمینهٔ نفتی محو بودند.
+             *
+             * هر `Surface`ِ پایین‌تر همچنان رنگِ خودش را می‌گذارد.
+             */
+            CompositionLocalProvider(
+                LocalContentColor provides MaterialTheme.colorScheme.onBackground,
+                content = content,
+            )
+        }
     }
 }

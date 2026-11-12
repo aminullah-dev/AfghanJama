@@ -1,27 +1,46 @@
 package com.afghanjama.desktop
 
-import com.afghanjama.ui.theme.LightColors
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.platform.Font
 
-// نام‌های کوتاه برای متن‌های خودِ پنجرهٔ ویندوز (سربرگ، نوارِ کناری).
+// نام‌های کوتاه برای رنگ‌های خودِ پنجرهٔ کامپیوتر (سربرگ، نوارِ کناری).
 //
-// **مقدارشان از پالتِ مشترک می‌آید، نه از کپی.** تا دیروز همین هفت رنگ
-// اینجا دوباره نوشته شده بودند و اتفاقاً درست هم بودند — ولی «اتفاقاً
-// درست» تا اولین باری دوام دارد که کسی پالت را عوض کند و این‌جا را
-// نبیند.
-internal val Brand = LightColors.primary
-internal val BrandSoft = LightColors.primaryContainer
-internal val Ink = LightColors.onSurface
-internal val Muted = LightColors.onSurfaceVariant
-internal val Bg = LightColors.background
-internal val CardBg = LightColors.surface
-internal val Bad = LightColors.error
-internal val BadSoft = LightColors.errorContainer
-internal val Coral = LightColors.secondary
-internal val CoralSoft = LightColors.secondaryContainer
-internal val Hairline = LightColors.outlineVariant
+// **مقدارشان از تمِ جاری می‌آید، نه از یک پالتِ ثابت.** تا ۱.۱۳ این‌ها
+// `val`ِ ساده بودند و از `LightColors` می‌خواندند. تا وقتی کامپیوتر فقط
+// روشن بود درست بود؛ ولی از ۱.۱۳ «ظاهر» در تنظیمات تاریک هم دارد، و این
+// یازده نام همان رنگ‌های روشن را برمی‌گرداندند. نتیجه در حالتِ تاریک:
+// نوارِ کنار و زمینهٔ پنجره روشن می‌ماند و محتوا تاریک می‌شد، و متنِ
+// کاشیِ «کارگاهِ وصل» (جوهرِ تیره روی کارتِ تیره) خوانده نمی‌شد.
+//
+// حالا هر نام همان نقش را از `MaterialTheme.colorScheme` می‌خواند، پس با
+// عوض شدنِ تم همه با هم عوض می‌شوند. جاهای مصرف دست نخورده‌اند.
+internal val Brand: Color
+    @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.primary
+internal val BrandSoft: Color
+    @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.primaryContainer
+internal val Ink: Color
+    @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.onSurface
+internal val Muted: Color
+    @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.onSurfaceVariant
+internal val Bg: Color
+    @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.background
+internal val CardBg: Color
+    @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.surface
+internal val Bad: Color
+    @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.error
+internal val BadSoft: Color
+    @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.errorContainer
+internal val Coral: Color
+    @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.secondary
+internal val CoralSoft: Color
+    @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.secondaryContainer
+internal val Hairline: Color
+    @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.outlineVariant
 
 /**
  * فونتِ اپ، از همان فایلی که اندروید برمی‌دارد.

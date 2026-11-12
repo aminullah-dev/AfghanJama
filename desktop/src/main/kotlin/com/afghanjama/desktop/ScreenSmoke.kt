@@ -291,7 +291,22 @@ fun main() {
         com.afghanjama.ui.screens.LoginScreen(auth, onLoggedIn = {})
     }
 
-    val total = Section.entries.size + 1 + shellSizes.size + 1 + shellSizes.size + shellSizes.size + 2 + 4
+    // همان صفحه‌های مشترک در پهنای **گوشی** (۴۱۲×۹۱۵). این صفحه‌ها روی
+    // اندروید و آیفون هم همین کدند، ولی گردشِ بالا همه را ۱۲۸۰ پهن رسم
+    // می‌کند — یعنی چیدمانی که بیشترِ کاربران می‌بینند هیچ عکسی نداشت و
+    // متنِ بریده یا ستونِ خفه در پهنای کم دیده نمی‌شد.
+    val phone = listOf(Section.Home, Section.Finance, Section.NewSale, Section.Customers)
+    for (s in phone) {
+        check("phone-${s.name.lowercase()}", "${s.title} در پهنای گوشی", 412, 915, frames = 2) {
+            SectionContent(s, repo, role = UserRole.MANAGER, go = {}, onOpenCustomer = {})
+        }
+    }
+    check("phone-login", "ورود در پهنای گوشی", 412, 915, frames = 2) {
+        val auth: AuthViewModel = viewModel { AuthViewModel(loginSettings) }
+        com.afghanjama.ui.screens.LoginScreen(auth, onLoggedIn = {})
+    }
+
+    val total = Section.entries.size + 1 + shellSizes.size + 1 + shellSizes.size + shellSizes.size + 2 + 4 + phone.size + 1
     println("=".repeat(52))
     val shots = shotDir.listFiles { f: java.io.File -> f.name.endsWith(".png") }?.size ?: 0
     println("screenshots: $shots in ${shotDir.absolutePath}")

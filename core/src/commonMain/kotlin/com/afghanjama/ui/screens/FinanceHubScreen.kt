@@ -194,7 +194,7 @@ private fun DashboardTab(vm: DashboardViewModel) {
                             color = MaterialTheme.colorScheme.onErrorContainer
                         )
                         Text(
-                            "قدیمی‌ترین کارمزد باز ${s.oldestPendingWageDays} روز پیش ثبت شده. مجموع ${s.openWagesTotal.afn()} در تب «کارمزد خیاط» منتظر تسویه است.",
+                            "قدیمی‌ترین کارمزد باز ${s.oldestPendingWageDays.fa()} روز پیش ثبت شده. مجموع ${s.openWagesTotal.afn()} در تب «کارمزد خیاط» منتظر تسویه است.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onErrorContainer
                         )
@@ -237,10 +237,10 @@ private fun DashboardTab(vm: DashboardViewModel) {
             }
         }
 
-        // فروش — تنها کارتِ مسیِ این صفحه
+        // فروش — تنها کارتِ قهرمانِ این صفحه
         //
         // این عددی است که کارفرما صبح اول از همه می‌خواهد. بقیهٔ
-        // کارت‌ها عمداً آرام ماندند؛ اگر همه مسی شوند این هم دیگر
+        // کارت‌ها عمداً آرام ماندند؛ اگر همه رنگی شوند این هم دیگر
         // برجسته نیست.
         item {
             BrandCard {
@@ -248,14 +248,14 @@ private fun DashboardTab(vm: DashboardViewModel) {
                     "فروش",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = Brand.OnCoral
+                    color = Brand.OnPetrol
                 )
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    MoneyBlock("۷ روز اخیر", s.sales7.afn(), onCoral = true)
-                    MoneyBlock("۳۰ روز اخیر", s.sales30.afn(), onCoral = true)
+                    MoneyBlock("۷ روز اخیر", s.sales7.afn(), onHero = true)
+                    MoneyBlock("۳۰ روز اخیر", s.sales30.afn(), onHero = true)
                 }
             }
         }
@@ -553,28 +553,28 @@ private fun MoneyBlock(
     value: String,
     highlight: Boolean = false,
     /**
-     * روی رویهٔ مسی نشسته است؟
+     * روی کارتِ قهرمان (رویهٔ نفتی) نشسته است؟
      *
      * لازم است چون رنگ‌های `colorScheme` برای سطحِ تمِ جاری ساخته
-     * شده‌اند: `onSurface` در حالتِ تاریک تقریباً سفید است و روی مس
-     * محو می‌شود، و در حالتِ روشن تقریباً سیاه که آن هم رنگِ درستِ
-     * این سطح نیست. رویهٔ مسی رنگ‌های خودش را دارد.
+     * شده‌اند: `onSurface` در حالتِ روشن تقریباً سیاه است و روی نفتی
+     * خوانده نمی‌شود. کارتِ قهرمان رنگ‌های خودش را دارد.
      */
-    onCoral: Boolean = false
+    onHero: Boolean = false
 ) {
     Column {
         Text(
             label,
             style = MaterialTheme.typography.labelMedium,
-            color = if (onCoral) Brand.OnCoralMuted
+            color = if (onHero) Brand.OnPetrolMuted
             else MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
             value,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
+            style = if (onHero) MaterialTheme.typography.titleLarge
+            else MaterialTheme.typography.titleMedium,
+            fontWeight = if (onHero) FontWeight.Bold else FontWeight.SemiBold,
             color = when {
-                onCoral -> Brand.OnCoral
+                onHero -> Brand.OnPetrol
                 highlight -> MaterialTheme.colorScheme.primary
                 else -> MaterialTheme.colorScheme.onSurface
             }
@@ -675,7 +675,11 @@ private fun WalletTab(vm: FinanceViewModel) {
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
+                // تا ورودی درست نشده خاموش است: پیش‌تر با مبلغِ خالی یا دو
+                // صندوقِ یکسان هم پنجره بسته می‌شد، انگار که ثبت شده.
+                TextButton(
+                    enabled = (amountText.toLongOrNull() ?: 0L) > 0 && fromBox != toBox,
+                    onClick = {
                     val amount = amountText.toLongOrNull() ?: 0L
                     if (amount > 0 && fromBox != toBox) {
                         vm.transfer(fromBox, toBox, amount, "انتقال از ${boxLabel(fromBox)} به ${boxLabel(toBox)}")
@@ -727,7 +731,10 @@ private fun WalletTab(vm: FinanceViewModel) {
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
+                // تا دسته و مبلغ نیامده خاموش است — همان دلیلِ پنجرهٔ انتقال.
+                TextButton(
+                    enabled = (amountText.toLongOrNull() ?: 0L) > 0 && category.isNotBlank(),
+                    onClick = {
                     val amount = amountText.toLongOrNull() ?: 0L
                     if (amount > 0 && category.isNotBlank()) {
                         vm.addExpense(category, amount, note)

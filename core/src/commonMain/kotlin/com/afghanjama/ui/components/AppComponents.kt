@@ -4,7 +4,8 @@ package com.afghanjama.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import com.afghanjama.ui.theme.Radius
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -159,11 +160,16 @@ fun AccentCard(
 )
 
 /**
- * آیکن داخلِ یک نشانِ گردِ کم‌رنگ.
+ * آیکن داخلِ یک نشانِ کم‌رنگ با گوشهٔ نرم.
  *
- * آیکنِ تنها روی سطحِ سفید شناور به نظر می‌رسد و وزنی ندارد؛ یک دایرهٔ
+ * آیکنِ تنها روی سطحِ سفید شناور به نظر می‌رسد و وزنی ندارد؛ یک سطحِ
  * ملایمِ پشتش هم جایش را تعریف می‌کند و هم رنگِ اصلیِ اپ را در کلِ
  * صفحه تکرار می‌کند بی‌آنکه پررنگ شود.
+ *
+ * **تا ۱.۱۳ دایره بود.** کنارِ کارت‌ها و کادرهای گوشه‌گرد، دایره شکلِ
+ * سومی بود که با هیچ‌کدام نمی‌خواند؛ حالا همان زبانِ گوشه‌های کارت را
+ * دارد ([Radius.md]). آواتارِ آدم‌ها دایره می‌ماند — آن چهره است، نه
+ * نشانِ یک بخش.
  */
 @Composable
 fun IconBadge(
@@ -176,7 +182,7 @@ fun IconBadge(
     Box(
         Modifier
             .size(size)
-            .clip(CircleShape)
+            .clip(RoundedCornerShape(Radius.md))
             .background(container),
         contentAlignment = Alignment.Center
     ) {
@@ -325,15 +331,17 @@ fun EmptyState(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(
+            // نشانِ بزرگ به‌جای آیکنِ خاکستریِ لخت: حالتِ خالی هم جزوِ
+            // همان زبانِ بصری است، نه جای فراموش‌شدهٔ صفحه.
+            IconBadge(
                 icon,
-                contentDescription = null,
-                modifier = Modifier.size(48.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                container = MaterialTheme.colorScheme.surfaceContainerHigh,
+                size = 64.dp
             )
             Text(
                 title,
-                style = MaterialTheme.typography.titleSmall,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center
             )

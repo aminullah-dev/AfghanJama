@@ -82,35 +82,56 @@ object Brand {
 }
 
 /**
- * گرادیانِ مرجانی — رویهٔ کارت‌های قهرمان و دکمهٔ اصلی.
+ * گرادیانِ مرجانی — رویهٔ **دکمهٔ اصلی** و نشانِ اپ.
  *
- * قطری است نه عمودی: نورِ افقی سطح را تخت نشان می‌دهد، ولی قطری همان
- * حسی را می‌دهد که ورقهٔ رنگ‌شده زیرِ نورِ مایل دارد.
+ * **تا ۱.۱۳ پنج‌پله بود، با یک «باریکهٔ بازتاب» در میانه.** روی دکمهٔ
+ * کوچک خوب می‌نشست، ولی همان گرادیان رویهٔ کارت‌های قهرمان هم بود و
+ * روی سطحِ پهن مثلِ پلاستیکِ براق دیده می‌شد: نواری روشن که از وسطِ
+ * عددِ موجودی رد می‌شد. حالا سه پلهٔ نرم است — نورِ مایل از بالا، بی
+ * نوار — و کارتِ قهرمان رویهٔ خودش را دارد ([InkBrush]).
+ *
+ * نتیجه این است که مرجانی **کم** دیده می‌شود: فقط جایی که باید زده
+ * شود. تأکید وقتی کار می‌کند که اقلیت باشد.
  *
  * `Offset.Infinite` عمداً استفاده نشده. با آن، جهتِ گرادیان به
- * **اندازهٔ همان جعبه** گره می‌خورد: کارتِ پهن و دکمهٔ باریک دو زاویهٔ
+ * **اندازهٔ همان جعبه** گره می‌خورد: دکمهٔ پهن و دکمهٔ باریک دو زاویهٔ
  * متفاوت می‌گرفتند و کنارِ هم ناهماهنگ دیده می‌شدند. با نسبتِ ثابت،
  * زاویه در هر اندازه‌ای یکی می‌ماند.
  */
 val CoralBrush: Brush = Brush.linearGradient(
-    0.00f to Brand.CoralDeep,
-    0.28f to Brand.Coral,
-    0.46f to Brand.CoralLight,
-    0.58f to Brand.CoralSheen,
+    0.00f to Brand.CoralSheen,
+    0.55f to Brand.Coral,
     1.00f to Brand.CoralDeep,
     start = androidx.compose.ui.geometry.Offset(0f, 0f),
-    end = androidx.compose.ui.geometry.Offset(1000f, 420f)
+    end = androidx.compose.ui.geometry.Offset(520f, 260f)
 )
 
 /** همان مرجانی، ولی خوابیده — برای نوارهای پهن و کوتاه مثلِ سربرگ. */
 val CoralBandBrush: Brush = Brush.linearGradient(
-    0.00f to Brand.CoralDeep,
-    0.35f to Brand.Coral,
-    0.52f to Brand.CoralLight,
-    0.68f to Brand.CoralSheen,
+    0.00f to Brand.CoralSheen,
+    0.50f to Brand.Coral,
     1.00f to Brand.CoralDeep,
     start = androidx.compose.ui.geometry.Offset(0f, 0f),
     end = androidx.compose.ui.geometry.Offset(1400f, 120f)
+)
+
+/**
+ * رویهٔ **کارتِ قهرمان** — نفتیِ عمیق، نه مرجانی.
+ *
+ * کارتِ قهرمان بزرگ‌ترین سطحِ رنگیِ هر صفحه است (موجودیِ نقد، خلاصهٔ
+ * فروش). تا ۱.۱۳ مرجانیِ براق بود و با دکمهٔ اصلی — که آن هم مرجانی
+ * است — سرِ توجه رقابت می‌کرد. حالا سطحِ بزرگ آرام و تیره است و عددِ
+ * روشن رویش می‌نشیند؛ مرجانی برای کنش می‌ماند.
+ *
+ * متنِ روی آن [Brand.OnPetrol] و [Brand.OnPetrolMuted] است؛ هر سه پلهٔ
+ * نفتی در بررسیِ `contrast` با همین دو سنجیده می‌شوند.
+ */
+val InkBrush: Brush = Brush.linearGradient(
+    0.00f to Brand.PetrolLight,
+    0.45f to Brand.Petrol,
+    1.00f to Brand.PetrolDeep,
+    start = androidx.compose.ui.geometry.Offset(0f, 0f),
+    end = androidx.compose.ui.geometry.Offset(900f, 620f)
 )
 
 /** زمینهٔ نفتیِ صفحه‌های قهرمان (ورود و قفلِ اپ). */
