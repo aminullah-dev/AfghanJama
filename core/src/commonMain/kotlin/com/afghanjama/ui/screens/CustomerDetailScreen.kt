@@ -341,11 +341,20 @@ fun CustomerDetailScreen(
                             Text("آدرس: $addr", style = MaterialTheme.typography.bodyMedium)
                         }
                         Text(
-                            if (s.balance > 0) "بدهی مشتری: ${s.balance.afn()}"
-                            else "حساب تسویه است",
+                            when {
+                                s.balance > 0 -> "بدهی مشتری: ${s.balance.afn()}"
+                                s.balance < 0 -> "پیش‌پرداختِ مشتری نزدِ ما: ${(-s.balance).afn()}"
+                                else -> "حساب تسویه است"
+                            },
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
+                        if (s.pendingOrders > 0) {
+                            Text(
+                                "سفارش‌های تحویل‌نشده: ${s.pendingOrders.afn()} — هنگامِ تحویل به حساب می‌آید.",
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        }
                         Text(
                             "مجموع سفارش‌ها: ${s.totalDue.afn()} • دریافتی: ${s.totalPaid.afn()}",
                             style = MaterialTheme.typography.labelMedium

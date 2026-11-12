@@ -6,6 +6,12 @@ import com.afghanjama.desktop.pdf.SheetFonts
 import com.afghanjama.desktop.pdf.SheetPdf
 import com.afghanjama.data.entities.LedgerEntry
 import com.afghanjama.pdf.ShopInfo
+import com.afghanjama.pdf.DocKinds
+import com.afghanjama.pdf.InvoiceData
+import com.afghanjama.pdf.InvoiceLine
+import com.afghanjama.pdf.ReceiptData
+import com.afghanjama.data.entities.docTypeLabel
+import com.afghanjama.ui.format.fa
 import com.afghanjama.pdf.SheetDoc
 import com.afghanjama.pdf.StatementData
 import com.afghanjama.pdf.partyStatementSheets
@@ -146,7 +152,7 @@ class DesktopDocsBridge(private val settings: Settings) : Docs {
         paper: Paper,
         action: SheetAction
     ): String? = withContext(Dispatchers.IO) {
-        val file = runCatching { DesktopDocs.document(doc, shop()) }.getOrNull()
+        val file = runCatching { renderDocument(repo, doc, paper) }.getOrNull()
             ?: return@withContext "ساختِ برگه انجام نشد."
 
         fun open() = runCatching {
@@ -175,6 +181,101 @@ class DesktopDocsBridge(private val settings: Settings) : Docs {
             }
         }
     }
+
+    /**
+     * برگهٔ یک سند، به شکلِ نوعِ خودش — همان سه شاخه‌ای که اندروید در
+     * `DocumentRenderer` دارد.
+     *
+     * **تا ۱.۱۳ هر سندی روی کامپیوتر همان برگهٔ سادهٔ «یک مبلغ» بود** و کاغذِ
+     * انتخاب‌شده هم نادیده گرفته می‌شد: فاکتورِ فروش بی ردیفِ کالا، بی تخفیف،
+     * بی پرداختی و بی ماندهٔ قبلی چاپ می‌شد. `lineInvoice` و `receipt` در
+     * `DesktopDocs` بودند و کسی صدایشان نمی‌زد.
+     *
+     * فاکتوری که ردیفی برایش پیدا نشود (سندِ قدیمی) به همان برگهٔ ساده
+     * برمی‌گردد، مثلِ اندروید.
+     */
+    private suspend fun renderDocument(repo: Repo, doc: Document, paper: Paper): File {
+        val title = docTypeLabel(doc.type)
+        return when {
+            doc.type in DocKinds.ITEMISED -> {
+                val isSale = doc.type == "SALE"
+                val saleRows = if (isSale) repo.saleLinesByCode(doc.refId) else emptyList()
+                val lines =
+                    if (isSale) saleRows.map {
+                        InvoiceLine(
+                            code = repo.designCodeFor(it.productName),
+                            name = listOf(it.productName, it.size).filter { s -> s.isNotBlank() }
+                                .joinToString(" • "),
+                            qty = it.qty.toDouble(),
+                            unit = "عدد",
+                            unitPrice = it.unitPrice,
+                            total = it.total
+                        )
+                    } else repo.purchaseItemsByCode(doc.refId).map {
+                        InvoiceLine(
+                            code = it.id.fa(),
+                            name = it.name,
+                            qty = it.qty,
+                            unit = it.unit,
+                            unitPrice = it.unitPrice,
+                            total = it.total
+                        )
+                    }
+                if (lines.isEmpty()) return DesktopDocs.document(doc, shop())
+
+                val partyType = if (isSale) "CUSTOMER" else "SUPPLIER"
+                val previousDue = repo.partyBalanceBefore(partyType, doc.partyName, doc.refId, doc.at)
+                val currentDue = repo.partyBalanceUpTo(partyType, doc.partyName, doc.at)
+                DesktopDocs.lineInvoice(
+                    InvoiceData(
+                        title = title,
+                        number = doc.number,
+                        at = doc.at,
+                        partyLabel = if (isSale) "خریدار" else "فروشنده",
+                        partyName = doc.partyName,
+                        partyPhone = if (isSale) repo.customerByName(doc.partyName)?.phone.orEmpty() else "",
+                        lines = lines,
+                        discount = saleRows.sumOf { it.discount },
+                        paid = previousDue + lines.sumOf { it.total } - currentDue,
+                        previousDue = previousDue,
+                        note = doc.note
+                    ),
+                    shop(),
+                    paper
+                )
+            }
+
+            DocKinds.isReceipt(doc.type) -> {
+                val workshop = CompanyPrefs.shopName(settings)
+                val outgoing = doc.type in OUTGOING
+                val partyType = when (doc.type) {
+                    "SUPPLIER_PAYMENT" -> "SUPPLIER"
+                    "WAGE_RECEIPT" -> "TAILOR"
+                    "SALARY_RECEIPT" -> "EMPLOYEE"
+                    else -> "CUSTOMER"
+                }
+                DesktopDocs.receipt(
+                    ReceiptData(
+                        title = title,
+                        number = doc.number,
+                        at = doc.at,
+                        payer = if (outgoing) workshop else doc.partyName,
+                        payee = if (outgoing) doc.partyName else workshop,
+                        amount = doc.amount,
+                        remainingDue = repo.partyBalanceUpTo(partyType, doc.partyName, doc.at),
+                        note = doc.note
+                    ),
+                    shop(),
+                    paper
+                )
+            }
+
+            else -> DesktopDocs.document(doc, shop())
+        }
+    }
+
+    /** سندهایی که پول از کارگاه بیرون می‌رود — پرداخت‌کننده خودِ کارگاه است. */
+    private val OUTGOING = setOf("PAYMENT", "SUPPLIER_PAYMENT", "WAGE_RECEIPT", "SALARY_RECEIPT")
 
     private fun shop() = ShopInfo(
         name = CompanyPrefs.shopName(settings),
