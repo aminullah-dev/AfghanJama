@@ -66,7 +66,7 @@ class BackupArchiveTest {
     }
 
     @Test
-    fun `messages: empty for OK, and the data-untouched promise otherwise`() {
+    fun `messages are empty for OK and promise untouched data otherwise`() {
         assertEquals("", BackupArchive.verdictMessage(Verdict.OK, 20, 20))
         assertTrue("دست‌نخورده" in BackupArchive.verdictMessage(Verdict.CORRUPT, 0, 20))
         val tooNew = BackupArchive.verdictMessage(Verdict.TOO_NEW, 25, 20)
